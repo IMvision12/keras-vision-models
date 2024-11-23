@@ -43,7 +43,7 @@ EFFICIENTNET_MODEL_CONFIG = {
     },
     "EfficientNetB7": {
         "width_coefficient": 2.0,
-        "depth_coefficient": 3.6,
+        "depth_coefficient": 3.1,
         "default_size": 600,
         "dropout_rate": 0.5,
     },

@@ -6,3 +6,4 @@ from .efficientnetv2 import *
 from .inceptionv3 import *
 from .resnet import *
 from .vgg import *
+from .vision_transformer import *

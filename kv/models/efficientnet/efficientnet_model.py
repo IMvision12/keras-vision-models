@@ -376,14 +376,7 @@ def EfficientNetB0(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB0"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB0"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB0"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB0"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB0"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -410,14 +403,7 @@ def EfficientNetB1(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB1"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB1"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB1"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB1"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB1"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -444,14 +430,7 @@ def EfficientNetB2(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB2"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB2"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB2"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB2"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB2"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -478,14 +457,7 @@ def EfficientNetB3(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB3"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB3"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB3"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB3"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB3"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -512,14 +484,7 @@ def EfficientNetB4(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB4"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB4"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB4"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB4"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB4"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -542,18 +507,11 @@ def EfficientNetB5(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="EfficientNetB6",
+    name="EfficientNetB5",
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB5"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB5"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB5"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB5"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB5"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -580,14 +538,7 @@ def EfficientNetB6(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB6"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB6"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB6"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB6"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB6"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -614,14 +565,7 @@ def EfficientNetB7(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB7"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB7"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB7"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB7"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB7"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -648,14 +592,7 @@ def EfficientNetB8(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB8"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetB8"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetB8"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetB8"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetB8"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -682,14 +619,7 @@ def EfficientNetL2(
     **kwargs,
 ):
     model = EfficientNet(
-        width_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetL2"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNET_MODEL_CONFIG["EfficientNetL2"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNET_MODEL_CONFIG["EfficientNetL2"]["default_size"],
-        dropout_rate=EFFICIENTNET_MODEL_CONFIG["EfficientNetL2"]["dropout_rate"],
+        **EFFICIENTNET_MODEL_CONFIG["EfficientNetL2"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,

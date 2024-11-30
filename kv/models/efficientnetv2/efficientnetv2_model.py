@@ -519,13 +519,7 @@ def EfficientNetV2S(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -551,13 +545,7 @@ def EfficientNetV2M(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -583,13 +571,7 @@ def EfficientNetV2L(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -615,13 +597,7 @@ def EfficientNetV2XL(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -648,13 +624,7 @@ def EfficientNetV2B0(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -680,13 +650,7 @@ def EfficientNetV2B1(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -712,13 +676,7 @@ def EfficientNetV2B2(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"],
         name=name,
         include_top=include_top,
         weights=weights,
@@ -744,13 +702,7 @@ def EfficientNetV2B3(
     **kwargs,
 ):
     return EfficientNetV2(
-        width_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"][
-            "width_coefficient"
-        ],
-        depth_coefficient=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"][
-            "depth_coefficient"
-        ],
-        default_size=EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"]["default_size"],
+        **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"],
         name=name,
         include_top=include_top,
         weights=weights,

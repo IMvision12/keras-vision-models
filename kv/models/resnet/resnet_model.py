@@ -469,9 +469,7 @@ def ResNet50(
 ):
 
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnet50"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnet50"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnet50"]["filters"],
+        **RESNET_MODEL_CONFIG["resnet50"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -504,9 +502,7 @@ def ResNet101(
 ):
 
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnet101"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnet101"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnet101"]["filters"],
+        **RESNET_MODEL_CONFIG["resnet101"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -540,9 +536,7 @@ def ResNet152(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnet152"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnet152"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnet152"]["filters"],
+        **RESNET_MODEL_CONFIG["resnet152"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -578,11 +572,7 @@ def ResNeXt50_32x4d(
 ):
 
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnext50_32x4d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnext50_32x4d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnext50_32x4d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["resnext50_32x4d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["resnext50_32x4d"]["width_factor"],
+        **RESNET_MODEL_CONFIG["resnext50_32x4d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -621,11 +611,7 @@ def ResNeXt101_32x4d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnext101_32x4d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnext101_32x4d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnext101_32x4d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["resnext101_32x4d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["resnext101_32x4d"]["width_factor"],
+        **RESNET_MODEL_CONFIG["resnext101_32x4d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -664,11 +650,7 @@ def ResNeXt101_32x8d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnext101_32x8d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnext101_32x8d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnext101_32x8d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["resnext101_32x8d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["resnext101_32x8d"]["width_factor"],
+        **RESNET_MODEL_CONFIG["resnext101_32x8d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -709,11 +691,7 @@ def ResNeXt101_32x16d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnext101_32x16d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnext101_32x16d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnext101_32x16d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["resnext101_32x16d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["resnext101_32x16d"]["width_factor"],
+        **RESNET_MODEL_CONFIG["resnext101_32x16d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -754,11 +732,7 @@ def ResNeXt101_32x32d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["resnext101_32x32d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["resnext101_32x32d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["resnext101_32x32d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["resnext101_32x32d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["resnext101_32x32d"]["width_factor"],
+        **RESNET_MODEL_CONFIG["resnext101_32x32d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -795,10 +769,7 @@ def SEResNet50(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["seresnet50"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["seresnet50"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["seresnet50"]["filters"],
-        senet=RESNET_MODEL_CONFIG["seresnet50"]["senet"],
+        **RESNET_MODEL_CONFIG["seresnet50"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -832,12 +803,7 @@ def SEResNeXt50_32x4d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["seresnext50_32x4d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["seresnext50_32x4d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["seresnext50_32x4d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["seresnext50_32x4d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["seresnext50_32x4d"]["width_factor"],
-        senet=RESNET_MODEL_CONFIG["seresnext50_32x4d"]["senet"],
+        **RESNET_MODEL_CONFIG["seresnext50_32x4d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -871,12 +837,7 @@ def SEResNeXt101_32x4d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["seresnext101_32x4d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["seresnext101_32x4d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["seresnext101_32x4d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["seresnext101_32x4d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["seresnext101_32x4d"]["width_factor"],
-        senet=RESNET_MODEL_CONFIG["seresnext101_32x4d"]["senet"],
+        **RESNET_MODEL_CONFIG["seresnext101_32x4d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -910,12 +871,7 @@ def SEResNeXt101_32x8d(
     **kwargs,
 ):
     model = ResNet(
-        block_type=RESNET_MODEL_CONFIG["seresnext101_32x8d"]["block_type"],
-        block_repeats=RESNET_MODEL_CONFIG["seresnext101_32x8d"]["block_repeats"],
-        filters=RESNET_MODEL_CONFIG["seresnext101_32x8d"]["filters"],
-        groups=RESNET_MODEL_CONFIG["seresnext101_32x8d"]["groups"],
-        width_factor=RESNET_MODEL_CONFIG["seresnext101_32x8d"]["width_factor"],
-        senet=RESNET_MODEL_CONFIG["seresnext101_32x8d"]["senet"],
+        **RESNET_MODEL_CONFIG["seresnext101_32x8d"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,

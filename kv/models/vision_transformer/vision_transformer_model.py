@@ -166,7 +166,7 @@ class ViT(keras.Model):
         attn_drop_rate=0.0,
         include_top=True,
         weights="imagenet",
-        input_shape=(None, None, 3),
+        input_shape=None,
         input_tensor=None,
         pooling=None,
         num_classes=1000,

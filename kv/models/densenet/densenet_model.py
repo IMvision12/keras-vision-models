@@ -276,8 +276,7 @@ def DenseNet121(
 ):
 
     model = DenseNet(
-        num_blocks=DENSENET_MODEL_CONFIG["DenseNet121"]["num_blocks"],
-        growth_rate=DENSENET_MODEL_CONFIG["DenseNet121"]["growth_rate"],
+        **DENSENET_MODEL_CONFIG["DenseNet121"],
         include_top=include_top,
         name=name,
         weights=weights,
@@ -316,8 +315,7 @@ def DenseNet161(
 ):
 
     model = DenseNet(
-        num_blocks=DENSENET_MODEL_CONFIG["DenseNet161"]["num_blocks"],
-        growth_rate=DENSENET_MODEL_CONFIG["DenseNet161"]["growth_rate"],
+        **DENSENET_MODEL_CONFIG["DenseNet161"],
         initial_filter=96,
         include_top=include_top,
         name=name,
@@ -357,8 +355,7 @@ def DenseNet169(
 ):
 
     model = DenseNet(
-        num_blocks=DENSENET_MODEL_CONFIG["DenseNet169"]["num_blocks"],
-        growth_rate=DENSENET_MODEL_CONFIG["DenseNet169"]["growth_rate"],
+        **DENSENET_MODEL_CONFIG["DenseNet169"],
         include_top=include_top,
         name=name,
         weights=weights,
@@ -397,8 +394,7 @@ def DenseNet201(
 ):
 
     model = DenseNet(
-        num_blocks=DENSENET_MODEL_CONFIG["DenseNet201"]["num_blocks"],
-        growth_rate=DENSENET_MODEL_CONFIG["DenseNet201"]["growth_rate"],
+        **DENSENET_MODEL_CONFIG["DenseNet201"],
         include_top=include_top,
         name=name,
         weights=weights,

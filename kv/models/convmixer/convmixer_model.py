@@ -210,10 +210,7 @@ def ConvMixer_1536_20(
 ):
 
     model = ConvMixer(
-        dim=CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"]["dim"],
-        depth=CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"]["depth"],
-        patch_size=CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"]["patch_size"],
-        kernel_size=CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"]["kernel_size"],
+        **CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"],
         include_top=include_top,
         name=name,
         weights=weights,
@@ -252,10 +249,7 @@ def ConvMixer_768_32(
 ):
 
     model = ConvMixer(
-        dim=CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"]["dim"],
-        depth=CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"]["depth"],
-        patch_size=CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"]["patch_size"],
-        kernel_size=CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"]["kernel_size"],
+        **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
         act_layer="relu",
         include_top=include_top,
         name=name,
@@ -293,10 +287,7 @@ def ConvMixer_1024_20(
 ):
 
     model = ConvMixer(
-        dim=CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"]["dim"],
-        depth=CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"]["depth"],
-        patch_size=CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"]["patch_size"],
-        kernel_size=CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"]["kernel_size"],
+        **CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"],
         include_top=include_top,
         name=name,
         weights=weights,

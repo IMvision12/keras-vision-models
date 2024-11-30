@@ -255,8 +255,7 @@ def ConvNeXtAtto(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["atto"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["atto"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["atto"],
         use_conv=True,
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
@@ -298,8 +297,7 @@ def ConvNeXtFemto(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["femto"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["femto"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["femto"],
         use_conv=True,
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
@@ -341,8 +339,7 @@ def ConvNeXtPico(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["pico"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["pico"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["pico"],
         use_conv=True,
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
@@ -384,8 +381,7 @@ def ConvNeXtNano(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["nano"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["nano"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["nano"],
         use_conv=True,
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
@@ -434,8 +430,7 @@ def ConvNeXtTiny(
     num_classes, weight_key = weight_map.get(weights, (num_classes, None))
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["tiny"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["tiny"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["tiny"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
@@ -481,8 +476,7 @@ def ConvNeXtSmall(
     num_classes, weight_key = weight_map.get(weights, (num_classes, None))
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["small"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["small"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["small"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
@@ -528,8 +522,7 @@ def ConvNeXtBase(
     num_classes, weight_key = weight_map.get(weights, (num_classes, None))
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["base"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["base"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["base"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
@@ -576,8 +569,7 @@ def ConvNeXtLarge(
     num_classes, weight_key = weight_map.get(weights, (num_classes, None))
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["large"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["large"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["large"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
@@ -627,8 +619,7 @@ def ConvNeXtXLarge(
     num_classes, weight_key = weight_map.get(weights, (num_classes, None))
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["xlarge"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["xlarge"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["xlarge"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
@@ -668,8 +659,7 @@ def ConvNeXtV2Atto(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["atto"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["atto"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["atto"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,
@@ -712,8 +702,7 @@ def ConvNeXtV2Femto(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["femto"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["femto"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["femto"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,
@@ -756,8 +745,7 @@ def ConvNeXtV2Pico(
 ):
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["pico"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["pico"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["pico"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,
@@ -802,8 +790,7 @@ def ConvNeXtV2Nano(
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["nano"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["nano"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["nano"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,
@@ -857,8 +844,7 @@ def ConvNeXtV2Tiny(
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["tiny"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["tiny"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["tiny"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,
@@ -911,8 +897,7 @@ def ConvNeXtV2Base(
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["base"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["base"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["base"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,
@@ -965,8 +950,7 @@ def ConvNeXtV2Large(
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
-        depths=CONVNEXT_MODEL_CONFIG["large"]["depths"],
-        projection_dims=CONVNEXT_MODEL_CONFIG["large"]["projection_dims"],
+        **CONVNEXT_MODEL_CONFIG["large"],
         drop_path_rate=0.0,
         layer_scale_init_value=None,
         use_grn=True,

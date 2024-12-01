@@ -107,7 +107,6 @@ class ConvMixer(keras.Model):
         name="ConvMixer",
         **kwargs,
     ):
-
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
@@ -208,7 +207,6 @@ def ConvMixer_1536_20(
     name="ConvMixer_1536_20",
     **kwargs,
 ):
-
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"],
         include_top=include_top,
@@ -247,7 +245,6 @@ def ConvMixer_768_32(
     name="ConvMixer_768_32",
     **kwargs,
 ):
-
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
         act_layer="relu",
@@ -285,7 +282,6 @@ def ConvMixer_1024_20(
     name="ConvMixer_1024_20",
     **kwargs,
 ):
-
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"],
         include_top=include_top,

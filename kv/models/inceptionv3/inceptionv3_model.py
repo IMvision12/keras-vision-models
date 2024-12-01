@@ -427,7 +427,6 @@ def InceptionV3(
     name="InceptionV3",
     **kwargs,
 ):
-
     model = InceptionV3Main(
         include_top=include_top,
         name=name,

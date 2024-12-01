@@ -59,7 +59,6 @@ class MultiHeadSelfAttention(layers.Layer):
         self.proj_drop = layers.Dropout(proj_drop)
 
     def call(self, x, training=None):
-        input_shape = ops.shape(x)
         B, N, C = ops.shape(x)[0], ops.shape(x)[1], ops.shape(x)[2]
 
         qkv = self.qkv(x)

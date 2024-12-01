@@ -1,0 +1,32 @@
+name: Code Quality Check
+
+on: [push, pull_request]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff isort
+    
+    - name: Check imports with isort
+      run: |
+        isort --check --diff .
+    
+    - name: Lint and format with Ruff
+      run: |
+        ruff check .
+        ruff format --check .

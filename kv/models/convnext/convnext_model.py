@@ -253,7 +253,6 @@ def ConvNeXtAtto(
     name="ConvNeXtAtto",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["atto"],
         use_conv=True,
@@ -295,7 +294,6 @@ def ConvNeXtFemto(
     name="ConvNeXtFemto",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["femto"],
         use_conv=True,
@@ -337,7 +335,6 @@ def ConvNeXtPico(
     name="ConvNeXtPico",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["pico"],
         use_conv=True,
@@ -379,7 +376,6 @@ def ConvNeXtNano(
     name="ConvNeXtNano",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["nano"],
         use_conv=True,
@@ -559,7 +555,6 @@ def ConvNeXtLarge(
     name="ConvNeXtLarge",
     **kwargs,
 ):
-
     weight_map = {
         "in1k": (1000, "fb_in1k"),
         "in22k_ft_in1k": (1000, "fb_in22k_ft_in1k"),
@@ -657,7 +652,6 @@ def ConvNeXtV2Atto(
     name="ConvNeXtV2Atto",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["atto"],
         drop_path_rate=0.0,
@@ -700,7 +694,6 @@ def ConvNeXtV2Femto(
     name="ConvNeXtV2Femto",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["femto"],
         drop_path_rate=0.0,
@@ -743,7 +736,6 @@ def ConvNeXtV2Pico(
     name="ConvNeXtV2Pico",
     **kwargs,
 ):
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["pico"],
         drop_path_rate=0.0,
@@ -786,7 +778,6 @@ def ConvNeXtV2Nano(
     name="ConvNeXtV2Nano",
     **kwargs,
 ):
-
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
@@ -840,7 +831,6 @@ def ConvNeXtV2Tiny(
     name="ConvNeXtV2Tiny",
     **kwargs,
 ):
-
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
@@ -893,7 +883,6 @@ def ConvNeXtV2Base(
     name="ConvNeXtV2Base",
     **kwargs,
 ):
-
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(
@@ -946,7 +935,6 @@ def ConvNeXtV2Large(
     name="ConvNeXtV2Large",
     **kwargs,
 ):
-
     VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
 
     model = ConvNeXt(

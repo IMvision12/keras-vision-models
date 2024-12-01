@@ -467,7 +467,6 @@ def ResNet50(
     num_classes=1000,
     classifier_activation="softmax",
 ):
-
     model = ResNet(
         **RESNET_MODEL_CONFIG["resnet50"],
         include_top=include_top,
@@ -500,7 +499,6 @@ def ResNet101(
     classifier_activation="softmax",
     **kwargs,
 ):
-
     model = ResNet(
         **RESNET_MODEL_CONFIG["resnet101"],
         include_top=include_top,
@@ -570,7 +568,6 @@ def ResNeXt50_32x4d(
     classifier_activation="softmax",
     **kwargs,
 ):
-
     model = ResNet(
         **RESNET_MODEL_CONFIG["resnext50_32x4d"],
         include_top=include_top,

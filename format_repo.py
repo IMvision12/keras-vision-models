@@ -7,7 +7,7 @@ from pathlib import Path
 # run python format_repo.py .
 def format_repository(repo_path: str, line_length: int = 88):
     """
-    Format all Python files in a repository using isort and black.
+    Format all Python files in a repository using Ruff and Isort.
 
     Args:
         repo_path: Path to the repository
@@ -28,34 +28,33 @@ def format_repository(repo_path: str, line_length: int = 88):
 
     print(f"Found {len(python_files)} Python files to format.")
 
-    # Format with isort
-    print("\nRunning isort...")
+    # Format with Ruff
+    print("\nRunning Ruff formatting...")
+    ruff_config = [
+        "ruff",
+        "format",
+        "--line-length",
+        str(line_length),
+        *[str(f) for f in python_files],
+    ]
+    subprocess.run(ruff_config, check=True)
+
+    # Sort imports with Isort
+    print("\nRunning Isort for import sorting...")
     isort_config = [
         "isort",
-        "--profile",
-        "black",
         "--line-length",
         str(line_length),
         *[str(f) for f in python_files],
     ]
     subprocess.run(isort_config, check=True)
 
-    # Format with black
-    print("\nRunning black...")
-    black_config = [
-        "black",
-        "--line-length",
-        str(line_length),
-        *[str(f) for f in python_files],
-    ]
-    subprocess.run(black_config, check=True)
-
     print("\nFormatting complete!")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Format Python files in a repository using isort and black"
+        description="Format Python files in a repository using Ruff and Isort"
     )
     parser.add_argument("repo_path", help="Path to the repository")
     parser.add_argument(

@@ -274,7 +274,6 @@ def DenseNet121(
     name="DenseNet121",
     **kwargs,
 ):
-
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet121"],
         include_top=include_top,
@@ -313,7 +312,6 @@ def DenseNet161(
     name="DenseNet161",
     **kwargs,
 ):
-
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet161"],
         initial_filter=96,
@@ -353,7 +351,6 @@ def DenseNet169(
     name="DenseNet169",
     **kwargs,
 ):
-
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet169"],
         include_top=include_top,
@@ -392,7 +389,6 @@ def DenseNet201(
     name="DenseNet201",
     **kwargs,
 ):
-
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet201"],
         include_top=include_top,

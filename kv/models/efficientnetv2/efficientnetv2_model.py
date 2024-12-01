@@ -9,8 +9,12 @@ from keras.src.applications import imagenet_utils
 from kv.utils import download_weights
 
 from ...model_registry import register_model
-from .config import (CONV_KERNEL_INITIALIZER, DENSE_KERNEL_INITIALIZER,
-                     EFFICIENTNETV2_BLOCK_CONFIG, EFFICIENTNETV2_MODEL_CONFIG)
+from .config import (
+    CONV_KERNEL_INITIALIZER,
+    DENSE_KERNEL_INITIALIZER,
+    EFFICIENTNETV2_BLOCK_CONFIG,
+    EFFICIENTNETV2_MODEL_CONFIG,
+)
 
 
 def round_filters(filters, width_coefficient, min_depth=8, depth_divisor=8):

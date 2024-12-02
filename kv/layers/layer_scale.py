@@ -1,4 +1,3 @@
-import keras
 from keras import initializers, layers
 
 

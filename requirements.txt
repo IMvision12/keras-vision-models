@@ -1,5 +1,5 @@
 keras
 torch
 tensorflow
-black
+ruff
 timm

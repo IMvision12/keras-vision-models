@@ -316,7 +316,7 @@ class ResNet(keras.Model):
 
     def __init__(
         self,
-        block_type="basic",
+        block_type="bottleneck",
         block_repeats=[2, 2, 2, 2],
         filters=[64, 128, 256, 512],
         groups=32,

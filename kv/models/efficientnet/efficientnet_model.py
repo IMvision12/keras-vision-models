@@ -5,8 +5,6 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import download_weights
-
 from ...model_registry import register_model
 from .config import (
     CONV_KERNEL_INITIALIZER,

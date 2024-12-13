@@ -60,7 +60,7 @@ CONVNEXT_WEIGHTS_CONFIG = {
         },
         "in12k_ft_in1k": {
             "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/convnext_nano_in12k_ft_in1k.keras",
-        }
+        },
     },
     # ConvNeXtV1
     "ConvNeXtTiny": {

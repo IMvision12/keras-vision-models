@@ -1,7 +1,6 @@
 import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
-from keras.src.layers import Layer
 from keras.src.utils.argument_validation import standardize_tuple
 
 from kv.utils import download_weights

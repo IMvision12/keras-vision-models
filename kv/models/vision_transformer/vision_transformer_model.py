@@ -3,10 +3,9 @@ from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
 from kv.layers import AddPositionEmbs, ClassToken, MultiHeadSelfAttention
-from kv.utils import download_weights
 
 from ...model_registry import register_model
-from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_CONFIG
+from .config import VIT_MODEL_CONFIG
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):

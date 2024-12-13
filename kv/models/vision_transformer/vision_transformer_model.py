@@ -305,33 +305,6 @@ def ViTTiny16(
 
 
 @register_model
-def ViTTiny32(
-    include_top=True,
-    weights=None,
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ViTTiny32",
-    **kwargs,
-):
-    model = ViT(
-        **VIT_MODEL_CONFIG["vit_tiny_patch32"],
-        include_top=include_top,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    return model
-
-
-@register_model
 def ViTSmall16(
     include_top=True,
     weights=None,

@@ -5,6 +5,7 @@ import keras
 import timm
 import torch
 
+from tqdm import tqdm
 from kv.models.vision_transformer import *
 from kv.utils.custom_exception import *
 from kv.utils.test_keras_models import run_all_tests
@@ -85,8 +86,10 @@ trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
 )
 trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
 
-for keras_weight, keras_weight_name in (
-    trainable_keras_weights + non_trainable_keras_weights
+for keras_weight, keras_weight_name in tqdm(
+    trainable_keras_weights + non_trainable_keras_weights,
+    total=len(trainable_keras_weights + non_trainable_keras_weights),
+    desc="Transferring weights",
 ):
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():

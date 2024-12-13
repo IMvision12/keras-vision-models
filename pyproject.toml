@@ -55,4 +55,4 @@ select = ["C", "E", "F", "I", "W"]
 
 # Ignore specific linting errors for ALL __init__.py files
 [tool.ruff.lint.per-file-ignores]
-"**/*/____init__.py" = ["E402", "F401", "F403", "F811"]
+"__init__.py" = ["E402", "F401", "F403", "F811"]

@@ -10,7 +10,11 @@ from kv.models.vision_transformer import ViTLarge32
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
-from kv.utils.weight_transfer_torch_to_keras import *
+from kv.utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_attention_weights,
+    transfer_weights,
+)
 
 weight_name_mapping = {
     "_": ".",

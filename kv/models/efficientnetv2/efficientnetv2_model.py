@@ -5,12 +5,15 @@ import keras
 from keras import backend, initializers, layers
 from keras.src.applications import imagenet_utils
 
+from kv.utils import get_all_weight_names, load_weights_from_config
+
 from ...model_registry import register_model
 from .config import (
     CONV_KERNEL_INITIALIZER,
     DENSE_KERNEL_INITIALIZER,
     EFFICIENTNETV2_BLOCK_CONFIG,
     EFFICIENTNETV2_MODEL_CONFIG,
+    EFFICIENTNETV2_WEIGHTS_CONFIG,
 )
 
 
@@ -515,7 +518,7 @@ def EfficientNetV2S(
     name="EfficientNetV2S",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"],
         name=name,
         include_top=include_top,
@@ -527,6 +530,16 @@ def EfficientNetV2S(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2S", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
@@ -541,7 +554,7 @@ def EfficientNetV2M(
     name="EfficientNetV2M",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"],
         name=name,
         include_top=include_top,
@@ -553,6 +566,17 @@ def EfficientNetV2M(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2M", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
@@ -567,7 +591,7 @@ def EfficientNetV2L(
     name="EfficientNetV2L",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"],
         name=name,
         include_top=include_top,
@@ -579,6 +603,16 @@ def EfficientNetV2L(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2L", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
@@ -593,7 +627,7 @@ def EfficientNetV2XL(
     name="EfficientNetV2XL",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"],
         name=name,
         include_top=include_top,
@@ -605,6 +639,16 @@ def EfficientNetV2XL(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2XL", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 # B variants
@@ -620,7 +664,7 @@ def EfficientNetV2B0(
     name="EfficientNetV2B0",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"],
         name=name,
         include_top=include_top,
@@ -632,6 +676,16 @@ def EfficientNetV2B0(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2B0", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
@@ -646,7 +700,7 @@ def EfficientNetV2B1(
     name="EfficientNetV2B1",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"],
         name=name,
         include_top=include_top,
@@ -658,6 +712,16 @@ def EfficientNetV2B1(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2B1", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
@@ -672,7 +736,7 @@ def EfficientNetV2B2(
     name="EfficientNetV2B2",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"],
         name=name,
         include_top=include_top,
@@ -684,6 +748,16 @@ def EfficientNetV2B2(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2B2", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
@@ -698,7 +772,7 @@ def EfficientNetV2B3(
     name="EfficientNetV2B3",
     **kwargs,
 ):
-    return EfficientNetV2(
+    model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"],
         name=name,
         include_top=include_top,
@@ -710,3 +784,14 @@ def EfficientNetV2B3(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+
+    if weights in get_all_weight_names(EFFICIENTNETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetV2B3", weights, model, EFFICIENTNETV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model

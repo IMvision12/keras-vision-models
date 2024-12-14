@@ -2,7 +2,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHTS_CONFIG
@@ -287,11 +287,10 @@ def DenseNet121(
         **kwargs,
     )
 
-    if weights == "tv_in1k":
-        weights_path = download_weights(
-            DENSENET_WEIGHTS_CONFIG["DenseNet121"][weights]["url"]
+    if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -326,11 +325,10 @@ def DenseNet161(
         **kwargs,
     )
 
-    if weights == "tv_in1k":
-        weights_path = download_weights(
-            DENSENET_WEIGHTS_CONFIG["DenseNet161"][weights]["url"]
+    if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -364,11 +362,10 @@ def DenseNet169(
         **kwargs,
     )
 
-    if weights == "tv_in1k":
-        weights_path = download_weights(
-            DENSENET_WEIGHTS_CONFIG["DenseNet161"][weights]["url"]
+    if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -402,11 +399,10 @@ def DenseNet201(
         **kwargs,
     )
 
-    if weights == "tv_in1k":
-        weights_path = download_weights(
-            DENSENET_WEIGHTS_CONFIG["DenseNet201"][weights]["url"]
+    if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:

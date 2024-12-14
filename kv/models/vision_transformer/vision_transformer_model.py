@@ -3,9 +3,10 @@ from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
 from kv.layers import AddPositionEmbs, ClassToken, MultiHeadSelfAttention
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
-from .config import VIT_MODEL_CONFIG
+from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_CONFIG
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_idx=0):
@@ -300,6 +301,13 @@ def ViTTiny16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTTiny16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -327,6 +335,13 @@ def ViTSmall16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTSmall16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -354,6 +369,13 @@ def ViTSmall32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTSmall32", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -381,6 +403,13 @@ def ViTBase16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTBase16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -408,6 +437,13 @@ def ViTBase32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTBase32", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -435,6 +471,13 @@ def ViTLarge16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTLarge16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -462,4 +505,11 @@ def ViTLarge32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTLarge32", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model

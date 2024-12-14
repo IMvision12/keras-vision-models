@@ -2,7 +2,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_CONFIG
@@ -220,11 +220,10 @@ def ConvMixer_1536_20(
         **kwargs,
     )
 
-    if weights == "ink1":
-        weights_path = download_weights(
-            CONVMIXER_WEIGHTS_CONFIG["ConvMixer_1536_20"]["fb_in1k"]
+    if weights in get_all_weight_names(CONVMIXER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvMixer_1536_20", weights, model, CONVMIXER_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -258,15 +257,15 @@ def ConvMixer_768_32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights == "ink1":
-        weights_path = download_weights(
-            CONVMIXER_WEIGHTS_CONFIG["ConvMixer_768_32"]["fb_in1k"]
+    if weights in get_all_weight_names(CONVMIXER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvMixer_768_32", weights, model, CONVMIXER_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
+
     return model
 
 
@@ -295,13 +294,13 @@ def ConvMixer_1024_20(
         **kwargs,
     )
 
-    if weights == "ink1":
-        weights_path = download_weights(
-            CONVMIXER_WEIGHTS_CONFIG["ConvMixer_1024_20"]["fb_in1k"]
+    if weights in get_all_weight_names(CONVMIXER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvMixer_1024_20", weights, model, CONVMIXER_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
+
     return model

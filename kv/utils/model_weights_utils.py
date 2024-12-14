@@ -72,7 +72,9 @@ def download_weights(
         raise
 
 
-def load_weights(model_name: str, weights_name: str, model, weights_config: dict):
+def load_weights_from_config(
+    model_name: str, weights_name: str, model, weights_config: dict
+):
     """
     Load pre-trained weights for any model architecture.
 
@@ -116,3 +118,19 @@ def load_weights(model_name: str, weights_name: str, model, weights_config: dict
         return model
     except Exception as e:
         raise ValueError(f"Failed to load weights for {model_name}: {str(e)}")
+
+
+def get_all_weight_names(config: dict) -> list:
+    """
+    Retrieves all weight names from the given weights configuration dictionary.
+
+    Args:
+        config (dict): The weights configuration dictionary.
+
+    Returns:
+        list: A list of all weight names.
+    """
+    weight_names = []
+    for model, weights in config.items():
+        weight_names.extend(weights.keys())
+    return list(set(weight_names))

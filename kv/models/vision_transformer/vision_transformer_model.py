@@ -280,7 +280,7 @@ class ViT(keras.Model):
 @register_model
 def ViTTiny16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -289,7 +289,7 @@ def ViTTiny16(
     name="ViTTiny16",
     **kwargs,
 ):
-    if weights == "augreg_in21k" and num_classes != 21843:
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
         raise ValueError(
             f"When using 'augreg_in21k' weights, num_classes must be 21843. "
             f"Received num_classes: {num_classes}"
@@ -329,7 +329,7 @@ def ViTSmall16(
     name="ViTSmall16",
     **kwargs,
 ):
-    if weights == "augreg_in21k" and num_classes != 21843:
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
         raise ValueError(
             f"When using 'augreg_in21k' weights, num_classes must be 21843. "
             f"Received num_classes: {num_classes}"
@@ -368,7 +368,7 @@ def ViTSmall32(
     name="ViTSmall32",
     **kwargs,
 ):
-    if weights == "augreg_in21k" and num_classes != 21843:
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
         raise ValueError(
             f"When using 'augreg_in21k' weights, num_classes must be 21843. "
             f"Received num_classes: {num_classes}"
@@ -407,7 +407,7 @@ def ViTBase16(
     name="ViTBase16",
     **kwargs,
 ):
-    if weights == "augreg_in21k" and num_classes != 21843:
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
         raise ValueError(
             f"When using 'augreg_in21k' weights, num_classes must be 21843. "
             f"Received num_classes: {num_classes}"
@@ -446,7 +446,7 @@ def ViTBase32(
     name="ViTBase32",
     **kwargs,
 ):
-    if weights == "augreg_in21k" and num_classes != 21843:
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
         raise ValueError(
             f"When using 'augreg_in21k' weights, num_classes must be 21843. "
             f"Received num_classes: {num_classes}"
@@ -485,7 +485,7 @@ def ViTLarge16(
     name="ViTLarge16",
     **kwargs,
 ):
-    if weights == "augreg_in21k" and num_classes != 21843:
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
         raise ValueError(
             f"When using 'augreg_in21k' weights, num_classes must be 21843. "
             f"Received num_classes: {num_classes}"

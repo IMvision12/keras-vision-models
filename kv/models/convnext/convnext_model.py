@@ -413,9 +413,9 @@ def ConvNeXtTiny(
     name="ConvNeXtTiny",
     **kwargs,
 ):
-    if weights == "in22k" and num_classes != 21841:
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
         raise ValueError(
-            f"When using 'in22k' weights, num_classes must be 21841. "
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
             f"Received num_classes: {num_classes}"
         )
 
@@ -458,9 +458,9 @@ def ConvNeXtSmall(
     name="ConvNeXtSmall",
     **kwargs,
 ):
-    if weights == "in22k" and num_classes != 21841:
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
         raise ValueError(
-            f"When using 'in22k' weights, num_classes must be 21841. "
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
             f"Received num_classes: {num_classes}"
         )
 
@@ -503,9 +503,9 @@ def ConvNeXtBase(
     name="ConvNeXtBase",
     **kwargs,
 ):
-    if weights == "in22k" and num_classes != 21841:
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
         raise ValueError(
-            f"When using 'in22k' weights, num_classes must be 21841. "
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
             f"Received num_classes: {num_classes}"
         )
 
@@ -548,9 +548,9 @@ def ConvNeXtLarge(
     name="ConvNeXtLarge",
     **kwargs,
 ):
-    if weights == "in22k" and num_classes != 21841:
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
         raise ValueError(
-            f"When using 'in22k' weights, num_classes must be 21841. "
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
             f"Received num_classes: {num_classes}"
         )
 
@@ -598,9 +598,9 @@ def ConvNeXtXLarge(
             "The 'in1k' weight variant is not available for ConvNeXtLarge."
         )
 
-    if include_top and weights == "in22k" and num_classes != 21841:
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
         raise ValueError(
-            f"When using 'in22k' weights, num_classes must be 21841. "
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
             f"Received num_classes: {num_classes}"
         )
 

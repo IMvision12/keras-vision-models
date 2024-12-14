@@ -509,7 +509,7 @@ class EfficientNetV2(keras.Model):
 @register_model
 def EfficientNetV2S(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -550,7 +550,7 @@ def EfficientNetV2S(
 @register_model
 def EfficientNetV2M(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -592,7 +592,7 @@ def EfficientNetV2M(
 @register_model
 def EfficientNetV2L(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -633,7 +633,7 @@ def EfficientNetV2L(
 @register_model
 def EfficientNetV2XL(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -670,7 +670,7 @@ def EfficientNetV2XL(
 @register_model
 def EfficientNetV2B0(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -706,7 +706,7 @@ def EfficientNetV2B0(
 @register_model
 def EfficientNetV2B1(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -742,7 +742,7 @@ def EfficientNetV2B1(
 @register_model
 def EfficientNetV2B2(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -778,7 +778,7 @@ def EfficientNetV2B2(
 @register_model
 def EfficientNetV2B3(
     include_top=True,
-    weights="imagenet",
+    weights="in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,

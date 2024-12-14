@@ -367,7 +367,7 @@ class EfficientNet(keras.Model):
 @register_model
 def EfficientNetB0(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -404,7 +404,7 @@ def EfficientNetB0(
 @register_model
 def EfficientNetB1(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -440,7 +440,7 @@ def EfficientNetB1(
 @register_model
 def EfficientNetB2(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -476,7 +476,7 @@ def EfficientNetB2(
 @register_model
 def EfficientNetB3(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -512,7 +512,7 @@ def EfficientNetB3(
 @register_model
 def EfficientNetB4(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -548,7 +548,7 @@ def EfficientNetB4(
 @register_model
 def EfficientNetB5(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -584,7 +584,7 @@ def EfficientNetB5(
 @register_model
 def EfficientNetB6(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -620,7 +620,7 @@ def EfficientNetB6(
 @register_model
 def EfficientNetB7(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -656,7 +656,7 @@ def EfficientNetB7(
 @register_model
 def EfficientNetB8(
     include_top=True,
-    weights="ink1",
+    weights="ap_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -692,7 +692,7 @@ def EfficientNetB8(
 @register_model
 def EfficientNetL2(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,

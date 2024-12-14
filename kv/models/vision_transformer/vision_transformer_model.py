@@ -320,7 +320,7 @@ def ViTTiny16(
 @register_model
 def ViTSmall16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -359,7 +359,7 @@ def ViTSmall16(
 @register_model
 def ViTSmall32(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -398,7 +398,7 @@ def ViTSmall32(
 @register_model
 def ViTBase16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -437,7 +437,7 @@ def ViTBase16(
 @register_model
 def ViTBase32(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -476,7 +476,7 @@ def ViTBase32(
 @register_model
 def ViTLarge16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -515,7 +515,7 @@ def ViTLarge16(
 @register_model
 def ViTLarge32(
     include_top=True,
-    weights=None,
+    weights="orig_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,

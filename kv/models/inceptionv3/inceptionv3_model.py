@@ -440,7 +440,7 @@ def InceptionV3(
 
     if weights in get_all_weight_names(INCEPTIONV3_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "EfficientNetV2B1", weights, model, INCEPTIONV3_WEIGHTS_CONFIG
+            "InceptionV3", weights, model, INCEPTIONV3_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)

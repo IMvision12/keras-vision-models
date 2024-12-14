@@ -518,6 +518,11 @@ def EfficientNetV2S(
     name="EfficientNetV2S",
     **kwargs,
 ):
+    if weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"],
         name=name,
@@ -554,6 +559,11 @@ def EfficientNetV2M(
     name="EfficientNetV2M",
     **kwargs,
 ):
+    if weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"],
         name=name,
@@ -591,6 +601,11 @@ def EfficientNetV2L(
     name="EfficientNetV2L",
     **kwargs,
 ):
+    if weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"],
         name=name,

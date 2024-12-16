@@ -2,7 +2,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHTS_CONFIG
@@ -202,9 +202,8 @@ def VGG16(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(VGG_WEIGHTS_CONFIG["VGG16"][weights]["url"])
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
+        load_weights_from_config("VGG16", weights, model, VGG_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -238,9 +237,8 @@ def VGG19(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(VGG_WEIGHTS_CONFIG["VGG19"][weights]["url"])
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
+        load_weights_from_config("VGG19", weights, model, VGG_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -275,9 +273,8 @@ def VGG16_BN(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(VGG_WEIGHTS_CONFIG["VGG16_BN"][weights]["url"])
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
+        load_weights_from_config("VGG16_BN", weights, model, VGG_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -312,9 +309,8 @@ def VGG19_BN(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(VGG_WEIGHTS_CONFIG["VGG19_BN"][weights]["url"])
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(VGG_WEIGHTS_CONFIG):
+        load_weights_from_config("VGG19_BN", weights, model, VGG_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

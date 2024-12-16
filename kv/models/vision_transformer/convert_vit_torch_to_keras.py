@@ -4,12 +4,17 @@ from typing import Any, Dict, List, Optional, Union
 import keras
 import timm
 import torch
+from tqdm import tqdm
 
-from kv.models.vision_transformer import *
-from kv.utils.custom_exception import *
+from kv.models.vision_transformer import ViTLarge32
+from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
-from kv.utils.weight_transfer_torch_to_keras import *
+from kv.utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_attention_weights,
+    transfer_weights,
+)
 
 weight_name_mapping = {
     "_": ".",
@@ -85,17 +90,19 @@ trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
 )
 trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
 
-for keras_weight, keras_weight_name in (
-    trainable_keras_weights + non_trainable_keras_weights
+for keras_weight, keras_weight_name in tqdm(
+    trainable_keras_weights + non_trainable_keras_weights,
+    total=len(trainable_keras_weights + non_trainable_keras_weights),
+    desc="Transferring weights",
 ):
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
     torch_weight_name = re.sub(
-        rf"pos_embed_variable_\d+$", "pos_embed", torch_weight_name
+        r"pos_embed_variable_\d+$", "pos_embed", torch_weight_name
     )
     torch_weight_name = re.sub(
-        rf"cls_token_variable_\d+$", "cls_token", torch_weight_name
+        r"cls_token_variable_\d+$", "cls_token", torch_weight_name
     )
 
     torch_weights_dict: Dict[str, torch.Tensor] = {

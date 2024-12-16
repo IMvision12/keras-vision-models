@@ -6,7 +6,7 @@ from keras.src.applications import imagenet_utils
 from kv.layers.global_response_norm import GlobalResponseNorm
 from kv.layers.layer_scale import LayerScale
 from kv.layers.stochastic_depth import StochasticDepth
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_CONFIG
@@ -269,11 +269,10 @@ def ConvNeXtAtto(
         **kwargs,
     )
 
-    if weights == "d2_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtAtto"]["d2_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtAtto", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -310,11 +309,10 @@ def ConvNeXtFemto(
         **kwargs,
     )
 
-    if weights == "d1_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtFemto"]["d1_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtFemto", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -351,11 +349,10 @@ def ConvNeXtPico(
         **kwargs,
     )
 
-    if weights == "d1_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtPico"]["d1_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtPico", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -392,11 +389,10 @@ def ConvNeXtNano(
         **kwargs,
     )
 
-    if weights == "d1h_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtNano"]["d1h_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtNano", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -417,13 +413,11 @@ def ConvNeXtTiny(
     name="ConvNeXtTiny",
     **kwargs,
 ):
-    weight_map = {
-        "in1k": (1000, "fb_in1k"),
-        "in22k_ft_in1k": (1000, "fb_in22k_ft_in1k"),
-        "in22k": (21841, "fb_in22k"),
-    }
-
-    num_classes, weight_key = weight_map.get(weights, (num_classes, None))
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
+        raise ValueError(
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
+            f"Received num_classes: {num_classes}"
+        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["tiny"],
@@ -440,11 +434,12 @@ def ConvNeXtTiny(
         **kwargs,
     )
 
-    if weight_key:
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtTiny"][weight_key]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtTiny", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -463,13 +458,11 @@ def ConvNeXtSmall(
     name="ConvNeXtSmall",
     **kwargs,
 ):
-    weight_map = {
-        "in1k": (1000, "fb_in1k"),
-        "in22k_ft_in1k": (1000, "fb_in22k_ft_in1k"),
-        "in22k": (21841, "fb_in22k"),
-    }
-
-    num_classes, weight_key = weight_map.get(weights, (num_classes, None))
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
+        raise ValueError(
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
+            f"Received num_classes: {num_classes}"
+        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["small"],
@@ -486,11 +479,12 @@ def ConvNeXtSmall(
         **kwargs,
     )
 
-    if weight_key:
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtSmall"][weight_key]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtSmall", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -509,13 +503,11 @@ def ConvNeXtBase(
     name="ConvNeXtBase",
     **kwargs,
 ):
-    weight_map = {
-        "in1k": (1000, "fb_in1k"),
-        "in22k_ft_in1k": (1000, "fb_in22k_ft_in1k"),
-        "in22k": (21841, "fb_in22k"),
-    }
-
-    num_classes, weight_key = weight_map.get(weights, (num_classes, None))
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
+        raise ValueError(
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
+            f"Received num_classes: {num_classes}"
+        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["base"],
@@ -532,11 +524,12 @@ def ConvNeXtBase(
         **kwargs,
     )
 
-    if weight_key:
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtBase"][weight_key]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtBase", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -555,13 +548,11 @@ def ConvNeXtLarge(
     name="ConvNeXtLarge",
     **kwargs,
 ):
-    weight_map = {
-        "in1k": (1000, "fb_in1k"),
-        "in22k_ft_in1k": (1000, "fb_in22k_ft_in1k"),
-        "in22k": (21841, "fb_in22k"),
-    }
-
-    num_classes, weight_key = weight_map.get(weights, (num_classes, None))
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
+        raise ValueError(
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
+            f"Received num_classes: {num_classes}"
+        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["large"],
@@ -578,11 +569,12 @@ def ConvNeXtLarge(
         **kwargs,
     )
 
-    if weight_key:
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtLarge"][weight_key]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtLarge", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -606,12 +598,11 @@ def ConvNeXtXLarge(
             "The 'in1k' weight variant is not available for ConvNeXtLarge."
         )
 
-    weight_map = {
-        "in22k_ft_in1k": (1000, "fb_in22k_ft_in1k"),
-        "in22k": (21841, "fb_in22k"),
-    }
-
-    num_classes, weight_key = weight_map.get(weights, (num_classes, None))
+    if include_top and weights == "fb_in22k" and num_classes != 21841:
+        raise ValueError(
+            f"When using 'fb_in22k' weights, num_classes must be 21841. "
+            f"Received num_classes: {num_classes}"
+        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["xlarge"],
@@ -628,11 +619,12 @@ def ConvNeXtXLarge(
         **kwargs,
     )
 
-    if weight_key:
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtXLarge"][weight_key]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtXLarge", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -669,11 +661,10 @@ def ConvNeXtV2Atto(
         **kwargs,
     )
 
-    if weights == "fcmae_ft_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Atto"]["fcmae_ft_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Atto", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -711,11 +702,10 @@ def ConvNeXtV2Femto(
         **kwargs,
     )
 
-    if weights == "fcmae_ft_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Femto"]["fcmae_ft_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Femto", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -753,11 +743,10 @@ def ConvNeXtV2Pico(
         **kwargs,
     )
 
-    if weights == "fcmae_ft_in1k":
-        weights_path = download_weights(
-            CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Pico"]["fcmae_ft_in1k"]["url"]
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Pico", weights, model, CONVNEXT_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -778,8 +767,6 @@ def ConvNeXtV2Nano(
     name="ConvNeXtV2Nano",
     **kwargs,
 ):
-    VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["nano"],
         drop_path_rate=0.0,
@@ -797,24 +784,14 @@ def ConvNeXtV2Nano(
         **kwargs,
     )
 
-    if weights is not None:
-        try:
-            if weights in VALID_PRETRAINED_WEIGHTS:
-                weights_path = download_weights(
-                    CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Nano"][weights]["url"]
-                )
-            else:
-                weights_path = weights
-                print(f"Loading custom weights from: {weights_path}")
-
-            model.load_weights(weights_path)
-        except Exception as e:
-            print(f"Error loading weights: {str(e)}")
-            print(
-                f"Available pretrained weights: {', '.join(VALID_PRETRAINED_WEIGHTS)}"
-            )
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Nano", weights, model, CONVNEXT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
     else:
-        print("No weights loaded - using random initialization")
+        print("No weights loaded.")
 
     return model
 
@@ -831,8 +808,6 @@ def ConvNeXtV2Tiny(
     name="ConvNeXtV2Tiny",
     **kwargs,
 ):
-    VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["tiny"],
         drop_path_rate=0.0,
@@ -849,24 +824,14 @@ def ConvNeXtV2Tiny(
         **kwargs,
     )
 
-    if weights is not None:
-        try:
-            if weights in VALID_PRETRAINED_WEIGHTS:
-                weights_path = download_weights(
-                    CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Tiny"][weights]["url"]
-                )
-            else:
-                weights_path = weights
-                print(f"Loading custom weights from: {weights_path}")
-
-            model.load_weights(weights_path)
-        except Exception as e:
-            print(f"Error loading weights: {str(e)}")
-            print(
-                f"Available pretrained weights: {', '.join(VALID_PRETRAINED_WEIGHTS)}"
-            )
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Tiny", weights, model, CONVNEXT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
     else:
-        print("No weights loaded - using random initialization")
+        print("No weights loaded.")
 
     return model
 
@@ -883,8 +848,6 @@ def ConvNeXtV2Base(
     name="ConvNeXtV2Base",
     **kwargs,
 ):
-    VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["base"],
         drop_path_rate=0.0,
@@ -901,24 +864,14 @@ def ConvNeXtV2Base(
         **kwargs,
     )
 
-    if weights is not None:
-        try:
-            if weights in VALID_PRETRAINED_WEIGHTS:
-                weights_path = download_weights(
-                    CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Base"][weights]["url"]
-                )
-            else:
-                weights_path = weights
-                print(f"Loading custom weights from: {weights_path}")
-
-            model.load_weights(weights_path)
-        except Exception as e:
-            print(f"Error loading weights: {str(e)}")
-            print(
-                f"Available pretrained weights: {', '.join(VALID_PRETRAINED_WEIGHTS)}"
-            )
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Base", weights, model, CONVNEXT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
     else:
-        print("No weights loaded - using random initialization")
+        print("No weights loaded.")
 
     return model
 
@@ -935,8 +888,6 @@ def ConvNeXtV2Large(
     name="ConvNeXtV2Large",
     **kwargs,
 ):
-    VALID_PRETRAINED_WEIGHTS = {"fcmae_ft_in22k_in1k", "fcmae_ft_in1k"}
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["large"],
         drop_path_rate=0.0,
@@ -953,23 +904,13 @@ def ConvNeXtV2Large(
         **kwargs,
     )
 
-    if weights is not None:
-        try:
-            if weights in VALID_PRETRAINED_WEIGHTS:
-                weights_path = download_weights(
-                    CONVNEXT_WEIGHTS_CONFIG["ConvNeXtV2Large"][weights]["url"]
-                )
-            else:
-                weights_path = weights
-                print(f"Loading custom weights from: {weights_path}")
-
-            model.load_weights(weights_path)
-        except Exception as e:
-            print(f"Error loading weights: {str(e)}")
-            print(
-                f"Available pretrained weights: {', '.join(VALID_PRETRAINED_WEIGHTS)}"
-            )
+    if weights in get_all_weight_names(CONVNEXT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Large", weights, model, CONVNEXT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
     else:
-        print("No weights loaded - using random initialization")
+        print("No weights loaded.")
 
     return model

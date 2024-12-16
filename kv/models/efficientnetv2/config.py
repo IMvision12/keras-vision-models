@@ -421,46 +421,58 @@ DENSE_KERNEL_INITIALIZER = {
 EFFICIENTNETV2_WEIGHTS_CONFIG = {
     "EfficientNetV2S": {
         "in21k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_s_in21k_ft_in1k.keras",
         },
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_s_in1k.keras",
+        },
+        "in21k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_s_in21k.keras",
         },
     },
     "EfficientNetV2M": {
         "in21k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_m_in21k_ft_in1k.keras",
         },
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_m_in1k.keras",
+        },
+        "in21k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_m_in21k.keras",
         },
     },
     "EfficientNetV2L": {
         "in21k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_l_in21k_ft_in1k.keras",
         },
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_l_in1k.keras",
+        },
+        "in21k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_l_in21k.keras",
         },
     },
     "EfficientNetV2B0": {
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_b0_in1k.keras",
         },
     },
     "EfficientNetV2B1": {
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_b1_in1k.keras",
         },
     },
     "EfficientNetV2B2": {
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_b2_in1k.keras",
         },
     },
     "EfficientNetV2B3": {
         "in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_b3_in1k.keras",
+        },
+        "in21k_ft_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/tf_efficientnetv2_b3_in21k_ft_in1k.keras",
         },
     },
 }

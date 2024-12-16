@@ -5,7 +5,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import (
@@ -13,6 +13,7 @@ from .config import (
     DEFAULT_BLOCKS_ARGS,
     DENSE_KERNEL_INITIALIZER,
     EFFICIENTNET_MODEL_CONFIG,
+    EFFICIENTNET_WEIGHTS_CONFIG,
 )
 
 
@@ -366,7 +367,7 @@ class EfficientNet(keras.Model):
 @register_model
 def EfficientNetB0(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -387,13 +388,23 @@ def EfficientNetB0(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB0", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB1(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -414,13 +425,22 @@ def EfficientNetB1(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB1", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB2(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -441,13 +461,22 @@ def EfficientNetB2(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB2", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB3(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -468,13 +497,22 @@ def EfficientNetB3(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB3", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB4(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -495,13 +533,22 @@ def EfficientNetB4(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB4", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB5(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -522,13 +569,22 @@ def EfficientNetB5(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB5", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB6(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -549,13 +605,22 @@ def EfficientNetB6(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB6", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB7(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -576,13 +641,22 @@ def EfficientNetB7(
         name=name,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB7", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetB8(
     include_top=True,
-    weights="ink1",
+    weights="ap_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -603,13 +677,22 @@ def EfficientNetB8(
         name=name,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetB8", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def EfficientNetL2(
     include_top=True,
-    weights="ink1",
+    weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -630,4 +713,13 @@ def EfficientNetL2(
         name=name,
         **kwargs,
     )
+    if weights in get_all_weight_names(EFFICIENTNET_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "EfficientNetL2", weights, model, EFFICIENTNET_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model

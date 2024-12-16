@@ -5,8 +5,8 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.convmixer import *
-from kv.utils.custom_exception import *
+from kv.models.convmixer import ConvMixer_1024_20
+from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
 from kv.utils.weight_transfer_torch_to_keras import (

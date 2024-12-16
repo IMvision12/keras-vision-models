@@ -3,7 +3,7 @@ from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
 from kv.layers import AddPositionEmbs, ClassToken, MultiHeadSelfAttention
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_CONFIG
@@ -280,7 +280,7 @@ class ViT(keras.Model):
 @register_model
 def ViTTiny16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -289,6 +289,12 @@ def ViTTiny16(
     name="ViTTiny16",
     **kwargs,
 ):
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
+
     model = ViT(
         **VIT_MODEL_CONFIG["vit_tiny_patch16"],
         include_top=include_top,
@@ -301,40 +307,20 @@ def ViTTiny16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    return model
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTTiny16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
 
-
-@register_model
-def ViTTiny32(
-    include_top=True,
-    weights=None,
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ViTTiny32",
-    **kwargs,
-):
-    model = ViT(
-        **VIT_MODEL_CONFIG["vit_tiny_patch32"],
-        include_top=include_top,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
     return model
 
 
 @register_model
 def ViTSmall16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -343,6 +329,11 @@ def ViTSmall16(
     name="ViTSmall16",
     **kwargs,
 ):
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch16"],
         include_top=include_top,
@@ -355,13 +346,20 @@ def ViTSmall16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTSmall16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def ViTSmall32(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -370,6 +368,11 @@ def ViTSmall32(
     name="ViTSmall32",
     **kwargs,
 ):
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch32"],
         include_top=include_top,
@@ -382,13 +385,20 @@ def ViTSmall32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTSmall32", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def ViTBase16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -397,6 +407,11 @@ def ViTBase16(
     name="ViTBase16",
     **kwargs,
 ):
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch16"],
         include_top=include_top,
@@ -409,13 +424,20 @@ def ViTBase16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTBase16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def ViTBase32(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -424,6 +446,11 @@ def ViTBase32(
     name="ViTBase32",
     **kwargs,
 ):
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch32"],
         include_top=include_top,
@@ -436,13 +463,20 @@ def ViTBase32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTBase32", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def ViTLarge16(
     include_top=True,
-    weights=None,
+    weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -451,6 +485,11 @@ def ViTLarge16(
     name="ViTLarge16",
     **kwargs,
 ):
+    if include_top and weights == "augreg_in21k" and num_classes != 21843:
+        raise ValueError(
+            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+            f"Received num_classes: {num_classes}"
+        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch16"],
         include_top=include_top,
@@ -463,13 +502,20 @@ def ViTLarge16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTLarge16", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
 @register_model
 def ViTLarge32(
     include_top=True,
-    weights=None,
+    weights="orig_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -490,4 +536,11 @@ def ViTLarge32(
         classifier_activation=classifier_activation,
         **kwargs,
     )
+    if weights in get_all_weight_names(VIT_WEIGHTS_CONFIG):
+        load_weights_from_config("ViTLarge32", weights, model, VIT_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model

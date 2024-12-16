@@ -1,10 +1,9 @@
 import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
-from keras.src.layers import Layer
 from keras.src.utils.argument_validation import standardize_tuple
 
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import INCEPTIONV3_WEIGHTS_CONFIG
@@ -439,11 +438,10 @@ def InceptionV3(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(
-            INCEPTIONV3_WEIGHTS_CONFIG["InceptionV3"][weights]["url"]
+    if weights in get_all_weight_names(INCEPTIONV3_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "InceptionV3", weights, model, INCEPTIONV3_WEIGHTS_CONFIG
         )
-        model.load_weights(weights_path)
     elif weights is not None:
         model.load_weights(weights)
     else:

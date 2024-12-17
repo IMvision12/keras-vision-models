@@ -220,10 +220,10 @@ class ViT(keras.Model):
             )
 
         x = layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(x)
-        x = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
 
         # Head
         if include_top:
+            x = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
             x = layers.Dropout(drop_rate)(x)
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"

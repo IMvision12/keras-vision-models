@@ -1,5 +1,5 @@
 FLEXIVIT_MODEL_CONFIG = {
-    "flexivit_small": {
+    "FlexiViTSmall": {
         "patch_size": 16,
         "dim": 384,
         "depth": 12,
@@ -11,7 +11,7 @@ FLEXIVIT_MODEL_CONFIG = {
         "attn_drop_rate": 0.0,
         "no_embed_class": True,
     },
-    "flexivit_base": {
+    "FlexiViTBase": {
         "patch_size": 16,
         "dim": 768,
         "depth": 12,
@@ -23,7 +23,7 @@ FLEXIVIT_MODEL_CONFIG = {
         "attn_drop_rate": 0.0,
         "no_embed_class": True,
     },
-    "flexivit_large": {
+    "FlexiViTLarge": {
         "patch_size": 16,
         "dim": 1024,
         "depth": 24,

@@ -30,7 +30,7 @@ def FlexiViTSmall(
         )
 
     model = ViT(
-        **FLEXIVIT_MODEL_CONFIG["flexivit_small"],
+        **FLEXIVIT_MODEL_CONFIG["FlexiViTSmall"],
         include_top=include_top,
         weights=weights,
         name=name,
@@ -79,7 +79,7 @@ def FlexiViTBase(
         )
 
     model = ViT(
-        **FLEXIVIT_MODEL_CONFIG["flexivit_base"],
+        **FLEXIVIT_MODEL_CONFIG["FlexiViTBase"],
         include_top=include_top,
         weights=weights,
         name=name,
@@ -128,7 +128,7 @@ def FlexiViTLarge(
         )
 
     model = ViT(
-        **FLEXIVIT_MODEL_CONFIG["flexivit_large"],
+        **FLEXIVIT_MODEL_CONFIG["FlexiViTLarge"],
         include_top=include_top,
         weights=weights,
         name=name,

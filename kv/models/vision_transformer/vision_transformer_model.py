@@ -215,17 +215,10 @@ class ViT(keras.Model):
 
         x = layers.Reshape((-1, dim))(x)
         x = ClassToken(name="cls_token")(x)
-        if no_embed_class:
-            x = AddPositionEmbs(
-                name="pos_embed",
-                no_embed_class=no_embed_class,
-                num_patches=(input_shape[0] // patch_size)
-                * (input_shape[1] // patch_size),
-            )(x)
-        else:
-            x = AddPositionEmbs(
-                name="pos_embed",
-            )(x)
+        x = AddPositionEmbs(
+            name="pos_embed",
+            no_embed_class=no_embed_class,
+        )(x)
         x = layers.Dropout(drop_rate)(x)
 
         for i in range(depth):

@@ -5,7 +5,6 @@ class AddPositionEmbs(layers.Layer):
     def __init__(
         self,
         name=None,
-        num_patches=None,
         no_embed_class=False,  # FlexiViT parameter
         **kwargs,
     ):

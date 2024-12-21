@@ -4,7 +4,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import download_weights
+from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_CONFIG
@@ -190,88 +190,6 @@ def bottleneck_block(
     return x
 
 
-def resnext_block(
-    x: layers.Layer,
-    filters: int,
-    channels_axis,
-    strides: int = 1,
-    groups: int = 32,
-    width_factor: int = 2,
-    downsample: bool = False,
-    senet: bool = False,
-    block_name: Optional[str] = None,
-) -> layers.Layer:
-    """ResNeXt block with group convolutions.
-
-    Args:
-        x: Input Keras layer.
-        filters: Number of filters for the block.
-        strides: Stride for the main convolution layer.
-        groups: Number of groups for grouped convolution.
-        width_factor: Factor to determine width for grouped convolution.
-        downsample: Whether to downsample the input.
-        senet: Whether to apply SE block.
-        block_name: Optional name for layers in the block.
-
-    Returns:
-        Output tensor for the block.
-    """
-    residual = x
-    expansion = 4
-    width = filters * width_factor
-
-    x = conv_block(
-        x,
-        width,
-        kernel_size=1,
-        strides=1,
-        name=f"{block_name}_conv1",
-        bn_name=f"{block_name}_batchnorm1",
-        channels_axis=channels_axis,
-    )
-    group_width = width // groups
-    x = conv_block(
-        x,
-        width,
-        kernel_size=3,
-        strides=strides,
-        groups=groups,
-        group_width=group_width,
-        name=f"{block_name}_conv2",
-        bn_name=f"{block_name}_batchnorm2",
-        channels_axis=channels_axis,
-    )
-    x = conv_block(
-        x,
-        filters * expansion,
-        kernel_size=1,
-        use_relu=False,
-        name=f"{block_name}_conv3",
-        bn_name=f"{block_name}_batchnorm3",
-        channels_axis=channels_axis,
-    )
-
-    if senet:
-        x = squeeze_excitation_block(x, name=f"{block_name}_se")
-
-    if downsample or strides != 1 or x.shape[-1] != residual.shape[-1]:
-        residual = conv_block(
-            residual,
-            filters * expansion,
-            kernel_size=1,
-            strides=strides,
-            use_relu=False,
-            name=f"{block_name}_downsample_conv",
-            bn_name=f"{block_name}_downsample_batchnorm",
-            channels_axis=channels_axis,
-        )
-
-    x = layers.Add()([x, residual])
-    x = layers.ReLU()(x)
-
-    return x
-
-
 @keras.saving.register_keras_serializable(package="kv")
 class ResNet(keras.Model):
     """
@@ -281,8 +199,8 @@ class ResNet(keras.Model):
     - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385) (CVPR 2016)
 
     Args:
-        block_type: String, type of residual block to use. Options are
-            `'basic'`, `'bottleneck'`, or `'resnext'`.
+        block_fn: Callable, the block function to use for residual blocks. Should accept parameters:
+            (x, filters, strides=1, downsample=False, block_name=None)
         block_repeats: List of integers, number of blocks to repeat at each stage.
         filters: List of integers, number of filters for each stage.
         groups: Integer, number of groups for group convolutions in ResNeXt blocks.
@@ -316,7 +234,7 @@ class ResNet(keras.Model):
 
     def __init__(
         self,
-        block_type="bottleneck",
+        block_fn=bottleneck_block,
         block_repeats=[2, 2, 2, 2],
         filters=[64, 128, 256, 512],
         groups=32,
@@ -352,37 +270,6 @@ class ResNet(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
-        if block_type == "bottleneck":
-
-            def block_fn(x, filters, strides=1, downsample=False, block_name=None):
-                return bottleneck_block(
-                    x,
-                    filters,
-                    strides=strides,
-                    downsample=downsample,
-                    senet=senet,
-                    block_name=block_name,
-                    channels_axis=channels_axis,
-                )
-
-        elif block_type == "resnext":
-
-            def block_fn(x, filters, strides=1, downsample=False, block_name=None):
-                return resnext_block(
-                    x,
-                    filters,
-                    strides=strides,
-                    groups=groups,
-                    width_factor=width_factor,
-                    downsample=downsample,
-                    senet=senet,
-                    block_name=block_name,
-                    channels_axis=channels_axis,
-                )
-
-        else:
-            raise ValueError(f"Unsupported block type: {block_type}")
-
         x = conv_block(
             inputs,
             filters[0],
@@ -400,10 +287,20 @@ class ResNet(keras.Model):
                 block_name = f"resnet_layer{i+1}.{j}"
                 if j == 0 and i > 0:
                     x = block_fn(
-                        x, filters[i], strides=2, downsample=True, block_name=block_name
+                        x,
+                        filters[i],
+                        strides=2,
+                        downsample=True,
+                        block_name=block_name,
+                        channels_axis=channels_axis,
                     )
                 else:
-                    x = block_fn(x, filters[i], block_name=block_name)
+                    x = block_fn(
+                        x,
+                        filters[i],
+                        block_name=block_name,
+                        channels_axis=channels_axis,
+                    )
 
         if include_top:
             x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
@@ -421,7 +318,7 @@ class ResNet(keras.Model):
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
-        self.block_type = block_type
+        self.block_fn = block_fn
         self.block_repeats = block_repeats
         self.filters = filters
         self.groups = groups
@@ -435,7 +332,7 @@ class ResNet(keras.Model):
 
     def get_config(self):
         return {
-            "block_type": self.block_type,
+            "block_fn": self.block_fn,
             "block_repeats": self.block_repeats,
             "filters": self.filters,
             "groups": self.groups,
@@ -468,7 +365,9 @@ def ResNet50(
     classifier_activation="softmax",
 ):
     model = ResNet(
-        **RESNET_MODEL_CONFIG["resnet50"],
+        block_fn=globals()[RESNET_MODEL_CONFIG["ResNet50"]["block_fn"]],
+        block_repeats=RESNET_MODEL_CONFIG["ResNet50"]["block_repeats"],
+        filters=RESNET_MODEL_CONFIG["ResNet50"]["filters"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -477,11 +376,10 @@ def ResNet50(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
     )
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNet50"][weights]["url"]
-        )
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(RESNET_WEIGHTS_CONFIG):
+        load_weights_from_config("ResNet50", weights, model, RESNET_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -500,7 +398,9 @@ def ResNet101(
     **kwargs,
 ):
     model = ResNet(
-        **RESNET_MODEL_CONFIG["resnet101"],
+        block_fn=globals()[RESNET_MODEL_CONFIG["ResNet101"]["block_fn"]],
+        block_repeats=RESNET_MODEL_CONFIG["ResNet101"]["block_repeats"],
+        filters=RESNET_MODEL_CONFIG["ResNet101"]["filters"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -511,11 +411,10 @@ def ResNet101(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNet101"][weights]["url"]
-        )
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(RESNET_WEIGHTS_CONFIG):
+        load_weights_from_config("ResNet101", weights, model, RESNET_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 
@@ -534,7 +433,9 @@ def ResNet152(
     **kwargs,
 ):
     model = ResNet(
-        **RESNET_MODEL_CONFIG["resnet152"],
+        block_fn=globals()[RESNET_MODEL_CONFIG["ResNet152"]["block_fn"]],
+        block_repeats=RESNET_MODEL_CONFIG["ResNet152"]["block_repeats"],
+        filters=RESNET_MODEL_CONFIG["ResNet152"]["filters"],
         include_top=include_top,
         weights=weights,
         input_tensor=input_tensor,
@@ -545,345 +446,10 @@ def ResNet152(
         **kwargs,
     )
 
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNet152"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-# ResNeXt Variants
-@register_model
-def ResNeXt50_32x4d(
-    include_top=True,
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["resnext50_32x4d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights == "yfcc_ssl_in1k":
-        weights = "fb_ssl_yfcc100m_ft_in1k"
-    elif weights == "ig_swsl_in1k":
-        weights = "fb_swsl_ig1b_ft_in1k"
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNeXt50_32x4d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x4d(
-    include_top=True,
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["resnext101_32x4d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights == "yfcc_ssl_in1k":
-        weights = "fb_ssl_yfcc100m_ft_in1k"
-    elif weights == "ig_swsl_in1k":
-        weights = "fb_swsl_ig1b_ft_in1k"
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNeXt101_32x4d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x8d(
-    include_top=True,
-    weights="tv_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["resnext101_32x8d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights == "yfcc_ssl_in1k":
-        weights = "fb_ssl_yfcc100m_ft_in1k"
-    elif weights == "ig_swsl_in1k":
-        weights = "fb_swsl_ig1b_ft_in1k"
-    elif weights == "ig_wsl_in1k":
-        weights = "fb_wsl_ig1b_ft_in1k"
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNeXt101_32x8d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x16d(
-    include_top=True,
-    weights="fb_wsl_ig1b_ft_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["resnext101_32x16d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights == "yfcc_ssl_in1k":
-        weights = "fb_ssl_yfcc100m_ft_in1k"
-    elif weights == "ig_swsl_in1k":
-        weights = "fb_swsl_ig1b_ft_in1k"
-    elif weights == "ig_wsl_in1k":
-        weights = "fb_wsl_ig1b_ft_in1k"
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNeXt101_32x16d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNeXt101_32x32d(
-    include_top=True,
-    weights="ig_wsl_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["resnext101_32x32d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-    if weights == "ig_wsl_in1k":
-        weights = "fb_wsl_ig1b_ft_in1k"
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["ResNeXt101_32x32d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-# SE-resent and SE-ResNext
-@register_model
-def SEResNet50(
-    include_top=True,
-    weights="a1_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["seresnet50"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["SEResNet50"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def SEResNeXt50_32x4d(
-    include_top=True,
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["seresnext50_32x4d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["SEResNeXt50_32x4d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def SEResNeXt101_32x4d(
-    include_top=True,
-    weights="gluon_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["seresnext101_32x4d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["SEResNeXt101_32x4d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def SEResNeXt101_32x8d(
-    include_top=True,
-    weights="ah_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    **kwargs,
-):
-    model = ResNet(
-        **RESNET_MODEL_CONFIG["seresnext101_32x8d"],
-        include_top=include_top,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
-
-    if weights:
-        weights_path = download_weights(
-            RESNET_WEIGHTS_CONFIG["SEResNeXt101_32x8d"][weights]["url"]
-        )
-        model.load_weights(weights_path)
+    if weights in get_all_weight_names(RESNET_WEIGHTS_CONFIG):
+        load_weights_from_config("ResNet152", weights, model, RESNET_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
     else:
         print("No weights loaded.")
 

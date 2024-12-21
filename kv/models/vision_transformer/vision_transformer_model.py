@@ -108,18 +108,18 @@ def transformer_block(
 
 @keras.saving.register_keras_serializable(package="kv")
 class ViT(keras.Model):
-    """Instantiates the Vision Transformer (ViT) architecture.
+    """Instantiates the Vision Transformer (ViT) architecture with optional FlexiViT support.
 
-    Reference:
+    This implementation supports both the original ViT architecture and FlexiViT modifications,
+    allowing for flexible patch sizes and dynamic position embeddings.
+
+    References:
     - [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929)
+    - [FlexiViT: One Model for All Patch Sizes](https://arxiv.org/abs/2212.08013)
 
     Args:
-        input_shape: Tuple specifying the shape of the input data.
-            Defaults to `(224, 224, 3)`.
         patch_size: Integer, size of the patches to extract from the image.
             Defaults to `16`.
-        num_classes: Integer, the number of output classes for classification.
-            Defaults to `1000`.
         dim: Integer, the embedding dimension for the transformer.
             Defaults to `768`.
         depth: Integer, number of transformer blocks.
@@ -136,21 +136,50 @@ class ViT(keras.Model):
             Defaults to `0.1`.
         attn_drop_rate: Float, dropout rate applied to attention weights.
             Defaults to `0.0`.
-        representation_size: Optional integer for an intermediate dense layer before classification.
-            Defaults to `None`.
-        weights: String, specifying the path to pretrained weights or available options.
+        no_embed_class: Boolean, enables FlexiViT mode for position embeddings.
+            If True, position embeddings are created only for patches (not class token),
+            enabling flexible patch sizes. If False, uses standard ViT embeddings.
+            Defaults to `False`.
         include_top: Boolean, whether to include the classification head.
             Defaults to `True`.
+        weights: String, specifying the path to pretrained weights or available options.
+            Use "imagenet" for standard ViT weights or "flexivit" for FlexiViT weights.
+        input_shape: Optional tuple specifying the shape of the input data.
+            When using FlexiViT (no_embed_class=True), input shape can be flexible.
+            For standard ViT, defaults to (224, 224, 3).
+        input_tensor: Optional Keras tensor as input.
+            Useful for connecting the model to other Keras components.
         pooling: Optional pooling mode when `include_top=False`:
             - `None`: output is the last transformer block's output
             - `"avg"`: global average pooling is applied
             - `"max"`: global max pooling is applied
+        num_classes: Integer, the number of output classes for classification.
+            Defaults to `1000`.
         classifier_activation: String or callable, activation function for the top layer.
             Set to `None` to return logits. Defaults to `"softmax"`.
         name: String, the name of the model. Defaults to `"ViT"`.
 
     Returns:
         A Keras `Model` instance.
+
+    Example:
+        ```python
+        # Standard ViT
+        model = ViT(
+            patch_size=16,
+            dim=768,
+            no_embed_class=False,
+            input_shape=(224, 224, 3)
+        )
+
+        # FlexiViT with dynamic patch sizes
+        model = ViT(
+            patch_size=16,
+            dim=768,
+            no_embed_class=True,
+            input_shape=(240, 240, 3)  # Can use different input sizes
+        )
+        ```
     """
 
     def __init__(

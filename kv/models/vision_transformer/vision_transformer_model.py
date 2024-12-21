@@ -164,6 +164,7 @@ class ViT(keras.Model):
         qk_norm=False,
         drop_rate=0.1,
         attn_drop_rate=0.0,
+        no_embed_class=False,
         include_top=True,
         weights="imagenet",
         input_shape=None,
@@ -174,14 +175,25 @@ class ViT(keras.Model):
         name="ViT",
         **kwargs,
     ):
-        input_shape = imagenet_utils.obtain_input_shape(
-            input_shape,
-            default_size=224,
-            min_size=32,
-            data_format=backend.image_data_format(),
-            require_flatten=include_top,
-            weights=weights,
-        )
+        if no_embed_class:
+            input_shape = imagenet_utils.obtain_input_shape(
+                input_shape,
+                default_size=240,
+                min_size=32,
+                data_format=backend.image_data_format(),
+                require_flatten=include_top,
+                weights=weights,
+            )
+
+        else:
+            input_shape = imagenet_utils.obtain_input_shape(
+                input_shape,
+                default_size=224,
+                min_size=32,
+                data_format=backend.image_data_format(),
+                require_flatten=include_top,
+                weights=weights,
+            )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
@@ -203,7 +215,17 @@ class ViT(keras.Model):
 
         x = layers.Reshape((-1, dim))(x)
         x = ClassToken(name="cls_token")(x)
-        x = AddPositionEmbs(name="pos_embed")(x)
+        if no_embed_class:
+            x = AddPositionEmbs(
+                name="pos_embed",
+                no_embed_class=no_embed_class,
+                num_patches=(input_shape[0] // patch_size)
+                * (input_shape[1] // patch_size),
+            )(x)
+        else:
+            x = AddPositionEmbs(
+                name="pos_embed",
+            )(x)
         x = layers.Dropout(drop_rate)(x)
 
         for i in range(depth):
@@ -245,6 +267,7 @@ class ViT(keras.Model):
         self.qk_norm = qk_norm
         self.drop_rate = drop_rate
         self.attn_drop_rate = attn_drop_rate
+        self.no_embed_class = no_embed_class
         self.include_top = include_top
         self.input_tensor = input_tensor
         self.pooling = pooling
@@ -262,6 +285,7 @@ class ViT(keras.Model):
             "qk_norm": self.qk_norm,
             "drop_rate": self.drop_rate,
             "attn_drop_rate": self.attn_drop_rate,
+            "no_embed_class": self.no_embed_class,
             "include_top": self.include_top,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,

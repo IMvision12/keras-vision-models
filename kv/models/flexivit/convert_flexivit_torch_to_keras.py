@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.vision_transformer import ViTTiny16
+from kv.models.flexivit import FlexiViTSmall
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
@@ -36,9 +36,9 @@ weight_name_mapping = {
 
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ViTTiny16,
-    "torch_model_name": "vit_tiny_patch16_384.augreg_in21k_ft_in1k",
-    "input_shape": [384, 384, 3],
+    "keras_model_cls": FlexiViTSmall,
+    "torch_model_name": "flexivit_small.600ep_in1k",
+    "input_shape": [240, 240, 3],
     "num_classes": 1000,
     "include_top": True,
     "classifier_activation": "linear",
@@ -141,7 +141,7 @@ for keras_weight, keras_weight_name in tqdm(
 results = run_all_tests(
     keras_model=keras_model,
     torch_model=torch_model,
-    input_shape=(384, 384, 3),
+    input_shape=(240, 240, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
 )

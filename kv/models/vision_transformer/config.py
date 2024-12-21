@@ -81,67 +81,67 @@ VIT_MODEL_CONFIG = {
 VIT_WEIGHTS_CONFIG = {
     "ViTTiny16": {
         "augreg_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_tiny_patch16_384_augreg_in21k_ft_in1k.keras",
+            "url": "",
         },
         "augreg_in21k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_tiny_patch16_224_augreg_in21k.keras",
+            "url": "",
         },
     },
     "ViTSmall16": {
         "augreg_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_small_patch16_384_augreg_in21k_ft_in1k.keras",
+            "url": "",
         },
         "augreg_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_small_patch16_384_augreg_in1k.keras",
+            "url": "",
         },
         "augreg_in21k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_small_patch16_224_augreg_in21k.keras",
+            "url": "",
         },
     },
     "ViTSmall32": {
         "augreg_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_small_patch32_384_augreg_in21k_ft_in1k.keras",
+            "url": "",
         },
         "augreg_in21k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_small_patch32_224_augreg_in21k.keras",
+            "url": "",
         },
     },
     "ViTBase16": {
         "augreg_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch16_384_augreg_in21k_ft_in1k.keras",
+            "url": "",
         },
         "orig_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch16_384_orig_in21k_ft_in1k.keras",
+            "url": "",
         },
         "augreg_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch16_384_augreg_in1k.keras",
+            "url": "",
         },
         "augreg_in21k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch16_224_augreg_in21k.keras",
+            "url": "",
         },
     },
     "ViTBase32": {
         "augreg_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch32_384_augreg_in21k_ft_in1k.keras",
+            "url": "",
         },
         "augreg_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch32_384_augreg_in1k.keras",
+            "url": "",
         },
         "augreg_in21k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_base_patch32_224_augreg_in21k.keras",
+            "url": "",
         },
     },
     "ViTLarge16": {
         "augreg_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_large_patch16_384_augreg_in21k_ft_in1k.keras",
+            "url": "",
         },
         "augreg_in21k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_large_patch16_224_augreg_in21k.keras",
+            "url": "",
         },
     },
     "ViTLarge32": {
         "orig_in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.2/vit_large_patch32_384_orig_in21k_ft_in1k.keras",
+            "url": "",
         },
     },
 }

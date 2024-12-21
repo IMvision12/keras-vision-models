@@ -2,6 +2,51 @@ from keras import layers, ops
 
 
 class AddPositionEmbs(layers.Layer):
+    """
+    A custom Keras layer that adds learnable position embeddings to input tensors with support for
+    flexible interpolation and optional class token handling (FlexiViT compatibility).
+
+    The layer supports two modes of operation:
+    1. Standard mode: Creates position embeddings for both patches and class token
+    2. FlexiViT mode: Creates embeddings only for patches, handling class token separately
+
+    Features:
+    - Dynamic interpolation of position embeddings for variable input sizes
+    - Bilinear interpolation support for smooth resizing
+    - Compatible with both standard Vision Transformer and FlexiViT architectures
+    - Handles class token embeddings appropriately based on mode
+
+    Args:
+        name (str, optional): Name of the layer. Defaults to None.
+        no_embed_class (bool): If True, operates in FlexiViT mode with 225 patches and separate
+            class token handling. If False, uses standard mode with 576 patches. Defaults to False.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Input Shape:
+        3D tensor with shape: `(batch_size, sequence_length, embedding_dim)`
+        - In standard mode: sequence_length = num_patches + 1 (including class token)
+        - In FlexiViT mode: sequence_length = num_patches + 1 (class token handled separately)
+
+    Output Shape:
+        Same as input shape: `(batch_size, sequence_length, embedding_dim)`
+
+    Example:
+        ```python
+        # Standard mode
+        layer = AddPositionEmbs(no_embed_class=False)
+        inputs = tf.random.normal((batch_size, 577, embedding_dim))  # 576 patches + 1 class token
+        outputs = layer(inputs)
+
+        # FlexiViT mode
+        layer = AddPositionEmbs(no_embed_class=True)
+        inputs = tf.random.normal((batch_size, 226, embedding_dim))  # 225 patches + 1 class token
+        outputs = layer(inputs)
+        ```
+
+    References:
+        - FlexiViT: One Model for All Patch Sizes (https://arxiv.org/abs/2212.08013)
+    """
+
     def __init__(
         self,
         name=None,

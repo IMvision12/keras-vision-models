@@ -224,6 +224,9 @@ class ViT(keras.Model):
                 weights=weights,
             )
 
+        grid_h = input_shape[0] // patch_size
+        grid_w = input_shape[1] // patch_size
+
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
@@ -246,8 +249,11 @@ class ViT(keras.Model):
         x = ClassToken(name="cls_token")(x)
         x = AddPositionEmbs(
             name="pos_embed",
-            no_embed_class=no_embed_class,
+            no_embed_class=no_embed_class,  # True for FlexiViT
+            grid_h=grid_h,
+            grid_w=grid_w,
         )(x)
+
         x = layers.Dropout(drop_rate)(x)
 
         for i in range(depth):

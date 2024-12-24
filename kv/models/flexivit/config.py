@@ -76,11 +76,5 @@ FLEXIVIT_WEIGHTS_CONFIG = {
         "300ep_in1k": {
             "url": "",
         },
-        "300ep_in1k": {
-            "url": "",
-        },
-        "300ep_in1k": {
-            "url": "",
-        },
     },
 }

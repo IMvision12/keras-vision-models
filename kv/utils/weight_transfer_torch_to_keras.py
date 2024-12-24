@@ -265,6 +265,14 @@ def transfer_attention_weights(
         torch_name = f"{layer_name}.weight"
     elif "bias" in keras_name:
         torch_name = f"{layer_name}.bias"
+    elif "gamma" in keras_name:
+        torch_name = f"{layer_name}.weight"
+    elif "beta" in keras_name:
+        torch_name = f"{layer_name}.bias"
+    elif "moving_mean" in keras_name:
+        torch_name = f"{layer_name}.running_mean"
+    elif "moving_variance" in keras_name:
+        torch_name = f"{layer_name}.running_var"
     else:
         raise ValueError(f"Unexpected weight type in attention layer: {keras_name}")
 

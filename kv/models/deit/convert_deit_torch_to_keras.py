@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.deit import DEiT3Small16
+from kv.models.deit import DEiTTinyDistilled16
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
@@ -39,9 +39,9 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": DEiT3Small16,
-    "torch_model_name": "deit3_small_patch16_384.fb_in22k_ft_in1k",
-    "input_shape": [384, 384, 3],
+    "keras_model_cls": DEiTTinyDistilled16,
+    "torch_model_name": "deit_tiny_distilled_patch16_224.fb_in1k",
+    "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
     "classifier_activation": "linear",
@@ -149,7 +149,7 @@ for keras_weight, keras_weight_name in tqdm(
 results = run_all_tests(
     keras_model=keras_model,
     torch_model=torch_model,
-    input_shape=(384, 384, 3),
+    input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
 )

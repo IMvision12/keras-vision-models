@@ -2,7 +2,12 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.layers import AddPositionEmbs, ClassToken, MultiHeadSelfAttention
+from kv.layers import (
+    AddPositionEmbs,
+    ClassDistToken,
+    LayerScale,
+    MultiHeadSelfAttention,
+)
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
@@ -47,6 +52,7 @@ def transformer_block(
     proj_drop: float = 0.0,
     attn_drop: float = 0.0,
     block_idx: int = 0,
+    init_values: float = None,
 ):
     """
     Implements a standard Transformer block with self-attention and MLP layers.
@@ -70,6 +76,8 @@ def transformer_block(
         proj_drop: Dropout rate for the projection layers. Default is 0.
         attn_drop: Dropout rate for the attention probabilities. Default is 0.
         block_idx: Index of the block, used for naming layers. Default is 0.
+        use_layer_scale: Whether to use LayerScale for scaling residual connections.
+        init_valuess: Initial values for LayerScale weights if enabled. Default is None.
 
     Returns:
         Output tensor after passing through the transformer block,
@@ -89,6 +97,12 @@ def transformer_block(
         proj_drop=proj_drop,
         block_idx=block_idx,
     )(x)
+    if init_values:
+        x = LayerScale(
+            projection_dim=dim,
+            init_values=init_values,
+            name=f"blocks_{block_idx}_layerscale_1",
+        )(x)
     x = keras.layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
 
     # MLP branch
@@ -102,6 +116,12 @@ def transformer_block(
         drop=proj_drop,
         block_idx=block_idx,
     )
+    if init_values:
+        y = LayerScale(
+            projection_dim=dim,
+            init_values=init_values,
+            name=f"blocks_{block_idx}_layerscale_2",
+        )(y)
     outputs = keras.layers.Add(name=f"blocks_{block_idx}_add_2")([x, y])
     return outputs
 
@@ -194,6 +214,8 @@ class ViT(keras.Model):
         drop_rate=0.1,
         attn_drop_rate=0.0,
         no_embed_class=False,
+        use_distillation=False,
+        init_values=None,
         include_top=True,
         weights="imagenet",
         input_shape=None,
@@ -246,10 +268,12 @@ class ViT(keras.Model):
         )(img_input)
 
         x = layers.Reshape((-1, dim))(x)
-        x = ClassToken(name="cls_token")(x)
+        x = ClassDistToken(use_distillation=use_distillation, name="cls_token")(x)
+
         x = AddPositionEmbs(
             name="pos_embed",
-            no_embed_class=no_embed_class,  # True for FlexiViT
+            no_embed_class=no_embed_class,
+            use_distillation=use_distillation,
             grid_h=grid_h,
             grid_w=grid_w,
         )(x)
@@ -266,18 +290,38 @@ class ViT(keras.Model):
                 qk_norm=qk_norm,
                 proj_drop=drop_rate,
                 attn_drop=attn_drop_rate,
+                init_values=init_values,
                 block_idx=i,
             )
 
         x = layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(x)
 
-        # Head
         if include_top:
-            x = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
-            x = layers.Dropout(drop_rate)(x)
-            x = layers.Dense(
-                num_classes, activation=classifier_activation, name="predictions"
-            )(x)
+            if use_distillation:
+                cls_token = layers.Lambda(lambda v: v[:, 0], name="ExtractClsToken")(x)
+                dist_token = layers.Lambda(lambda v: v[:, 1], name="ExtractDistToken")(
+                    x
+                )
+
+                cls_token = layers.Dropout(drop_rate)(cls_token)
+                dist_token = layers.Dropout(drop_rate)(dist_token)
+
+                cls_head = layers.Dense(
+                    num_classes, activation=classifier_activation, name="head"
+                )(cls_token)
+
+                dist_head = layers.Dense(
+                    num_classes, activation=classifier_activation, name="head.dist"
+                )(dist_token)
+
+                x = (cls_head + dist_head) / 2
+
+            else:
+                x = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
+                x = layers.Dropout(drop_rate)(x)
+                x = layers.Dense(
+                    num_classes, activation=classifier_activation, name="predictions"
+                )(x)
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
@@ -296,6 +340,8 @@ class ViT(keras.Model):
         self.drop_rate = drop_rate
         self.attn_drop_rate = attn_drop_rate
         self.no_embed_class = no_embed_class
+        self.use_distillation = use_distillation
+        self.init_values = init_values
         self.include_top = include_top
         self.input_tensor = input_tensor
         self.pooling = pooling
@@ -314,6 +360,8 @@ class ViT(keras.Model):
             "drop_rate": self.drop_rate,
             "attn_drop_rate": self.attn_drop_rate,
             "no_embed_class": self.no_embed_class,
+            "use_distillation": self.use_distillation,
+            "init_values": self.init_values,
             "include_top": self.include_top,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,

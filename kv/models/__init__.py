@@ -1,5 +1,6 @@
 from .convmixer import *
 from .convnext import *
+from .deit import *
 from .densenet import *
 from .efficientnet import *
 from .efficientnetv2 import *

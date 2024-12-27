@@ -293,6 +293,9 @@ class ResNet(keras.Model):
                         downsample=True,
                         block_name=block_name,
                         channels_axis=channels_axis,
+                        groups=groups,
+                        width_factor=width_factor,
+                        senet=senet,
                     )
                 else:
                     x = block_fn(
@@ -300,6 +303,9 @@ class ResNet(keras.Model):
                         filters[i],
                         block_name=block_name,
                         channels_axis=channels_axis,
+                        groups=groups,
+                        width_factor=width_factor,
+                        senet=senet,
                     )
 
         if include_top:

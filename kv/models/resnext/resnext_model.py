@@ -251,7 +251,7 @@ def ResNeXt101_32x16d(
 @register_model
 def ResNeXt101_32x32d(
     include_top=True,
-    weights="ig_wsl_in1k",
+    weights="fb_wsl_ig1b_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,

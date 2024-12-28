@@ -2,7 +2,10 @@ from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
 from ..resnet.resnet_model import ResNet
+from ..resnext.resnext_model import resnext_block
 from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_CONFIG
+
+__all__ = ["resnext_block"]
 
 
 # SE-resent and SE-ResNext

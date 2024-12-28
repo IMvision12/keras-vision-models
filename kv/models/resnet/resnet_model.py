@@ -282,31 +282,23 @@ class ResNet(keras.Model):
         x = layers.ZeroPadding2D(padding=(1, 1))(x)
         x = layers.MaxPooling2D(pool_size=3, strides=2, padding="valid")(x)
 
+        common_args = {
+            "channels_axis": channels_axis,
+            "senet": senet,
+        }
+
+        if block_fn.__name__ == "resnext_block":
+            common_args.update({"groups": groups, "width_factor": width_factor})
+
         for i, num_blocks in enumerate(block_repeats):
             for j in range(num_blocks):
-                block_name = f"resnet_layer{i+1}.{j}"
+                common_args["block_name"] = f"resnet_layer{i+1}.{j}"
                 if j == 0 and i > 0:
                     x = block_fn(
-                        x,
-                        filters[i],
-                        strides=2,
-                        downsample=True,
-                        block_name=block_name,
-                        channels_axis=channels_axis,
-                        groups=groups,
-                        width_factor=width_factor,
-                        senet=senet,
+                        x, filters[i], strides=2, downsample=True, **common_args
                     )
                 else:
-                    x = block_fn(
-                        x,
-                        filters[i],
-                        block_name=block_name,
-                        channels_axis=channels_axis,
-                        groups=groups,
-                        width_factor=width_factor,
-                        senet=senet,
-                    )
+                    x = block_fn(x, filters[i], **common_args)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(name="avg_pool")(x)

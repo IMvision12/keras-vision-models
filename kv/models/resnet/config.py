@@ -5,12 +5,12 @@ RESNET_MODEL_CONFIG = {
         "filters": [64, 128, 256, 512],
     },
     "ResNet101": {
-        "block_fn": "bottleneck",
+        "block_fn": "bottleneck_block",
         "block_repeats": [3, 4, 23, 3],
         "filters": [64, 128, 256, 512],
     },
     "ResNet152": {
-        "block_fn": "bottleneck",
+        "block_fn": "bottleneck_block",
         "block_repeats": [3, 8, 36, 3],
         "filters": [64, 128, 256, 512],
     },

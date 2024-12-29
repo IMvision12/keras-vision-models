@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install torch tensorflow keras pytest
+        pip install torch tensorflow keras pytest timm
         pip install -e .
         
     - name: Find and run conversion scripts

@@ -1,31 +1,58 @@
-name: Test Model Conversions
+name: Model Conversion Tests
 
 on:
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
-  test-conversions:
+  test-model-conversions:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     
     - name: Set up Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
-    
+        python-version: '3.8'
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-xdist pytest-timeout
-        pip install -r requirements.txt
-    
-    - name: Run conversion tests
-      env:
-        PYTHONIOENCODING: utf-8
-        LANG: C.UTF-8
-        TESTING: "1"  # Indicate test environment
+        pip install torch tensorflow keras pytest
+        pip install -e .
+        
+    - name: Find and run conversion scripts
       run: |
-        pytest tests/weight_conversion_test.py -v --tb=short --timeout=300
+        # Find all conversion scripts recursively
+        CONVERSION_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
+        
+        echo "Found $(echo "$CONVERSION_SCRIPTS" | wc -l) conversion scripts to test"
+        
+        # Run each conversion script and stop at first failure
+        for script in $CONVERSION_SCRIPTS; do
+          echo "🔄 Running conversion script: $script"
+          if python "$script"; then
+            echo "✅ Successfully completed: $script"
+          else
+            echo "❌ Failed: $script"
+            echo "Stopping further execution due to failure"
+            echo "Failed script: $script"
+            exit 1
+          fi
+          echo "----------------------------------------"
+        done
+        
+        echo "🎉 All conversions completed successfully!"
+        exit 0
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: conversion-test-results
+        path: |
+          ./**/*_test_results.txt
+          ./**/*_error.log
+        if-no-files-found: ignore

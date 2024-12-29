@@ -1,0 +1,31 @@
+name: Test Model Conversions
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-conversions:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-xdist pytest-timeout
+        pip install -r requirements.txt
+    
+    - name: Run conversion tests
+      env:
+        PYTHONIOENCODING: utf-8
+        LANG: C.UTF-8
+        TESTING: "1"  # Indicate test environment
+      run: |
+        pytest tests/weight_conversion_test.py -v --tb=short --timeout=300

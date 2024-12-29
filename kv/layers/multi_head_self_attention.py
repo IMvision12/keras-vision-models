@@ -1,4 +1,4 @@
-from keras import layers, ops
+from keras import InputSpec, layers, ops
 
 
 class MultiHeadSelfAttention(layers.Layer):
@@ -57,6 +57,43 @@ class MultiHeadSelfAttention(layers.Layer):
         self.proj = layers.Dense(dim, name=f"blocks_{block_idx}_attn_proj")
         self.proj_drop = layers.Dropout(proj_drop)
 
+    def build(self, input_shape):
+        self.input_spec = InputSpec(ndim=len(input_shape))
+
+        if self.input_spec.ndim not in (3, 4):
+            raise ValueError(
+                f"MultiHeadSelfAttention expects 3D or 4D input tensor, but received shape: {input_shape}"
+            )
+
+        feature_dim = input_shape[-1]
+        if feature_dim != self.dim:
+            raise ValueError(
+                f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
+            )
+
+        batch_dim = input_shape[0]
+        seq_length = input_shape[1]
+
+        qkv_shape = input_shape
+        attention_shape = (batch_dim, self.num_heads, seq_length, seq_length)
+        head_shape = (batch_dim, self.num_heads, seq_length, self.head_dim)
+
+        self.qkv.build(qkv_shape)
+        self.proj.build(input_shape)
+
+        if self.q_norm is not None:
+            self.q_norm.build(head_shape)
+        if self.k_norm is not None:
+            self.k_norm.build(head_shape)
+
+        self.attn_drop.build(attention_shape)
+        self.proj_drop.build(input_shape)
+
+        self._attention_head_size = self.head_dim
+        self._num_attention_heads = self.num_heads
+
+        self.built = True
+
     def call(self, x, training=None):
         B, N, C = ops.shape(x)[0], ops.shape(x)[1], ops.shape(x)[2]
 
@@ -89,9 +126,11 @@ class MultiHeadSelfAttention(layers.Layer):
             {
                 "dim": self.dim,
                 "num_heads": self.num_heads,
+                "qkv_bias": self.qkv.use_bias,
+                "qk_norm": self.q_norm,
+                "attn_drop": self.attn_drop.rate,
+                "proj_drop": self.proj_drop.rate,
                 "block_idx": self.block_idx,
-                "head_dim": self.head_dim,
-                "scale": self.scale,
             }
         )
         return config

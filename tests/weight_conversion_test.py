@@ -39,8 +39,6 @@ pytestmark = pytest.mark.skipif(
 def test_all_model_conversions(capsys):
     if not conversion_files:
         pytest.skip("No conversion files found in models directory")
-
-    failed_conversions = []
     
     for conversion_file in conversion_files:
         start_time = time.time()
@@ -86,37 +84,19 @@ if 'TESTING' in os.environ:
                     print(f"\n✗ Conversion failed for {conversion_file.parent.name}")
                     print(f"STDOUT:\n{result.stdout}")
                     print(f"STDERR:\n{result.stderr}")
-                failed_conversions.append((conversion_file.parent.name, result))
-            else:
-                with capsys.disabled():
-                    print(
-                        f"✓ Conversion successful for {conversion_file.parent.name} ({duration:.1f}s)"
-                    )
+                pytest.fail(f"Conversion failed for {conversion_file.parent.name} with return code {result.returncode}\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}")
+
+            with capsys.disabled():
+                print(
+                    f"✓ Conversion successful for {conversion_file.parent.name} ({duration:.1f}s)"
+                )
 
         except subprocess.TimeoutExpired:
-            failed_conversions.append(
-                (conversion_file.parent.name, "Conversion timed out after 300 seconds")
-            )
+            pytest.fail(f"Conversion timed out for {conversion_file.parent.name} after 300 seconds")
         except subprocess.CalledProcessError as e:
-            failed_conversions.append(
-                (conversion_file.parent.name, f"Process error: {str(e)}\nSTDERR:\n{e.stderr}")
-            )
+            pytest.fail(f"Process error for {conversion_file.parent.name}: {str(e)}\nSTDERR:\n{e.stderr}")
         except Exception as e:
-            failed_conversions.append(
-                (conversion_file.parent.name, f"Unexpected error: {str(e)}")
-            )
-
-    if failed_conversions:
-        error_message = "\nConversion failures:"
-        for model_name, error in failed_conversions:
-            error_message += f"\n\n{model_name}:"
-            if isinstance(error, subprocess.CompletedProcess):
-                error_message += f"\nReturn code: {error.returncode}"
-                error_message += f"\nSTDOUT:\n{error.stdout}"
-                error_message += f"\nSTDERR:\n{error.stderr}"
-            else:
-                error_message += f"\n{error}"
-        pytest.fail(error_message)
+            pytest.fail(f"Unexpected error for {conversion_file.parent.name}: {str(e)}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,74 @@
+name: Weights Conversion Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-weight-conversions:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch tensorflow keras pytest timm
+        pip install -e .
+        
+    - name: Find and run conversion scripts
+      run: |
+        CONVERSION_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
+        
+        echo "Found $(echo "$CONVERSION_SCRIPTS" | wc -l) conversion scripts to test"
+        
+        for script in $CONVERSION_SCRIPTS; do
+          echo "🔄 Running conversion script: $script"
+          if python "$script"; then
+            echo "✅ Successfully completed: $script"
+          else
+            echo "❌ Failed: $script"
+            echo "Stopping further execution due to failure"
+            echo "Failed script: $script"
+            exit 1
+          fi
+          echo "----------------------------------------"
+        done
+        
+        echo "🧹 Cleaning up generated weight files..."
+        find . -name "*.keras" -type f -delete
+        find . -name "*.h5" -type f -delete
+        find . -name "*.weights" -type f -delete
+        find . -name "*.pt" -type f -delete
+        find . -name "*.safetensors" -type f -delete
+        find . -name "*.pth" -type f -delete
+        
+        echo "🎉 All conversions completed successfully!"
+        exit 0
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: conversion-test-results
+        path: |
+          ./**/*_test_results.txt
+          ./**/*_error.log
+        if-no-files-found: ignore
+        retention-days: 2
+
+    - name: Cleanup workspace
+      if: always()
+      run: |
+        echo "🧹 Performing final cleanup..."
+        find . -name "__pycache__" -exec rm -rf {} +
+        find . -name "*.pyc" -delete
+        find . -name ".pytest_cache" -exec rm -rf {} +

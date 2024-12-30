@@ -6,13 +6,6 @@ from pathlib import Path
 
 # run python format_repo.py .
 def format_repository(repo_path: str, line_length: int = 88):
-    """
-    Format all Python files in a repository using Ruff.
-
-    Args:
-        repo_path: Path to the repository
-        line_length: Maximum line length for formatting (default: 88)
-    """
     repo_path = os.path.abspath(repo_path)
     print(f"Formatting repository at: {repo_path}")
 
@@ -28,21 +21,19 @@ def format_repository(repo_path: str, line_length: int = 88):
 
     print(f"Found {len(python_files)} Python files to format.")
 
-    # Check and format with Ruff (including import sorting)
     print("\nChecking and formatting with Ruff...")
     ruff_config = [
         "ruff",
         "check",
         "--fix",
         "--select",
-        "I",  # Only run import sorting
+        "I",
         "--line-length",
         str(line_length),
         *[str(f) for f in python_files],
     ]
     subprocess.run(ruff_config, check=True)
 
-    # Format with Ruff
     print("\nRunning Ruff formatting...")
     ruff_format_config = [
         "ruff",

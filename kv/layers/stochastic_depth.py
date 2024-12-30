@@ -29,6 +29,10 @@ class StochasticDepth(layers.Layer):
     def __init__(self, drop_path_rate, **kwargs):
         super().__init__(**kwargs)
         self.drop_path_rate = drop_path_rate
+        if not 0 <= drop_path_rate <= 1:
+            raise ValueError(
+                f"drop_path_rate should be between 0 and 1, got {drop_path_rate}"
+            )
 
     def call(self, x, training=None):
         if training:

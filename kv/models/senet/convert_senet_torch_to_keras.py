@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.senet import SEResNet50
+from kv.models.senet import SEResNeXt50_32x4d
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
@@ -33,8 +33,8 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": SEResNet50,
-    "torch_model_name": "seresnet50.a1_in1k",
+    "keras_model_cls": SEResNeXt50_32x4d,
+    "torch_model_name": "seresnext50_32x4d.gluon_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,

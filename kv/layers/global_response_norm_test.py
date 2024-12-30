@@ -16,12 +16,11 @@ class TestGlobalResponseNorm(TestCase):
         self.test_inputs = ops.ones(self.input_shape)
 
     def test_init(self):
-        layer = GlobalResponseNorm(dim=self.dim)
-        assert layer.dim == self.dim
+        layer = GlobalResponseNorm()
         assert not layer.built
 
     def test_build(self):
-        layer = GlobalResponseNorm(dim=self.dim)
+        layer = GlobalResponseNorm()
         layer.build(self.input_shape)
         assert hasattr(layer, "weight")
         assert hasattr(layer, "bias")
@@ -31,7 +30,7 @@ class TestGlobalResponseNorm(TestCase):
         assert np.allclose(layer.bias.numpy(), np.zeros((1, 1, 1, self.dim)))
 
     def test_call(self):
-        layer = GlobalResponseNorm(dim=self.dim)
+        layer = GlobalResponseNorm()
         outputs = layer(self.test_inputs)
         output_shape = ops.shape(outputs)
         assert len(output_shape) == len(self.input_shape)
@@ -51,16 +50,8 @@ class TestGlobalResponseNorm(TestCase):
         )
         assert np.allclose(outputs.numpy(), expected_output.numpy(), rtol=1e-5)
 
-    def test_get_config(self):
-        layer = GlobalResponseNorm(dim=self.dim)
-        config = layer.get_config()
-        assert "dim" in config
-        assert config["dim"] == self.dim
-        reconstructed_layer = GlobalResponseNorm.from_config(config)
-        assert reconstructed_layer.dim == layer.dim
-
     def test_different_batch_sizes(self):
-        layer = GlobalResponseNorm(dim=self.dim)
+        layer = GlobalResponseNorm()
         test_batch_sizes = [1, 8, 16]
         for batch_size in test_batch_sizes:
             inputs = ops.ones((batch_size, self.height, self.width, self.dim))
@@ -72,7 +63,7 @@ class TestGlobalResponseNorm(TestCase):
             )
 
     def test_different_spatial_dimensions(self):
-        layer = GlobalResponseNorm(dim=self.dim)
+        layer = GlobalResponseNorm()
         test_sizes = [(16, 16), (64, 64), (128, 128)]
         for height, width in test_sizes:
             inputs = ops.ones((self.batch_size, height, width, self.dim))
@@ -86,7 +77,7 @@ class TestGlobalResponseNorm(TestCase):
     def test_different_channels(self):
         test_dims = [32, 128, 256]
         for dim in test_dims:
-            layer = GlobalResponseNorm(dim=dim)
+            layer = GlobalResponseNorm()
             inputs = ops.ones((self.batch_size, self.height, self.width, dim))
             outputs = layer(inputs)
             output_shape = ops.shape(outputs)
@@ -96,7 +87,7 @@ class TestGlobalResponseNorm(TestCase):
             )
 
     def test_numerical_stability(self):
-        layer = GlobalResponseNorm(dim=self.dim)
+        layer = GlobalResponseNorm()
         small_inputs = self.test_inputs * 1e-10
         small_outputs = layer(small_inputs)
         assert not np.any(np.isnan(small_outputs.numpy()))

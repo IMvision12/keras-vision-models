@@ -9,34 +9,29 @@ class LayerScale(layers.Layer):
 
     Args:
         init_values (float): Initial value for the scaling factor `gamma`.
-        projection_dim (int): Dimensionality of the input projection.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Methods:
-        build(_):
+        build(input_shape):
             Creates the trainable scaling factor `gamma`, initialized to the `init_values`
-            and with the shape matching the projection dimension.
-
+            and with the shape automatically determined from the input shape.
         call(x):
             Multiplies the input `x` by the scaling factor `gamma`.
-
         get_config():
-            Returns a dictionary containing the configuration of the layer, including the
-            `init_values` and `projection_dim`.
+            Returns a dictionary containing the configuration of the layer.
 
     Example:
-        >>> layer = LayerScale(init_values=0.1, projection_dim=768)
+        >>> layer = LayerScale(init_values=0.1)
         >>> output = layer(input_tensor)
     """
 
-    def __init__(self, init_values, projection_dim, **kwargs):
+    def __init__(self, init_values, **kwargs):
         super().__init__(**kwargs)
         self.init_values = init_values
-        self.projection_dim = projection_dim
 
-    def build(self, _):
+    def build(self, input_shape):
         self.gamma = self.add_weight(
-            shape=(self.projection_dim,),
+            shape=(input_shape[-1],),
             initializer=initializers.Constant(self.init_values),
             trainable=True,
         )
@@ -49,7 +44,6 @@ class LayerScale(layers.Layer):
         config.update(
             {
                 "init_values": self.init_values,
-                "projection_dim": self.projection_dim,
             }
         )
         return config

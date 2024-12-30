@@ -16,17 +16,12 @@ class TestLayerScale(TestCase):
         self.test_inputs = ops.ones(self.input_shape)
 
     def test_init(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         assert layer.init_values == self.init_values
-        assert layer.projection_dim == self.projection_dim
         assert not layer.built
 
     def test_build(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         layer.build(self.input_shape)
         assert hasattr(layer, "gamma")
         assert layer.gamma.shape == (self.projection_dim,)
@@ -34,9 +29,7 @@ class TestLayerScale(TestCase):
         assert np.allclose(layer.gamma.numpy(), expected_values)
 
     def test_call(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         outputs = layer(self.test_inputs)
         output_shape = ops.shape(outputs)
         assert len(output_shape) == len(self.input_shape)
@@ -47,22 +40,15 @@ class TestLayerScale(TestCase):
         assert np.allclose(outputs.numpy(), expected_output.numpy())
 
     def test_get_config(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         config = layer.get_config()
         assert "init_values" in config
-        assert "projection_dim" in config
         assert config["init_values"] == self.init_values
-        assert config["projection_dim"] == self.projection_dim
         reconstructed_layer = LayerScale.from_config(config)
         assert reconstructed_layer.init_values == layer.init_values
-        assert reconstructed_layer.projection_dim == layer.projection_dim
 
     def test_different_batch_sizes(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         test_batch_sizes = [1, 8, 16]
         for batch_size in test_batch_sizes:
             inputs = ops.ones((batch_size, self.seq_length, self.projection_dim))
@@ -74,9 +60,7 @@ class TestLayerScale(TestCase):
             )
 
     def test_different_sequence_lengths(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         test_seq_lengths = [64, 128, 256]
         for seq_length in test_seq_lengths:
             inputs = ops.ones((self.batch_size, seq_length, self.projection_dim))
@@ -90,9 +74,7 @@ class TestLayerScale(TestCase):
     def test_different_projection_dims(self):
         test_projection_dims = [256, 512, 1024]
         for projection_dim in test_projection_dims:
-            layer = LayerScale(
-                init_values=self.init_values, projection_dim=projection_dim
-            )
+            layer = LayerScale(init_values=self.init_values)
             inputs = ops.ones((self.batch_size, self.seq_length, projection_dim))
             outputs = layer(inputs)
             output_shape = ops.shape(outputs)
@@ -104,17 +86,13 @@ class TestLayerScale(TestCase):
     def test_different_init_values(self):
         test_init_values = [0.001, 1.0, 10.0]
         for init_value in test_init_values:
-            layer = LayerScale(
-                init_values=init_value, projection_dim=self.projection_dim
-            )
-            layer.build(self.input_shape)
+            layer = LayerScale(init_values=init_value)
+            layer.build((self.batch_size, self.seq_length, self.projection_dim))
             expected_values = np.full((self.projection_dim,), init_value)
             assert np.allclose(layer.gamma.numpy(), expected_values)
 
     def test_trainable_gamma(self):
-        layer = LayerScale(
-            init_values=self.init_values, projection_dim=self.projection_dim
-        )
+        layer = LayerScale(init_values=self.init_values)
         layer.build(self.input_shape)
         assert layer.gamma.trainable
         initial_gamma = layer.gamma.numpy().copy()

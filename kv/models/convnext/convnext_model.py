@@ -55,16 +55,14 @@ def convnext_block(
         x = layers.Dense(4 * projection_dim, name=name + "_dense_1")(x)
     x = layers.Activation("gelu", name=name + "_gelu")(x)
     if use_grn:
-        x = GlobalResponseNorm(4 * projection_dim, name=name + "_grn")(x)
+        x = GlobalResponseNorm(name=name + "_grn")(x)
     if use_conv:
         x = layers.Conv2D(projection_dim, 1, name=name + "_conv_2")(x)
     else:
         x = layers.Dense(projection_dim, name=name + "_dense_2")(x)
 
     if layer_scale_init_value is not None:
-        x = LayerScale(
-            layer_scale_init_value, projection_dim, name=name + "_layer_scale"
-        )(x)
+        x = LayerScale(layer_scale_init_value, name=name + "_layer_scale")(x)
 
     if drop_path_rate:
         x = StochasticDepth(drop_path_rate, name=name + "_stochastic_depth")(x)

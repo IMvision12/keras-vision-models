@@ -99,7 +99,6 @@ def transformer_block(
     )(x)
     if init_values:
         x = LayerScale(
-            projection_dim=dim,
             init_values=init_values,
             name=f"blocks_{block_idx}_layerscale_1",
         )(x)
@@ -118,7 +117,6 @@ def transformer_block(
     )
     if init_values:
         y = LayerScale(
-            projection_dim=dim,
             init_values=init_values,
             name=f"blocks_{block_idx}_layerscale_2",
         )(y)

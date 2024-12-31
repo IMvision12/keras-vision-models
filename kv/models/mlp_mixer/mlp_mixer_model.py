@@ -244,6 +244,17 @@ def MLPMixer_B16(
     name="MLPMixer_B16",
     **kwargs,
 ):
+    if (
+        include_top
+        and weights == "goog_in21k"
+        or weights == "miil_in21k"
+        and num_classes != 11221
+    ):
+        raise ValueError(
+            f"When using 'goog_in21k' or 'miil_in21k' weights, num_classes must be 11221. "
+            f"Received num_classes: {num_classes}"
+        )
+
     model = MLPMixer(
         **MLPMIXER_MODEL_CONFIG["MLPMixer_B16"],
         include_top=include_top,
@@ -259,7 +270,7 @@ def MLPMixer_B16(
 
     if weights in get_all_weight_names(MLPMIXER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "EfficientNetV2L", weights, model, MLPMIXER_WEIGHTS_CONFIG
+            "MLPMixer_B16", weights, model, MLPMIXER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -281,6 +292,12 @@ def MLPMixer_L16(
     name="MLPMixer_L16",
     **kwargs,
 ):
+    if include_top and weights == "goog_in21k" and num_classes != 11221:
+        raise ValueError(
+            f"When using 'goog_in21k' weights, num_classes must be 11221. "
+            f"Received num_classes: {num_classes}"
+        )
+
     model = MLPMixer(
         **MLPMIXER_MODEL_CONFIG["MLPMixer_L16"],
         include_top=include_top,
@@ -296,7 +313,7 @@ def MLPMixer_L16(
 
     if weights in get_all_weight_names(MLPMIXER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "EfficientNetV2L", weights, model, MLPMIXER_WEIGHTS_CONFIG
+            "MLPMixer_L16", weights, model, MLPMIXER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)

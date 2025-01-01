@@ -5,6 +5,7 @@ from .densenet import *
 from .efficientnet import *
 from .efficientnetv2 import *
 from .inceptionv3 import *
+from .mlp_mixer import *
 from .resnet import *
 from .vgg import *
 from .vision_transformer import *

@@ -22,7 +22,7 @@ class TestMultiHeadSelfAttention(TestCase):
         assert layer.num_heads == 8
         assert layer.head_dim == self.dim // 8
         assert layer.scale == (self.dim // 8) ** -0.5
-        assert layer.block_idx == 0
+        assert layer.block_idx == 6
         assert not layer.built
         assert layer.q_norm is None
         assert layer.k_norm is None

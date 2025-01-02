@@ -19,6 +19,8 @@ class MultiHeadSelfAttention(layers.Layer):
         **kwargs: Additional keyword arguments passed to the parent Layer class
     """
 
+    _block_counter = 0
+
     def __init__(
         self,
         dim: int,
@@ -27,11 +29,17 @@ class MultiHeadSelfAttention(layers.Layer):
         qk_norm: bool = False,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
-        block_idx: int = 0,
+        block_idx=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.block_idx = block_idx
+
+        if block_idx is None:
+            self.block_idx = MultiHeadSelfAttention._block_counter
+            MultiHeadSelfAttention._block_counter += 1
+        else:
+            self.block_idx = block_idx
+
         assert dim % num_heads == 0, "dim should be divisible by num_heads"
         self.dim = dim
         self.num_heads = num_heads

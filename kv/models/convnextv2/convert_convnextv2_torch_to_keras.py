@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.convnext import ConvNeXtAtto
+from kv.models.convnextv2 import ConvNeXtV2Atto
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.test_keras_models import run_all_tests
 from kv.utils.weight_split_torch_keras import split_model_weights
@@ -38,8 +38,8 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ConvNeXtAtto,
-    "torch_model_name": "convnext_atto.d2_in1k",
+    "keras_model_cls": ConvNeXtV2Atto,
+    "torch_model_name": "convnextv2_atto.fcmae_ft_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,

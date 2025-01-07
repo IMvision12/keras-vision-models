@@ -41,9 +41,9 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": ConvNeXtAtto,
     "torch_model_name": "convnext_atto.d2_in1k",
     "input_shape": [224, 224, 3],
-    "include_preprocessing": False,
     "num_classes": 1000,
     "include_top": True,
+    "include_preprocessing": False,
     "classifier_activation": "linear",
 }
 

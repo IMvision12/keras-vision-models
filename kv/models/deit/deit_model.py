@@ -8,6 +8,8 @@ from .config import DEIT_MODEL_CONFIG
 @register_model
 def DEiTTiny16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -20,6 +22,8 @@ def DEiTTiny16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiTTiny16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -42,6 +46,8 @@ def DEiTTiny16(
 @register_model
 def DEiTSmall16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -54,6 +60,8 @@ def DEiTSmall16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiTSmall16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -76,6 +84,8 @@ def DEiTSmall16(
 @register_model
 def DEiTBase16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -88,6 +98,8 @@ def DEiTBase16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiTBase16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -110,6 +122,8 @@ def DEiTBase16(
 @register_model
 def DEiTTinyDistilled16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -122,6 +136,8 @@ def DEiTTinyDistilled16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiTTinyDistilled16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -146,6 +162,8 @@ def DEiTTinyDistilled16(
 @register_model
 def DEiTSmallDistilled16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -158,6 +176,8 @@ def DEiTSmallDistilled16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiTSmallDistilled16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -182,6 +202,8 @@ def DEiTSmallDistilled16(
 @register_model
 def DEiTBaseDistilled16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -194,6 +216,8 @@ def DEiTBaseDistilled16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiTBaseDistilled16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -218,6 +242,8 @@ def DEiTBaseDistilled16(
 @register_model
 def DEiT3Small16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -230,6 +256,8 @@ def DEiT3Small16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiT3Small16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -252,6 +280,8 @@ def DEiT3Small16(
 @register_model
 def DEiT3Medium16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -264,6 +294,8 @@ def DEiT3Medium16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiT3Medium16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -286,6 +318,8 @@ def DEiT3Medium16(
 @register_model
 def DEiT3Base16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -298,6 +332,8 @@ def DEiT3Base16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiT3Base16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -320,6 +356,8 @@ def DEiT3Base16(
 @register_model
 def DEiT3Large16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -332,6 +370,8 @@ def DEiT3Large16(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiT3Large16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -354,6 +394,8 @@ def DEiT3Large16(
 @register_model
 def DEiT3Huge14(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fb_in1k",
     input_tensor=None,
     input_shape=None,
@@ -366,6 +408,8 @@ def DEiT3Huge14(
     model = ViT(
         **DEIT_MODEL_CONFIG["DEiT3Huge14"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

@@ -9,6 +9,8 @@ from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_CONFIG
 @register_model
 def ConvNeXtV2Atto(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -25,6 +27,8 @@ def ConvNeXtV2Atto(
         use_grn=True,
         use_conv=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -50,6 +54,8 @@ def ConvNeXtV2Atto(
 @register_model
 def ConvNeXtV2Femto(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -66,6 +72,8 @@ def ConvNeXtV2Femto(
         use_grn=True,
         use_conv=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -91,6 +99,8 @@ def ConvNeXtV2Femto(
 @register_model
 def ConvNeXtV2Pico(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -107,6 +117,8 @@ def ConvNeXtV2Pico(
         use_grn=True,
         use_conv=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -132,6 +144,8 @@ def ConvNeXtV2Pico(
 @register_model
 def ConvNeXtV2Nano(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in22k_in1k",
     input_tensor=None,
     input_shape=None,
@@ -148,6 +162,8 @@ def ConvNeXtV2Nano(
         use_grn=True,
         use_conv=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -173,6 +189,8 @@ def ConvNeXtV2Nano(
 @register_model
 def ConvNeXtV2Tiny(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in22k_in1k",
     input_tensor=None,
     input_shape=None,
@@ -188,6 +206,8 @@ def ConvNeXtV2Tiny(
         layer_scale_init_value=None,
         use_grn=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -213,6 +233,8 @@ def ConvNeXtV2Tiny(
 @register_model
 def ConvNeXtV2Base(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in22k_in1k",
     input_tensor=None,
     input_shape=None,
@@ -228,6 +250,8 @@ def ConvNeXtV2Base(
         layer_scale_init_value=None,
         use_grn=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -253,6 +277,8 @@ def ConvNeXtV2Base(
 @register_model
 def ConvNeXtV2Large(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="fcmae_ft_in22k_in1k",
     input_shape=None,
     input_tensor=None,
@@ -268,6 +294,8 @@ def ConvNeXtV2Large(
         layer_scale_init_value=None,
         use_grn=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

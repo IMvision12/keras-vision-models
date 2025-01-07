@@ -35,10 +35,10 @@ weight_name_mapping: Dict[str, str] = {
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": ConvMixer_768_32,
     "torch_model_name": "convmixer_768_32.in1k",
-    "include_preprocessing": False,
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
+    "include_preprocessing": False,
     "classifier_activation": "linear",
 }
 

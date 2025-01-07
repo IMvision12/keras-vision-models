@@ -3,7 +3,7 @@ from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
 from kv.utils import get_all_weight_names, load_weights_from_config
-
+from kv.layers import ImagePreprocessingLayer
 from ...model_registry import register_model
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHTS_CONFIG
 
@@ -94,6 +94,8 @@ class VGG(keras.Model):
         num_filters,
         batch_norm=False,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="ink1",
         input_shape=None,
         input_tensor=None,
@@ -123,9 +125,15 @@ class VGG(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
+
         # Feature extraction layers
         x = vgg_block(
-            inputs, num_filters, batch_norm=batch_norm, channels_axis=channels_axis
+            x, num_filters, batch_norm=batch_norm, channels_axis=channels_axis
         )
 
         # Pre-logit layers
@@ -153,6 +161,8 @@ class VGG(keras.Model):
         self.num_filters = num_filters
         self.batch_norm = batch_norm
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -163,6 +173,8 @@ class VGG(keras.Model):
             "num_filters": self.num_filters,
             "batch_norm": self.batch_norm,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -180,6 +192,8 @@ class VGG(keras.Model):
 @register_model
 def VGG16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     num_classes=1000,
     weights="tv_ink1",
     input_shape=None,
@@ -192,6 +206,8 @@ def VGG16(
     model = VGG(
         num_filters=VGG_MODEL_CONFIG["VGG16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -215,6 +231,8 @@ def VGG16(
 @register_model
 def VGG19(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     num_classes=1000,
     weights="tv_ink1",
     input_shape=None,
@@ -227,6 +245,8 @@ def VGG19(
     model = VGG(
         num_filters=VGG_MODEL_CONFIG["VGG19"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -250,6 +270,8 @@ def VGG19(
 @register_model
 def VGG16_BN(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     num_classes=1000,
     weights="tv_ink1",
     input_shape=None,
@@ -263,6 +285,8 @@ def VGG16_BN(
         num_filters=VGG_MODEL_CONFIG["VGG16"],
         batch_norm=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -286,6 +310,8 @@ def VGG16_BN(
 @register_model
 def VGG19_BN(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     num_classes=1000,
     weights="tv_ink1",
     input_shape=None,
@@ -299,6 +325,8 @@ def VGG19_BN(
         num_filters=VGG_MODEL_CONFIG["VGG19"],
         batch_norm=True,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,

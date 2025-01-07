@@ -7,6 +7,7 @@ from kv.layers import (
     ClassDistToken,
     LayerScale,
     MultiHeadSelfAttention,
+    ImagePreprocessingLayer
 )
 from kv.utils import get_all_weight_names, load_weights_from_config
 
@@ -215,6 +216,8 @@ class ViT(keras.Model):
         use_distillation=False,
         init_values=None,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="imagenet",
         input_shape=None,
         input_tensor=None,
@@ -256,6 +259,11 @@ class ViT(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
 
         x = layers.Conv2D(
             filters=dim,
@@ -263,7 +271,7 @@ class ViT(keras.Model):
             strides=patch_size,
             padding="valid",
             name="conv1",
-        )(img_input)
+        )(x)
 
         x = layers.Reshape((-1, dim))(x)
         x = ClassDistToken(use_distillation=use_distillation, name="cls_token")(x)
@@ -341,6 +349,8 @@ class ViT(keras.Model):
         self.use_distillation = use_distillation
         self.init_values = init_values
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -361,6 +371,8 @@ class ViT(keras.Model):
             "use_distillation": self.use_distillation,
             "init_values": self.init_values,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -378,6 +390,8 @@ class ViT(keras.Model):
 @register_model
 def ViTTiny16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -396,6 +410,8 @@ def ViTTiny16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_tiny_patch16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -418,6 +434,8 @@ def ViTTiny16(
 @register_model
 def ViTSmall16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -435,6 +453,8 @@ def ViTSmall16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -457,6 +477,8 @@ def ViTSmall16(
 @register_model
 def ViTSmall32(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -474,6 +496,8 @@ def ViTSmall32(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch32"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -496,6 +520,8 @@ def ViTSmall32(
 @register_model
 def ViTBase16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -513,6 +539,8 @@ def ViTBase16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -535,6 +563,8 @@ def ViTBase16(
 @register_model
 def ViTBase32(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -552,6 +582,8 @@ def ViTBase32(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch32"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -574,6 +606,8 @@ def ViTBase32(
 @register_model
 def ViTLarge16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -591,6 +625,8 @@ def ViTLarge16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -613,6 +649,8 @@ def ViTLarge16(
 @register_model
 def ViTLarge32(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="orig_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -625,6 +663,8 @@ def ViTLarge32(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch32"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

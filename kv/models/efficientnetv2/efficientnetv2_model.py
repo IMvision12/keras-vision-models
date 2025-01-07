@@ -6,6 +6,7 @@ from keras import backend, initializers, layers
 from keras.src.applications import imagenet_utils
 
 from kv.utils import get_all_weight_names, load_weights_from_config
+from kv.layers import ImagePreprocessingLayer
 
 from ...model_registry import register_model
 from .config import (
@@ -352,6 +353,8 @@ class EfficientNetV2(keras.Model):
         depth_coefficient,
         default_size,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="imagenet",
         input_shape=None,
         input_tensor=None,
@@ -387,6 +390,12 @@ class EfficientNetV2(keras.Model):
 
         inputs = img_input
 
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
+
         stem_filters = round_filters(
             filters=block_config[0]["input_filters"],
             width_coefficient=width_coefficient,
@@ -399,7 +408,7 @@ class EfficientNetV2(keras.Model):
             padding="same",
             use_bias=False,
             name="conv_stem",
-        )(inputs)
+        )(x)
         x = layers.BatchNormalization(
             axis=channel_axis,
             momentum=0.9,
@@ -481,6 +490,8 @@ class EfficientNetV2(keras.Model):
         self.depth_coefficient = depth_coefficient
         self.default_size = default_size
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -492,6 +503,8 @@ class EfficientNetV2(keras.Model):
             "depth_coefficient": self.depth_coefficient,
             "default_size": self.default_size,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_tensor": self.input_tensor,
             "input_shape": self.input_shape[1:],
             "pooling": self.pooling,
@@ -509,6 +522,8 @@ class EfficientNetV2(keras.Model):
 @register_model
 def EfficientNetV2S(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -527,6 +542,8 @@ def EfficientNetV2S(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -550,6 +567,8 @@ def EfficientNetV2S(
 @register_model
 def EfficientNetV2M(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -568,6 +587,8 @@ def EfficientNetV2M(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -592,6 +613,8 @@ def EfficientNetV2M(
 @register_model
 def EfficientNetV2L(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -610,6 +633,8 @@ def EfficientNetV2L(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -633,6 +658,8 @@ def EfficientNetV2L(
 @register_model
 def EfficientNetV2XL(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -646,6 +673,8 @@ def EfficientNetV2XL(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -670,6 +699,8 @@ def EfficientNetV2XL(
 @register_model
 def EfficientNetV2B0(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -683,6 +714,8 @@ def EfficientNetV2B0(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -706,6 +739,8 @@ def EfficientNetV2B0(
 @register_model
 def EfficientNetV2B1(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -719,6 +754,8 @@ def EfficientNetV2B1(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -742,6 +779,8 @@ def EfficientNetV2B1(
 @register_model
 def EfficientNetV2B2(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -755,6 +794,8 @@ def EfficientNetV2B2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -778,6 +819,8 @@ def EfficientNetV2B2(
 @register_model
 def EfficientNetV2B3(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -791,6 +834,8 @@ def EfficientNetV2B3(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,

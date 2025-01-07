@@ -12,6 +12,8 @@ __all__ = ["resnext_block"]
 @register_model
 def SEResNet50(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="a1_in1k",
     input_tensor=None,
     input_shape=None,
@@ -25,6 +27,8 @@ def SEResNet50(
         filters=SENET_MODEL_CONFIG["SEResNet50"]["filters"],
         senet=SENET_MODEL_CONFIG["SEResNet50"]["senet"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -47,6 +51,8 @@ def SEResNet50(
 @register_model
 def SEResNeXt50_32x4d(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="gluon_in1k",
     input_tensor=None,
     input_shape=None,
@@ -63,6 +69,8 @@ def SEResNeXt50_32x4d(
         width_factor=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["width_factor"],
         senet=SENET_MODEL_CONFIG["SEResNeXt50_32x4d"]["senet"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -87,6 +95,8 @@ def SEResNeXt50_32x4d(
 @register_model
 def SEResNeXt101_32x4d(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="gluon_in1k",
     input_tensor=None,
     input_shape=None,
@@ -103,6 +113,8 @@ def SEResNeXt101_32x4d(
         width_factor=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["width_factor"],
         senet=SENET_MODEL_CONFIG["SEResNeXt101_32x4d"]["senet"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -127,6 +139,8 @@ def SEResNeXt101_32x4d(
 @register_model
 def SEResNeXt101_32x8d(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ah_in1k",
     input_tensor=None,
     input_shape=None,
@@ -143,6 +157,8 @@ def SEResNeXt101_32x8d(
         width_factor=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["width_factor"],
         senet=SENET_MODEL_CONFIG["SEResNeXt101_32x8d"]["senet"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,

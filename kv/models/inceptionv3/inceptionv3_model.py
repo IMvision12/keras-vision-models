@@ -4,6 +4,7 @@ from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
 from kv.utils import get_all_weight_names, load_weights_from_config
+from kv.layers import ImagePreprocessingLayer
 
 from ...model_registry import register_model
 from .config import INCEPTIONV3_WEIGHTS_CONFIG
@@ -322,6 +323,8 @@ class InceptionV3Main(keras.Model):
     def __init__(
         self,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="ink1",
         input_shape=None,
         input_tensor=None,
@@ -349,9 +352,14 @@ class InceptionV3Main(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
 
         # Stem block
-        x = conv_block(inputs, 32, 3, strides=2, name="Conv2d_1a_3x3")
+        x = conv_block(x, 32, 3, strides=2, name="Conv2d_1a_3x3")
         x = conv_block(x, 32, 3, name="Conv2d_2a_3x3")
         x = conv_block(x, 64, 3, padding=None, name="Conv2d_2b_3x3")
 
@@ -392,6 +400,8 @@ class InceptionV3Main(keras.Model):
 
         # Store configuration
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -400,6 +410,8 @@ class InceptionV3Main(keras.Model):
     def get_config(self) -> dict:
         return {
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -417,6 +429,8 @@ class InceptionV3Main(keras.Model):
 @register_model
 def InceptionV3(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     num_classes=1000,
     weights="gluon_in1k",
     input_shape=None,
@@ -428,6 +442,8 @@ def InceptionV3(
 ):
     model = InceptionV3Main(
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,

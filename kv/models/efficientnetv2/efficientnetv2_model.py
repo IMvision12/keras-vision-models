@@ -529,7 +529,7 @@ class EfficientNetV2(keras.Model):
 def EfficientNetV2S(
     include_top=True,
     include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    preprocessing_mode="inception",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -574,7 +574,7 @@ def EfficientNetV2S(
 def EfficientNetV2M(
     include_top=True,
     include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    preprocessing_mode="inception",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -620,7 +620,7 @@ def EfficientNetV2M(
 def EfficientNetV2L(
     include_top=True,
     include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    preprocessing_mode="inception",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -665,7 +665,7 @@ def EfficientNetV2L(
 def EfficientNetV2XL(
     include_top=True,
     include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    preprocessing_mode="inception",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -826,7 +826,7 @@ def EfficientNetV2B2(
 def EfficientNetV2B3(
     include_top=True,
     include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    preprocessing_mode="inception",
     weights="in1k",
     input_tensor=None,
     input_shape=None,

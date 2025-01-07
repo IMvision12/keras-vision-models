@@ -5,7 +5,13 @@ from ..resnet.resnet_model import ResNet
 from ..resnext.resnext_model import resnext_block
 from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_CONFIG
 
-__all__ = ["resnext_block"]
+__all__ = [
+    "resnext_block",
+    "SEResNet50",
+    "SEResNeXt50_32x4d",
+    "SEResNeXt101_32x4d",
+    "SEResNeXt101_32x8d",
+]
 
 
 # SE-resent and SE-ResNext

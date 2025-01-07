@@ -2,7 +2,7 @@ from kv.models.vision_transformer.vision_transformer_model import ViT
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
-from .config import DEIT_MODEL_CONFIG
+from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHTS_CONFIG
 
 
 @register_model
@@ -33,8 +33,8 @@ def DEiTTiny16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiTTiny16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiTTiny16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -71,8 +71,8 @@ def DEiTSmall16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiTSmall16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiTSmall16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -109,8 +109,8 @@ def DEiTBase16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiTBase16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiTBase16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -147,9 +147,9 @@ def DEiTTinyDistilled16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "DEiTTinyDistilled16", weights, model, DEIT_MODEL_CONFIG
+            "DEiTTinyDistilled16", weights, model, DEIT_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -187,9 +187,9 @@ def DEiTSmallDistilled16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "DEiTSmallDistilled16", weights, model, DEIT_MODEL_CONFIG
+            "DEiTSmallDistilled16", weights, model, DEIT_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -227,9 +227,9 @@ def DEiTBaseDistilled16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "DEiTBaseDistilled16", weights, model, DEIT_MODEL_CONFIG
+            "DEiTBaseDistilled16", weights, model, DEIT_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -267,8 +267,8 @@ def DEiT3Small16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiT3Small16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiT3Small16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -305,8 +305,8 @@ def DEiT3Medium16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiT3Medium16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiT3Medium16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -343,8 +343,8 @@ def DEiT3Base16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiT3Base16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiT3Base16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -381,8 +381,8 @@ def DEiT3Large16(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiT3Large16", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiT3Large16", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -419,8 +419,8 @@ def DEiT3Huge14(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights in get_all_weight_names(DEIT_MODEL_CONFIG):
-        load_weights_from_config("DEiT3Huge14", weights, model, DEIT_MODEL_CONFIG)
+    if weights in get_all_weight_names(DEIT_WEIGHTS_CONFIG):
+        load_weights_from_config("DEiT3Huge14", weights, model, DEIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

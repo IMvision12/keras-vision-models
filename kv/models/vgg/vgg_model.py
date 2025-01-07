@@ -2,8 +2,9 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
-from kv.utils import get_all_weight_names, load_weights_from_config
 from kv.layers import ImagePreprocessingLayer
+from kv.utils import get_all_weight_names, load_weights_from_config
+
 from ...model_registry import register_model
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHTS_CONFIG
 

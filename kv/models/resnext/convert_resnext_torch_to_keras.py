@@ -34,7 +34,7 @@ weight_name_mapping: Dict[str, str] = {
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": ResNeXt50_32x4d,
-    "torch_model_name": "resnext50_32x4d.gluon_in1k",
+    "torch_model_name": "resnext50_32x4d.a1_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,

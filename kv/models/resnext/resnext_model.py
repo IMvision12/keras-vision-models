@@ -97,7 +97,7 @@ def ResNeXt50_32x4d(
     include_top=True,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
-    weights="gluon_in1k",
+    weights="a1_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,

@@ -5,6 +5,7 @@ from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
 from kv.utils import get_all_weight_names, load_weights_from_config
+from kv.layers import ImagePreprocessingLayer
 
 from ...model_registry import register_model
 from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_CONFIG
@@ -241,6 +242,8 @@ class ResNet(keras.Model):
         senet=False,
         width_factor=2,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="in1k",
         input_shape=None,
         input_tensor=None,
@@ -269,9 +272,13 @@ class ResNet(keras.Model):
 
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
-
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
         x = conv_block(
-            inputs,
+            x,
             filters[0],
             kernel_size=7,
             strides=2,
@@ -323,6 +330,8 @@ class ResNet(keras.Model):
         self.senet = senet
         self.width_factor = width_factor
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -337,6 +346,8 @@ class ResNet(keras.Model):
             "senet": self.senet,
             "width_factor": self.width_factor,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -355,6 +366,8 @@ class ResNet(keras.Model):
 @register_model
 def ResNet50(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="a1_in1k",
     input_tensor=None,
     input_shape=None,
@@ -367,6 +380,8 @@ def ResNet50(
         block_repeats=RESNET_MODEL_CONFIG["ResNet50"]["block_repeats"],
         filters=RESNET_MODEL_CONFIG["ResNet50"]["filters"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -387,6 +402,8 @@ def ResNet50(
 @register_model
 def ResNet101(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="a1_in1k",
     input_tensor=None,
     input_shape=None,
@@ -400,6 +417,8 @@ def ResNet101(
         block_repeats=RESNET_MODEL_CONFIG["ResNet101"]["block_repeats"],
         filters=RESNET_MODEL_CONFIG["ResNet101"]["filters"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -422,6 +441,8 @@ def ResNet101(
 @register_model
 def ResNet152(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="a1_in1k",
     input_tensor=None,
     input_shape=None,
@@ -435,6 +456,8 @@ def ResNet152(
         block_repeats=RESNET_MODEL_CONFIG["ResNet152"]["block_repeats"],
         filters=RESNET_MODEL_CONFIG["ResNet152"]["filters"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,

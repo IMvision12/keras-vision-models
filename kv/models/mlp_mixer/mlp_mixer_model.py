@@ -3,6 +3,7 @@ from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
 from kv.utils import get_all_weight_names, load_weights_from_config
+from kv.layers import ImagePreprocessingLayer
 
 from ...model_registry import register_model
 from .config import MLPMIXER_MODEL_CONFIG, MLPMIXER_WEIGHTS_CONFIG
@@ -121,6 +122,8 @@ class MLPMixer(keras.Model):
         drop_rate=0.0,
         drop_path_rate=0.0,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="imagenet",
         input_tensor=None,
         input_shape=None,
@@ -150,13 +153,19 @@ class MLPMixer(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
+
         # Patch embedding
         x = layers.Conv2D(
             embed_dim,
             kernel_size=patch_size,
             strides=patch_size,
             name="stem_conv",
-        )(inputs)
+        )(x)
 
         num_patches = (input_shape[0] // patch_size) * (input_shape[1] // patch_size)
         x = layers.Reshape((num_patches, embed_dim))(x)
@@ -204,6 +213,8 @@ class MLPMixer(keras.Model):
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -218,6 +229,8 @@ class MLPMixer(keras.Model):
             "drop_rate": self.drop_rate,
             "drop_path_rate": self.drop_path_rate,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -235,6 +248,8 @@ class MLPMixer(keras.Model):
 @register_model
 def MLPMixer_B16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="goog_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -258,6 +273,8 @@ def MLPMixer_B16(
     model = MLPMixer(
         **MLPMIXER_MODEL_CONFIG["MLPMixer_B16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -283,6 +300,8 @@ def MLPMixer_B16(
 @register_model
 def MLPMixer_L16(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="goog_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -301,6 +320,8 @@ def MLPMixer_L16(
     model = MLPMixer(
         **MLPMIXER_MODEL_CONFIG["MLPMixer_L16"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,

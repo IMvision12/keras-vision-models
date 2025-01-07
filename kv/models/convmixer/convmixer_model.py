@@ -4,6 +4,7 @@ from keras.src.applications import imagenet_utils
 
 from kv.utils import get_all_weight_names, load_weights_from_config
 
+from kv.layers import ImagePreprocessingLayer
 from ...model_registry import register_model
 from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_CONFIG
 
@@ -98,6 +99,8 @@ class ConvMixer(keras.Model):
         patch_size,
         act_layer="gelu",
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="ink1",
         input_shape=None,
         input_tensor=None,
@@ -127,6 +130,12 @@ class ConvMixer(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
+
         # Stem layer
         x = layers.Conv2D(
             dim,
@@ -135,7 +144,7 @@ class ConvMixer(keras.Model):
             use_bias=True,
             activation=act_layer,
             name="stem_conv2d",
-        )(inputs)
+        )(x)
         x = layers.BatchNormalization(
             axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_batchnorm"
         )(x)
@@ -168,6 +177,8 @@ class ConvMixer(keras.Model):
         self.kernel_size = kernel_size
         self.act_layer = act_layer
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -181,6 +192,8 @@ class ConvMixer(keras.Model):
             "kernel_size": self.kernel_size,
             "act_layer": self.act_layer,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -198,6 +211,8 @@ class ConvMixer(keras.Model):
 @register_model
 def ConvMixer_1536_20(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ink1",
     input_tensor=None,
     input_shape=None,
@@ -210,6 +225,8 @@ def ConvMixer_1536_20(
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -235,6 +252,8 @@ def ConvMixer_1536_20(
 @register_model
 def ConvMixer_768_32(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ink1",
     input_tensor=None,
     input_shape=None,
@@ -248,6 +267,8 @@ def ConvMixer_768_32(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
         act_layer="relu",
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -272,6 +293,8 @@ def ConvMixer_768_32(
 @register_model
 def ConvMixer_1024_20(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ink1",
     input_tensor=None,
     input_shape=None,
@@ -284,6 +307,8 @@ def ConvMixer_1024_20(
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,

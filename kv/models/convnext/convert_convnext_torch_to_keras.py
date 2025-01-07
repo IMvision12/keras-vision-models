@@ -41,6 +41,7 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": ConvNeXtAtto,
     "torch_model_name": "convnext_atto.d2_in1k",
     "input_shape": [224, 224, 3],
+    "include_preprocessing": False,
     "num_classes": 1000,
     "include_top": True,
     "classifier_activation": "linear",
@@ -68,6 +69,7 @@ def create_model(
             weights=None,
             num_classes=config["num_classes"],
             include_top=config["include_top"],
+            include_preprocessing=config["include_preprocessing"],
             input_shape=config["input_shape"],
             classifier_activation=config["classifier_activation"],
         )

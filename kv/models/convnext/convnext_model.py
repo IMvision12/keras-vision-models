@@ -6,6 +6,8 @@ from keras.src.applications import imagenet_utils
 from kv.layers.global_response_norm import GlobalResponseNorm
 from kv.layers.layer_scale import LayerScale
 from kv.layers.stochastic_depth import StochasticDepth
+from kv.layers import ImagePreprocessingLayer
+
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
@@ -122,6 +124,8 @@ class ConvNeXt(keras.Model):
         use_conv=False,
         use_grn=False,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="in1k",
         input_shape=None,
         input_tensor=None,
@@ -151,10 +155,15 @@ class ConvNeXt(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
         # Stem block
         x = layers.Conv2D(
             projection_dims[0], kernel_size=4, strides=4, name="stem_conv"
-        )(img_input)
+        )(x)
         x = layers.LayerNormalization(
             axis=channels_axis, epsilon=1e-6, name="stem_layernorm"
         )(x)
@@ -211,6 +220,8 @@ class ConvNeXt(keras.Model):
         self.use_conv = use_conv
         self.use_grn = use_grn
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -225,6 +236,8 @@ class ConvNeXt(keras.Model):
             "use_conv": self.use_conv,
             "use_grn": self.use_grn,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -242,6 +255,8 @@ class ConvNeXt(keras.Model):
 @register_model
 def ConvNeXtAtto(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="d2_in1k",
     input_tensor=None,
     input_shape=None,
@@ -257,6 +272,8 @@ def ConvNeXtAtto(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -282,6 +299,8 @@ def ConvNeXtAtto(
 @register_model
 def ConvNeXtFemto(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="d1_in1k",
     input_tensor=None,
     input_shape=None,
@@ -297,6 +316,8 @@ def ConvNeXtFemto(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -322,6 +343,8 @@ def ConvNeXtFemto(
 @register_model
 def ConvNeXtPico(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="d1_in1k",
     input_tensor=None,
     input_shape=None,
@@ -337,6 +360,8 @@ def ConvNeXtPico(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -362,6 +387,8 @@ def ConvNeXtPico(
 @register_model
 def ConvNeXtNano(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="d1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -377,6 +404,8 @@ def ConvNeXtNano(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -402,6 +431,8 @@ def ConvNeXtNano(
 @register_model
 def ConvNeXtTiny(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -422,6 +453,8 @@ def ConvNeXtTiny(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -447,6 +480,8 @@ def ConvNeXtTiny(
 @register_model
 def ConvNeXtSmall(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -467,6 +502,8 @@ def ConvNeXtSmall(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -492,6 +529,8 @@ def ConvNeXtSmall(
 @register_model
 def ConvNeXtBase(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -512,6 +551,8 @@ def ConvNeXtBase(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -537,6 +578,8 @@ def ConvNeXtBase(
 @register_model
 def ConvNeXtLarge(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -557,6 +600,8 @@ def ConvNeXtLarge(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -582,6 +627,8 @@ def ConvNeXtLarge(
 @register_model
 def ConvNeXtXLarge(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -607,6 +654,8 @@ def ConvNeXtXLarge(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

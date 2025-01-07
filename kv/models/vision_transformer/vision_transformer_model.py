@@ -161,6 +161,12 @@ class ViT(keras.Model):
             Defaults to `False`.
         include_top: Boolean, whether to include the classification head.
             Defaults to `True`.
+        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_preprocessing=True.
         weights: String, specifying the path to pretrained weights or available options.
             Use "imagenet" for standard ViT weights or "flexivit" for FlexiViT weights.
         input_shape: Optional tuple specifying the shape of the input data.

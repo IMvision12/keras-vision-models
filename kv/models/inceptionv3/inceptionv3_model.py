@@ -330,7 +330,7 @@ class InceptionV3Main(keras.Model):
         self,
         include_top=True,
         include_preprocessing=True,
-        preprocessing_mode="imagenet",
+        preprocessing_mode="inception",
         weights="ink1",
         input_shape=None,
         input_tensor=None,
@@ -436,7 +436,7 @@ class InceptionV3Main(keras.Model):
 def InceptionV3(
     include_top=True,
     include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    preprocessing_mode="inception",
     num_classes=1000,
     weights="gluon_in1k",
     input_shape=None,

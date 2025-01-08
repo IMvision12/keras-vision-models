@@ -2,6 +2,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
+from kv.layers import ImagePreprocessingLayer
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
@@ -128,6 +129,12 @@ class DenseNet(keras.Model):
             Defaults to `64`.
         include_top: Boolean, whether to include the fully-connected classification head
             at the top of the network. Defaults to `True`.
+        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_preprocessing=True.
         weights: String, specifying the path to pretrained weights or one of the available
             options in `keras-vision`.
         input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as the
@@ -155,6 +162,8 @@ class DenseNet(keras.Model):
         growth_rate,
         initial_filter=64,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="imagenet",
         input_shape=(None, None, 3),
         input_tensor=None,
@@ -183,9 +192,15 @@ class DenseNet(keras.Model):
             else:
                 img_input = input_tensor
 
+        inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
 
-        x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)))(img_input)
+        x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)))(x)
         x = layers.Conv2D(initial_filter, 7, 2, use_bias=False, name="stem_conv")(x)
         x = layers.BatchNormalization(
             axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_norm"
@@ -237,6 +252,8 @@ class DenseNet(keras.Model):
         self.growth_rate = growth_rate
         self.initial_filter = initial_filter
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -248,6 +265,8 @@ class DenseNet(keras.Model):
             "growth_rate": self.growth_rate,
             "initial_filter": self.initial_filter,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -265,6 +284,8 @@ class DenseNet(keras.Model):
 @register_model
 def DenseNet121(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="tv_in1k",
     input_tensor=None,
     input_shape=None,
@@ -277,6 +298,8 @@ def DenseNet121(
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet121"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -302,6 +325,8 @@ def DenseNet121(
 @register_model
 def DenseNet161(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="tv_in1k",
     input_tensor=None,
     input_shape=None,
@@ -315,6 +340,8 @@ def DenseNet161(
         **DENSENET_MODEL_CONFIG["DenseNet161"],
         initial_filter=96,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -340,6 +367,8 @@ def DenseNet161(
 @register_model
 def DenseNet169(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="tv_in1k",
     input_tensor=None,
     input_shape=None,
@@ -352,6 +381,8 @@ def DenseNet169(
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet169"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,
@@ -377,6 +408,8 @@ def DenseNet169(
 @register_model
 def DenseNet201(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="tv_in1k",
     input_tensor=None,
     input_shape=None,
@@ -389,6 +422,8 @@ def DenseNet201(
     model = DenseNet(
         **DENSENET_MODEL_CONFIG["DenseNet201"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,

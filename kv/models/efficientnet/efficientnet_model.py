@@ -5,6 +5,7 @@ import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
 
+from kv.layers import ImagePreprocessingLayer
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
@@ -195,6 +196,12 @@ class EfficientNet(keras.Model):
         default_size: Integer, default resolution of input images.
         include_top: Boolean, whether to include the classification head at the
             top of the network. Defaults to `True`.
+        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_preprocessing=True.
         weights: String, specifying the path to pretrained weights or one of the
             available options in `keras-vision`.
         input_tensor: Optional Keras tensor (output of `layers.Input()`) to use
@@ -224,6 +231,8 @@ class EfficientNet(keras.Model):
         dropout_rate,
         default_size,
         include_top=True,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
         weights="ink1",
         input_shape=None,
         input_tensor=None,
@@ -253,7 +262,13 @@ class EfficientNet(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
-        x = layers.ZeroPadding2D(padding=imagenet_utils.correct_pad(inputs, 3))(inputs)
+        x = (
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
+
+        x = layers.ZeroPadding2D(padding=imagenet_utils.correct_pad(inputs, 3))(x)
         x = layers.Conv2D(
             round_filters(32, width_coefficient=width_coefficient),
             3,
@@ -338,6 +353,8 @@ class EfficientNet(keras.Model):
         self.default_size = default_size
         self.dropout_rate = dropout_rate
         self.include_top = include_top
+        self.include_preprocessing = include_preprocessing
+        self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -350,6 +367,8 @@ class EfficientNet(keras.Model):
             "default_size": self.default_size,
             "dropout_rate": self.dropout_rate,
             "include_top": self.include_top,
+            "include_preprocessing": self.include_preprocessing,
+            "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -367,6 +386,8 @@ class EfficientNet(keras.Model):
 @register_model
 def EfficientNetB0(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -380,6 +401,8 @@ def EfficientNetB0(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB0"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -404,6 +427,8 @@ def EfficientNetB0(
 @register_model
 def EfficientNetB1(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -417,6 +442,8 @@ def EfficientNetB1(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB1"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -440,6 +467,8 @@ def EfficientNetB1(
 @register_model
 def EfficientNetB2(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -453,6 +482,8 @@ def EfficientNetB2(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB2"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -476,6 +507,8 @@ def EfficientNetB2(
 @register_model
 def EfficientNetB3(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -489,6 +522,8 @@ def EfficientNetB3(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB3"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -512,6 +547,8 @@ def EfficientNetB3(
 @register_model
 def EfficientNetB4(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -525,6 +562,8 @@ def EfficientNetB4(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB4"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -548,6 +587,8 @@ def EfficientNetB4(
 @register_model
 def EfficientNetB5(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -561,6 +602,8 @@ def EfficientNetB5(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB5"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -584,6 +627,8 @@ def EfficientNetB5(
 @register_model
 def EfficientNetB6(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -597,6 +642,8 @@ def EfficientNetB6(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB6"],
         name=name,
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -620,6 +667,8 @@ def EfficientNetB6(
 @register_model
 def EfficientNetB7(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -632,6 +681,8 @@ def EfficientNetB7(
     model = EfficientNet(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB7"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -656,6 +707,8 @@ def EfficientNetB7(
 @register_model
 def EfficientNetB8(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ap_in1k",
     input_tensor=None,
     input_shape=None,
@@ -668,6 +721,8 @@ def EfficientNetB8(
     model = EfficientNet(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetB8"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,
@@ -692,6 +747,8 @@ def EfficientNetB8(
 @register_model
 def EfficientNetL2(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="ns_jft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -704,6 +761,8 @@ def EfficientNetL2(
     model = EfficientNet(
         **EFFICIENTNET_MODEL_CONFIG["EfficientNetL2"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         input_tensor=input_tensor,
         input_shape=input_shape,

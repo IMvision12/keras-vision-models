@@ -8,6 +8,8 @@ from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_CONFIG
 @register_model
 def FlexiViTSmall(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="1200ep_in1k",
     input_tensor=None,
     input_shape=None,
@@ -32,6 +34,8 @@ def FlexiViTSmall(
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTSmall"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -57,6 +61,8 @@ def FlexiViTSmall(
 @register_model
 def FlexiViTBase(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="1200ep_in1k",
     input_tensor=None,
     input_shape=None,
@@ -81,6 +87,8 @@ def FlexiViTBase(
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTBase"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -106,6 +114,8 @@ def FlexiViTBase(
 @register_model
 def FlexiViTLarge(
     include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
     weights="1200ep_in1k",
     input_tensor=None,
     input_shape=None,
@@ -130,6 +140,8 @@ def FlexiViTLarge(
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTLarge"],
         include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

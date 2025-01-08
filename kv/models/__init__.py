@@ -5,8 +5,11 @@ from .deit import *
 from .densenet import *
 from .efficientnet import *
 from .efficientnetv2 import *
+from .flexivit import *
 from .inceptionv3 import *
 from .mlp_mixer import *
 from .resnet import *
+from .resnext import *
+from .senet import *
 from .vgg import *
 from .vision_transformer import *

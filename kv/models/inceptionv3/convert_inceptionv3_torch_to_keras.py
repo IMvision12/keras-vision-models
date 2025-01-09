@@ -8,8 +8,8 @@ from tqdm import tqdm
 
 from kv.models.inceptionv3 import InceptionV3
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kv.utils.test_keras_models import run_all_tests
-from kv.utils.weight_split_torch_keras import split_model_weights
+from kv.utils.model_equivalence_tester import verify_model_equivalence
+from kv.utils.weight_split_torch_and_keras import split_model_weights
 from kv.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
@@ -126,11 +126,12 @@ for keras_weight, keras_weight_name in tqdm(
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 
-results = run_all_tests(
-    keras_model=keras_model,
-    torch_model=torch_model,
+results = verify_model_equivalence(
+    model_a=torch_model,
+    model_b=keras_model,
     input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
+    run_performance=False,
 )
 
 

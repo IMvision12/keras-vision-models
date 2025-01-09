@@ -145,9 +145,9 @@ def verify_model_equivalence(
         else:
             output = keras.ops.convert_to_numpy(model(input_data, training=False))
 
-        assert (
-            output.shape == expected_shape
-        ), f"Output shape mismatch: expected {expected_shape}, got {output.shape}"
+        assert output.shape == expected_shape, (
+            f"Output shape mismatch: expected {expected_shape}, got {output.shape}"
+        )
         return output
 
     def test_outputs(output_a: np.ndarray, output_b: np.ndarray) -> bool:
@@ -286,7 +286,7 @@ def verify_model_equivalence(
 
         print(f"Model A average inference time: {time_a:.4f}s")
         print(f"Model B average inference time: {time_b:.4f}s")
-        print(f"Time ratio (B/A): {time_b/time_a:.2f}x")
+        print(f"Time ratio (B/A): {time_b / time_a:.2f}x")
 
     print("\n=== Test Summary ===")
     all_tests = [results["standard_input"]] + [

@@ -153,6 +153,7 @@ results = verify_model_equivalence(
     model_b=keras_model,
     input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
+    run_performance=False,
 )
 
 if results["standard_input"]:

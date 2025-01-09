@@ -1,9 +1,6 @@
 name: Weights Conversion Tests
 
 on:
-  push:
-    branches:
-      - '**'
   pull_request:
     branches:
       - main

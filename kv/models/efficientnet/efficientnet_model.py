@@ -78,6 +78,7 @@ def efficientnet_block(
     expand_ratio=1,
     se_ratio=0.0,
     id_skip=True,
+    act_fn=None,
 ):
     """
     Implements a mobile inverted residual block with squeeze-and-excitation,
@@ -95,6 +96,7 @@ def efficientnet_block(
         expand_ratio: Channel expansion ratio for the MBConv block. Default is 1.
         se_ratio: Squeeze-and-excitation ratio, determining the bottleneck size. Default is 0.0.
         id_skip: Whether to include a residual connection. Default is True.
+        act_fn: Activation function to be used in the block. Default is None.
 
     Returns:
         Output tensor for the block.
@@ -112,7 +114,7 @@ def efficientnet_block(
             name=name + "conv2d_1",
         )(inputs)
         x = layers.BatchNormalization(axis=channels_axis, name=name + "batchnorm_1")(x)
-        x = layers.Activation("swish")(x)
+        x = act_fn(x)
     else:
         x = inputs
 
@@ -132,9 +134,9 @@ def efficientnet_block(
         name=name + "dwconv2d",
     )(x)
     x = layers.BatchNormalization(axis=channels_axis, name=name + "batchnorm_2")(x)
-    x = layers.Activation("swish")(x)
+    x = act_fn(x)
 
-    if 0 < se_ratio <= 1:
+    if se_ratio is not None and 0 < se_ratio <= 1:
         filters_se = max(1, int(filters_in * se_ratio))
         se = layers.GlobalAveragePooling2D()(x)
         if channels_axis == 1:
@@ -194,6 +196,10 @@ class EfficientNet(keras.Model):
             (number of layers).
         dropout_rate: Float, dropout rate used in the final classification layer.
         default_size: Integer, default resolution of input images.
+        use_se: Boolean, whether to use Squeeze-and-Excitation (SE) blocks.
+            Defaults to True.
+        activation: String or callable, specifying the activation function to use
+            throughout the network. Defaults to "swish".
         include_top: Boolean, whether to include the classification head at the
             top of the network. Defaults to `True`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
@@ -230,6 +236,8 @@ class EfficientNet(keras.Model):
         depth_coefficient,
         dropout_rate,
         default_size,
+        use_se=True,
+        activation="swish",
         include_top=True,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
@@ -262,6 +270,13 @@ class EfficientNet(keras.Model):
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
+        if activation == "swish":
+            act_fn = keras.activations.swish
+        elif activation == "relu6":
+            act_fn = keras.activations.relu6
+        else:
+            act_fn = activation
+
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
@@ -279,7 +294,7 @@ class EfficientNet(keras.Model):
             name="conv_stem",
         )(x)
         x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_1")(x)
-        x = layers.Activation("swish")(x)
+        x = act_fn(x)
 
         b = 0
         blocks = float(
@@ -292,6 +307,9 @@ class EfficientNet(keras.Model):
         for i, block_args in enumerate(DEFAULT_BLOCKS_ARGS):
             assert block_args["repeats"] > 0
             args = copy.deepcopy(block_args)
+
+            if not use_se:
+                args["se_ratio"] = None
 
             args["filters_in"] = round_filters(
                 args["filters_in"], width_coefficient=width_coefficient
@@ -314,6 +332,7 @@ class EfficientNet(keras.Model):
                     x,
                     dropout_rate * b / blocks,
                     name=f"blocks_{i}_{j}_",
+                    act_fn=act_fn,
                     **args,
                 )
                 b += 1
@@ -328,7 +347,7 @@ class EfficientNet(keras.Model):
             name="conv_head",
         )(x)
         x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_2")(x)
-        x = layers.Activation("swish")(x)
+        x = act_fn(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(name="avg_pool")(x)

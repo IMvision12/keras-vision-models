@@ -4,6 +4,7 @@ from .convnextv2 import *
 from .deit import *
 from .densenet import *
 from .efficientnet import *
+from .efficientnet_lite import *
 from .efficientnetv2 import *
 from .flexivit import *
 from .inceptionv3 import *

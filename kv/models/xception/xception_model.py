@@ -126,7 +126,7 @@ def exit_flow(x):
 
 
 @keras.saving.register_keras_serializable(package="kv")
-class MainXception(keras.Model):
+class XceptionMain(keras.Model):
     """
     Instantiates the Xception architecture.
 
@@ -142,8 +142,8 @@ class MainXception(keras.Model):
         preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
             'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
             'minus_one_to_one'. Only used when include_preprocessing=True.
-        weights: String, path to pretrained weights or one of the available options in `keras-vision`.
-            Options include 'in1k', 'in22k', or `None` to initialize the model with random weights.
+        weights: String, specifying the path to pretrained weights or one of the
+            available options in `keras-vision`.
         input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as the model's input.
             If not provided, a new input tensor is created based on `input_shape`.
         input_shape: Optional tuple specifying the shape of the input data. If not specified, defaults to `(299, 299, 3)`.
@@ -257,7 +257,7 @@ def Xception(
     name="Xception",
     **kwargs,
 ):
-    model = MainXception(
+    model = XceptionMain(
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,

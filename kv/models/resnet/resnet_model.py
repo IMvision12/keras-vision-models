@@ -218,8 +218,8 @@ class ResNet(keras.Model):
         preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
             'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
             'minus_one_to_one'. Only used when include_preprocessing=True.
-        weights: String, path to pretrained weights or one of the available
-            options in `keras-vision`. Defaults to `'in1k'`.
+        weights: String, specifying the path to pretrained weights or one of the
+            available options in `keras-vision`.
         input_tensor: Optional Keras tensor to use as the model's input. If not provided,
             a new input tensor is created based on `input_shape`.
         input_shape: Optional tuple specifying the shape of the input data. If not

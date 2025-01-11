@@ -15,22 +15,22 @@ from kv.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
-    "_":".",
-    "conv.stem":"conv_stem",
-    "conv2d.1":"conv_pw",
-    "dwconv2d":"conv_dw",
-    "conv2d.2":"conv_pwl",
-    "batchnorm.1":"bn1",
-    "batchnorm.2":"bn2",
-    "batchnorm.3":"bn3",
-    "blocks.0.0.bn2":"blocks.0.0.bn1",
-    "blocks.0.0.bn3":"blocks.0.0.bn2",
-    "blocks.0.0.conv_pwl":"blocks.0.0.conv_pw",
-    "conv.head":"conv_head",
+    "_": ".",
+    "conv.stem": "conv_stem",
+    "conv2d.1": "conv_pw",
+    "dwconv2d": "conv_dw",
+    "conv2d.2": "conv_pwl",
+    "batchnorm.1": "bn1",
+    "batchnorm.2": "bn2",
+    "batchnorm.3": "bn3",
+    "blocks.0.0.bn2": "blocks.0.0.bn1",
+    "blocks.0.0.bn3": "blocks.0.0.bn2",
+    "blocks.0.0.conv_pwl": "blocks.0.0.conv_pw",
+    "conv.head": "conv_head",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
-    "bias":"bias",
+    "bias": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
     "predictions": "classifier",
@@ -39,7 +39,11 @@ weight_name_mapping = {
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": EfficientNetLite4,
     "torch_model_name": "tf_efficientnet_lite4",
-    "input_shape": [380, 380, 3], # Change as per the default given for different models
+    "input_shape": [
+        380,
+        380,
+        3,
+    ],  # Change as per the default given for different models
     "num_classes": 1000,
     "include_top": True,
     "include_preprocessing": False,

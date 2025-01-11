@@ -4,11 +4,19 @@ import math
 import keras
 from keras import backend, layers
 from keras.src.applications import imagenet_utils
+
+from kv.layers import ImagePreprocessingLayer
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model
-from kv.layers import ImagePreprocessingLayer
-from .config import CONV_KERNEL_INITIALIZER, EFFICIENTNET_LITE_MODEL_CONFIG, DEFAULT_BLOCKS_ARGS, DENSE_KERNEL_INITIALIZER, EFFICIENTNET_LITE_WEIGHTS_CONFIG
+from .config import (
+    CONV_KERNEL_INITIALIZER,
+    DEFAULT_BLOCKS_ARGS,
+    DENSE_KERNEL_INITIALIZER,
+    EFFICIENTNET_LITE_MODEL_CONFIG,
+    EFFICIENTNET_LITE_WEIGHTS_CONFIG,
+)
+
 
 def round_filters(filters, width_coefficient, divisor=8):
     """
@@ -59,7 +67,8 @@ def round_repeats(repeats, depth_coefficient):
     return int(math.ceil(depth_coefficient * repeats))
 
 
-def efficientnetlite_block(inputs,
+def efficientnetlite_block(
+    inputs,
     drop_rate=0.0,
     name="",
     filters_in=32,
@@ -67,8 +76,8 @@ def efficientnetlite_block(inputs,
     kernel_size=3,
     strides=1,
     expand_ratio=1,
-    id_skip=True,):
-    
+    id_skip=True,
+):
     """
     Implements a mobile inverted residual block (MBConv) optimized for EfficientNet-Lite architecture.
     This block performs channel expansion, depthwise separable convolution, and projection while being
@@ -186,6 +195,7 @@ class EfficientNetLite(keras.Model):
     Returns:
         A Keras `Model` instance.
     """
+
     def __init__(
         self,
         width_coefficient,
@@ -376,6 +386,7 @@ def EfficientNetLite0(
 
     return model
 
+
 @register_model
 def EfficientNetLite1(
     include_top=True,
@@ -414,6 +425,7 @@ def EfficientNetLite1(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def EfficientNetLite2(
@@ -454,6 +466,7 @@ def EfficientNetLite2(
 
     return model
 
+
 @register_model
 def EfficientNetLite3(
     include_top=True,
@@ -492,6 +505,7 @@ def EfficientNetLite3(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def EfficientNetLite4(

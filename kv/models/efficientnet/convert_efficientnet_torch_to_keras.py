@@ -47,7 +47,11 @@ weight_name_mapping = {**base_mappings, **block_mappings}
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": EfficientNetB0,
     "torch_model_name": "tf_efficientnet_b0.ns_jft_in1k",
-    "input_shape": [224, 224, 3], # Change as per the default given for different models
+    "input_shape": [
+        224,
+        224,
+        3,
+    ],  # Change as per the default given for different models
     "num_classes": 1000,
     "include_top": True,
     "include_preprocessing": False,

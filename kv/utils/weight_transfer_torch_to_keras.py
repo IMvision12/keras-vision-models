@@ -117,7 +117,7 @@ def transform_conv_weights(
 
     elif any(
         substring in keras_name.lower()
-        for substring in ["conv", "conv2d", "pointwise", "downsample"]
+        for substring in ["conv", "conv2d", "pointwise", "downsample", "sr"]
     ):
         # Standard 2D convolution
         return np.transpose(torch_weight, [2, 3, 1, 0])

@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import keras
 
 from kv.models import Xception
-from kv.utils.model_equivalence_tester import verify_model_equivalence
+from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 
 
 def create_model(
@@ -55,7 +55,7 @@ if not original_model or not custom_model:
 original_weights = original_model.get_weights()
 custom_model.set_weights(original_weights)
 
-results = verify_model_equivalence(
+results = verify_cls_model_equivalence(
     original_model,
     custom_model,
     input_shape=(299, 299, 3),

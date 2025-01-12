@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from kv.models.flexivit import FlexiViTSmall
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kv.utils.model_equivalence_tester import verify_model_equivalence
+from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
 from kv.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
@@ -140,7 +140,7 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-results = verify_model_equivalence(
+results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,
     input_shape=(240, 240, 3),

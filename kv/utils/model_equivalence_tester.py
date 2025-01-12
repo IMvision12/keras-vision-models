@@ -3,7 +3,8 @@ Model Equivalence Verification Utility for PyTorch and Keras Models
 
 This module provides functionality to verify the equivalence of neural network models
 between PyTorch and Keras frameworks, as well as between different Keras models.
-It performs comprehensive testing of model outputs and optional performance benchmarking.
+It performs comprehensive testing of model outputs, optional performance benchmarking,
+and ImageNet prediction verification.
 
 Key Features:
 - Supports comparison between PyTorch and Keras models
@@ -13,6 +14,8 @@ Key Features:
 - Provides detailed test results and diagnostics
 - Handles both single and batch inference
 - Supports custom tolerance levels for output comparison
+- Optional ImageNet prediction testing with predefined test cases
+- Detailed error reporting and difference analysis
 
 Dependencies:
 - numpy
@@ -21,10 +24,11 @@ Dependencies:
 - keras
 - typing
 - time
+- os
 
 Example Usage:
-    # For PyTorch to Keras comparison
-    results = verify_model_equivalence(
+    # For PyTorch to Keras comparison with standard tests
+    results = verify_cls_model_equivalence(
         model_a=torch_model,           # PyTorch model
         model_b=keras_model,           # Keras model
         input_shape=(224, 224, 3),     # Input shape without batch dimension
@@ -34,15 +38,14 @@ Example Usage:
         run_performance=True
     )
 
-    # For Keras to Keras comparison
-    results = verify_model_equivalence(
-        model_a=keras_model_1,         # First Keras model
-        model_b=keras_model_2,         # Second Keras model
+    # For ImageNet prediction testing only
+    results = verify_cls_model_equivalence(
+        model_a=None,                  # Not required for ImageNet testing
+        model_b=keras_model,           # Keras model to test
         input_shape=(224, 224, 3),     # Input shape without batch dimension
         output_specs={"num_classes": 1000},
-        comparison_type="keras_to_keras",
-        batch_sizes=[1, 4, 8],
-        run_performance=True
+        test_imagenet_image=True,
+        prediction_threshold=0.5
     )
 
 Return Value:
@@ -50,10 +53,26 @@ Return Value:
     {
         "standard_input": bool,              # Result of single sample test
         "batch_size_N": bool,                # Results for each batch size
+        "standard_input_diff": {             # Optional difference metrics if test fails
+            "max_difference": float,
+            "mean_difference": float
+        },
         "performance": {                     # Optional performance metrics
             "model_a_inference_time": float,
             "model_b_inference_time": float,
             "time_ratio": float
+        },
+        "imagenet_test": {                   # Optional ImageNet test results
+            "image_name": {
+                "success": bool,
+                "predicted_class": str,
+                "expected_class": str,
+                "class_matched": bool,
+                "confidence": float,
+                "threshold": float,
+                "threshold_passed": bool
+            },
+            "all_passed": bool
         }
     }
 
@@ -63,8 +82,13 @@ Notes:
 - Performance testing runs multiple inferences to get average timing
 - Different random seeds are used for reproducibility
 - Custom tolerance levels can be set for numerical comparison
+- ImageNet testing includes predefined test cases with expected classes
+- For ImageNet testing only, model_a can be None
+- keras model should have preprocessing=True for ImageNet Testing
+- Detailed error reporting includes maximum and mean differences when tests fail
 """
 
+import os
 from time import time
 from typing import Any, Dict, List, Tuple, Union
 
@@ -72,10 +96,12 @@ import keras
 import numpy as np
 import tensorflow as tf
 import torch
+from keras import ops, utils
+from keras.src.applications.imagenet_utils import decode_predictions
 
 
-def verify_model_equivalence(
-    model_a: Union[keras.Model, torch.nn.Module],
+def verify_cls_model_equivalence(
+    model_a: Union[keras.Model, torch.nn.Module, None],
     model_b: keras.Model,
     input_shape: Union[Tuple[int, ...], List[int]],
     output_specs: Dict[str, Any],
@@ -86,25 +112,143 @@ def verify_model_equivalence(
     seed: int = 2025,
     atol: float = 1e-5,
     rtol: float = 1e-5,
+    test_imagenet_image: bool = False,
+    prediction_threshold: float = 0.5,
 ) -> Dict[str, Any]:
+    """
+    Verify equivalence between two models, with optional ImageNet testing.
+    For ImageNet testing only, model_a can be None.
+
+    Args:
+        model_a: Source model (PyTorch or Keras) or None if only testing ImageNet
+        model_b: Target Keras model
+        input_shape: Shape of input tensor (excluding batch dimension)
+        output_specs: Dictionary containing output specifications
+        comparison_type: Type of comparison ('torch_to_keras' or 'keras_to_keras')
+        batch_sizes: List of batch sizes to test
+        run_performance: Whether to run performance comparison
+        num_performance_runs: Number of runs for performance testing
+        seed: Random seed for reproducibility
+        atol: Absolute tolerance for numerical comparisons
+        rtol: Relative tolerance for numerical comparisons
+        test_imagenet_image: Whether to run ImageNet testing only
+        prediction_threshold: Confidence threshold for ImageNet predictions
+
+    Returns:
+        Dictionary containing test results
+    """
     results = {}
 
-    if comparison_type not in ["torch_to_keras", "keras_to_keras"]:
-        raise ValueError(
-            "comparison_type must be either 'torch_to_keras' or 'keras_to_keras'"
-        )
+    # Skip model type validation if only running ImageNet tests
+    if not test_imagenet_image:
+        if comparison_type not in ["torch_to_keras", "keras_to_keras"]:
+            raise ValueError(
+                "comparison_type must be either 'torch_to_keras' or 'keras_to_keras'"
+            )
 
-    if comparison_type == "torch_to_keras" and not isinstance(model_a, torch.nn.Module):
-        raise ValueError(
-            "model_a must be a PyTorch model when comparison_type is 'torch_to_keras'"
-        )
-    elif comparison_type == "keras_to_keras" and not isinstance(model_a, keras.Model):
-        raise ValueError(
-            "model_a must be a Keras model when comparison_type is 'keras_to_keras'"
-        )
+        if model_a is None:
+            raise ValueError("model_a cannot be None when running comparison tests")
+
+        if comparison_type == "torch_to_keras" and not isinstance(
+            model_a, torch.nn.Module
+        ):
+            raise ValueError(
+                "model_a must be a PyTorch model when comparison_type is 'torch_to_keras'"
+            )
+        elif comparison_type == "keras_to_keras" and not isinstance(
+            model_a, keras.Model
+        ):
+            raise ValueError(
+                "model_a must be a Keras model when comparison_type is 'keras_to_keras'"
+            )
 
     if "num_classes" not in output_specs:
         raise ValueError("output_specs must contain 'num_classes' key")
+
+    def test_imagenet_prediction() -> Dict[str, Any]:
+        print("\n=== Testing ImageNet Prediction ===")
+        imagenet_results = {}
+
+        # Define test cases
+        test_cases = [
+            {
+                "name": "bird",
+                "file_name": "bird.png",
+                "url": "https://github.com/Jarvis12243/Testing/releases/download/v0.1/bird.png",
+                "expected_class": "indigo_bunting",
+            },
+            {
+                "name": "valley",
+                "file_name": "valley.png",
+                "url": "https://github.com/Jarvis12243/Testing/releases/download/v0.1/valley.png",
+                "expected_class": "valley",
+            },
+        ]
+
+        for test_case in test_cases:
+            try:
+                print(f"\nTesting {test_case['name']} image:")
+
+                image_path = keras.utils.get_file(
+                    test_case["file_name"], test_case["url"]
+                )
+
+                if not os.path.exists(image_path):
+                    raise ValueError(
+                        f"Failed to download test image: {test_case['name']}"
+                    )
+
+                image = utils.load_img(image_path, target_size=input_shape[:2])
+                image_array = utils.img_to_array(image)
+                x = ops.expand_dims(image_array, axis=0)
+
+                preds = model_b.predict(x)
+                decoded_pred = decode_predictions(preds, top=1)[0][0]
+
+                predicted_class = decoded_pred[1]
+                class_matched = predicted_class == test_case["expected_class"]
+
+                confidence = decoded_pred[2]
+                threshold_passed = (
+                    confidence > prediction_threshold if class_matched else False
+                )
+
+                test_passed = class_matched and threshold_passed
+
+                imagenet_results[test_case["name"]] = {
+                    "success": test_passed,
+                    "predicted_class": predicted_class,
+                    "expected_class": test_case["expected_class"],
+                    "class_matched": class_matched,
+                    "confidence": float(confidence),
+                    "threshold": prediction_threshold,
+                    "threshold_passed": threshold_passed,
+                }
+
+                print(f"Expected class: {test_case['expected_class']}")
+                print(f"Predicted class: {predicted_class}")
+                print(f"Class match: {'✓' if class_matched else '✗'}")
+                print(f"Confidence: {confidence:.4f}")
+                print(
+                    f"Threshold ({prediction_threshold}) passed: {'✓' if threshold_passed else '✗'}"
+                )
+                print(f"Overall test result: {'✓' if test_passed else '✗'}")
+
+            except Exception as e:
+                print(f"✗ Test failed for {test_case['name']}: {str(e)}")
+                imagenet_results[test_case["name"]] = {
+                    "success": False,
+                    "error": str(e),
+                }
+
+        # Overall success requires all tests to pass
+        imagenet_results["all_passed"] = all(
+            result.get("success", False)
+            for name, result in imagenet_results.items()
+            if name != "all_passed"
+        )
+
+        return imagenet_results
 
     def get_expected_output_shape(batch_size: int) -> Tuple[int, ...]:
         if comparison_type == "torch_to_keras":
@@ -239,15 +383,7 @@ def verify_model_equivalence(
 
         return batch_results
 
-    results["standard_input"] = test_standard_input()
-
-    if results["standard_input"]:
-        results.update(test_batch_processing())
-    else:
-        print("Skipping batch processing tests due to standard input test failure")
-        return results
-
-    if run_performance:
+    def run_performance_test():
         print("\n=== Testing Performance ===")
         input_a, input_b = prepare_input(batch_sizes[0])
 
@@ -278,26 +414,50 @@ def verify_model_equivalence(
         )
         time_b = run_inference(model_b, input_a, is_torch=False)
 
-        results["performance"] = {
+        return {
             "model_a_inference_time": time_a,
             "model_b_inference_time": time_b,
             "time_ratio": time_b / time_a,
         }
 
-        print(f"Model A average inference time: {time_a:.4f}s")
-        print(f"Model B average inference time: {time_b:.4f}s")
-        print(f"Time ratio (B/A): {time_b / time_a:.2f}x")
+    if test_imagenet_image:
+        results["imagenet_test"] = test_imagenet_prediction()
 
-    print("\n=== Test Summary ===")
-    all_tests = [results["standard_input"]] + [
-        v
-        for k, v in results.items()
-        if k.startswith("batch_size_") and isinstance(v, bool)
-    ]
-    all_passed = all(all_tests)
-    print(
-        f"Standard Input Test: {'Passed ✓' if results['standard_input'] else 'Failed ✗'}"
-    )
-    print(f"Batch Processing Tests: {'Passed ✓' if all_passed else 'Failed ✗'}")
+        print("\n=== Test Summary ===")
+        print(
+            f"ImageNet Tests: {'Passed ✓' if results['imagenet_test']['all_passed'] else 'Failed ✗'}"
+        )
+        for name, result in results["imagenet_test"].items():
+            if name != "all_passed":
+                success = result.get("success", False)
+                print(f"  - {name}: {'Passed ✓' if success else 'Failed ✗'}")
+    else:
+        results["standard_input"] = test_standard_input()
+
+        if results["standard_input"]:
+            results.update(test_batch_processing())
+
+        if run_performance:
+            results["performance"] = run_performance_test()
+            perf = results["performance"]
+            print(
+                f"Model A average inference time: {perf['model_a_inference_time']:.4f}s"
+            )
+            print(
+                f"Model B average inference time: {perf['model_b_inference_time']:.4f}s"
+            )
+            print(f"Time ratio (B/A): {perf['time_ratio']:.2f}x")
+
+        print("\n=== Test Summary ===")
+        all_tests = [results["standard_input"]] + [
+            v
+            for k, v in results.items()
+            if k.startswith("batch_size_") and isinstance(v, bool)
+        ]
+        all_passed = all(all_tests)
+        print(
+            f"Standard Input Test: {'Passed ✓' if results['standard_input'] else 'Failed ✗'}"
+        )
+        print(f"Batch Processing Tests: {'Passed ✓' if all_passed else 'Failed ✗'}")
 
     return results

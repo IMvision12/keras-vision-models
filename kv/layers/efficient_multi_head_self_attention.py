@@ -22,12 +22,12 @@ class EfficientMultiheadSelfAttention(layers.Layer):
             preserve more spatial detail while higher values improve efficiency
         block_prefix (str): Prefix for naming layer components
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
-             and value projections. Defaults to False
+            and value projections. Defaults to False
         num_heads (int, optional): Number of attention heads. Defaults to 8
+        proj_drop (float, optional): Dropout rate applied to the output projection.
+            Provides additional regularization. Defaults to 0.0
         attn_drop (float, optional): Dropout rate applied to attention weights. Helps
-             prevent overfitting. Defaults to 0.0
-         proj_drop (float, optional): Dropout rate applied to the output projection.
-             Provides additional regularization. Defaults to 0.0
+            prevent overfitting. Defaults to 0.0
         **kwargs: Additional keyword arguments passed to the parent Layer class.
 
     Input shape:

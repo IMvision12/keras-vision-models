@@ -152,7 +152,11 @@ class VGG(keras.Model):
 
         # Feature extraction layers
         x = vgg_block(
-            x, num_filters, batch_norm=batch_norm, channels_axis=channels_axis
+            x,
+            num_filters,
+            batch_norm=batch_norm,
+            channels_axis=channels_axis,
+            data_format=data_format,
         )
 
         # Pre-logit layers

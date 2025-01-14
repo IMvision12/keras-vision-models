@@ -66,7 +66,8 @@ def create_model(
 
     if model_type == "torch" and model_name:
         try:
-            return torch.load(torch_model_path_mit_b0, map_location="cpu")
+            temp_path = download_weights(torch_model_path_mit_b0)
+            return torch.load(temp_path, map_location="cpu")
         except Exception as e:
             print(f"Error loading weights: {e}")
             return None

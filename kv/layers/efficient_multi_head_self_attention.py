@@ -69,8 +69,8 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.sr_ratio = sr_ratio
         self.block_prefix = block_prefix
         self.epsilon = epsilon
-        self.channels_axis = -1 if self.data_format == "channels_last" else 1
         self.data_format = config.image_data_format()
+        self.channels_axis = -1 if self.data_format == "channels_last" else 1
 
         self.q = layers.Dense(
             project_dim,

@@ -41,7 +41,7 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
 }
 
 # For Github Actions to run
-torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/blob/main/mit_b0.pth"  # TODO: change once repo is open sourced
+torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/resolve/main/mit_b0.pth"  # TODO: change once repo is open sourced
 
 
 def create_model(

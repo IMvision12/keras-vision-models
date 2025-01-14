@@ -158,6 +158,7 @@ class MLPMixer(keras.Model):
 
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        data_format = keras.config.image_data_format()
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -170,6 +171,7 @@ class MLPMixer(keras.Model):
             embed_dim,
             kernel_size=patch_size,
             strides=patch_size,
+            data_format=data_format,
             name="stem_conv",
         )(x)
 
@@ -198,7 +200,9 @@ class MLPMixer(keras.Model):
         )(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling1D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -206,9 +210,13 @@ class MLPMixer(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling1D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling1D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling1D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

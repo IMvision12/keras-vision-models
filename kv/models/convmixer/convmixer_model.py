@@ -9,7 +9,9 @@ from ...model_registry import register_model
 from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_CONFIG
 
 
-def convmixer_block(x, filters, kernel_size, act_layer, channels_axis, name):
+def convmixer_block(
+    x, filters, kernel_size, act_layer, channels_axis, data_format, name
+):
     """A building block for the ConvMixer architecture.
 
     Args:
@@ -30,6 +32,7 @@ def convmixer_block(x, filters, kernel_size, act_layer, channels_axis, name):
         padding="same",
         use_bias=True,
         activation=act_layer,
+        data_format=data_format,
         name=f"{name}_depthwise",
     )(x)
     x = layers.BatchNormalization(
@@ -43,6 +46,7 @@ def convmixer_block(x, filters, kernel_size, act_layer, channels_axis, name):
         kernel_size=1,
         activation=act_layer,
         use_bias=True,
+        data_format=data_format,
         name=f"{name}_conv2d",
     )(x)
     x = layers.BatchNormalization(
@@ -135,6 +139,7 @@ class ConvMixer(keras.Model):
 
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        data_format = keras.config.image_data_format()
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -149,6 +154,7 @@ class ConvMixer(keras.Model):
             strides=patch_size,
             use_bias=True,
             activation=act_layer,
+            data_format=data_format,
             name="stem_conv2d",
         )(x)
         x = layers.BatchNormalization(
@@ -158,11 +164,19 @@ class ConvMixer(keras.Model):
         # ConvMixer Blocks
         for i in range(depth):
             x = convmixer_block(
-                x, dim, kernel_size, act_layer, channels_axis, f"mixer_block_{i}"
+                x,
+                dim,
+                kernel_size,
+                act_layer,
+                channels_axis,
+                data_format,
+                f"mixer_block_{i}",
             )
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -171,9 +185,13 @@ class ConvMixer(keras.Model):
 
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

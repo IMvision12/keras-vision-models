@@ -1,4 +1,4 @@
-from keras import InputSpec, layers, ops
+from keras import InputSpec, config, layers, ops
 
 
 class MultiHeadSelfAttention(layers.Layer):
@@ -59,6 +59,7 @@ class MultiHeadSelfAttention(layers.Layer):
         qk_norm: bool = False,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
+        epsilon=1e-6,
         block_idx=None,
         **kwargs,
     ):
@@ -75,24 +76,40 @@ class MultiHeadSelfAttention(layers.Layer):
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.scale = self.head_dim**-0.5
+        self.epsilon = epsilon
+        self.data_format = config.image_data_format()
+        self.channels_axis = -1 if self.data_format == "channels_last" else 1
 
         self.qkv = layers.Dense(
-            dim * 3, use_bias=qkv_bias, name=f"blocks_{block_idx}_attn_qkv"
+            dim * 3,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=f"blocks_{block_idx}_attn_qkv",
         )
 
         self.q_norm = (
-            layers.LayerNormalization(name=f"blocks_{block_idx}_attn_layernorm_1")
+            layers.LayerNormalization(
+                axis=self.channels_axis,
+                epsilon=self.epsilon,
+                name=f"blocks_{block_idx}_attn_layernorm_1",
+            )
             if qk_norm
             else None
         )
         self.k_norm = (
-            layers.LayerNormalization(name=f"blocks_{block_idx}_attn_layernorm_2")
+            layers.LayerNormalization(
+                axis=self.channels_axis,
+                epsilon=self.epsilon,
+                name=f"blocks_{block_idx}_attn_layernorm_2",
+            )
             if qk_norm
             else None
         )
 
         self.attn_drop = layers.Dropout(attn_drop)
-        self.proj = layers.Dense(dim, name=f"blocks_{block_idx}_attn_proj")
+        self.proj = layers.Dense(
+            dim, dtype=self.dtype_policy, name=f"blocks_{block_idx}_attn_proj"
+        )
         self.proj_drop = layers.Dropout(proj_drop)
 
     def build(self, input_shape):

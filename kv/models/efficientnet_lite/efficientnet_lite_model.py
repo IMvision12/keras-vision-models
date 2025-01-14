@@ -69,6 +69,8 @@ def round_repeats(repeats, depth_coefficient):
 
 def efficientnetlite_block(
     inputs,
+    channels_axis,
+    data_format,
     drop_rate=0.0,
     name="",
     filters_in=32,
@@ -99,7 +101,6 @@ def efficientnetlite_block(
         Output tensor for the block.
 
     """
-    channel_axis = 3 if backend.image_data_format() == "channels_last" else 1
     filters = filters_in * expand_ratio
     if expand_ratio != 1:
         x = layers.Conv2D(
@@ -108,16 +109,19 @@ def efficientnetlite_block(
             padding="same",
             use_bias=False,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name=name + "conv2d_1",
         )(inputs)
-        x = layers.BatchNormalization(axis=channel_axis, name=name + "batchnorm_1")(x)
+        x = layers.BatchNormalization(axis=channels_axis, name=name + "batchnorm_1")(x)
         x = layers.ReLU(max_value=6, name=name + "activation1")(x)
     else:
         x = inputs
 
     if strides == 2:
         x = layers.ZeroPadding2D(
-            padding=imagenet_utils.correct_pad(x, kernel_size), name=name + "dwconv_pad"
+            padding=imagenet_utils.correct_pad(x, kernel_size),
+            name=name + "dwconv_pad",
+            data_format=data_format,
         )(x)
         conv_pad = "valid"
     else:
@@ -128,9 +132,10 @@ def efficientnetlite_block(
         padding=conv_pad,
         use_bias=False,
         depthwise_initializer=CONV_KERNEL_INITIALIZER,
+        data_format=data_format,
         name=name + "dwconv2d",
     )(x)
-    x = layers.BatchNormalization(axis=channel_axis, name=name + "batchnorm_2")(x)
+    x = layers.BatchNormalization(axis=channels_axis, name=name + "batchnorm_2")(x)
     x = layers.ReLU(max_value=6, name=name + "activation2")(x)
 
     x = layers.Conv2D(
@@ -139,9 +144,10 @@ def efficientnetlite_block(
         padding="same",
         use_bias=False,
         kernel_initializer=CONV_KERNEL_INITIALIZER,
+        data_format=data_format,
         name=name + "conv2d_2",
     )(x)
-    x = layers.BatchNormalization(axis=channel_axis, name=name + "batchnorm_3")(x)
+    x = layers.BatchNormalization(axis=channels_axis, name=name + "batchnorm_3")(x)
     if id_skip and strides == 1 and filters_in == filters_out:
         if drop_rate > 0:
             x = layers.Dropout(
@@ -234,6 +240,7 @@ class EfficientNetLite(keras.Model):
 
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        data_format = keras.config.image_data_format()
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -242,7 +249,9 @@ class EfficientNetLite(keras.Model):
         )
 
         x = layers.ZeroPadding2D(
-            padding=imagenet_utils.correct_pad(x, 3), name="stem_conv_pad"
+            padding=imagenet_utils.correct_pad(x, 3),
+            name="stem_conv_pad",
+            data_format=data_format,
         )(x)
         x = layers.Conv2D(
             32,
@@ -251,6 +260,7 @@ class EfficientNetLite(keras.Model):
             padding="valid",
             use_bias=False,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name="conv_stem",
         )(x)
         x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_1")(x)
@@ -276,6 +286,8 @@ class EfficientNetLite(keras.Model):
                     args["filters_in"] = args["filters_out"]
                 x = efficientnetlite_block(
                     x,
+                    channels_axis,
+                    data_format,
                     drop_connect_rate * b / blocks,
                     name="blocks_{}_{}_".format(i, j),
                     **args,

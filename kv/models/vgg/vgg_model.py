@@ -13,6 +13,7 @@ def vgg_block(
     inputs,
     num_filters,
     channels_axis,
+    data_format,
     batch_norm=False,
 ):
     """
@@ -37,11 +38,20 @@ def vgg_block(
     for v in num_filters:
         if v == "M":
             x = layers.MaxPooling2D(
-                pool_size=2, strides=2, name=f"Max_Pool_{layer_idx}"
+                pool_size=2,
+                strides=2,
+                data_format=data_format,
+                name=f"Max_Pool_{layer_idx}",
             )(x)
             layer_idx += 1
         else:
-            x = layers.Conv2D(v, 3, padding="same", name=f"conv2d_{layer_idx}")(x)
+            x = layers.Conv2D(
+                v,
+                3,
+                padding="same",
+                data_format=data_format,
+                name=f"conv2d_{layer_idx}",
+            )(x)
             layer_idx += 1
 
             if batch_norm:
@@ -131,6 +141,7 @@ class VGG(keras.Model):
 
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        data_format = keras.config.image_data_format()
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -144,24 +155,30 @@ class VGG(keras.Model):
         )
 
         # Pre-logit layers
-        x = layers.Conv2D(4096, 7, name="conv_fc1")(x)
+        x = layers.Conv2D(4096, 7, data_format=data_format, name="conv_fc1")(x)
         x = layers.ReLU(name="relu_fc1")(x)
         x = layers.Dropout(0.5, name="dropout_fc1")(x)
-        x = layers.Conv2D(4096, 1, name="conv_fc2")(x)
+        x = layers.Conv2D(4096, 1, data_format=data_format, name="conv_fc2")(x)
         x = layers.ReLU(name="relu_fc2")(x)
         x = layers.Dropout(0.5, name="dropout_fc2")(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dropout(rate=0, name="dropout")(x)
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

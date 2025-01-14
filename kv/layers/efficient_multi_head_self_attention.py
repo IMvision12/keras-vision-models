@@ -1,4 +1,4 @@
-from keras import InputSpec, layers, ops
+from keras import InputSpec, config, layers, ops
 
 
 class EfficientMultiheadSelfAttention(layers.Layer):
@@ -55,6 +55,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         num_heads=8,
         attn_drop=0.0,
         proj_drop=0.0,
+        epsilon=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -67,15 +68,28 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.scale = (project_dim // num_heads) ** -0.5
         self.sr_ratio = sr_ratio
         self.block_prefix = block_prefix
+        self.epsilon = epsilon
+        self.channels_axis = -1 if self.data_format == "channels_last" else 1
+        self.data_format = config.image_data_format()
+
         self.q = layers.Dense(
-            project_dim, use_bias=qkv_bias, name=self.block_prefix + "_attn_q"
+            project_dim,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=self.block_prefix + "_attn_q",
         )
         self.kv = layers.Dense(
-            project_dim * 2, use_bias=qkv_bias, name=self.block_prefix + "_attn_kv"
+            project_dim * 2,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=self.block_prefix + "_attn_kv",
         )
         self.attn_drop = layers.Dropout(attn_drop)
         self.proj = layers.Dense(
-            project_dim, use_bias=qkv_bias, name=self.block_prefix + "_attn_proj"
+            project_dim,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=self.block_prefix + "_attn_proj",
         )
         self.proj_drop = layers.Dropout(proj_drop)
 
@@ -85,10 +99,13 @@ class EfficientMultiheadSelfAttention(layers.Layer):
                 kernel_size=sr_ratio,
                 strides=sr_ratio,
                 padding="same",
+                data_format=self.data_format,
                 name=self.block_prefix + "_attn_sr",
             )
             self.norm = layers.LayerNormalization(
-                name=self.block_prefix + "_attn_norm", epsilon=1e-6
+                axis=self.channels_axis,
+                epsilon=self.epsilon,
+                name=self.block_prefix + "_attn_norm",
             )
 
     def build(self, input_shape):

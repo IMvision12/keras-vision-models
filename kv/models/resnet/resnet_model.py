@@ -16,6 +16,7 @@ def conv_block(
     filters: int,
     kernel_size: int,
     channels_axis,
+    data_format,
     strides: int = 1,
     use_relu: bool = True,
     groups: int = 1,
@@ -45,7 +46,7 @@ def conv_block(
         pad_h, pad_w = kernel_size[0] // 2, kernel_size[1] // 2
 
     if strides > 1:
-        x = layers.ZeroPadding2D(padding=(pad_h, pad_w))(x)
+        x = layers.ZeroPadding2D(data_format=data_format, padding=(pad_h, pad_w))(x)
         padding = "valid"
     else:
         padding = "same"
@@ -62,6 +63,7 @@ def conv_block(
             use_bias=False,
             groups=groups,
             kernel_initializer="he_normal",
+            data_format=data_format,
             name=name,
         )(x)
     else:
@@ -72,6 +74,7 @@ def conv_block(
             padding=padding,
             use_bias=False,
             kernel_initializer="he_normal",
+            data_format=data_format,
             name=name,
         )(x)
 
@@ -85,7 +88,7 @@ def conv_block(
 
 
 def squeeze_excitation_block(
-    x: layers.Layer, reduction_ratio: int = 16, name: Optional[str] = None
+    x: layers.Layer, data_format, reduction_ratio: int = 16, name: Optional[str] = None
 ) -> layers.Layer:
     """Applies a Squeeze-and-Excitation block for channel recalibration.
 
@@ -98,7 +101,7 @@ def squeeze_excitation_block(
         Output tensor for the block.
     """
     filters = x.shape[-1]
-    se = layers.GlobalAveragePooling2D()(x)
+    se = layers.GlobalAveragePooling2D(data_format=data_format)(x)
     se = layers.Reshape((1, 1, filters))(se)
     se = layers.Dense(
         filters // reduction_ratio,
@@ -121,6 +124,7 @@ def bottleneck_block(
     x: layers.Layer,
     filters: int,
     channels_axis,
+    data_format,
     strides: int = 1,
     downsample: bool = False,
     senet: bool = False,
@@ -150,6 +154,7 @@ def bottleneck_block(
         name=f"{block_name}_conv1",
         bn_name=f"{block_name}_batchnorm1",
         channels_axis=channels_axis,
+        data_format=data_format,
     )
     x = conv_block(
         x,
@@ -159,6 +164,7 @@ def bottleneck_block(
         name=f"{block_name}_conv2",
         bn_name=f"{block_name}_batchnorm2",
         channels_axis=channels_axis,
+        data_format=data_format,
     )
     x = conv_block(
         x,
@@ -168,10 +174,13 @@ def bottleneck_block(
         name=f"{block_name}_conv3",
         bn_name=f"{block_name}_batchnorm3",
         channels_axis=channels_axis,
+        data_format=data_format,
     )
 
     if senet:
-        x = squeeze_excitation_block(x, name=f"{block_name}.se")
+        x = squeeze_excitation_block(
+            x, data_format=data_format, name=f"{block_name}.se"
+        )
 
     if downsample or strides != 1 or x.shape[-1] != residual.shape[-1]:
         residual = conv_block(
@@ -183,6 +192,7 @@ def bottleneck_block(
             name=f"{block_name}_downsample_conv",
             bn_name=f"{block_name}_downsample_batchnorm",
             channels_axis=channels_axis,
+            data_format=data_format,
         )
 
     x = layers.Add()([x, residual])
@@ -278,6 +288,8 @@ class ResNet(keras.Model):
 
         inputs = img_input
         channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        data_format = keras.config.image_data_format()
+
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
@@ -291,12 +303,16 @@ class ResNet(keras.Model):
             name="conv1",
             bn_name="batchnorm1",
             channels_axis=channels_axis,
+            data_format=data_format,
         )
-        x = layers.ZeroPadding2D(padding=(1, 1))(x)
-        x = layers.MaxPooling2D(pool_size=3, strides=2, padding="valid")(x)
+        x = layers.ZeroPadding2D(data_format=data_format, padding=(1, 1))(x)
+        x = layers.MaxPooling2D(
+            data_format=data_format, pool_size=3, strides=2, padding="valid"
+        )(x)
 
         common_args = {
             "channels_axis": channels_axis,
+            "data_format": data_format,
             "senet": senet,
         }
 
@@ -314,7 +330,9 @@ class ResNet(keras.Model):
                     x = block_fn(x, filters[i], **common_args)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -323,9 +341,13 @@ class ResNet(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

@@ -110,7 +110,7 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-test_keras = MiT_B0(
+test_keras_with_weights = MiT_B0(
     weights=None,
     num_classes=model_config["num_classes"],
     include_top=model_config["include_top"],
@@ -118,14 +118,11 @@ test_keras = MiT_B0(
     input_shape=model_config["input_shape"],
     classifier_activation="softmax",
 )
-
-with tempfile.TemporaryDirectory() as temp_dir:
-    keras_model.save_weights(temp_dir + "/model.weights.h5")
-    test_keras.load_weights(temp_dir + "/model.weights.h5")
+test_keras_with_weights.set_weights(keras_model.get_weights())
 
 results = verify_cls_model_equivalence(
     model_a=None,
-    model_b=test_keras,
+    model_b=test_keras_with_weights,
     input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,

@@ -94,6 +94,7 @@ from typing import Any, Dict, List, Tuple, Union
 
 import keras
 import numpy as np
+import requests
 import tensorflow as tf
 import torch
 from keras import ops, utils
@@ -173,14 +174,14 @@ def verify_cls_model_equivalence(
         test_cases = [
             {
                 "name": "bird",
-                "file_name": "bird.png",
-                "url": "https://huggingface.co/IMvision12/Test/blob/main/bird.png",  # Change Before Open Sourcing
+                "file_name": "indigo_bunting.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/bird.png",  # TODO: Change Before Open Sourcing
                 "expected_class": "indigo_bunting",
             },
             {
                 "name": "valley",
-                "file_name": "valley.png",
-                "url": "https://huggingface.co/IMvision12/Test/blob/main/bird.png",  # Change Before Open Sourcing
+                "file_name": "valley_image.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/valley.png",  # TODO: Change Before Open Sourcing
                 "expected_class": "valley",
             },
         ]

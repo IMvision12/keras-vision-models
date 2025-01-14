@@ -50,6 +50,7 @@ jobs:
         find . -name "*.pt" -type f -delete
         find . -name "*.safetensors" -type f -delete
         find . -name "*.pth" -type f -delete
+        find . -name "*.png" -type f -delete
         
         echo "🎉 All conversions completed successfully!"
         exit 0
@@ -63,7 +64,7 @@ jobs:
           ./**/*_test_results.txt
           ./**/*_error.log
         if-no-files-found: ignore
-        retention-days: 2
+        retention-days: 1
 
     - name: Cleanup workspace
       if: always()

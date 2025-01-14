@@ -42,7 +42,7 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
 }
 
 # For Github Actions to run
-torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/blob/main/mit_b0.pth"  # change once repo is open sourced
+torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/blob/main/mit_b0.pth"  # TODO: change once repo is open sourced
 
 
 def create_model(
@@ -132,7 +132,7 @@ results = verify_cls_model_equivalence(
     test_imagenet_image=True,
 )
 
-if results["all_passed"]:
+if results["imagenet_test"]["all_passed"]:
     # Save model
     model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
     keras_model.save(model_filename)

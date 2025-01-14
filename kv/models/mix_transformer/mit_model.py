@@ -284,12 +284,12 @@ class MixTransformer(keras.Model):
         for i in range(self.num_stages):
             x, H, W = overlap_patch_embedding_block(
                 x,
-                embed_dims[i],
+                out_channels=embed_dims[i],
+                channels_axis=channels_axis,
+                data_format=data_format,
                 patch_size=7 if i == 0 else 3,
                 stride=4 if i == 0 else 2,
                 stage_idx=i + 1,
-                data_format=data_format,
-                channels_axis=channels_axis,
             )
 
             for j in range(depths[i]):

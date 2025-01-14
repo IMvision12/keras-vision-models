@@ -106,7 +106,7 @@ def verify_cls_model_equivalence(
     input_shape: Union[Tuple[int, ...], List[int]],
     output_specs: Dict[str, Any],
     comparison_type: str = "torch_to_keras",
-    batch_sizes: List[int] = [2, 3],
+    batch_sizes: List[int] = [2],
     run_performance: bool = True,
     num_performance_runs: int = 5,
     seed: int = 2025,

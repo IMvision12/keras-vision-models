@@ -30,6 +30,16 @@ jobs:
         
         echo "Found $(echo "$CONVERSION_SCRIPTS" | wc -l) conversion scripts to test"
         
+        if [ -z "$CONVERSION_SCRIPTS" ]; then
+          echo "⚠️ No conversion scripts found. Exiting..."
+          exit 1
+        fi
+
+        echo "Listing all conversion scripts:"
+        for script in $CONVERSION_SCRIPTS; do
+          echo " - $script"
+        done
+
         for script in $CONVERSION_SCRIPTS; do
           echo "🔄 Running conversion script: $script"
           if python "$script"; then

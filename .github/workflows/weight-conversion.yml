@@ -26,10 +26,12 @@ jobs:
         
     - name: Find and run conversion scripts
       run: |
-        CONVERSION_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
+        TORCH_TO_KERAS_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
+        KERAS_TO_KERAS_SCRIPTS=$(find kv/models -type f -name "convert_*_keras_to_keras.py")
+        CONVERSION_SCRIPTS="$TORCH_TO_KERAS_SCRIPTS $KERAS_TO_KERAS_SCRIPTS"
         
         echo "Found $(echo "$CONVERSION_SCRIPTS" | wc -l) conversion scripts to test"
-        
+
         if [ -z "$CONVERSION_SCRIPTS" ]; then
           echo "⚠️ No conversion scripts found. Exiting..."
           exit 1

@@ -1,4 +1,4 @@
-from kv.models.vision_transformer.vision_transformer_model import ViT
+from kv.models.vision_transformer.vit_model import ViT
 from kv.utils import get_all_weight_names, load_weights_from_config
 
 from ...model_registry import register_model

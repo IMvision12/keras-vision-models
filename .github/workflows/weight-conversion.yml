@@ -26,10 +26,22 @@ jobs:
         
     - name: Find and run conversion scripts
       run: |
-        CONVERSION_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
+        TORCH_TO_KERAS_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
+        KERAS_TO_KERAS_SCRIPTS=$(find kv/models -type f -name "convert_*_keras_to_keras.py")
+        CONVERSION_SCRIPTS="$TORCH_TO_KERAS_SCRIPTS $KERAS_TO_KERAS_SCRIPTS"
         
         echo "Found $(echo "$CONVERSION_SCRIPTS" | wc -l) conversion scripts to test"
-        
+
+        if [ -z "$CONVERSION_SCRIPTS" ]; then
+          echo "⚠️ No conversion scripts found. Exiting..."
+          exit 1
+        fi
+
+        echo "Listing all conversion scripts:"
+        for script in $CONVERSION_SCRIPTS; do
+          echo " - $script"
+        done
+
         for script in $CONVERSION_SCRIPTS; do
           echo "🔄 Running conversion script: $script"
           if python "$script"; then
@@ -50,6 +62,7 @@ jobs:
         find . -name "*.pt" -type f -delete
         find . -name "*.safetensors" -type f -delete
         find . -name "*.pth" -type f -delete
+        find . -name "*.png" -type f -delete
         
         echo "🎉 All conversions completed successfully!"
         exit 0
@@ -63,7 +76,7 @@ jobs:
           ./**/*_test_results.txt
           ./**/*_error.log
         if-no-files-found: ignore
-        retention-days: 2
+        retention-days: 1
 
     - name: Cleanup workspace
       if: always()

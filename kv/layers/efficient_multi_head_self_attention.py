@@ -1,0 +1,180 @@
+from keras import InputSpec, layers, ops
+
+
+class EfficientMultiheadSelfAttention(layers.Layer):
+    """Efficient Multi-head Self-Attention layer with hierarchical spatial reduction.
+
+    This layer implements an efficient self-attention mechanism that uses convolutional
+    downsampling of keys and values for reduced computation. The spatial reduction ratio
+    can be adjusted across different stages of a network to create hierarchical feature
+    representations, making it particularly suitable for vision tasks.
+
+    Key Features:
+        - Spatial reduction using Conv2D to reduce key/value sequence length
+        - Combined key-value projection to reduce parameters
+        - Adaptive to different input resolutions
+        - Computationally efficient for dense vision tasks
+
+    Args:
+        project_dim (int): Output dimension of the projection. Can be scaled across
+            network stages for hierarchical feature learning
+        sr_ratio (int): Spatial reduction ratio for keys and values. Lower values
+            preserve more spatial detail while higher values improve efficiency
+        block_prefix (str): Prefix for naming layer components
+        qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
+            and value projections. Defaults to False
+        num_heads (int, optional): Number of attention heads. Defaults to 8
+        proj_drop (float, optional): Dropout rate applied to the output projection.
+            Provides additional regularization. Defaults to 0.0
+        attn_drop (float, optional): Dropout rate applied to attention weights. Helps
+            prevent overfitting. Defaults to 0.0
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Input shape:
+        - x: (batch_size, H*W, channels) - Sequence of flattened image features
+        - H: Original feature map height
+        - W: Original feature map width
+
+    Output shape:
+        - (batch_size, H*W, project_dim)
+
+    Notes:
+        - project_dim must be divisible by num_heads
+        - The spatial reduction (sr_ratio > 1) helps balance efficiency and performance
+        - The Conv2D spatial reduction also helps capture local information
+        - Suitable for hierarchical vision transformer architectures where different
+          stages require different levels of spatial detail
+    """
+
+    def __init__(
+        self,
+        project_dim,
+        sr_ratio,
+        block_prefix,
+        qkv_bias=False,
+        num_heads=8,
+        attn_drop=0.0,
+        proj_drop=0.0,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        assert project_dim % num_heads == 0, (
+            f"project_dim {project_dim} should be divided by num_heads {num_heads}."
+        )
+
+        self.project_dim = project_dim
+        self.num_heads = num_heads
+        self.scale = (project_dim // num_heads) ** -0.5
+        self.sr_ratio = sr_ratio
+        self.block_prefix = block_prefix
+        self.q = layers.Dense(
+            project_dim, use_bias=qkv_bias, name=self.block_prefix + "_attn_q"
+        )
+        self.kv = layers.Dense(
+            project_dim * 2, use_bias=qkv_bias, name=self.block_prefix + "_attn_kv"
+        )
+        self.attn_drop = layers.Dropout(attn_drop)
+        self.proj = layers.Dense(
+            project_dim, use_bias=qkv_bias, name=self.block_prefix + "_attn_proj"
+        )
+        self.proj_drop = layers.Dropout(proj_drop)
+
+        if sr_ratio > 1:
+            self.sr = layers.Conv2D(
+                filters=project_dim,
+                kernel_size=sr_ratio,
+                strides=sr_ratio,
+                padding="same",
+                name=self.block_prefix + "_attn_sr",
+            )
+            self.norm = layers.LayerNormalization(
+                name=self.block_prefix + "_attn_norm", epsilon=1e-6
+            )
+
+    def build(self, input_shape):
+        self.input_spec = InputSpec(ndim=len(input_shape))
+
+        if self.input_spec.ndim != 3:
+            raise ValueError(
+                f"EfficientMultiheadSelfAttention expects 3D input tensor, but received shape: {input_shape}"
+            )
+
+        feature_dim = input_shape[-1]
+        if feature_dim != self.project_dim:
+            raise ValueError(
+                f"Input feature dimension {feature_dim} must match layer dimension {self.project_dim}"
+            )
+
+        batch_dim = input_shape[0]
+        seq_length = input_shape[1]
+
+        self.q.build(input_shape)
+        self.kv.build(input_shape)
+        self.proj.build(input_shape)
+        self.proj_drop.build(input_shape)
+
+        if self.sr_ratio > 1:
+            h = ops.sqrt(ops.cast(seq_length, "float32"))
+            h = ops.cast(h, "int32")
+            spatial_shape = (batch_dim, h, h, feature_dim)
+
+            self.sr.build(spatial_shape)
+
+            reduced_seq_length = (h // self.sr_ratio) * (h // self.sr_ratio)
+            norm_shape = (batch_dim, reduced_seq_length, self.project_dim)
+            self.norm.build(norm_shape)
+
+        self._attention_head_size = self.project_dim // self.num_heads
+        self._num_attention_heads = self.num_heads
+
+        self.built = True
+
+    def call(self, x, H, W, training=None):
+        input_shape = ops.shape(x)
+        B, N, C = input_shape[0], input_shape[1], input_shape[2]
+
+        q = self.q(x)
+        q = ops.reshape(q, (B, N, self.num_heads, C // self.num_heads))
+        q = ops.transpose(q, (0, 2, 1, 3))
+
+        if self.sr_ratio > 1:
+            x_ = ops.reshape(ops.transpose(x, (0, 2, 1)), (B, C, H, W))
+            x_ = self.sr(ops.transpose(x_, (0, 2, 3, 1)))
+            x_ = ops.reshape(ops.transpose(x_, (0, 3, 1, 2)), (B, C, -1))
+            x_ = ops.transpose(x_, (0, 2, 1))
+            x_ = self.norm(x_)
+            kv = self.kv(x_)
+        else:
+            kv = self.kv(x)
+
+        kv = ops.reshape(kv, (B, -1, 2, self.num_heads, C // self.num_heads))
+        kv = ops.transpose(kv, (2, 0, 3, 1, 4))
+        k, v = kv[0], kv[1]
+
+        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
+        attn = ops.softmax(attn, axis=-1)
+        attn = self.attn_drop(attn, training=training)
+
+        x = ops.matmul(attn, v)
+        x = ops.transpose(x, (0, 2, 1, 3))
+        x = ops.reshape(x, (B, N, C))
+
+        x = self.proj(x)
+        x = self.proj_drop(x, training=training)
+
+        return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "project_dim": self.project_dim,
+                "sr_ratio": self.sr_ratio,
+                "block_prefix": self.block_prefix,
+                "qkv_bias": self.q.use_bias,
+                "num_heads": self.num_heads,
+                "proj_drop": self.proj_drop.rate,
+                "attn_drop": self.attn_drop.rate,
+            }
+        )
+        return config

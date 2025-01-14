@@ -2,21 +2,51 @@ from keras import InputSpec, layers, ops
 
 
 class MultiHeadSelfAttention(layers.Layer):
-    """Multi-Head Self-Attention module implementation.
+    """Multi-Head Self-Attention layer implementing scaled dot-product attention.
 
-    This class implements multi-head self-attention where the input is split into multiple heads,
-    each performing scaled dot-product attention independently. The results are then concatenated
-    and projected back to the original dimension.
+    This layer implements the standard multi-head self-attention mechanism where input is split
+    into multiple attention heads operating in parallel. Each head performs scaled dot-product
+    attention independently, after which results are concatenated and projected back to the
+    original dimension. This implementation is particularly suitable for sequence processing
+    and transformer-based architectures.
+
+    Key Features:
+        - Independent parallel attention heads for capturing different relationship patterns
+        - Scaled dot-product attention with optional layer normalization
+        - Configurable attention and projection dropout
+        - Optional bias terms in query/key/value projections
+        - Support for both 3D and 4D input tensors
 
     Args:
-        dim (int): Total dimension of the input and output features
-        num_heads (int, optional): Number of attention heads. Default: 8
-        qkv_bias (bool, optional): If True, adds learnable bias to query, key, value projections. Default: False
-        qk_norm (bool, optional): If True, applies layer normalization to query and key. Default: False
-        attn_drop (float, optional): Dropout rate for attention matrix. Default: 0.0
-        proj_drop (float, optional): Dropout rate for output projection. Default: 0.0
-        block_idx (int, optional): Index of the transformer block this attention belongs to. Default: 0
+        dim (int): Total dimension of the input and output features. Must be divisible
+            by num_heads to ensure even distribution of features across heads
+        num_heads (int, optional): Number of parallel attention heads. Each head operates
+            on dim/num_heads features. Defaults to 8
+        qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
+            and value projections. Defaults to False
+        qk_norm (bool, optional): If True, applies layer normalization to query and key
+            tensors before attention computation. Defaults to False
+        attn_drop (float, optional): Dropout rate applied to attention weights. Helps
+            prevent overfitting. Defaults to 0.0
+        proj_drop (float, optional): Dropout rate applied to the output projection.
+            Provides additional regularization. Defaults to 0.0
+        block_idx (int, optional): Index of the transformer block this attention belongs
+            to. Used for naming components. Defaults to None
         **kwargs: Additional keyword arguments passed to the parent Layer class
+
+    Input shape:
+        - 3D tensor: (batch_size, sequence_length, feature_dim)
+        - 4D tensor: (batch_size, height, width, feature_dim)
+
+    Output shape:
+        - Same as input shape
+
+    Notes:
+        - The attention dimension (dim) must be divisible by num_heads
+        - Layer normalization on query/key can help stabilize training
+        - Suitable for both sequence data and vision transformers
+        - Implements the standard scaled dot-product attention formula:
+          Attention(Q, K, V) = softmax(QK^T/sqrt(d_k))V
     """
 
     _block_counter = 0

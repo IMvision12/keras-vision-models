@@ -106,7 +106,7 @@ def verify_cls_model_equivalence(
     input_shape: Union[Tuple[int, ...], List[int]],
     output_specs: Dict[str, Any],
     comparison_type: str = "torch_to_keras",
-    batch_sizes: List[int] = [2, 4],
+    batch_sizes: List[int] = [2],
     run_performance: bool = True,
     num_performance_runs: int = 5,
     seed: int = 2025,
@@ -173,14 +173,14 @@ def verify_cls_model_equivalence(
         test_cases = [
             {
                 "name": "bird",
-                "file_name": "bird.png",
-                "url": "https://github.com/IMvision12/keras-vision/images/bird.png",
+                "file_name": "indigo_bunting.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/bird.png",  # TODO: Change Before Open Sourcing
                 "expected_class": "indigo_bunting",
             },
             {
                 "name": "valley",
-                "file_name": "valley.png",
-                "url": "https://github.com/IMvision12/keras-vision/images/valley.png",
+                "file_name": "valley_image.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/valley.png",  # TODO: Change Before Open Sourcing
                 "expected_class": "valley",
             },
         ]

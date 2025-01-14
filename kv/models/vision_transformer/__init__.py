@@ -1,1 +1,1 @@
-from .vision_transformer_model import *
+from .vit_model import *

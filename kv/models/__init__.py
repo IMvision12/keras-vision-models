@@ -8,6 +8,7 @@ from .efficientnet_lite import *
 from .efficientnetv2 import *
 from .flexivit import *
 from .inceptionv3 import *
+from .mix_transformer import *
 from .mlp_mixer import *
 from .resnet import *
 from .resnext import *

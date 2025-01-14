@@ -2,7 +2,7 @@ import copy
 import math
 
 import keras
-from keras import backend, initializers, layers
+from keras import initializers, layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -381,6 +381,9 @@ class EfficientNetV2(keras.Model):
         name="EfficientNetV2",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = 3 if data_format == "channels_last" else 1
+
         if name.startswith("EfficientNetV2B"):
             block_config = EFFICIENTNETV2_BLOCK_CONFIG["EfficientNetV2B"]
         else:
@@ -390,7 +393,7 @@ class EfficientNetV2(keras.Model):
             input_shape,
             default_size=default_size,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -398,13 +401,10 @@ class EfficientNetV2(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
-
-        channels_axis = 3 if backend.image_data_format() == "channels_last" else 1
-        data_format = keras.config.image_data_format()
 
         inputs = img_input
 

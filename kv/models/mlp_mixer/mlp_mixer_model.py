@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -139,11 +139,14 @@ class MLPMixer(keras.Model):
         name="MLPMixer",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -151,14 +154,12 @@ class MLPMixer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
         inputs = img_input
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
-        data_format = keras.config.image_data_format()
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)

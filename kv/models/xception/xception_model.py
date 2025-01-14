@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -37,8 +37,8 @@ def conv_block(
     Returns:
         Processed tensor
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
     data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else -3
 
     x = layers.Activation("relu")(x) if use_preactivation else x
 
@@ -198,11 +198,13 @@ class XceptionMain(keras.Model):
         name="xception",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=299,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -210,12 +212,10 @@ class XceptionMain(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
-
-        data_format = keras.config.image_data_format()
 
         inputs = img_input
         x = (

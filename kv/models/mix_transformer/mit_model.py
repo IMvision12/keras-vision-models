@@ -1,6 +1,6 @@
 import keras
 import numpy as np
-from keras import backend, layers, ops
+from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import (
@@ -244,11 +244,14 @@ class MixTransformer(keras.Model):
         name="MixTransformer",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -256,13 +259,10 @@ class MixTransformer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
-
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
-        data_format = keras.config.image_data_format()
 
         self.drop_path_rate = 0.1
         self.num_stages = 4

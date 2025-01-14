@@ -2,7 +2,7 @@ import copy
 import math
 
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -221,11 +221,14 @@ class EfficientNetLite(keras.Model):
         name="EfficientNet",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=default_size,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -233,14 +236,12 @@ class EfficientNetLite(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
         inputs = img_input
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
-        data_format = keras.config.image_data_format()
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -301,13 +302,16 @@ class EfficientNetLite(keras.Model):
             padding="same",
             use_bias=False,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name="conv_head",
         )(x)
         x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_2")(x)
         x = layers.ReLU(max_value=6, name="top_activation")(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             if dropout_rate > 0:
                 x = layers.Dropout(dropout_rate, name="dropout")(x)
             x = layers.Dense(
@@ -318,9 +322,13 @@ class EfficientNetLite(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

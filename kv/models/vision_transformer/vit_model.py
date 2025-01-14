@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import (
@@ -109,7 +109,7 @@ def transformer_block(
     # MLP branch
     y = layers.LayerNormalization(
         epsilon=1e-6,
-        channels_axis=channels_axis,
+        axis=channels_axis,
         name=f"blocks_{block_idx}_layernorm_2",
     )(x)
     y = mlp_block(
@@ -236,12 +236,15 @@ class ViT(keras.Model):
         name="ViT",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         if no_embed_class:
             input_shape = imagenet_utils.obtain_input_shape(
                 input_shape,
                 default_size=240,
                 min_size=32,
-                data_format=backend.image_data_format(),
+                data_format=data_format,
                 require_flatten=include_top,
                 weights=weights,
             )
@@ -251,7 +254,7 @@ class ViT(keras.Model):
                 input_shape,
                 default_size=224,
                 min_size=32,
-                data_format=backend.image_data_format(),
+                data_format=data_format,
                 require_flatten=include_top,
                 weights=weights,
             )
@@ -262,13 +265,10 @@ class ViT(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
-
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
-        data_format = keras.config.image_data_format()
 
         inputs = img_input
         x = (

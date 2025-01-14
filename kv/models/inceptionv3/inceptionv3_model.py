@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
@@ -37,7 +37,7 @@ def conv_block(
         Output tensor for the block.
     """
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     x = inputs
     if padding is None:
@@ -80,7 +80,7 @@ def inception_blocka(inputs, pool_channels, name="inception_block_a"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch1x1 = conv_block(inputs, 64, 1, name=f"{name}_branch1x1")
 
@@ -125,7 +125,7 @@ def inception_blockb(inputs, name="inception_block_b"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch3x3 = conv_block(inputs, 384, 3, 2, name=f"{name}_branch3x3")
 
@@ -161,7 +161,7 @@ def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     c7 = branch7x7_channels
 
@@ -213,7 +213,7 @@ def inception_blockd(inputs, name="inception_block_d"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch3x3 = conv_block(inputs, 192, 1, name=f"{name}_branch3x3_1")
     branch3x3 = conv_block(branch3x3, 320, 3, strides=2, name=f"{name}_branch3x3_2")
@@ -247,7 +247,7 @@ def inception_blocke(inputs, name="inception_block_e"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch1x1 = conv_block(inputs, 320, 1, name=f"{name}_branch1x1")
 
@@ -355,11 +355,13 @@ class InceptionV3Main(keras.Model):
         name="InceptionV3",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=299,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -367,12 +369,11 @@ class InceptionV3Main(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
-        data_format = keras.config.image_data_format()
         inputs = img_input
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)

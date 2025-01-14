@@ -94,7 +94,6 @@ from typing import Any, Dict, List, Tuple, Union
 
 import keras
 import numpy as np
-import requests
 import tensorflow as tf
 import torch
 from keras import ops, utils

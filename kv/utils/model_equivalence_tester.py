@@ -174,13 +174,13 @@ def verify_cls_model_equivalence(
             {
                 "name": "bird",
                 "file_name": "bird.png",
-                "url": "https://github.com/IMvision12/keras-vision/tree/main/images/bird.png",
+                "url": "https://huggingface.co/IMvision12/Test/blob/main/bird.png",  # Change Before Open Sourcing
                 "expected_class": "indigo_bunting",
             },
             {
                 "name": "valley",
                 "file_name": "valley.png",
-                "url": "https://github.com/IMvision12/keras-vision/tree/main/images/valley.png",
+                "url": "https://huggingface.co/IMvision12/Test/blob/main/bird.png",  # Change Before Open Sourcing
                 "expected_class": "valley",
             },
         ]

@@ -43,7 +43,7 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
 
 # For Github Actions to run
 torch_model_path_mit_b0 = (
-    "https://github.com/IMvision12/keras-vision/releases/download/v0.3/mit_b0.pth"
+    "https://github.com/Jarvis12243/Testing/releases/download/v0.1/mit_b0.pth" #change once repo is open sourced
 )
 
 

@@ -10,7 +10,7 @@ from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_CONFIG
 
 
 def convmixer_block(
-    x, filters, kernel_size, activation_fn, channels_axis, data_format, name
+    x, filters, kernel_size, activation, channels_axis, data_format, name
 ):
     """A building block for the ConvMixer architecture.
 
@@ -35,7 +35,7 @@ def convmixer_block(
         1,
         padding="same",
         use_bias=True,
-        activation=activation_fn,
+        activation=activation,
         data_format=data_format,
         name=f"{name}_depthwise",
     )(x)
@@ -47,8 +47,9 @@ def convmixer_block(
 
     x = layers.Conv2D(
         filters,
-        kernel_size=1,
-        activation=activation_fn,
+        1,
+        1,
+        activation=activation,
         use_bias=True,
         data_format=data_format,
         name=f"{name}_conv2d",
@@ -111,7 +112,7 @@ class ConvMixer(keras.Model):
         depth,
         kernel_size,
         patch_size,
-        activation_fn="gelu",
+        activation="gelu",
         include_top=True,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
@@ -158,7 +159,7 @@ class ConvMixer(keras.Model):
             kernel_size=patch_size,
             strides=patch_size,
             use_bias=True,
-            activation=activation_fn,
+            activation=activation,
             data_format=data_format,
             name="stem_conv2d",
         )(x)
@@ -172,7 +173,7 @@ class ConvMixer(keras.Model):
                 x,
                 dim,
                 kernel_size,
-                activation_fn,
+                activation,
                 channels_axis,
                 data_format,
                 f"mixer_block_{i}",
@@ -204,7 +205,7 @@ class ConvMixer(keras.Model):
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
-        self.activation_fn = activation_fn
+        self.activation = activation
         self.include_top = include_top
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
@@ -219,7 +220,7 @@ class ConvMixer(keras.Model):
             "depth": self.depth,
             "patch_size": self.patch_size,
             "kernel_size": self.kernel_size,
-            "activation_fn": self.activation_fn,
+            "activation": self.activation,
             "include_top": self.include_top,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
@@ -294,7 +295,7 @@ def ConvMixer_768_32(
 ):
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
-        activation_fn="relu",
+        activation="relu",
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,

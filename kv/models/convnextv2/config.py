@@ -27,6 +27,10 @@ CONVNEXTV2_MODEL_CONFIG = {
         "depths": [3, 3, 27, 3],
         "projection_dims": [192, 384, 768, 1536],
     },
+    "huge": {
+        "depths": [3, 3, 27, 3],
+        "projection_dims": [352, 704, 1408, 2816],
+    },
 }
 
 CONVNEXTV2_WEIGHTS_CONFIG = {
@@ -71,6 +75,14 @@ CONVNEXTV2_WEIGHTS_CONFIG = {
         },
     },
     "ConvNeXtV2Large": {
+        "fcmae_ft_in1k": {
+            "url": "",
+        },
+        "fcmae_ft_in22k_in1k": {
+            "url": "",
+        },
+    },
+    "ConvNeXtV2Huge": {
         "fcmae_ft_in1k": {
             "url": "",
         },

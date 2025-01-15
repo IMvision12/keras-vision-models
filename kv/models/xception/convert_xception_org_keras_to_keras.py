@@ -64,7 +64,11 @@ results = verify_cls_model_equivalence(
     run_performance=False,
 )
 
-if results["standard_input"]:
-    model_filename: str = "keras_org_xception.keras"
-    custom_model.save(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+if not results["standard_input"]:
+    raise ValueError(
+        "Model equivalence test failed - model outputs do not match for standard input"
+    )
+
+model_filename: str = "keras_org_xception.keras"
+custom_model.save(model_filename)
+print(f"Model saved successfully as {model_filename}")

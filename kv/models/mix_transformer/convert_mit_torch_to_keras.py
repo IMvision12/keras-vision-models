@@ -128,8 +128,11 @@ results = verify_cls_model_equivalence(
     test_imagenet_image=True,
 )
 
-if results["imagenet_test"]["all_passed"]:
-    # Save model
-    model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
-    keras_model.save(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+if not results["imagenet_test"]["all_passed"]:
+    raise ValueError(
+        "Model equivalence test failed - model outputs do not match for standard input"
+    )
+
+model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
+keras_model.save(model_filename)
+print(f"Model saved successfully as {model_filename}")

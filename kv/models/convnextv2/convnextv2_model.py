@@ -316,3 +316,47 @@ def ConvNeXtV2Large(
         print("No weights loaded.")
 
     return model
+
+
+@register_model
+def ConvNeXtV2Huge(
+    include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights="fcmae_ft_in22k_in1k",
+    input_shape=None,
+    input_tensor=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="ConvNeXtV2Huge",
+    **kwargs,
+):
+    model = ConvNeXt(
+        **CONVNEXTV2_MODEL_CONFIG["huge"],
+        drop_path_rate=0.0,
+        layer_scale_init_value=None,
+        use_grn=True,
+        include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        weights=weights,
+        name=name,
+        input_tensor=input_tensor,
+        input_shape=input_shape,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CONVNEXTV2_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ConvNeXtV2Huge", weights, model, CONVNEXTV2_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model

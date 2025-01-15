@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository 
+    - name: Checkout repository
       uses: actions/checkout@v3
     
     - name: Set up Python
@@ -40,19 +40,18 @@ jobs:
         for script in $CONVERSION_SCRIPTS; do
           echo "🔄 Running conversion script: $script"
           
-          # Run the script and capture both stdout and stderr
-          if ! OUTPUT=$(python "$script" 2>&1); then
-            echo "❌ Script execution failed: $script"
-            echo "Error output:"
-            echo "$OUTPUT"
-            exit 1
-          fi
+          # Run the script and capture output
+          OUTPUT=$(python "$script" 2>&1)
+          echo "$OUTPUT"
           
-          # Check if script output indicates failed model equivalence test
+          # Check for model equivalence test failure first
           if echo "$OUTPUT" | grep -q "Failed X"; then
-            echo "❌ Model equivalence test failed: $script"
-            echo "Test output:"
-            echo "$OUTPUT"
+            echo "❌ Failed: $script"
+            echo "Stopping further execution due to failure"
+            exit 1
+          elif [ $? -ne 0 ]; then
+            echo "❌ Failed: $script"
+            echo "Stopping further execution due to failure"
             exit 1
           fi
           

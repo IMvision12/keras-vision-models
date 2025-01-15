@@ -31,6 +31,9 @@ class MultiHeadSelfAttention(layers.Layer):
             prevent overfitting. Defaults to 0.0
         proj_drop (float, optional): Dropout rate applied to the output projection.
             Provides additional regularization. Defaults to 0.0
+        epsilon (float, optional): Small constant used in normalization operations for
+            numerical stability. A higher value reduces precision but increases stability.
+            Defaults to 1e-6
         block_idx (int, optional): Index of the transformer block this attention belongs
             to. Used for naming components. Defaults to None
         **kwargs: Additional keyword arguments passed to the parent Layer class
@@ -194,6 +197,7 @@ class MultiHeadSelfAttention(layers.Layer):
                 "qk_norm": self.q_norm,
                 "attn_drop": self.attn_drop.rate,
                 "proj_drop": self.proj_drop.rate,
+                "epsilon": self.epsilon,
                 "block_idx": self.block_idx,
             }
         )

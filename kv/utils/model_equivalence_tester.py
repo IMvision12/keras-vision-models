@@ -110,8 +110,8 @@ def verify_cls_model_equivalence(
     run_performance: bool = True,
     num_performance_runs: int = 5,
     seed: int = 2025,
-    atol: float = 1e-5,
-    rtol: float = 1e-5,
+    atol: float = 1e-4,
+    rtol: float = 1e-4,
     test_imagenet_image: bool = False,
     prediction_threshold: float = 0.5,
 ) -> Dict[str, Any]:

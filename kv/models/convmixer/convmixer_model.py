@@ -294,7 +294,7 @@ def ConvMixer_768_32(
 ):
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
-        act_layer="relu",
+        activation_fn="relu",
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,

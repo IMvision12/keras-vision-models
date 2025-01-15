@@ -88,6 +88,10 @@ def efficientnet_block(
 
     Args:
         inputs: Input tensor to the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         drop_rate: Dropout rate applied before the residual connection. Default is 0.0.
         name: Base name for all layers in the block. Default is "".
         filters_in: Number of input channels to the block. Default is 32.

@@ -10,7 +10,7 @@ from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_CONFIG
 
 
 def convmixer_block(
-    x, filters, kernel_size, act_layer, channels_axis, data_format, name
+    x, filters, kernel_size, activation_fn, channels_axis, data_format, name
 ):
     """A building block for the ConvMixer architecture.
 
@@ -18,8 +18,12 @@ def convmixer_block(
         x: input tensor.
         filters: int, the number of output filters for the convolution layers.
         kernel_size: int, the size of the convolution kernel.
-        act_layer: string, activation function to apply after each convolution.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        activation_fn: string, name of the activation function to be applied within
+            the Conv2D layers (e.g., 'gelu', 'relu').
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: string, block name.
 
     Returns:
@@ -31,7 +35,7 @@ def convmixer_block(
         1,
         padding="same",
         use_bias=True,
-        activation=act_layer,
+        activation=activation_fn,
         data_format=data_format,
         name=f"{name}_depthwise",
     )(x)
@@ -44,7 +48,7 @@ def convmixer_block(
     x = layers.Conv2D(
         filters,
         kernel_size=1,
-        activation=act_layer,
+        activation=activation_fn,
         use_bias=True,
         data_format=data_format,
         name=f"{name}_conv2d",
@@ -107,7 +111,7 @@ class ConvMixer(keras.Model):
         depth,
         kernel_size,
         patch_size,
-        act_layer="gelu",
+        activation_fn="gelu",
         include_top=True,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
@@ -154,7 +158,7 @@ class ConvMixer(keras.Model):
             kernel_size=patch_size,
             strides=patch_size,
             use_bias=True,
-            activation=act_layer,
+            activation=activation_fn,
             data_format=data_format,
             name="stem_conv2d",
         )(x)
@@ -168,7 +172,7 @@ class ConvMixer(keras.Model):
                 x,
                 dim,
                 kernel_size,
-                act_layer,
+                activation_fn,
                 channels_axis,
                 data_format,
                 f"mixer_block_{i}",
@@ -200,7 +204,7 @@ class ConvMixer(keras.Model):
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
-        self.act_layer = act_layer
+        self.activation_fn = activation_fn
         self.include_top = include_top
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
@@ -215,7 +219,7 @@ class ConvMixer(keras.Model):
             "depth": self.depth,
             "patch_size": self.patch_size,
             "kernel_size": self.kernel_size,
-            "act_layer": self.act_layer,
+            "activation_fn": self.activation_fn,
             "include_top": self.include_top,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,

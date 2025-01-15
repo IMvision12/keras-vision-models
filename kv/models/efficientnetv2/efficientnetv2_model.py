@@ -93,6 +93,10 @@ def mb_conv_block(
         inputs: The input tensor to the block.
         input_filters: The number of input channels to the block.
         output_filters: The number of output channels from the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         expand_ratio: The expansion ratio for the pointwise convolution. Default is 1.
         kernel_size: The size of the depthwise convolution kernel. Default is 3.
         strides: The stride of the depthwise convolution. Default is 1.
@@ -115,8 +119,8 @@ def mb_conv_block(
             strides=1,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
             padding="same",
-            data_format=data_format,
             use_bias=False,
+            data_format=data_format,
             name=block_name + "MBconv1",
         )(inputs)
         x = layers.BatchNormalization(
@@ -133,8 +137,8 @@ def mb_conv_block(
         strides=strides,
         depthwise_initializer=CONV_KERNEL_INITIALIZER,
         padding="same",
-        data_format=data_format,
         use_bias=False,
+        data_format=data_format,
         name=block_name + "MBdwconv",
     )(x)
     x = layers.BatchNormalization(
@@ -180,8 +184,8 @@ def mb_conv_block(
         strides=1,
         kernel_initializer=CONV_KERNEL_INITIALIZER,
         padding="same",
-        data_format=data_format,
         use_bias=False,
+        data_format=data_format,
         name=block_name + "MBconv2",
     )(x)
     x = layers.BatchNormalization(
@@ -225,6 +229,10 @@ def fusedmb_conv_block(
         inputs: The input tensor to the block.
         input_filters: The number of input channels to the block.
         output_filters: The number of output channels from the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         expand_ratio: The expansion ratio for the pointwise convolution. Default is 1.
         kernel_size: The size of the depthwise convolution kernel. Default is 3.
         strides: The stride of the depthwise convolution. Default is 1.
@@ -247,9 +255,9 @@ def fusedmb_conv_block(
             kernel_size=kernel_size,
             strides=strides,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
-            data_format=data_format,
             padding="same",
             use_bias=False,
+            data_format=data_format,
             name=block_name + "FMBconv1",
         )(inputs)
         x = layers.BatchNormalization(

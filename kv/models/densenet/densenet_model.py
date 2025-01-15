@@ -23,7 +23,10 @@ def conv_block(
         x: Input tensor.
         growth_rate: Number of output filters in the convolution.
         expansion_ratio: Expansion ratio for the bottleneck layer.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Name prefix for the layers.
 
     Returns:
@@ -72,7 +75,10 @@ def densenet_block(
         x: Input tensor.
         num_layers: Number of convolution blocks in the dense block.
         growth_rate: Growth rate for the convolution blocks.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Name prefix for the layers.
 
     Returns:
@@ -100,6 +106,10 @@ def transition_block(x, reduction, channels_axis, data_format, name):
     Args:
         x: Input tensor.
         reduction: Factor by which to reduce the number of channels.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Name prefix for the layers.
 
     Returns:
@@ -213,7 +223,7 @@ class DenseNet(keras.Model):
             else inputs
         )
 
-        x = layers.ZeroPadding2D(data_format=data_format, padding=((3, 3), (3, 3)))(x)
+        x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)), data_format=data_format)(x)
         x = layers.Conv2D(
             initial_filter,
             7,

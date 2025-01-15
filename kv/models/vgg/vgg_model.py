@@ -23,8 +23,10 @@ def vgg_block(
         num_filters: List of filter specifications. Integer values
             specify the number of filters in Conv2D layers, while "M" indicates a MaxPooling2D
             layer should be inserted.
-        channels_axis: Axis along which the channels are defined.
-            Should be -1 for "channels_last" or -3 for "channels_first" format.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         batch_norm: Whether to include batch normalization layers
             after each convolution. Defaults to False.
 

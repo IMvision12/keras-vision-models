@@ -23,6 +23,8 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
         W: Width of the feature map for spatial operations
         channels: Number of output channels
         mid_channels: Number of channels in the expanded intermediate representation
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name_prefix: String prefix used for naming the layers
 
     Returns:
@@ -58,6 +60,10 @@ def overlap_patch_embedding_block(
 
     Args:
         x: Input tensor of shape (batch_size, height, width, channels)
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         out_channels: Number of output channels for the embedding
         patch_size: Size of the patch window for extracting overlapping patches
         stride: Stride length between patches
@@ -83,8 +89,8 @@ def overlap_patch_embedding_block(
     x = layers.Reshape((-1, out_channels))(x)
     x = layers.LayerNormalization(
         axis=channels_axis,
-        name=f"overlap_patch_embed{stage_idx}_layernorm",
         epsilon=1e-6,
+        name=f"overlap_patch_embed{stage_idx}_layernorm",
     )(x)
     return x, H, W
 
@@ -113,6 +119,10 @@ def hierarchical_transformer_encoder_block(
         num_heads: Number of attention heads
         stage_idx: Index of the current stage in the network
         block_idx: Index of the current block within the stage
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         qkv_bias: Boolean indicating whether to use bias in query, key, value projections
         sr_ratio: Spatial reduction ratio for efficient attention
         drop_prob: Probability for stochastic depth dropout
@@ -130,14 +140,14 @@ def hierarchical_transformer_encoder_block(
     drop_path_layer = StochasticDepth(drop_prob)
 
     norm1 = layers.LayerNormalization(
-        epsilon=1e-6, axis=channels_axis, name=f"{block_prefix}_layernorm1"
+        axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm1"
     )(x)
     attn_out = attn_layer(norm1, H=H, W=W)
     attn_out = drop_path_layer(attn_out)
     add1 = layers.Add()([x, attn_out])
 
     norm2 = layers.LayerNormalization(
-        epsilon=1e-6, axis=channels_axis, name=f"{block_prefix}_layernorm2"
+        axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm2"
     )(add1)
     mlp_out = mlp_block(
         norm2,

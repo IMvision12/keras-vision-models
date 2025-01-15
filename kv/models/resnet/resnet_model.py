@@ -30,6 +30,10 @@ def conv_block(
         x: Input Keras layer.
         filters: Number of output filters for the convolution.
         kernel_size: Size of the convolution kernel.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         strides: Stride of the convolution.
         use_relu: Whether to apply ReLU activation after convolution.
         groups: Number of groups for grouped convolution.
@@ -94,6 +98,8 @@ def squeeze_excitation_block(
 
     Args:
         x: Input Keras layer.
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         reduction_ratio: Reduction ratio for squeeze operation.
         name: Optional name for layers within the block.
 
@@ -135,6 +141,10 @@ def bottleneck_block(
     Args:
         x: Input Keras layer.
         filters: Number of filters for the bottleneck layers.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         strides: Stride for the main convolution layer.
         downsample: Whether to downsample the input.
         senet: Whether to apply SE block.

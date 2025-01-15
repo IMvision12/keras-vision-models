@@ -69,6 +69,8 @@ def transformer_block(
         inputs: Input tensor to the transformer block.
         dim: Dimensionality of the input and output features.
         num_heads: Number of attention heads in the multi-head attention mechanism.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
         mlp_ratio: Expansion ratio for the hidden dimension in the MLP layer.
             Hidden layer size will be `dim * mlp_ratio`. Default is 4.0.
         qkv_bias: Whether to use bias in the query, key, and value projections.

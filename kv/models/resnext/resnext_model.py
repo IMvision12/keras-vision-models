@@ -26,6 +26,10 @@ def resnext_block(
     Args:
         x: Input Keras layer.
         filters: Number of filters for the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         strides: Stride for the main convolution layer.
         groups: Number of groups for grouped convolution.
         width_factor: Factor to determine width for grouped convolution.

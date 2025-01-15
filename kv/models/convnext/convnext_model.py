@@ -30,6 +30,10 @@ def convnext_block(
 
     Args:
         inputs: Input tensor or layer to the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         projection_dim: Number of filters for the convolutions (also known as the projection dimension).
         channel_axis: axis along which the channels are defined in the input tensor.
         drop_path_rate: Drop path rate for Stochastic Depth regularization. Default is 0.0.

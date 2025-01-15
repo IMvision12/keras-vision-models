@@ -27,7 +27,8 @@ def mixer_block(
         filters: int, the number of output filters for channel mixing.
         token_mlp_dim: int, hidden dimension for token mixing MLP.
         channel_mlp_dim: int, hidden dimension for channel mixing MLP.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
         drop_rate: float, dropout rate to apply after dense layers (default: 0.0).
         block_idx: int or None, index of the block for naming layers (default: None).
 

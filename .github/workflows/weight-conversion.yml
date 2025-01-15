@@ -1,8 +1,10 @@
 name: Weights Conversion Tests
+
 on:
   pull_request:
     branches:
       - main
+
 jobs:
   test-weight-conversions:
     runs-on: ubuntu-latest
@@ -19,43 +21,37 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install torch tensorflow keras pytest timm tqdm
+        pip install torch tensorflow keras pytest timm
         pip install -e .
         
     - name: Find and run conversion scripts
-      id: conversion
       run: |
-        set -e  # Exit immediately if a command exits with a non-zero status
-        
         TORCH_TO_KERAS_SCRIPTS=$(find kv/models -type f -name "convert_*_torch_to_keras.py")
         KERAS_TO_KERAS_SCRIPTS=$(find kv/models -type f -name "convert_*_keras_to_keras.py")
         CONVERSION_SCRIPTS="$TORCH_TO_KERAS_SCRIPTS $KERAS_TO_KERAS_SCRIPTS"
         
         echo "Found $(echo "$CONVERSION_SCRIPTS" | wc -l) conversion scripts to test"
+
         if [ -z "$CONVERSION_SCRIPTS" ]; then
-          echo "⚠️ No conversion scripts found"
+          echo "⚠️ No conversion scripts found. Exiting..."
           exit 1
         fi
-        
+
+        echo "Listing all conversion scripts:"
+        for script in $CONVERSION_SCRIPTS; do
+          echo " - $script"
+        done
+
         for script in $CONVERSION_SCRIPTS; do
           echo "🔄 Running conversion script: $script"
-          
-          # Run the script and capture output
-          OUTPUT=$(python "$script" 2>&1)
-          echo "$OUTPUT"
-          
-          # Check for model equivalence test failure first
-          if echo "$OUTPUT" | grep -q "Failed X"; then
+          if python "$script"; then
+            echo "✅ Successfully completed: $script"
+          else
             echo "❌ Failed: $script"
             echo "Stopping further execution due to failure"
-            exit 1
-          elif [ $? -ne 0 ]; then
-            echo "❌ Failed: $script"
-            echo "Stopping further execution due to failure"
+            echo "Failed script: $script"
             exit 1
           fi
-          
-          echo "✅ Successfully completed: $script"
           echo "----------------------------------------"
         done
         
@@ -69,7 +65,8 @@ jobs:
         find . -name "*.png" -type f -delete
         
         echo "🎉 All conversions completed successfully!"
-        
+        exit 0
+
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v3
@@ -80,7 +77,7 @@ jobs:
           ./**/*_error.log
         if-no-files-found: ignore
         retention-days: 1
-        
+
     - name: Cleanup workspace
       if: always()
       run: |

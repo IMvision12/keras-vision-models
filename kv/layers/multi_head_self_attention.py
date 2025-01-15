@@ -1,4 +1,5 @@
-from keras import InputSpec, config, layers, ops
+import keras
+from keras import InputSpec, layers, ops
 
 
 class MultiHeadSelfAttention(layers.Layer):
@@ -77,7 +78,7 @@ class MultiHeadSelfAttention(layers.Layer):
         self.head_dim = dim // num_heads
         self.scale = self.head_dim**-0.5
         self.epsilon = epsilon
-        self.data_format = config.image_data_format()
+        self.data_format = keras.config.image_data_format()
         self.channels_axis = -1 if self.data_format == "channels_last" else 1
 
         self.qkv = layers.Dense(
@@ -91,6 +92,7 @@ class MultiHeadSelfAttention(layers.Layer):
             layers.LayerNormalization(
                 axis=self.channels_axis,
                 epsilon=self.epsilon,
+                dtype=self.dtype_policy,
                 name=f"blocks_{block_idx}_attn_layernorm_1",
             )
             if qk_norm
@@ -100,17 +102,24 @@ class MultiHeadSelfAttention(layers.Layer):
             layers.LayerNormalization(
                 axis=self.channels_axis,
                 epsilon=self.epsilon,
+                dtype=self.dtype_policy,
                 name=f"blocks_{block_idx}_attn_layernorm_2",
             )
             if qk_norm
             else None
         )
 
-        self.attn_drop = layers.Dropout(attn_drop)
+        self.attn_drop = layers.Dropout(
+            attn_drop,
+            dtype=self.dtype_policy,
+        )
         self.proj = layers.Dense(
             dim, dtype=self.dtype_policy, name=f"blocks_{block_idx}_attn_proj"
         )
-        self.proj_drop = layers.Dropout(proj_drop)
+        self.proj_drop = layers.Dropout(
+            proj_drop,
+            dtype=self.dtype_policy,
+        )
 
     def build(self, input_shape):
         self.input_spec = InputSpec(ndim=len(input_shape))

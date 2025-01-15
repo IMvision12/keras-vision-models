@@ -1,4 +1,5 @@
-from keras import InputSpec, config, layers, ops
+import keras
+from keras import InputSpec, layers, ops
 
 
 class EfficientMultiheadSelfAttention(layers.Layer):
@@ -69,7 +70,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.sr_ratio = sr_ratio
         self.block_prefix = block_prefix
         self.epsilon = epsilon
-        self.data_format = config.image_data_format()
+        self.data_format = keras.config.image_data_format()
         self.channels_axis = -1 if self.data_format == "channels_last" else 1
 
         self.q = layers.Dense(
@@ -84,14 +85,14 @@ class EfficientMultiheadSelfAttention(layers.Layer):
             dtype=self.dtype_policy,
             name=self.block_prefix + "_attn_kv",
         )
-        self.attn_drop = layers.Dropout(attn_drop)
+        self.attn_drop = layers.Dropout(attn_drop, dtype=self.dtype_policy)
         self.proj = layers.Dense(
             project_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
             name=self.block_prefix + "_attn_proj",
         )
-        self.proj_drop = layers.Dropout(proj_drop)
+        self.proj_drop = layers.Dropout(proj_drop, dtype=self.dtype_policy)
 
         if sr_ratio > 1:
             self.sr = layers.Conv2D(
@@ -100,11 +101,13 @@ class EfficientMultiheadSelfAttention(layers.Layer):
                 strides=sr_ratio,
                 padding="same",
                 data_format=self.data_format,
+                dtype=self.dtype_policy,
                 name=self.block_prefix + "_attn_sr",
             )
             self.norm = layers.LayerNormalization(
                 axis=self.channels_axis,
                 epsilon=self.epsilon,
+                dtype=self.dtype_policy,
                 name=self.block_prefix + "_attn_norm",
             )
 

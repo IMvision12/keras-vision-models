@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -37,7 +37,9 @@ def conv_block(
     Returns:
         Processed tensor
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    data_format = keras.config.image_data_format()
+    channels_axis = -1 if data_format == "channels_last" else -3
+
     x = layers.Activation("relu")(x) if use_preactivation else x
 
     conv_layer = layers.SeparableConv2D if separable else layers.Conv2D
@@ -47,6 +49,7 @@ def conv_block(
         strides=strides,
         padding=padding,
         use_bias=use_bias,
+        data_format=data_format,
     )(x)
 
     x = layers.BatchNormalization(axis=channels_axis)(x)
@@ -68,7 +71,12 @@ def entry_flow(x):
     # Block 2
     x = conv_block(x, 128, (3, 3), separable=True)
     x = conv_block(x, 128, (3, 3), separable=True, use_activation=False)
-    x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
+    x = layers.MaxPooling2D(
+        (3, 3),
+        strides=(2, 2),
+        data_format=keras.config.image_data_format(),
+        padding="same",
+    )(x)
     x = layers.add([x, residual])
 
     # Block 3
@@ -77,14 +85,24 @@ def entry_flow(x):
     )
     x = conv_block(x, 256, (3, 3), use_preactivation=True, separable=True)
     x = conv_block(x, 256, (3, 3), use_activation=False, separable=True)
-    x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
+    x = layers.MaxPooling2D(
+        (3, 3),
+        strides=(2, 2),
+        data_format=keras.config.image_data_format(),
+        padding="same",
+    )(x)
     x = layers.add([x, residual])
 
     # Block 4
     residual = conv_block(x, 728, (1, 1), strides=(2, 2), use_activation=False)
     x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
     x = conv_block(x, 728, (3, 3), separable=True, use_activation=False)
-    x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
+    x = layers.MaxPooling2D(
+        (3, 3),
+        strides=(2, 2),
+        data_format=keras.config.image_data_format(),
+        padding="same",
+    )(x)
     x = layers.add([x, residual])
 
     return x
@@ -115,7 +133,12 @@ def exit_flow(x):
     # Block 13
     x = conv_block(x, 728, (3, 3), separable=True, use_preactivation=True)
     x = conv_block(x, 1024, (3, 3), separable=True, use_activation=False)
-    x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding="same")(x)
+    x = layers.MaxPooling2D(
+        (3, 3),
+        strides=(2, 2),
+        data_format=keras.config.image_data_format(),
+        padding="same",
+    )(x)
     x = layers.add([x, residual])
 
     # Block 14
@@ -175,11 +198,13 @@ class XceptionMain(keras.Model):
         name="xception",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=299,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -187,7 +212,7 @@ class XceptionMain(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
@@ -203,15 +228,21 @@ class XceptionMain(keras.Model):
         x = exit_flow(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

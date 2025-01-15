@@ -27,6 +27,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         assert layer.sr_ratio == 1
         assert layer.block_prefix == "block1"
         assert layer.scale == (self.project_dim // 8) ** -0.5
+        assert layer.epsilon == 1e-6
         assert not layer.built
         assert not layer.q.use_bias
         assert layer.attn_drop.rate == 0.0
@@ -40,11 +41,13 @@ class TestEfficientMultiheadSelfAttention(TestCase):
             proj_drop=0.1,
             attn_drop=0.1,
             qkv_bias=True,
+            epsilon=1e-5,
         )
         assert layer.project_dim == self.project_dim
         assert layer.num_heads == 4
         assert layer.sr_ratio == 2
         assert layer.block_prefix == "block2"
+        assert layer.epsilon == 1e-5
         assert hasattr(layer, "sr")
         assert hasattr(layer, "norm")
         assert layer.attn_drop.rate == 0.1
@@ -130,6 +133,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
             num_heads=4,
             attn_drop=0.1,
             qkv_bias=True,
+            epsilon=1e-5,
         )
         config = layer.get_config()
         assert "project_dim" in config
@@ -138,12 +142,14 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         assert "num_heads" in config
         assert "attn_drop" in config
         assert "qkv_bias" in config
+        assert "epsilon" in config
         assert config["project_dim"] == self.project_dim
         assert config["sr_ratio"] == 2
         assert config["block_prefix"] == "block1"
         assert config["num_heads"] == 4
         assert config["attn_drop"] == 0.1
         assert config["qkv_bias"] is True
+        assert config["epsilon"] == 1e-5
 
         reconstructed_layer = EfficientMultiheadSelfAttention.from_config(config)
         assert reconstructed_layer.project_dim == layer.project_dim
@@ -152,6 +158,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         assert reconstructed_layer.num_heads == layer.num_heads
         assert reconstructed_layer.attn_drop.rate == layer.attn_drop.rate
         assert reconstructed_layer.q.use_bias == layer.q.use_bias
+        assert reconstructed_layer.epsilon == layer.epsilon
 
     def test_qkv_bias_computation(self):
         for use_bias in [True, False]:
@@ -240,3 +247,14 @@ class TestEfficientMultiheadSelfAttention(TestCase):
             self.seq_length,
             self.project_dim,
         )
+
+    def test_layer_normalization_epsilon(self):
+        layer = EfficientMultiheadSelfAttention(
+            project_dim=self.project_dim,
+            sr_ratio=2,
+            block_prefix="block1",
+            epsilon=1e-5,
+        )
+        layer.build(self.input_shape)
+        assert hasattr(layer, "norm")
+        assert layer.norm.epsilon == 1e-5

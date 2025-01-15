@@ -1,6 +1,6 @@
 import keras
 import numpy as np
-from keras import backend, layers, ops
+from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import (
@@ -14,7 +14,7 @@ from ...model_registry import register_model
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
 
 
-def mlp_block(x, H, W, channels, mid_channels, name_prefix):
+def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
     """Creates a MLP block with spatial mixing using depthwise convolution.
 
     Args:
@@ -23,6 +23,8 @@ def mlp_block(x, H, W, channels, mid_channels, name_prefix):
         W: Width of the feature map for spatial operations
         channels: Number of output channels
         mid_channels: Number of channels in the expanded intermediate representation
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name_prefix: String prefix used for naming the layers
 
     Returns:
@@ -33,7 +35,11 @@ def mlp_block(x, H, W, channels, mid_channels, name_prefix):
     input_shape = ops.shape(x)
     x = layers.Reshape((H, W, input_shape[-1]))(x)
     x = layers.DepthwiseConv2D(
-        kernel_size=3, strides=1, padding="same", name=f"{name_prefix}_dwconv"
+        kernel_size=3,
+        strides=1,
+        padding="same",
+        data_format=data_format,
+        name=f"{name_prefix}_dwconv",
     )(x)
     x = layers.Reshape((H * W, input_shape[-1]))(x)
     x = layers.Activation("gelu")(x)
@@ -43,6 +49,8 @@ def mlp_block(x, H, W, channels, mid_channels, name_prefix):
 
 def overlap_patch_embedding_block(
     x,
+    channels_axis,
+    data_format,
     out_channels=32,
     patch_size=7,
     stride=4,
@@ -52,6 +60,10 @@ def overlap_patch_embedding_block(
 
     Args:
         x: Input tensor of shape (batch_size, height, width, channels)
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         out_channels: Number of output channels for the embedding
         patch_size: Size of the patch window for extracting overlapping patches
         stride: Stride length between patches
@@ -69,13 +81,16 @@ def overlap_patch_embedding_block(
         kernel_size=patch_size,
         strides=stride,
         padding="same",
+        data_format=data_format,
         name=f"overlap_patch_embed{stage_idx}_conv",
     )(x)
     shape = ops.shape(x)
     H, W = shape[1], shape[2]
     x = layers.Reshape((-1, out_channels))(x)
     x = layers.LayerNormalization(
-        name=f"overlap_patch_embed{stage_idx}_layernorm", epsilon=1e-6
+        axis=channels_axis,
+        epsilon=1e-6,
+        name=f"overlap_patch_embed{stage_idx}_layernorm",
     )(x)
     return x, H, W
 
@@ -88,6 +103,8 @@ def hierarchical_transformer_encoder_block(
     num_heads,
     stage_idx,
     block_idx,
+    channels_axis,
+    data_format,
     qkv_bias=False,
     sr_ratio=1,
     drop_prob=0.0,
@@ -102,6 +119,10 @@ def hierarchical_transformer_encoder_block(
         num_heads: Number of attention heads
         stage_idx: Index of the current stage in the network
         block_idx: Index of the current block within the stage
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         qkv_bias: Boolean indicating whether to use bias in query, key, value projections
         sr_ratio: Spatial reduction ratio for efficient attention
         drop_prob: Probability for stochastic depth dropout
@@ -118,22 +139,23 @@ def hierarchical_transformer_encoder_block(
     )
     drop_path_layer = StochasticDepth(drop_prob)
 
-    norm1 = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm1")(
-        x
-    )
+    norm1 = layers.LayerNormalization(
+        axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm1"
+    )(x)
     attn_out = attn_layer(norm1, H=H, W=W)
     attn_out = drop_path_layer(attn_out)
     add1 = layers.Add()([x, attn_out])
 
-    norm2 = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm2")(
-        add1
-    )
+    norm2 = layers.LayerNormalization(
+        axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm2"
+    )(add1)
     mlp_out = mlp_block(
         norm2,
         H,
         W,
         channels=project_dim,
         mid_channels=int(project_dim * 4),
+        data_format=data_format,
         name_prefix=f"{block_prefix}_mlp",
     )
     mlp_out = drop_path_layer(mlp_out)
@@ -232,11 +254,14 @@ class MixTransformer(keras.Model):
         name="MixTransformer",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -244,7 +269,7 @@ class MixTransformer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
@@ -269,7 +294,9 @@ class MixTransformer(keras.Model):
         for i in range(self.num_stages):
             x, H, W = overlap_patch_embedding_block(
                 x,
-                embed_dims[i],
+                out_channels=embed_dims[i],
+                channels_axis=channels_axis,
+                data_format=data_format,
                 patch_size=7 if i == 0 else 3,
                 stride=4 if i == 0 else 2,
                 stage_idx=i + 1,
@@ -287,14 +314,20 @@ class MixTransformer(keras.Model):
                     sr_ratio=self.blockwise_sr_ratios[i],
                     drop_prob=dpr[cur_block],
                     qkv_bias=True,
+                    channels_axis=channels_axis,
+                    data_format=data_format,
                 )
                 cur_block += 1
 
-            x = layers.LayerNormalization(name=f"layernorm{i + 1}", epsilon=1e-6)(x)
+            x = layers.LayerNormalization(
+                name=f"layernorm{i + 1}", axis=channels_axis, epsilon=1e-6
+            )(x)
             x = layers.Reshape((H, W, embed_dims[i]))(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -302,9 +335,13 @@ class MixTransformer(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 

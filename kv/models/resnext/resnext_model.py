@@ -13,6 +13,7 @@ def resnext_block(
     x: layers.Layer,
     filters: int,
     channels_axis,
+    data_format,
     strides: int = 1,
     groups: int = 32,
     width_factor: int = 2,
@@ -25,6 +26,10 @@ def resnext_block(
     Args:
         x: Input Keras layer.
         filters: Number of filters for the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         strides: Stride for the main convolution layer.
         groups: Number of groups for grouped convolution.
         width_factor: Factor to determine width for grouped convolution.
@@ -47,6 +52,7 @@ def resnext_block(
         name=f"{block_name}_conv1",
         bn_name=f"{block_name}_batchnorm1",
         channels_axis=channels_axis,
+        data_format=data_format,
     )
     group_width = width // groups
     x = conv_block(
@@ -59,6 +65,7 @@ def resnext_block(
         name=f"{block_name}_conv2",
         bn_name=f"{block_name}_batchnorm2",
         channels_axis=channels_axis,
+        data_format=data_format,
     )
     x = conv_block(
         x,
@@ -68,10 +75,13 @@ def resnext_block(
         name=f"{block_name}_conv3",
         bn_name=f"{block_name}_batchnorm3",
         channels_axis=channels_axis,
+        data_format=data_format,
     )
 
     if senet:
-        x = squeeze_excitation_block(x, name=f"{block_name}_se")
+        x = squeeze_excitation_block(
+            x, data_format=data_format, name=f"{block_name}_se"
+        )
 
     if downsample or strides != 1 or x.shape[-1] != residual.shape[-1]:
         residual = conv_block(
@@ -83,6 +93,7 @@ def resnext_block(
             name=f"{block_name}_downsample_conv",
             bn_name=f"{block_name}_downsample_batchnorm",
             channels_axis=channels_axis,
+            data_format=data_format,
         )
 
     x = layers.Add()([x, residual])

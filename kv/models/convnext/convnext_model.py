@@ -1,6 +1,6 @@
 import keras
 import numpy as np
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -17,6 +17,7 @@ def convnext_block(
     inputs,
     projection_dim,
     channels_axis,
+    data_format,
     drop_path_rate=0.0,
     layer_scale_init_value=1e-6,
     name=None,
@@ -29,8 +30,12 @@ def convnext_block(
 
     Args:
         inputs: Input tensor or layer to the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         projection_dim: Number of filters for the convolutions (also known as the projection dimension).
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channel_axis: axis along which the channels are defined in the input tensor.
         drop_path_rate: Drop path rate for Stochastic Depth regularization. Default is 0.0.
         layer_scale_init_value: Initial value for LayerScale scaling factor.
             If None, LayerScale is not applied. Default is 1e-6.
@@ -45,20 +50,25 @@ def convnext_block(
         kernel_size=7,
         padding="same",
         use_bias=True,
+        data_format=data_format,
         name=name + "_depthwise_conv",
     )(inputs)
     x = layers.LayerNormalization(
         axis=channels_axis, epsilon=1e-6, name=name + "_layernorm"
     )(x)
     if use_conv:
-        x = layers.Conv2D(projection_dim * 4, 1, name=name + "_conv_1")(x)
+        x = layers.Conv2D(
+            projection_dim * 4, 1, data_format=data_format, name=name + "_conv_1"
+        )(x)
     else:
         x = layers.Dense(4 * projection_dim, name=name + "_dense_1")(x)
     x = layers.Activation("gelu", name=name + "_gelu")(x)
     if use_grn:
         x = GlobalResponseNorm(name=name + "_grn")(x)
     if use_conv:
-        x = layers.Conv2D(projection_dim, 1, name=name + "_conv_2")(x)
+        x = layers.Conv2D(
+            projection_dim, 1, data_format=data_format, name=name + "_conv_2"
+        )(x)
     else:
         x = layers.Dense(projection_dim, name=name + "_dense_2")(x)
 
@@ -140,11 +150,14 @@ class ConvNeXt(keras.Model):
         name="ConvNeXt",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -152,13 +165,12 @@ class ConvNeXt(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
         inputs = img_input
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -167,7 +179,11 @@ class ConvNeXt(keras.Model):
         )
         # Stem block
         x = layers.Conv2D(
-            projection_dims[0], kernel_size=4, strides=4, name="stem_conv"
+            projection_dims[0],
+            kernel_size=4,
+            strides=4,
+            data_format=data_format,
+            name="stem_conv",
         )(x)
         x = layers.LayerNormalization(
             axis=channels_axis, epsilon=1e-6, name="stem_layernorm"
@@ -186,6 +202,7 @@ class ConvNeXt(keras.Model):
                     projection_dims[i],
                     kernel_size=2,
                     strides=2,
+                    data_format=data_format,
                     name=f"stages_{i}_downsampling_conv",
                 )(x)
             for j in range(depths[i]):
@@ -197,13 +214,16 @@ class ConvNeXt(keras.Model):
                     use_grn=use_grn,
                     use_conv=use_conv,
                     channels_axis=channels_axis,
+                    data_format=data_format,
                     name=f"stages_{i}_blocks_{j}",
                 )
             cur += depths[i]
 
         # Head
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.LayerNormalization(
                 axis=channels_axis, epsilon=1e-6, name="final_layernorm"
             )(x)
@@ -212,9 +232,13 @@ class ConvNeXt(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

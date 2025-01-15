@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
@@ -37,7 +37,7 @@ def conv_block(
         Output tensor for the block.
     """
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     x = inputs
     if padding is None:
@@ -55,6 +55,7 @@ def conv_block(
         strides=strides,
         padding=padding,
         use_bias=False,
+        data_format=keras.config.image_data_format(),
         name=f"{name}_conv2d",
     )(x)
     x = layers.BatchNormalization(
@@ -79,7 +80,7 @@ def inception_blocka(inputs, pool_channels, name="inception_block_a"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch1x1 = conv_block(inputs, 64, 1, name=f"{name}_branch1x1")
 
@@ -94,11 +95,13 @@ def inception_blocka(inputs, pool_channels, name="inception_block_a"):
         branch3x3dbl, 96, 3, padding=None, name=f"{name}_branch3x3dbl_3"
     )
 
-    branch_pool = layers.ZeroPadding2D(padding=1)(inputs)
+    branch_pool = layers.ZeroPadding2D(
+        data_format=keras.config.image_data_format(), padding=1
+    )(inputs)
     branch_pool = layers.AveragePooling2D(
         pool_size=3,
         strides=1,
-        data_format=backend.image_data_format(),
+        data_format=keras.config.image_data_format(),
     )(branch_pool)
     branch_pool = conv_block(
         branch_pool,
@@ -122,7 +125,7 @@ def inception_blockb(inputs, name="inception_block_b"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch3x3 = conv_block(inputs, 384, 3, 2, name=f"{name}_branch3x3")
 
@@ -135,7 +138,10 @@ def inception_blockb(inputs, name="inception_block_b"):
     )
 
     branch_pool = layers.MaxPooling2D(
-        pool_size=3, strides=2, name=f"{name}_branch_pool"
+        pool_size=3,
+        strides=2,
+        data_format=keras.config.image_data_format(),
+        name=f"{name}_branch_pool",
     )(inputs)
 
     return layers.Concatenate(axis=channels_axis)(
@@ -155,7 +161,8 @@ def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+
     c7 = branch7x7_channels
 
     branch1x1 = conv_block(inputs, 192, 1, name=f"{name}_branch1x1")
@@ -182,9 +189,11 @@ def inception_blockc(inputs, branch7x7_channels, name="inception_block_c"):
         branch7x7dbl, 192, (1, 7), padding=None, name=f"{name}_branch7x7dbl_5"
     )
 
-    branch_pool = layers.ZeroPadding2D(padding=1)(inputs)
+    branch_pool = layers.ZeroPadding2D(
+        data_format=keras.config.image_data_format(), padding=1
+    )(inputs)
     branch_pool = layers.AveragePooling2D(
-        pool_size=3, strides=1, data_format=backend.image_data_format()
+        pool_size=3, strides=1, data_format=keras.config.image_data_format()
     )(branch_pool)
     branch_pool = conv_block(branch_pool, 192, 1, name=f"{name}_branch_pool")
 
@@ -204,7 +213,7 @@ def inception_blockd(inputs, name="inception_block_d"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch3x3 = conv_block(inputs, 192, 1, name=f"{name}_branch3x3_1")
     branch3x3 = conv_block(branch3x3, 320, 3, strides=2, name=f"{name}_branch3x3_2")
@@ -220,7 +229,9 @@ def inception_blockd(inputs, name="inception_block_d"):
         branch7x7x3, 192, 3, strides=2, name=f"{name}_branch7x7x3_4"
     )
 
-    branch_pool = layers.MaxPooling2D(pool_size=3, strides=2)(inputs)
+    branch_pool = layers.MaxPooling2D(
+        data_format=keras.config.image_data_format(), pool_size=3, strides=2
+    )(inputs)
 
     return layers.Concatenate(axis=channels_axis)([branch3x3, branch7x7x3, branch_pool])
 
@@ -236,7 +247,7 @@ def inception_blocke(inputs, name="inception_block_e"):
     Returns:
         Output tensor for the block.
     """
-    channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch1x1 = conv_block(inputs, 320, 1, name=f"{name}_branch1x1")
 
@@ -279,9 +290,13 @@ def inception_blocke(inputs, name="inception_block_e"):
         [branch3x3dbl_a, branch3x3dbl_b]
     )
 
-    branch_pool = layers.ZeroPadding2D(padding=1)(inputs)
+    branch_pool = layers.ZeroPadding2D(
+        data_format=keras.config.image_data_format(), padding=1
+    )(inputs)
     branch_pool = layers.AveragePooling2D(
-        pool_size=3, strides=1, data_format=backend.image_data_format()
+        pool_size=3,
+        strides=1,
+        data_format=keras.config.image_data_format(),
     )(branch_pool)
     branch_pool = conv_block(branch_pool, 192, 1, name=f"{name}_branch_pool")
 
@@ -340,11 +355,13 @@ class InceptionV3Main(keras.Model):
         name="InceptionV3",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=299,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -352,7 +369,7 @@ class InceptionV3Main(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
@@ -390,7 +407,9 @@ class InceptionV3Main(keras.Model):
         x = inception_blocke(x, "Mixed_7c")
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -398,9 +417,13 @@ class InceptionV3Main(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -9,15 +9,21 @@ from ...model_registry import register_model
 from .config import CONVMIXER_MODEL_CONFIG, CONVMIXER_WEIGHTS_CONFIG
 
 
-def convmixer_block(x, filters, kernel_size, act_layer, channels_axis, name):
+def convmixer_block(
+    x, filters, kernel_size, activation, channels_axis, data_format, name
+):
     """A building block for the ConvMixer architecture.
 
     Args:
         x: input tensor.
         filters: int, the number of output filters for the convolution layers.
         kernel_size: int, the size of the convolution kernel.
-        act_layer: string, activation function to apply after each convolution.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        activation_fn: string, name of the activation function to be applied within
+            the Conv2D layers (e.g., 'gelu', 'relu').
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: string, block name.
 
     Returns:
@@ -29,7 +35,8 @@ def convmixer_block(x, filters, kernel_size, act_layer, channels_axis, name):
         1,
         padding="same",
         use_bias=True,
-        activation=act_layer,
+        activation=activation,
+        data_format=data_format,
         name=f"{name}_depthwise",
     )(x)
     x = layers.BatchNormalization(
@@ -40,9 +47,11 @@ def convmixer_block(x, filters, kernel_size, act_layer, channels_axis, name):
 
     x = layers.Conv2D(
         filters,
-        kernel_size=1,
-        activation=act_layer,
+        1,
+        1,
+        activation=activation,
         use_bias=True,
+        data_format=data_format,
         name=f"{name}_conv2d",
     )(x)
     x = layers.BatchNormalization(
@@ -103,7 +112,7 @@ class ConvMixer(keras.Model):
         depth,
         kernel_size,
         patch_size,
-        act_layer="gelu",
+        activation="gelu",
         include_top=True,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
@@ -116,11 +125,14 @@ class ConvMixer(keras.Model):
         name="ConvMixer",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -128,13 +140,12 @@ class ConvMixer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
         inputs = img_input
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -148,7 +159,8 @@ class ConvMixer(keras.Model):
             kernel_size=patch_size,
             strides=patch_size,
             use_bias=True,
-            activation=act_layer,
+            activation=activation,
+            data_format=data_format,
             name="stem_conv2d",
         )(x)
         x = layers.BatchNormalization(
@@ -158,11 +170,19 @@ class ConvMixer(keras.Model):
         # ConvMixer Blocks
         for i in range(depth):
             x = convmixer_block(
-                x, dim, kernel_size, act_layer, channels_axis, f"mixer_block_{i}"
+                x,
+                dim,
+                kernel_size,
+                activation,
+                channels_axis,
+                data_format,
+                f"mixer_block_{i}",
             )
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -171,9 +191,13 @@ class ConvMixer(keras.Model):
 
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
@@ -181,7 +205,7 @@ class ConvMixer(keras.Model):
         self.depth = depth
         self.patch_size = patch_size
         self.kernel_size = kernel_size
-        self.act_layer = act_layer
+        self.activation = activation
         self.include_top = include_top
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
@@ -196,7 +220,7 @@ class ConvMixer(keras.Model):
             "depth": self.depth,
             "patch_size": self.patch_size,
             "kernel_size": self.kernel_size,
-            "act_layer": self.act_layer,
+            "activation": self.activation,
             "include_top": self.include_top,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
@@ -271,7 +295,7 @@ def ConvMixer_768_32(
 ):
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
-        act_layer="relu",
+        activation="relu",
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,

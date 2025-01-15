@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -14,6 +14,7 @@ def conv_block(
     growth_rate,
     expansion_ratio,
     channels_axis,
+    data_format,
     name,
 ):
     """Creates a convolution block for DenseNet.
@@ -22,7 +23,10 @@ def conv_block(
         x: Input tensor.
         growth_rate: Number of output filters in the convolution.
         expansion_ratio: Expansion ratio for the bottleneck layer.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Name prefix for the layers.
 
     Returns:
@@ -38,6 +42,7 @@ def conv_block(
         strides=1,
         padding="valid",
         use_bias=False,
+        data_format=data_format,
         name=f"{name}_conv2d_1",
     )(x)
     x = layers.BatchNormalization(
@@ -45,7 +50,13 @@ def conv_block(
     )(x)
     x = layers.ReLU(name=f"{name}_relu")(x)
     x = layers.Conv2D(
-        growth_rate, 3, 1, padding="same", use_bias=False, name=f"{name}_conv2d_2"
+        growth_rate,
+        3,
+        1,
+        padding="same",
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_conv2d_2",
     )(x)
     return x
 
@@ -55,6 +66,7 @@ def densenet_block(
     num_layers,
     growth_rate,
     channels_axis,
+    data_format,
     name,
 ):
     """Creates a dense block containing multiple convolution blocks.
@@ -63,7 +75,10 @@ def densenet_block(
         x: Input tensor.
         num_layers: Number of convolution blocks in the dense block.
         growth_rate: Growth rate for the convolution blocks.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Name prefix for the layers.
 
     Returns:
@@ -77,6 +92,7 @@ def densenet_block(
             growth_rate,
             expansion_ratio=4.0,
             channels_axis=channels_axis,
+            data_format=data_format,
             name=f"{name}_denselayer{i + 1}",
         )
         output = layers.Concatenate(axis=channels_axis)([output, layer_output])
@@ -84,32 +100,39 @@ def densenet_block(
     return output
 
 
-def transition_block(x, reduction, name):
+def transition_block(x, reduction, channels_axis, data_format, name):
     """Creates a transition block that reduces the number of channels and spatial dimensions.
 
     Args:
         x: Input tensor.
         reduction: Factor by which to reduce the number of channels.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Name prefix for the layers.
 
     Returns:
         Output tensor for the block.
     """
-    bn_axis = 3 if backend.image_data_format() == "channels_last" else 1
     x = layers.BatchNormalization(
-        axis=bn_axis, momentum=0.9, epsilon=1e-5, name=f"{name}_transition_batchnorm"
+        axis=channels_axis,
+        momentum=0.9,
+        epsilon=1e-5,
+        name=f"{name}_transition_batchnorm",
     )(x)
     x = layers.ReLU(name=f"{name}_relu")(x)
     x = layers.Conv2D(
-        int(x.shape[bn_axis] * reduction),
+        int(x.shape[channels_axis] * reduction),
         1,
         1,
         "same",
         use_bias=False,
+        data_format=data_format,
         name=f"{name}_transition_conv2d",
     )(x)
     x = layers.AveragePooling2D(
-        2, 2, data_format=backend.image_data_format(), name=f"{name}_transition_pool"
+        2, 2, data_format=data_format, name=f"{name}_transition_pool"
     )(x)
     return x
 
@@ -173,13 +196,14 @@ class DenseNet(keras.Model):
         name="DenseNet",
         **kwargs,
     ):
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -187,27 +211,33 @@ class DenseNet(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
         inputs = img_input
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )
 
-        x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)))(x)
-        x = layers.Conv2D(initial_filter, 7, 2, use_bias=False, name="stem_conv")(x)
+        x = layers.ZeroPadding2D(padding=((3, 3), (3, 3)), data_format=data_format)(x)
+        x = layers.Conv2D(
+            initial_filter,
+            7,
+            2,
+            use_bias=False,
+            data_format=data_format,
+            name="stem_conv",
+        )(x)
         x = layers.BatchNormalization(
             axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_norm"
         )(x)
         x = layers.ReLU(name="stem_relu")(x)
-        x = layers.ZeroPadding2D(1)(x)
-        x = layers.MaxPooling2D(3, 2, name="stem_pool")(x)
+        x = layers.ZeroPadding2D(1, data_format=data_format)(x)
+        x = layers.MaxPooling2D(3, 2, data_format=data_format, name="stem_pool")(x)
 
         for i, num_layers in enumerate(num_blocks):
             x = densenet_block(
@@ -215,6 +245,7 @@ class DenseNet(keras.Model):
                 num_layers,
                 growth_rate,
                 channels_axis,
+                data_format,
                 name=f"dense_block{i + 1}",
             )
 
@@ -222,6 +253,8 @@ class DenseNet(keras.Model):
                 x = transition_block(
                     x,
                     0.5,
+                    channels_axis,
+                    data_format,
                     name=f"transition_block{i + 1}",
                 )
 
@@ -234,7 +267,9 @@ class DenseNet(keras.Model):
         x = layers.ReLU(name="final_relu")(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -242,9 +277,13 @@ class DenseNet(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 

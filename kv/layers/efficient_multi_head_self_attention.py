@@ -1,3 +1,4 @@
+import keras
 from keras import InputSpec, layers, ops
 
 
@@ -28,6 +29,9 @@ class EfficientMultiheadSelfAttention(layers.Layer):
             Provides additional regularization. Defaults to 0.0
         attn_drop (float, optional): Dropout rate applied to attention weights. Helps
             prevent overfitting. Defaults to 0.0
+        epsilon (float, optional): Small constant used in normalization operations for
+            numerical stability. A higher value reduces precision but increases stability.
+            Defaults to 1e-6
         **kwargs: Additional keyword arguments passed to the parent Layer class.
 
     Input shape:
@@ -50,11 +54,12 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self,
         project_dim,
         sr_ratio,
-        block_prefix,
+        block_prefix=None,
         qkv_bias=False,
         num_heads=8,
         attn_drop=0.0,
         proj_drop=0.0,
+        epsilon=1e-6,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -66,18 +71,34 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.num_heads = num_heads
         self.scale = (project_dim // num_heads) ** -0.5
         self.sr_ratio = sr_ratio
-        self.block_prefix = block_prefix
+        self.block_prefix = (
+            block_prefix if block_prefix is not None else "efficient_mhsa"
+        )
+        self.epsilon = epsilon
+        self.data_format = keras.config.image_data_format()
+        self.channels_axis = -1 if self.data_format == "channels_last" else 1
+        prefix = f"{self.block_prefix}_"
+
         self.q = layers.Dense(
-            project_dim, use_bias=qkv_bias, name=self.block_prefix + "_attn_q"
+            project_dim,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=prefix + "attn_q",
         )
         self.kv = layers.Dense(
-            project_dim * 2, use_bias=qkv_bias, name=self.block_prefix + "_attn_kv"
+            project_dim * 2,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=prefix + "attn_kv",
         )
-        self.attn_drop = layers.Dropout(attn_drop)
+        self.attn_drop = layers.Dropout(attn_drop, dtype=self.dtype_policy)
         self.proj = layers.Dense(
-            project_dim, use_bias=qkv_bias, name=self.block_prefix + "_attn_proj"
+            project_dim,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=prefix + "attn_proj",
         )
-        self.proj_drop = layers.Dropout(proj_drop)
+        self.proj_drop = layers.Dropout(proj_drop, dtype=self.dtype_policy)
 
         if sr_ratio > 1:
             self.sr = layers.Conv2D(
@@ -85,10 +106,15 @@ class EfficientMultiheadSelfAttention(layers.Layer):
                 kernel_size=sr_ratio,
                 strides=sr_ratio,
                 padding="same",
-                name=self.block_prefix + "_attn_sr",
+                data_format=self.data_format,
+                dtype=self.dtype_policy,
+                name=prefix + "attn_sr",
             )
             self.norm = layers.LayerNormalization(
-                name=self.block_prefix + "_attn_norm", epsilon=1e-6
+                axis=self.channels_axis,
+                epsilon=self.epsilon,
+                dtype=self.dtype_policy,
+                name=prefix + "attn_norm",
             )
 
     def build(self, input_shape):
@@ -175,6 +201,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
                 "num_heads": self.num_heads,
                 "proj_drop": self.proj_drop.rate,
                 "attn_drop": self.attn_drop.rate,
+                "epsilon": self.epsilon,
             }
         )
         return config

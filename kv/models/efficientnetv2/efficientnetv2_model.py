@@ -2,7 +2,7 @@ import copy
 import math
 
 import keras
-from keras import backend, initializers, layers
+from keras import initializers, layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -74,6 +74,8 @@ def mb_conv_block(
     inputs,
     input_filters,
     output_filters,
+    channels_axis,
+    data_format,
     expand_ratio=1,
     kernel_size=3,
     strides=1,
@@ -91,6 +93,10 @@ def mb_conv_block(
         inputs: The input tensor to the block.
         input_filters: The number of input channels to the block.
         output_filters: The number of output channels from the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         expand_ratio: The expansion ratio for the pointwise convolution. Default is 1.
         kernel_size: The size of the depthwise convolution kernel. Default is 3.
         strides: The stride of the depthwise convolution. Default is 1.
@@ -103,7 +109,6 @@ def mb_conv_block(
     Returns:
         Output tensor for the block.
     """
-    channel_axis = 3 if backend.image_data_format() == "channels_last" else 1
     block_name = f"blocks_{block_idx}_{layer_idx}_"
 
     filters = input_filters * expand_ratio
@@ -114,12 +119,12 @@ def mb_conv_block(
             strides=1,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
             padding="same",
-            data_format=backend.image_data_format(),
             use_bias=False,
+            data_format=data_format,
             name=block_name + "MBconv1",
         )(inputs)
         x = layers.BatchNormalization(
-            axis=channel_axis,
+            axis=channels_axis,
             momentum=0.9,
             name=block_name + "batchnorm1",
         )(x)
@@ -132,19 +137,21 @@ def mb_conv_block(
         strides=strides,
         depthwise_initializer=CONV_KERNEL_INITIALIZER,
         padding="same",
-        data_format=backend.image_data_format(),
         use_bias=False,
+        data_format=data_format,
         name=block_name + "MBdwconv",
     )(x)
     x = layers.BatchNormalization(
-        axis=channel_axis, momentum=0.9, name=block_name + "batchnorm2"
+        axis=channels_axis, momentum=0.9, name=block_name + "batchnorm2"
     )(x)
     x = layers.Activation("swish", name=block_name + "act2")(x)
 
     if 0 < se_ratio <= 1:
         filters_se = max(1, int(input_filters * se_ratio))
-        se = layers.GlobalAveragePooling2D(name=block_name + "se_avgpool")(x)
-        if channel_axis == 1:
+        se = layers.GlobalAveragePooling2D(
+            data_format=data_format, name=block_name + "se_avgpool"
+        )(x)
+        if channels_axis == 1:
             se_shape = (filters, 1, 1)
         else:
             se_shape = (1, 1, filters)
@@ -156,6 +163,7 @@ def mb_conv_block(
             padding="same",
             activation="swish",
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name=block_name + "se_conv_reduce",
         )(se)
         se = layers.Conv2D(
@@ -164,6 +172,7 @@ def mb_conv_block(
             padding="same",
             activation="sigmoid",
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name=block_name + "se_conv_expand",
         )(se)
 
@@ -175,12 +184,12 @@ def mb_conv_block(
         strides=1,
         kernel_initializer=CONV_KERNEL_INITIALIZER,
         padding="same",
-        data_format=backend.image_data_format(),
         use_bias=False,
+        data_format=data_format,
         name=block_name + "MBconv2",
     )(x)
     x = layers.BatchNormalization(
-        axis=channel_axis, momentum=0.9, name=block_name + "batchnorm3"
+        axis=channels_axis, momentum=0.9, name=block_name + "batchnorm3"
     )(x)
 
     if strides == 1 and input_filters == output_filters:
@@ -199,6 +208,8 @@ def fusedmb_conv_block(
     inputs,
     input_filters,
     output_filters,
+    channels_axis,
+    data_format,
     expand_ratio=1,
     kernel_size=3,
     strides=1,
@@ -218,6 +229,10 @@ def fusedmb_conv_block(
         inputs: The input tensor to the block.
         input_filters: The number of input channels to the block.
         output_filters: The number of output channels from the block.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         expand_ratio: The expansion ratio for the pointwise convolution. Default is 1.
         kernel_size: The size of the depthwise convolution kernel. Default is 3.
         strides: The stride of the depthwise convolution. Default is 1.
@@ -231,7 +246,6 @@ def fusedmb_conv_block(
         Output tensor for the block.
 
     """
-    channel_axis = 3 if backend.image_data_format() == "channels_last" else 1
     block_name = f"blocks_{block_idx}_{layer_idx}_"
 
     filters = input_filters * expand_ratio
@@ -241,13 +255,13 @@ def fusedmb_conv_block(
             kernel_size=kernel_size,
             strides=strides,
             kernel_initializer=CONV_KERNEL_INITIALIZER,
-            data_format=backend.image_data_format(),
             padding="same",
             use_bias=False,
+            data_format=data_format,
             name=block_name + "FMBconv1",
         )(inputs)
         x = layers.BatchNormalization(
-            axis=channel_axis, momentum=0.9, name=block_name + "batchnorm1"
+            axis=channels_axis, momentum=0.9, name=block_name + "batchnorm1"
         )(x)
         x = layers.Activation(activation="swish", name=block_name + "act1")(x)
     else:
@@ -255,8 +269,10 @@ def fusedmb_conv_block(
 
     if 0 < se_ratio <= 1:
         filters_se = max(1, int(input_filters * se_ratio))
-        se = layers.GlobalAveragePooling2D(name=block_name + "se_avgpool")(x)
-        if channel_axis == 1:
+        se = layers.GlobalAveragePooling2D(
+            data_format=data_format, name=block_name + "se_avgpool"
+        )(x)
+        if channels_axis == 1:
             se_shape = (filters, 1, 1)
         else:
             se_shape = (1, 1, filters)
@@ -269,6 +285,7 @@ def fusedmb_conv_block(
             padding="same",
             activation="swish",
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name=block_name + "se_conv_reduce",
         )(se)
         se = layers.Conv2D(
@@ -277,6 +294,7 @@ def fusedmb_conv_block(
             padding="same",
             activation="sigmoid",
             kernel_initializer=CONV_KERNEL_INITIALIZER,
+            data_format=data_format,
             name=block_name + "se_conv_expand",
         )(se)
 
@@ -289,10 +307,11 @@ def fusedmb_conv_block(
         kernel_initializer=CONV_KERNEL_INITIALIZER,
         padding="same",
         use_bias=False,
+        data_format=data_format,
         name=block_name + "FMBconv2",
     )(x)
     x = layers.BatchNormalization(
-        axis=channel_axis, momentum=0.9, name=block_name + "batchnorm2"
+        axis=channels_axis, momentum=0.9, name=block_name + "batchnorm2"
     )(x)
     if expand_ratio == 1:
         x = layers.Activation(activation="swish", name=block_name + "act2")(x)
@@ -370,6 +389,9 @@ class EfficientNetV2(keras.Model):
         name="EfficientNetV2",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = 3 if data_format == "channels_last" else 1
+
         if name.startswith("EfficientNetV2B"):
             block_config = EFFICIENTNETV2_BLOCK_CONFIG["EfficientNetV2B"]
         else:
@@ -379,7 +401,7 @@ class EfficientNetV2(keras.Model):
             input_shape,
             default_size=default_size,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -387,12 +409,10 @@ class EfficientNetV2(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
-
-        channel_axis = 3 if backend.image_data_format() == "channels_last" else 1
 
         inputs = img_input
 
@@ -413,10 +433,11 @@ class EfficientNetV2(keras.Model):
             kernel_initializer=CONV_KERNEL_INITIALIZER,
             padding="same",
             use_bias=False,
+            data_format=data_format,
             name="conv_stem",
         )(x)
         x = layers.BatchNormalization(
-            axis=channel_axis,
+            axis=channels_axis,
             momentum=0.9,
             name="batchnorm1",
         )(x)
@@ -452,6 +473,8 @@ class EfficientNetV2(keras.Model):
                     survival_probability=0.2 * b / blocks,
                     block_idx=i,
                     layer_idx=j,
+                    data_format=data_format,
+                    channels_axis=channels_axis,
                     **args,
                 )
                 b += 1
@@ -465,17 +488,20 @@ class EfficientNetV2(keras.Model):
             kernel_initializer=CONV_KERNEL_INITIALIZER,
             use_bias=False,
             padding="same",
+            data_format=data_format,
             name="conv_head",
         )(x)
         x = layers.BatchNormalization(
-            axis=channel_axis,
+            axis=channels_axis,
             momentum=0.9,
             name="batchnorm2",
         )(x)
         x = layers.Activation(activation="swish", name="act2")(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dropout(0.2, name="top_dropout")(x)
             x = layers.Dense(
                 num_classes,
@@ -486,9 +512,13 @@ class EfficientNetV2(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 

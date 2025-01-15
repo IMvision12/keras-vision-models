@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
@@ -27,7 +27,8 @@ def mixer_block(
         filters: int, the number of output filters for channel mixing.
         token_mlp_dim: int, hidden dimension for token mixing MLP.
         channel_mlp_dim: int, hidden dimension for channel mixing MLP.
-        channels_axis: axis along which the channels are defined in the input tensor.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
         drop_rate: float, dropout rate to apply after dense layers (default: 0.0).
         block_idx: int or None, index of the block for naming layers (default: None).
 
@@ -139,11 +140,14 @@ class MLPMixer(keras.Model):
         name="MLPMixer",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -151,13 +155,12 @@ class MLPMixer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
 
         inputs = img_input
-        channels_axis = -1 if backend.image_data_format() == "channels_last" else -3
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -170,6 +173,7 @@ class MLPMixer(keras.Model):
             embed_dim,
             kernel_size=patch_size,
             strides=patch_size,
+            data_format=data_format,
             name="stem_conv",
         )(x)
 
@@ -198,7 +202,9 @@ class MLPMixer(keras.Model):
         )(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling1D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -206,9 +212,13 @@ class MLPMixer(keras.Model):
             )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling1D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling1D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling1D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

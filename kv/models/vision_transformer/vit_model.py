@@ -1,5 +1,5 @@
 import keras
-from keras import backend, layers
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import (
@@ -47,6 +47,7 @@ def transformer_block(
     inputs,
     dim: int,
     num_heads: int,
+    channels_axis,
     mlp_ratio: float = 4.0,
     qkv_bias: bool = False,
     qk_norm: bool = False,
@@ -68,6 +69,8 @@ def transformer_block(
         inputs: Input tensor to the transformer block.
         dim: Dimensionality of the input and output features.
         num_heads: Number of attention heads in the multi-head attention mechanism.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
         mlp_ratio: Expansion ratio for the hidden dimension in the MLP layer.
             Hidden layer size will be `dim * mlp_ratio`. Default is 4.0.
         qkv_bias: Whether to use bias in the query, key, and value projections.
@@ -86,9 +89,9 @@ def transformer_block(
     """
 
     # Attention branch
-    x = layers.LayerNormalization(epsilon=1e-6, name=f"blocks_{block_idx}_layernorm_1")(
-        inputs
-    )
+    x = layers.LayerNormalization(
+        epsilon=1e-6, axis=channels_axis, name=f"blocks_{block_idx}_layernorm_1"
+    )(inputs)
     x = MultiHeadSelfAttention(
         dim=dim,
         num_heads=num_heads,
@@ -106,9 +109,11 @@ def transformer_block(
     x = keras.layers.Add(name=f"blocks_{block_idx}_add_1")([x, inputs])
 
     # MLP branch
-    y = layers.LayerNormalization(epsilon=1e-6, name=f"blocks_{block_idx}_layernorm_2")(
-        x
-    )
+    y = layers.LayerNormalization(
+        epsilon=1e-6,
+        axis=channels_axis,
+        name=f"blocks_{block_idx}_layernorm_2",
+    )(x)
     y = mlp_block(
         y,
         hidden_features=int(dim * mlp_ratio),
@@ -233,12 +238,15 @@ class ViT(keras.Model):
         name="ViT",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         if no_embed_class:
             input_shape = imagenet_utils.obtain_input_shape(
                 input_shape,
                 default_size=240,
                 min_size=32,
-                data_format=backend.image_data_format(),
+                data_format=data_format,
                 require_flatten=include_top,
                 weights=weights,
             )
@@ -248,7 +256,7 @@ class ViT(keras.Model):
                 input_shape,
                 default_size=224,
                 min_size=32,
-                data_format=backend.image_data_format(),
+                data_format=data_format,
                 require_flatten=include_top,
                 weights=weights,
             )
@@ -259,7 +267,7 @@ class ViT(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
@@ -276,6 +284,7 @@ class ViT(keras.Model):
             kernel_size=patch_size,
             strides=patch_size,
             padding="valid",
+            data_format=data_format,
             name="conv1",
         )(x)
 
@@ -297,6 +306,7 @@ class ViT(keras.Model):
                 x,
                 dim=dim,
                 num_heads=num_heads,
+                channels_axis=channels_axis,
                 mlp_ratio=mlp_ratio,
                 qkv_bias=qkv_bias,
                 qk_norm=qk_norm,
@@ -306,7 +316,9 @@ class ViT(keras.Model):
                 block_idx=i,
             )
 
-        x = layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(x)
+        x = layers.LayerNormalization(
+            epsilon=1e-6, axis=channels_axis, name="final_layernorm"
+        )(x)
 
         if include_top:
             if use_distillation:
@@ -336,9 +348,13 @@ class ViT(keras.Model):
                 )(x)
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling1D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling1D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling1D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

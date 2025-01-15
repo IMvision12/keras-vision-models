@@ -15,6 +15,7 @@ class TestMultiHeadSelfAttention(TestCase):
         self.head_dim = self.dim // self.num_heads
         self.input_shape = (self.batch_size, self.seq_length, self.dim)
         self.test_inputs = ops.ones(self.input_shape)
+        self.default_epsilon = 1e-6
 
     def test_init_default(self):
         layer = MultiHeadSelfAttention(dim=self.dim)
@@ -22,12 +23,14 @@ class TestMultiHeadSelfAttention(TestCase):
         assert layer.num_heads == 8
         assert layer.head_dim == self.dim // 8
         assert layer.scale == (self.dim // 8) ** -0.5
-        assert layer.block_idx == 6
+        assert layer.block_idx == 9
         assert not layer.built
         assert layer.q_norm is None
         assert layer.k_norm is None
+        assert layer.epsilon == self.default_epsilon
 
     def test_init_with_options(self):
+        custom_epsilon = 1e-5
         layer = MultiHeadSelfAttention(
             dim=self.dim,
             num_heads=4,
@@ -36,6 +39,7 @@ class TestMultiHeadSelfAttention(TestCase):
             attn_drop=0.1,
             proj_drop=0.1,
             block_idx=1,
+            epsilon=custom_epsilon,
         )
         assert layer.dim == self.dim
         assert layer.num_heads == 4
@@ -43,6 +47,10 @@ class TestMultiHeadSelfAttention(TestCase):
         assert layer.block_idx == 1
         assert layer.q_norm is not None
         assert layer.k_norm is not None
+        assert layer.epsilon == custom_epsilon
+
+        assert layer.q_norm.epsilon == custom_epsilon
+        assert layer.k_norm.epsilon == custom_epsilon
 
     def test_invalid_dim(self):
         with self.assertRaises(AssertionError):
@@ -79,25 +87,36 @@ class TestMultiHeadSelfAttention(TestCase):
         assert not np.allclose(train_output.numpy(), infer_output.numpy())
 
     def test_qk_norm(self):
-        layer = MultiHeadSelfAttention(dim=self.dim, qk_norm=True)
+        custom_epsilon = 1e-5
+        layer = MultiHeadSelfAttention(
+            dim=self.dim, qk_norm=True, epsilon=custom_epsilon
+        )
         outputs = layer(self.test_inputs)
         assert ops.shape(outputs) == self.input_shape
         assert layer.q_norm is not None
         assert layer.k_norm is not None
+        assert layer.q_norm.epsilon == custom_epsilon
+        assert layer.k_norm.epsilon == custom_epsilon
 
     def test_get_config(self):
-        layer = MultiHeadSelfAttention(dim=self.dim, num_heads=4, block_idx=1)
+        custom_epsilon = 1e-5
+        layer = MultiHeadSelfAttention(
+            dim=self.dim, num_heads=4, block_idx=1, epsilon=custom_epsilon
+        )
         config = layer.get_config()
         assert "dim" in config
         assert "num_heads" in config
         assert "block_idx" in config
+        assert "epsilon" in config
         assert config["dim"] == self.dim
         assert config["num_heads"] == 4
         assert config["block_idx"] == 1
+        assert config["epsilon"] == custom_epsilon
         reconstructed_layer = MultiHeadSelfAttention.from_config(config)
         assert reconstructed_layer.dim == layer.dim
         assert reconstructed_layer.num_heads == layer.num_heads
         assert reconstructed_layer.block_idx == layer.block_idx
+        assert reconstructed_layer.epsilon == layer.epsilon
 
     def test_different_batch_sizes(self):
         layer = MultiHeadSelfAttention(dim=self.dim)
@@ -142,3 +161,11 @@ class TestMultiHeadSelfAttention(TestCase):
         x = ops.repeat(x, self.batch_size, axis=0)
         outputs = layer(x)
         assert ops.shape(outputs) == (self.batch_size, self.seq_length, self.dim)
+
+    def test_epsilon_layer_norm_stability(self):
+        test_epsilon_values = [1e-12, 1e-6, 1e-3]
+        for epsilon in test_epsilon_values:
+            layer = MultiHeadSelfAttention(dim=self.dim, qk_norm=True, epsilon=epsilon)
+            outputs = layer(self.test_inputs)
+            assert not np.any(np.isnan(outputs.numpy()))
+            assert not np.any(np.isinf(outputs.numpy()))

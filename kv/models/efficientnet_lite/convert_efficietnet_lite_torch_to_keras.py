@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models import EfficientNetLite4
+from kv.models import EfficientNetLite0
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -37,8 +37,8 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": EfficientNetLite4,
-    "torch_model_name": "tf_efficientnet_lite4",
+    "keras_model_cls": EfficientNetLite0,
+    "torch_model_name": "tf_efficientnet_lite0",
     "input_shape": [
         380,
         380,
@@ -135,8 +135,11 @@ results = verify_cls_model_equivalence(
 )
 
 
-if results["standard_input"]:
-    # Save model
-    model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
-    keras_model.save(model_filename)
-    print(f"Model saved successfully as {model_filename}")
+if not results["standard_input"]:
+    raise ValueError(
+        "Model equivalence test failed - model outputs do not match for standard input"
+    )
+
+model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
+keras_model.save(model_filename)
+print(f"Model saved successfully as {model_filename}")

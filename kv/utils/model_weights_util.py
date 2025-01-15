@@ -108,7 +108,7 @@ def load_weights_from_config(
             f"Available weights: {available_weights}"
         )
 
-    weights_url = model_weights[weights_name]["url"]
+    weights_url = model_weights[weights_name]
     if not weights_url:
         raise ValueError(f"URL for weights '{weights_name}' is not defined")
 

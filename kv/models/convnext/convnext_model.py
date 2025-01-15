@@ -139,17 +139,42 @@ class ConvNeXt(keras.Model):
         use_conv=False,
         use_grn=False,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,
-        num_classes=1000,
+        num_classes=None,
         classifier_activation="softmax",
         name="ConvNeXt",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
+        if include_top and weights is not None and weights == "fb_in22k" and num_classes != 21841:
+            raise ValueError(
+                f"When using 'fb_in22k' weights, num_classes must be 21841. "
+                f"Received num_classes: {num_classes}"
+            )
+
+        if include_top and weights is not None and weights.endswith(("in1k", "ft_in1k")) and num_classes != 1000:
+            raise ValueError(
+                f"When using {weights}, num_classes must be 1000. "
+                f"Received num_classes: {num_classes}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -171,6 +196,7 @@ class ConvNeXt(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -188,6 +214,7 @@ class ConvNeXt(keras.Model):
         x = layers.LayerNormalization(
             axis=channels_axis, epsilon=1e-6, name="stem_layernorm"
         )(x)
+        features.append(x)
 
         depth_drop_rates = np.linspace(0.0, drop_path_rate, sum(depths))
         cur = 0
@@ -217,6 +244,8 @@ class ConvNeXt(keras.Model):
                     data_format=data_format,
                     name=f"stages_{i}_blocks_{j}",
                 )
+                if j == depths[i] - 1:
+                    features.append(x)
             cur += depths[i]
 
         # Head
@@ -230,6 +259,8 @@ class ConvNeXt(keras.Model):
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -249,6 +280,7 @@ class ConvNeXt(keras.Model):
         self.use_conv = use_conv
         self.use_grn = use_grn
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -265,6 +297,7 @@ class ConvNeXt(keras.Model):
             "use_conv": self.use_conv,
             "use_grn": self.use_grn,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -284,13 +317,14 @@ class ConvNeXt(keras.Model):
 @register_model
 def ConvNeXtAtto(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="d2_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtAtto",
     **kwargs,
@@ -301,6 +335,7 @@ def ConvNeXtAtto(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -328,13 +363,14 @@ def ConvNeXtAtto(
 @register_model
 def ConvNeXtFemto(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="d1_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtFemto",
     **kwargs,
@@ -345,6 +381,7 @@ def ConvNeXtFemto(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -372,13 +409,14 @@ def ConvNeXtFemto(
 @register_model
 def ConvNeXtPico(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="d1_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtPico",
     **kwargs,
@@ -389,6 +427,7 @@ def ConvNeXtPico(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -416,13 +455,14 @@ def ConvNeXtPico(
 @register_model
 def ConvNeXtNano(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="d1h_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtNano",
     **kwargs,
@@ -433,6 +473,7 @@ def ConvNeXtNano(
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -460,28 +501,25 @@ def ConvNeXtNano(
 @register_model
 def ConvNeXtTiny(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtTiny",
     **kwargs,
 ):
-    if include_top and weights == "fb_in22k" and num_classes != 21841:
-        raise ValueError(
-            f"When using 'fb_in22k' weights, num_classes must be 21841. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["tiny"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -509,28 +547,25 @@ def ConvNeXtTiny(
 @register_model
 def ConvNeXtSmall(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtSmall",
     **kwargs,
 ):
-    if include_top and weights == "fb_in22k" and num_classes != 21841:
-        raise ValueError(
-            f"When using 'fb_in22k' weights, num_classes must be 21841. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["small"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -558,28 +593,25 @@ def ConvNeXtSmall(
 @register_model
 def ConvNeXtBase(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtBase",
     **kwargs,
 ):
-    if include_top and weights == "fb_in22k" and num_classes != 21841:
-        raise ValueError(
-            f"When using 'fb_in22k' weights, num_classes must be 21841. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["base"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -607,28 +639,25 @@ def ConvNeXtBase(
 @register_model
 def ConvNeXtLarge(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtLarge",
     **kwargs,
 ):
-    if include_top and weights == "fb_in22k" and num_classes != 21841:
-        raise ValueError(
-            f"When using 'fb_in22k' weights, num_classes must be 21841. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["large"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -656,13 +685,14 @@ def ConvNeXtLarge(
 @register_model
 def ConvNeXtXLarge(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ConvNeXtXLarge",
     **kwargs,
@@ -672,17 +702,12 @@ def ConvNeXtXLarge(
             "The 'in1k' weight variant is not available for ConvNeXtLarge."
         )
 
-    if include_top and weights == "fb_in22k" and num_classes != 21841:
-        raise ValueError(
-            f"When using 'fb_in22k' weights, num_classes must be 21841. "
-            f"Received num_classes: {num_classes}"
-        )
-
     model = ConvNeXt(
         **CONVNEXT_MODEL_CONFIG["xlarge"],
         drop_path_rate=0.0,
         layer_scale_init_value=1e-6,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

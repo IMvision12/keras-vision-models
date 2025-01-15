@@ -114,6 +114,7 @@ class ConvMixer(keras.Model):
         patch_size,
         activation="gelu",
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="ink1",
@@ -125,6 +126,18 @@ class ConvMixer(keras.Model):
         name="ConvMixer",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -146,6 +159,7 @@ class ConvMixer(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -153,7 +167,6 @@ class ConvMixer(keras.Model):
             else inputs
         )
 
-        # Stem layer
         x = layers.Conv2D(
             dim,
             kernel_size=patch_size,
@@ -166,8 +179,9 @@ class ConvMixer(keras.Model):
         x = layers.BatchNormalization(
             axis=channels_axis, momentum=0.9, epsilon=1e-5, name="stem_batchnorm"
         )(x)
+        features.append(x)
 
-        # ConvMixer Blocks
+        features_at = [depth // 4, depth // 2, 3 * depth // 4, depth - 1]
         for i in range(depth):
             x = convmixer_block(
                 x,
@@ -178,6 +192,8 @@ class ConvMixer(keras.Model):
                 data_format,
                 f"mixer_block_{i}",
             )
+            if i in features_at:
+                features.append(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -188,7 +204,8 @@ class ConvMixer(keras.Model):
                 activation=classifier_activation,
                 name="predictions",
             )(x)
-
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -207,6 +224,7 @@ class ConvMixer(keras.Model):
         self.kernel_size = kernel_size
         self.activation = activation
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -222,6 +240,7 @@ class ConvMixer(keras.Model):
             "kernel_size": self.kernel_size,
             "activation": self.activation,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -241,6 +260,7 @@ class ConvMixer(keras.Model):
 @register_model
 def ConvMixer_1536_20(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="ink1",
@@ -255,6 +275,7 @@ def ConvMixer_1536_20(
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,
@@ -282,6 +303,7 @@ def ConvMixer_1536_20(
 @register_model
 def ConvMixer_768_32(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="ink1",
@@ -297,6 +319,7 @@ def ConvMixer_768_32(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
         activation="relu",
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,
@@ -323,6 +346,7 @@ def ConvMixer_768_32(
 @register_model
 def ConvMixer_1024_20(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="ink1",
@@ -337,6 +361,7 @@ def ConvMixer_1024_20(
     model = ConvMixer(
         **CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,

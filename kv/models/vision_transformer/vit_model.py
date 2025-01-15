@@ -227,17 +227,48 @@ class ViT(keras.Model):
         use_distillation=False,
         init_values=None,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="imagenet",
         input_shape=None,
         input_tensor=None,
         pooling=None,
-        num_classes=1000,
+        num_classes=None,
         classifier_activation="softmax",
         name="ViT",
         **kwargs,
     ):
+        if include_top and num_classes is None:
+            raise ValueError(
+                f"If `include_top` is True, `num_classes` must be specified. "
+                f"Received: {num_classes}"
+            )
+
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
+        if include_top and weights is not None and weights == "augreg_in21k" and num_classes != 21843:
+            raise ValueError(
+                f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+                f"Received num_classes: {num_classes}"
+            )
+
+        if include_top and weights is not None and weights.endswith(("in1k", "ft_in1k")) and num_classes != 1000:
+            raise ValueError(
+                f"When using {weights}, num_classes must be 1000. "
+                f"Received num_classes: {num_classes}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -273,6 +304,8 @@ class ViT(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
+
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
@@ -298,6 +331,7 @@ class ViT(keras.Model):
             grid_h=grid_h,
             grid_w=grid_w,
         )(x)
+        features.append(x)
 
         x = layers.Dropout(drop_rate)(x)
 
@@ -315,6 +349,7 @@ class ViT(keras.Model):
                 init_values=init_values,
                 block_idx=i,
             )
+            features.append(x)
 
         x = layers.LayerNormalization(
             epsilon=1e-6, axis=channels_axis, name="final_layernorm"
@@ -346,6 +381,8 @@ class ViT(keras.Model):
                 x = layers.Dense(
                     num_classes, activation=classifier_activation, name="predictions"
                 )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling1D(
@@ -371,6 +408,7 @@ class ViT(keras.Model):
         self.use_distillation = use_distillation
         self.init_values = init_values
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -393,6 +431,7 @@ class ViT(keras.Model):
             "use_distillation": self.use_distillation,
             "init_values": self.init_values,
             "include_top": self.include_top,
+            "as_backbone":self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -412,13 +451,14 @@ class ViT(keras.Model):
 @register_model
 def ViTTiny16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTTiny16",
     **kwargs,
@@ -432,6 +472,7 @@ def ViTTiny16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_tiny_patch16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -456,13 +497,14 @@ def ViTTiny16(
 @register_model
 def ViTSmall16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTSmall16",
     **kwargs,
@@ -475,6 +517,7 @@ def ViTSmall16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -499,13 +542,14 @@ def ViTSmall16(
 @register_model
 def ViTSmall32(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTSmall32",
     **kwargs,
@@ -518,6 +562,7 @@ def ViTSmall32(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch32"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -542,13 +587,14 @@ def ViTSmall32(
 @register_model
 def ViTBase16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTBase16",
     **kwargs,
@@ -561,6 +607,7 @@ def ViTBase16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -585,13 +632,14 @@ def ViTBase16(
 @register_model
 def ViTBase32(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTBase32",
     **kwargs,
@@ -604,6 +652,7 @@ def ViTBase32(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch32"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -628,13 +677,14 @@ def ViTBase32(
 @register_model
 def ViTLarge16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="augreg_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTLarge16",
     **kwargs,
@@ -647,6 +697,7 @@ def ViTLarge16(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -671,13 +722,14 @@ def ViTLarge16(
 @register_model
 def ViTLarge32(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="orig_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=1000,
+    num_classes=None,
     classifier_activation="softmax",
     name="ViTLarge32",
     **kwargs,
@@ -685,6 +737,7 @@ def ViTLarge32(
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch32"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

@@ -151,6 +151,12 @@ class ConvNeXt(keras.Model):
         name="ConvNeXt",
         **kwargs,
     ):
+        if include_top and num_classes is None:
+            raise ValueError(
+                f"If `include_top` is True, `num_classes` must be specified. "
+                f"Received: {num_classes}"
+            )
+
         if include_top and as_backbone:
             raise ValueError(
                 "Cannot use `as_backbone=True` with `include_top=True`. "

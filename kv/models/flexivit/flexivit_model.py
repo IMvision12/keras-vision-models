@@ -8,6 +8,7 @@ from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_CONFIG
 @register_model
 def FlexiViTSmall(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="1200ep_in1k",
@@ -19,21 +20,11 @@ def FlexiViTSmall(
     name="FlexiViTSmall",
     **kwargs,
 ):
-    if (
-        include_top
-        and weights is not None
-        and isinstance(weights, str)
-        and "in21k" in weights
-        and num_classes != 21843
-    ):
-        raise ValueError(
-            f"When using 'in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTSmall"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -61,6 +52,7 @@ def FlexiViTSmall(
 @register_model
 def FlexiViTBase(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="1200ep_in1k",
@@ -72,21 +64,11 @@ def FlexiViTBase(
     name="FlexiViTBase",
     **kwargs,
 ):
-    if (
-        include_top
-        and weights is not None
-        and isinstance(weights, str)
-        and "in21k" in weights
-        and num_classes != 21843
-    ):
-        raise ValueError(
-            f"When using 'in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTBase"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -114,6 +96,7 @@ def FlexiViTBase(
 @register_model
 def FlexiViTLarge(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="1200ep_in1k",
@@ -125,21 +108,11 @@ def FlexiViTLarge(
     name="FlexiViTLarge",
     **kwargs,
 ):
-    if (
-        include_top
-        and weights is not None
-        and isinstance(weights, str)
-        and "in21k" in weights
-        and num_classes != 21843
-    ):
-        raise ValueError(
-            f"When using 'in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTLarge"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

@@ -257,13 +257,18 @@ class ViT(keras.Model):
                 f"Received: pooling={pooling}"
             )
         
-        if include_top and weights is not None and weights == "augreg_in21k" and num_classes != 21843:
+        if (include_top and weights is not None and 
+            (weights == "augreg_in21k" or weights.endswith("in21k")) and 
+            num_classes != 21843):
             raise ValueError(
-                f"When using 'augreg_in21k' weights, num_classes must be 21843. "
+                f"When using {weights} weights, num_classes must be 21843. "
                 f"Received num_classes: {num_classes}"
             )
 
-        if include_top and weights is not None and weights.endswith(("in1k", "ft_in1k")) and num_classes != 1000:
+        if (include_top and 
+            weights is not None and 
+            weights.endswith(("in1k", "ft_in1k")) and 
+            num_classes != 1000):
             raise ValueError(
                 f"When using {weights}, num_classes must be 1000. "
                 f"Received num_classes: {num_classes}"
@@ -463,11 +468,6 @@ def ViTTiny16(
     name="ViTTiny16",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
 
     model = ViT(
         **VIT_MODEL_CONFIG["vit_tiny_patch16"],
@@ -509,11 +509,6 @@ def ViTSmall16(
     name="ViTSmall16",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch16"],
         include_top=include_top,
@@ -554,11 +549,7 @@ def ViTSmall32(
     name="ViTSmall32",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
+
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch32"],
         include_top=include_top,
@@ -599,11 +590,6 @@ def ViTBase16(
     name="ViTBase16",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch16"],
         include_top=include_top,
@@ -644,11 +630,7 @@ def ViTBase32(
     name="ViTBase32",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
+
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch32"],
         include_top=include_top,
@@ -689,11 +671,7 @@ def ViTLarge16(
     name="ViTLarge16",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
+
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch16"],
         include_top=include_top,

@@ -232,6 +232,9 @@ class ResNet(keras.Model):
             Default is `2`.
         include_top: Boolean, whether to include the fully-connected classification
             layer at the top. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a 
+            backbone network. When True, returns a list of feature maps at different 
+            stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.

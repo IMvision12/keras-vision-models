@@ -93,7 +93,10 @@ class MLPMixer(keras.Model):
         drop_rate: Float, dropout rate for the MLPs. Defaults to 0.0.
         drop_path_rate: Float, stochastic depth rate for the blocks. Defaults to 0.0.
         include_top: Boolean, whether to include the classification head at the top
-            of the network. Defaults to True.
+            of the network. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a 
+            backbone network. When True, returns a list of feature maps at different 
+            stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.

@@ -146,17 +146,11 @@ class ConvNeXt(keras.Model):
         input_shape=None,
         input_tensor=None,
         pooling=None,
-        num_classes=None,
+        num_classes=1000,
         classifier_activation="softmax",
         name="ConvNeXt",
         **kwargs,
     ):
-        if include_top and num_classes is None:
-            raise ValueError(
-                f"If `include_top` is True, `num_classes` must be specified. "
-                f"Received: {num_classes}"
-            )
-
         if include_top and as_backbone:
             raise ValueError(
                 "Cannot use `as_backbone=True` with `include_top=True`. "
@@ -330,7 +324,7 @@ def ConvNeXtAtto(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtAtto",
     **kwargs,
@@ -376,7 +370,7 @@ def ConvNeXtFemto(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtFemto",
     **kwargs,
@@ -422,7 +416,7 @@ def ConvNeXtPico(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtPico",
     **kwargs,
@@ -468,7 +462,7 @@ def ConvNeXtNano(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtNano",
     **kwargs,
@@ -514,7 +508,7 @@ def ConvNeXtTiny(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtTiny",
     **kwargs,
@@ -560,7 +554,7 @@ def ConvNeXtSmall(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtSmall",
     **kwargs,
@@ -606,7 +600,7 @@ def ConvNeXtBase(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtBase",
     **kwargs,
@@ -652,7 +646,7 @@ def ConvNeXtLarge(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtLarge",
     **kwargs,
@@ -698,7 +692,7 @@ def ConvNeXtXLarge(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ConvNeXtXLarge",
     **kwargs,

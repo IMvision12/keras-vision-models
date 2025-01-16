@@ -243,6 +243,7 @@ class MixTransformer(keras.Model):
         embed_dims,
         depths,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="in1k",
@@ -254,6 +255,18 @@ class MixTransformer(keras.Model):
         name="MixTransformer",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -283,6 +296,8 @@ class MixTransformer(keras.Model):
         dpr = [x.item() for x in np.linspace(0.0, self.drop_path_rate, total_blocks)]
 
         x = img_input
+        features = []
+
         cur_block = 0
 
         x = (
@@ -323,6 +338,7 @@ class MixTransformer(keras.Model):
                 name=f"layernorm{i + 1}", axis=channels_axis, epsilon=1e-6
             )(x)
             x = layers.Reshape((H, W, embed_dims[i]))(x)
+            features.append(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -333,6 +349,8 @@ class MixTransformer(keras.Model):
                 activation=classifier_activation,
                 name="predictions",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -348,6 +366,7 @@ class MixTransformer(keras.Model):
         self.embed_dims = embed_dims
         self.depths = depths
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -360,6 +379,7 @@ class MixTransformer(keras.Model):
             "embed_dims": self.embed_dims,
             "depths": self.depths,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -379,6 +399,7 @@ class MixTransformer(keras.Model):
 @register_model
 def MiT_B0(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -393,6 +414,7 @@ def MiT_B0(
     model = MixTransformer(
         **MIT_MODEL_CONFIG["MiT_B0"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -418,6 +440,7 @@ def MiT_B0(
 @register_model
 def MiT_B1(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -432,6 +455,7 @@ def MiT_B1(
     model = MixTransformer(
         **MIT_MODEL_CONFIG["MiT_B1"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -457,6 +481,7 @@ def MiT_B1(
 @register_model
 def MiT_B2(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -471,6 +496,7 @@ def MiT_B2(
     model = MixTransformer(
         **MIT_MODEL_CONFIG["MiT_B2"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -496,6 +522,7 @@ def MiT_B2(
 @register_model
 def MiT_B3(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -510,6 +537,7 @@ def MiT_B3(
     model = MixTransformer(
         **MIT_MODEL_CONFIG["MiT_B3"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -535,6 +563,7 @@ def MiT_B3(
 @register_model
 def MiT_B4(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -549,6 +578,7 @@ def MiT_B4(
     model = MixTransformer(
         **MIT_MODEL_CONFIG["MiT_B4"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -574,6 +604,7 @@ def MiT_B4(
 @register_model
 def MiT_B5(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -588,6 +619,7 @@ def MiT_B5(
     model = MixTransformer(
         **MIT_MODEL_CONFIG["MiT_B5"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

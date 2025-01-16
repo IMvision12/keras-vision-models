@@ -31,14 +31,15 @@ def vgg_block(
             after each convolution. Defaults to False.
 
     Returns:
-        Output tensor for the block.
-
+        Tuple of (output tensor, list of intermediate feature tensors).
     """
     x = inputs
     layer_idx = 0
+    features = []
 
     for v in num_filters:
         if v == "M":
+            features.append(x)
             x = layers.MaxPooling2D(
                 pool_size=2,
                 strides=2,
@@ -68,7 +69,7 @@ def vgg_block(
             x = layers.ReLU(name=f"relu_{layer_idx}")(x)
             layer_idx += 1
 
-    return x
+    return x, features
 
 
 @keras.saving.register_keras_serializable(package="kv")
@@ -113,6 +114,7 @@ class VGG(keras.Model):
         num_filters,
         batch_norm=False,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="ink1",
@@ -124,6 +126,18 @@ class VGG(keras.Model):
         name="VGG",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -145,6 +159,7 @@ class VGG(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -152,14 +167,14 @@ class VGG(keras.Model):
             else inputs
         )
 
-        # Feature extraction layers
-        x = vgg_block(
+        x, features_extracted = vgg_block(
             x,
             num_filters,
             batch_norm=batch_norm,
             channels_axis=channels_axis,
             data_format=data_format,
         )
+        features = features_extracted
 
         # Pre-logit layers
         x = layers.Conv2D(4096, 7, data_format=data_format, name="conv_fc1")(x)
@@ -177,6 +192,8 @@ class VGG(keras.Model):
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -192,6 +209,7 @@ class VGG(keras.Model):
         self.num_filters = num_filters
         self.batch_norm = batch_norm
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -204,6 +222,7 @@ class VGG(keras.Model):
             "num_filters": self.num_filters,
             "batch_norm": self.batch_norm,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -223,6 +242,7 @@ class VGG(keras.Model):
 @register_model
 def VGG16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     num_classes=1000,
@@ -237,6 +257,7 @@ def VGG16(
     model = VGG(
         num_filters=VGG_MODEL_CONFIG["VGG16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,
@@ -262,6 +283,7 @@ def VGG16(
 @register_model
 def VGG19(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     num_classes=1000,
@@ -276,6 +298,7 @@ def VGG19(
     model = VGG(
         num_filters=VGG_MODEL_CONFIG["VGG19"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,
@@ -301,6 +324,7 @@ def VGG19(
 @register_model
 def VGG16_BN(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     num_classes=1000,
@@ -316,6 +340,7 @@ def VGG16_BN(
         num_filters=VGG_MODEL_CONFIG["VGG16"],
         batch_norm=True,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,
@@ -341,6 +366,7 @@ def VGG16_BN(
 @register_model
 def VGG19_BN(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     num_classes=1000,
@@ -356,6 +382,7 @@ def VGG19_BN(
         num_filters=VGG_MODEL_CONFIG["VGG19"],
         batch_norm=True,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,

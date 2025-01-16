@@ -166,8 +166,8 @@ class ViT(keras.Model):
             Defaults to `False`.
         include_top: Boolean, whether to include the classification head.
             Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a 
-            backbone network. When True, returns a list of feature maps at different 
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
             stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
@@ -253,30 +253,35 @@ class ViT(keras.Model):
                 "Cannot use `as_backbone=True` with `include_top=True`. "
                 f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
-        
-        if pooling is not None and pooling not in ['avg', 'max']:
+
+        if pooling is not None and pooling not in ["avg", "max"]:
             raise ValueError(
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
-        if (include_top and weights is not None and 
-            (weights == "augreg_in21k" or weights.endswith("in21k")) and 
-            num_classes != 21843):
+
+        if (
+            include_top
+            and weights is not None
+            and (weights == "augreg_in21k" or weights.endswith("in21k"))
+            and num_classes != 21843
+        ):
             raise ValueError(
                 f"When using {weights} weights, num_classes must be 21843. "
                 f"Received num_classes: {num_classes}"
             )
 
-        if (include_top and 
-            weights is not None and 
-            weights.endswith(("in1k", "ft_in1k")) and 
-            num_classes != 1000):
+        if (
+            include_top
+            and weights is not None
+            and weights.endswith(("in1k", "ft_in1k"))
+            and num_classes != 1000
+        ):
             raise ValueError(
                 f"When using {weights}, num_classes must be 1000. "
                 f"Received num_classes: {num_classes}"
             )
-        
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -439,7 +444,7 @@ class ViT(keras.Model):
             "use_distillation": self.use_distillation,
             "init_values": self.init_values,
             "include_top": self.include_top,
-            "as_backbone":self.as_backbone,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -471,7 +476,6 @@ def ViTTiny16(
     name="ViTTiny16",
     **kwargs,
 ):
-
     model = ViT(
         **VIT_MODEL_CONFIG["vit_tiny_patch16"],
         include_top=include_top,
@@ -552,7 +556,6 @@ def ViTSmall32(
     name="ViTSmall32",
     **kwargs,
 ):
-
     model = ViT(
         **VIT_MODEL_CONFIG["vit_small_patch32"],
         include_top=include_top,
@@ -633,7 +636,6 @@ def ViTBase32(
     name="ViTBase32",
     **kwargs,
 ):
-
     model = ViT(
         **VIT_MODEL_CONFIG["vit_base_patch32"],
         include_top=include_top,
@@ -674,7 +676,6 @@ def ViTLarge16(
     name="ViTLarge16",
     **kwargs,
 ):
-
     model = ViT(
         **VIT_MODEL_CONFIG["vit_large_patch16"],
         include_top=include_top,

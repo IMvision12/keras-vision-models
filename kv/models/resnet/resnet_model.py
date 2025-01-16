@@ -232,8 +232,8 @@ class ResNet(keras.Model):
             Default is `2`.
         include_top: Boolean, whether to include the fully-connected classification
             layer at the top. Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a 
-            backbone network. When True, returns a list of feature maps at different 
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
             stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
@@ -288,13 +288,13 @@ class ResNet(keras.Model):
                 "Cannot use `as_backbone=True` with `include_top=True`. "
                 f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
-        
-        if pooling is not None and pooling not in ['avg', 'max']:
+
+        if pooling is not None and pooling not in ["avg", "max"]:
             raise ValueError(
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -358,7 +358,7 @@ class ResNet(keras.Model):
                 else:
                     x = block_fn(x, filters[i], **common_args)
             if j == num_blocks - 1:
-                    features.append(x)
+                features.append(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(

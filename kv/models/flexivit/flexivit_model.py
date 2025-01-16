@@ -20,7 +20,6 @@ def FlexiViTSmall(
     name="FlexiViTSmall",
     **kwargs,
 ):
-
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTSmall"],
         include_top=include_top,
@@ -64,7 +63,6 @@ def FlexiViTBase(
     name="FlexiViTBase",
     **kwargs,
 ):
-
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTBase"],
         include_top=include_top,
@@ -108,7 +106,6 @@ def FlexiViTLarge(
     name="FlexiViTLarge",
     **kwargs,
 ):
-
     model = ViT(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTLarge"],
         include_top=include_top,

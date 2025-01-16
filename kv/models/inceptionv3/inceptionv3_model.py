@@ -316,8 +316,8 @@ class InceptionV3Main(keras.Model):
     Args:
         include_top: Boolean, whether to include the fully-connected classification layer at the top of the model.
             Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a 
-            backbone network. When True, returns a list of feature maps at different 
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
             stages. Defaults to False.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
@@ -364,13 +364,13 @@ class InceptionV3Main(keras.Model):
                 "Cannot use `as_backbone=True` with `include_top=True`. "
                 f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
-        
-        if pooling is not None and pooling not in ['avg', 'max']:
+
+        if pooling is not None and pooling not in ["avg", "max"]:
             raise ValueError(
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         data_format = keras.config.image_data_format()
 
         input_shape = imagenet_utils.obtain_input_shape(
@@ -422,7 +422,7 @@ class InceptionV3Main(keras.Model):
         x = inception_blockc(x, 160, "Mixed_6d")
         x = inception_blockc(x, 192, "Mixed_6e")
         features.append(x)
-        
+
         x = inception_blockd(x, "Mixed_7a")
         x = inception_blocke(x, "Mixed_7b")
         x = inception_blocke(x, "Mixed_7c")

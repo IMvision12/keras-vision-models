@@ -344,6 +344,7 @@ class InceptionV3Main(keras.Model):
     def __init__(
         self,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="inception",
         weights="ink1",
@@ -355,6 +356,18 @@ class InceptionV3Main(keras.Model):
         name="InceptionV3",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
         data_format = keras.config.image_data_format()
 
         input_shape = imagenet_utils.obtain_input_shape(
@@ -375,6 +388,8 @@ class InceptionV3Main(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
+
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
@@ -385,6 +400,7 @@ class InceptionV3Main(keras.Model):
         x = conv_block(x, 32, 3, strides=2, name="Conv2d_1a_3x3")
         x = conv_block(x, 32, 3, name="Conv2d_2a_3x3")
         x = conv_block(x, 64, 3, padding=None, name="Conv2d_2b_3x3")
+        features.append(x)
 
         # Blocks
         x = layers.MaxPooling2D(3, 2, name="Pool1")(x)
@@ -394,6 +410,7 @@ class InceptionV3Main(keras.Model):
         x = inception_blocka(x, 32, "Mixed_5b")
         x = inception_blocka(x, 64, "Mixed_5c")
         x = inception_blocka(x, 64, "Mixed_5d")
+        features.append(x)
 
         x = inception_blockb(x, "Mixed_6a")
 
@@ -401,10 +418,12 @@ class InceptionV3Main(keras.Model):
         x = inception_blockc(x, 160, "Mixed_6c")
         x = inception_blockc(x, 160, "Mixed_6d")
         x = inception_blockc(x, 192, "Mixed_6e")
-
+        features.append(x)
+        
         x = inception_blockd(x, "Mixed_7a")
         x = inception_blocke(x, "Mixed_7b")
         x = inception_blocke(x, "Mixed_7c")
+        features.append(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -415,6 +434,8 @@ class InceptionV3Main(keras.Model):
                 activation=classifier_activation,
                 name="classifier",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -429,6 +450,7 @@ class InceptionV3Main(keras.Model):
 
         # Store configuration
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -439,6 +461,7 @@ class InceptionV3Main(keras.Model):
     def get_config(self) -> dict:
         return {
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -458,6 +481,7 @@ class InceptionV3Main(keras.Model):
 @register_model
 def InceptionV3(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     num_classes=1000,
@@ -471,6 +495,7 @@ def InceptionV3(
 ):
     model = InceptionV3Main(
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,

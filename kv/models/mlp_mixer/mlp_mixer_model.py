@@ -93,7 +93,10 @@ class MLPMixer(keras.Model):
         drop_rate: Float, dropout rate for the MLPs. Defaults to 0.0.
         drop_path_rate: Float, stochastic depth rate for the blocks. Defaults to 0.0.
         include_top: Boolean, whether to include the classification head at the top
-            of the network. Defaults to True.
+            of the network. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.
@@ -129,6 +132,7 @@ class MLPMixer(keras.Model):
         drop_rate=0.0,
         drop_path_rate=0.0,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="imagenet",
@@ -140,6 +144,29 @@ class MLPMixer(keras.Model):
         name="MLPMixer",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+
+        if (
+            include_top
+            and weights is not None
+            and weights.endswith("in21k")
+            and num_classes != 21843
+        ):
+            raise ValueError(
+                f"When using 'in21k' weights, num_classes must be 21843. "
+                f"Received num_classes: {num_classes}"
+            )
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -161,6 +188,7 @@ class MLPMixer(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -179,10 +207,17 @@ class MLPMixer(keras.Model):
 
         num_patches = (input_shape[0] // patch_size) * (input_shape[1] // patch_size)
         x = layers.Reshape((num_patches, embed_dim))(x)
+        features.append(x)
 
         token_mlp_dim = int(embed_dim * mlp_ratio[0])
         channel_mlp_dim = int(embed_dim * mlp_ratio[1])
 
+        features_at = [
+            num_blocks // 4,
+            num_blocks // 2,
+            3 * num_blocks // 4,
+            num_blocks - 1,
+        ]
         for i in range(num_blocks):
             drop_path = drop_path_rate * (i / num_blocks)
 
@@ -196,6 +231,8 @@ class MLPMixer(keras.Model):
                 drop_rate=drop_path,
                 block_idx=i,
             )
+            if i in features_at:
+                features.append(x)
 
         x = layers.LayerNormalization(
             axis=channels_axis, epsilon=1e-6, name="final_layernomr"
@@ -210,6 +247,8 @@ class MLPMixer(keras.Model):
                 activation=classifier_activation,
                 name="predictions",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling1D(
@@ -229,6 +268,7 @@ class MLPMixer(keras.Model):
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -245,6 +285,7 @@ class MLPMixer(keras.Model):
             "drop_rate": self.drop_rate,
             "drop_path_rate": self.drop_path_rate,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -264,6 +305,7 @@ class MLPMixer(keras.Model):
 @register_model
 def MLPMixer_B16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="goog_in21k_ft_in1k",
@@ -275,20 +317,10 @@ def MLPMixer_B16(
     name="MLPMixer_B16",
     **kwargs,
 ):
-    if (
-        include_top
-        and weights == "goog_in21k"
-        or weights == "miil_in21k"
-        and num_classes != 11221
-    ):
-        raise ValueError(
-            f"When using 'goog_in21k' or 'miil_in21k' weights, num_classes must be 11221. "
-            f"Received num_classes: {num_classes}"
-        )
-
     model = MLPMixer(
         **MLPMIXER_MODEL_CONFIG["MLPMixer_B16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,
@@ -316,6 +348,7 @@ def MLPMixer_B16(
 @register_model
 def MLPMixer_L16(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="goog_in21k_ft_in1k",
@@ -327,15 +360,10 @@ def MLPMixer_L16(
     name="MLPMixer_L16",
     **kwargs,
 ):
-    if include_top and weights == "goog_in21k" and num_classes != 11221:
-        raise ValueError(
-            f"When using 'goog_in21k' weights, num_classes must be 11221. "
-            f"Received num_classes: {num_classes}"
-        )
-
     model = MLPMixer(
         **MLPMIXER_MODEL_CONFIG["MLPMixer_L16"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,

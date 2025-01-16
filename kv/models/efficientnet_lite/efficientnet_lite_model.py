@@ -178,6 +178,9 @@ class EfficientNetLite(keras.Model):
         default_size: Integer, default resolution of input images.
         include_top: Boolean, whether to include the classification head at the
             top of the network. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.
@@ -214,6 +217,7 @@ class EfficientNetLite(keras.Model):
         dropout_rate=0.2,
         drop_connect_rate=0.2,
         include_top=True,
+        as_backbone=False,
         preprocessing_mode="imagenet",
         include_preprocessing=True,
         weights="in1k",
@@ -225,6 +229,18 @@ class EfficientNetLite(keras.Model):
         name="EfficientNet",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -246,6 +262,7 @@ class EfficientNetLite(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -270,6 +287,7 @@ class EfficientNetLite(keras.Model):
         )(x)
         x = layers.BatchNormalization(axis=channels_axis, name="batchnorm_1")(x)
         x = layers.ReLU(max_value=6, name="stem_activation")(x)
+        features.append(x)
 
         blocks_args = copy.deepcopy(DEFAULT_BLOCKS_ARGS)
         b = 0
@@ -300,6 +318,8 @@ class EfficientNetLite(keras.Model):
 
                 b += 1
 
+            features.append(x)
+
         x = layers.Conv2D(
             1280,
             1,
@@ -324,6 +344,8 @@ class EfficientNetLite(keras.Model):
                 kernel_initializer=DENSE_KERNEL_INITIALIZER,
                 name="predictions",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -341,6 +363,7 @@ class EfficientNetLite(keras.Model):
         self.default_size = default_size
         self.dropout_rate = dropout_rate
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -355,6 +378,7 @@ class EfficientNetLite(keras.Model):
             "default_size": self.default_size,
             "dropout_rate": self.dropout_rate,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -374,6 +398,7 @@ class EfficientNetLite(keras.Model):
 @register_model
 def EfficientNetLite0(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -389,6 +414,7 @@ def EfficientNetLite0(
         **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite0"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -414,6 +440,7 @@ def EfficientNetLite0(
 @register_model
 def EfficientNetLite1(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -429,6 +456,7 @@ def EfficientNetLite1(
         **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite1"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -454,6 +482,7 @@ def EfficientNetLite1(
 @register_model
 def EfficientNetLite2(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -469,6 +498,7 @@ def EfficientNetLite2(
         **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite2"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -494,6 +524,7 @@ def EfficientNetLite2(
 @register_model
 def EfficientNetLite3(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -509,6 +540,7 @@ def EfficientNetLite3(
         **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite3"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -534,6 +566,7 @@ def EfficientNetLite3(
 @register_model
 def EfficientNetLite4(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -549,6 +582,7 @@ def EfficientNetLite4(
         **EFFICIENTNET_LITE_MODEL_CONFIG["EfficientNetLite4"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

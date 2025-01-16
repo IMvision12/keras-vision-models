@@ -21,9 +21,6 @@ MLPMIXER_WEIGHTS_CONFIG = {
         "goog_in21k": {
             "url": "",
         },
-        "miil_in21k": {
-            "url": "",
-        },
         "miil_in21k_ft_in1k": {
             "url": "",
         },

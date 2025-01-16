@@ -159,6 +159,9 @@ class XceptionMain(keras.Model):
     Args:
         include_top: Boolean, whether to include the fully-connected classification layer at the top of the model.
             Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.
@@ -187,6 +190,7 @@ class XceptionMain(keras.Model):
     def __init__(
         self,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights=None,
@@ -198,6 +202,18 @@ class XceptionMain(keras.Model):
         name="xception",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+
         data_format = keras.config.image_data_format()
 
         input_shape = imagenet_utils.obtain_input_shape(
@@ -218,14 +234,21 @@ class XceptionMain(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
+
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )
         x = entry_flow(x)
+        features.append(x)
+
         x = middle_flow(x)
+        features.append(x)
+
         x = exit_flow(x)
+        features.append(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -234,6 +257,8 @@ class XceptionMain(keras.Model):
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -248,6 +273,7 @@ class XceptionMain(keras.Model):
 
         # Store configuration
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -258,6 +284,7 @@ class XceptionMain(keras.Model):
     def get_config(self) -> dict:
         return {
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -277,6 +304,7 @@ class XceptionMain(keras.Model):
 @register_model
 def Xception(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     num_classes=1000,
@@ -290,6 +318,7 @@ def Xception(
 ):
     model = XceptionMain(
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         name=name,

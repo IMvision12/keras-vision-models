@@ -106,6 +106,7 @@ def resnext_block(
 @register_model
 def ResNeXt50_32x4d(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="a1_in1k",
@@ -123,6 +124,7 @@ def ResNeXt50_32x4d(
         groups=RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["groups"],
         width_factor=RESNEXT_MODEL_CONFIG["ResNeXt50_32x4d"]["width_factor"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -149,6 +151,7 @@ def ResNeXt50_32x4d(
 @register_model
 def ResNeXt101_32x4d(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="gluon_in1k",
@@ -166,6 +169,7 @@ def ResNeXt101_32x4d(
         groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["groups"],
         width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x4d"]["width_factor"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -192,6 +196,7 @@ def ResNeXt101_32x4d(
 @register_model
 def ResNeXt101_32x8d(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="tv_in1k",
@@ -209,6 +214,7 @@ def ResNeXt101_32x8d(
         groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["groups"],
         width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x8d"]["width_factor"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -235,6 +241,7 @@ def ResNeXt101_32x8d(
 @register_model
 def ResNeXt101_32x16d(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="fb_wsl_ig1b_ft_in1k",
@@ -252,6 +259,7 @@ def ResNeXt101_32x16d(
         groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["groups"],
         width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x16d"]["width_factor"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -278,6 +286,7 @@ def ResNeXt101_32x16d(
 @register_model
 def ResNeXt101_32x32d(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="fb_wsl_ig1b_ft_in1k",
@@ -295,6 +304,7 @@ def ResNeXt101_32x32d(
         groups=RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["groups"],
         width_factor=RESNEXT_MODEL_CONFIG["ResNeXt101_32x32d"]["width_factor"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

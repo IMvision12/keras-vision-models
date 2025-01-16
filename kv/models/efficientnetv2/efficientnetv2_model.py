@@ -344,6 +344,9 @@ class EfficientNetV2(keras.Model):
         default_size: Integer, default resolution of input images.
         include_top: Boolean, whether to include the classification head at the
             top of the network. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
         include_preprocessing: Boolean, whether to include preprocessing layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.
@@ -378,6 +381,7 @@ class EfficientNetV2(keras.Model):
         depth_coefficient,
         default_size,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="imagenet",
@@ -389,6 +393,29 @@ class EfficientNetV2(keras.Model):
         name="EfficientNetV2",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+
+        if (
+            include_top
+            and weights is not None
+            and weights == "in21k"
+            and num_classes != 21843
+        ):
+            raise ValueError(
+                f"When using 'in21k' weights, num_classes must be 21843. "
+                f"Received num_classes: {num_classes}"
+            )
+
         data_format = keras.config.image_data_format()
         channels_axis = 3 if data_format == "channels_last" else 1
 
@@ -415,6 +442,7 @@ class EfficientNetV2(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -442,6 +470,7 @@ class EfficientNetV2(keras.Model):
             name="batchnorm1",
         )(x)
         x = layers.Activation("swish", name="act1")(x)
+        features.append(x)
 
         block_config = copy.deepcopy(block_config)
         b = 0
@@ -479,6 +508,8 @@ class EfficientNetV2(keras.Model):
                 )
                 b += 1
 
+            features.append(x)
+
         head_filters = {"EfficientNetV2B2": 1408, "EfficientNetV2B3": 1536}
         head_filter = head_filters.get(name, 1280)
         x = layers.Conv2D(
@@ -510,6 +541,8 @@ class EfficientNetV2(keras.Model):
                 bias_initializer=initializers.Constant(0.0),
                 name="classifier",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -526,6 +559,7 @@ class EfficientNetV2(keras.Model):
         self.depth_coefficient = depth_coefficient
         self.default_size = default_size
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -539,6 +573,7 @@ class EfficientNetV2(keras.Model):
             "depth_coefficient": self.depth_coefficient,
             "default_size": self.default_size,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_tensor": self.input_tensor,
@@ -558,6 +593,7 @@ class EfficientNetV2(keras.Model):
 @register_model
 def EfficientNetV2S(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     weights="in1k",
@@ -569,15 +605,11 @@ def EfficientNetV2S(
     name="EfficientNetV2S",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
     model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2S"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -603,6 +635,7 @@ def EfficientNetV2S(
 @register_model
 def EfficientNetV2M(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     weights="in1k",
@@ -614,15 +647,11 @@ def EfficientNetV2M(
     name="EfficientNetV2M",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
     model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2M"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -649,6 +678,7 @@ def EfficientNetV2M(
 @register_model
 def EfficientNetV2L(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     weights="in1k",
@@ -660,15 +690,11 @@ def EfficientNetV2L(
     name="EfficientNetV2L",
     **kwargs,
 ):
-    if include_top and weights == "augreg_in21k" and num_classes != 21843:
-        raise ValueError(
-            f"When using 'augreg_in21k' weights, num_classes must be 21843. "
-            f"Received num_classes: {num_classes}"
-        )
     model = EfficientNetV2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2L"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -694,6 +720,7 @@ def EfficientNetV2L(
 @register_model
 def EfficientNetV2XL(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     weights="in1k",
@@ -709,6 +736,7 @@ def EfficientNetV2XL(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2XL"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -735,6 +763,7 @@ def EfficientNetV2XL(
 @register_model
 def EfficientNetV2B0(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -750,6 +779,7 @@ def EfficientNetV2B0(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B0"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -775,6 +805,7 @@ def EfficientNetV2B0(
 @register_model
 def EfficientNetV2B1(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -790,6 +821,7 @@ def EfficientNetV2B1(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B1"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -815,6 +847,7 @@ def EfficientNetV2B1(
 @register_model
 def EfficientNetV2B2(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="in1k",
@@ -830,6 +863,7 @@ def EfficientNetV2B2(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B2"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -855,6 +889,7 @@ def EfficientNetV2B2(
 @register_model
 def EfficientNetV2B3(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="inception",
     weights="in1k",
@@ -870,6 +905,7 @@ def EfficientNetV2B3(
         **EFFICIENTNETV2_MODEL_CONFIG["EfficientNetV2B3"],
         name=name,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

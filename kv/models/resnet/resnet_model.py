@@ -268,6 +268,7 @@ class ResNet(keras.Model):
         senet=False,
         width_factor=2,
         include_top=True,
+        as_backbone=False,
         include_preprocessing=True,
         preprocessing_mode="imagenet",
         weights="in1k",
@@ -279,6 +280,18 @@ class ResNet(keras.Model):
         name="ResNet",
         **kwargs,
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+        
+        if pooling is not None and pooling not in ['avg', 'max']:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -300,6 +313,7 @@ class ResNet(keras.Model):
                 img_input = input_tensor
 
         inputs = img_input
+        features = []
 
         x = (
             ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
@@ -320,6 +334,7 @@ class ResNet(keras.Model):
         x = layers.MaxPooling2D(
             data_format=data_format, pool_size=3, strides=2, padding="valid"
         )(x)
+        features.append(x)
 
         common_args = {
             "channels_axis": channels_axis,
@@ -339,6 +354,8 @@ class ResNet(keras.Model):
                     )
                 else:
                     x = block_fn(x, filters[i], **common_args)
+            if j == num_blocks - 1:
+                    features.append(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -350,6 +367,8 @@ class ResNet(keras.Model):
                 kernel_initializer="zeros",
                 name="predictions",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -369,6 +388,7 @@ class ResNet(keras.Model):
         self.senet = senet
         self.width_factor = width_factor
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -385,6 +405,7 @@ class ResNet(keras.Model):
             "senet": self.senet,
             "width_factor": self.width_factor,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -405,6 +426,7 @@ class ResNet(keras.Model):
 @register_model
 def ResNet50(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="a1_in1k",
@@ -419,6 +441,7 @@ def ResNet50(
         block_repeats=RESNET_MODEL_CONFIG["ResNet50"]["block_repeats"],
         filters=RESNET_MODEL_CONFIG["ResNet50"]["filters"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -441,6 +464,7 @@ def ResNet50(
 @register_model
 def ResNet101(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="a1_in1k",
@@ -456,6 +480,7 @@ def ResNet101(
         block_repeats=RESNET_MODEL_CONFIG["ResNet101"]["block_repeats"],
         filters=RESNET_MODEL_CONFIG["ResNet101"]["filters"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -480,6 +505,7 @@ def ResNet101(
 @register_model
 def ResNet152(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights="a1_in1k",
@@ -495,6 +521,7 @@ def ResNet152(
         block_repeats=RESNET_MODEL_CONFIG["ResNet152"]["block_repeats"],
         filters=RESNET_MODEL_CONFIG["ResNet152"]["filters"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,

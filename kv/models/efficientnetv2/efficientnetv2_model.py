@@ -468,14 +468,6 @@ class EfficientNetV2(keras.Model):
         b = 0
         blocks = float(sum(args["num_repeat"] for args in block_config))
 
-        total_blocks = len(block_config)
-        features_at = [
-            total_blocks // 4,
-            total_blocks // 2,
-            3 * total_blocks // 4,
-            total_blocks - 1,
-        ]
-        current_block = 0
         for i, args in enumerate(block_config):
             assert args["num_repeat"] > 0
 
@@ -508,9 +500,7 @@ class EfficientNetV2(keras.Model):
                 )
                 b += 1
 
-            if current_block in features_at:
-                features.append(x)
-            current_block += 1
+            features.append(x)
 
         head_filters = {"EfficientNetV2B2": 1408, "EfficientNetV2B3": 1536}
         head_filter = head_filters.get(name, 1280)

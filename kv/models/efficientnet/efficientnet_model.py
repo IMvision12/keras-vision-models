@@ -320,14 +320,6 @@ class EfficientNet(keras.Model):
             )
         )
 
-        total_blocks = len(DEFAULT_BLOCKS_ARGS)
-        features_at = [
-            total_blocks // 4,
-            total_blocks // 2,
-            3 * total_blocks // 4,
-            total_blocks - 1,
-        ]
-        current_block = 0
         for i, block_args in enumerate(DEFAULT_BLOCKS_ARGS):
             assert block_args["repeats"] > 0
             args = copy.deepcopy(block_args)
@@ -359,9 +351,7 @@ class EfficientNet(keras.Model):
                 )
                 b += 1
 
-            if current_block in features_at:
-                features.append(x)
-            current_block += 1
+            features.append(x)
 
         x = layers.Conv2D(
             round_filters(1280, width_coefficient=width_coefficient),

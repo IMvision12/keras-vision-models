@@ -290,14 +290,6 @@ class EfficientNetLite(keras.Model):
         b = 0
         blocks = float(sum(args["repeats"] for args in DEFAULT_BLOCKS_ARGS))
 
-        total_blocks = len(blocks_args)
-        features_at = [
-            total_blocks // 4,
-            total_blocks // 2,
-            3 * total_blocks // 4,
-            total_blocks - 1,
-        ]
-        current_block = 0
         for i, args in enumerate(blocks_args):
             assert args["repeats"] > 0
             args["filters_in"] = round_filters(args["filters_in"], width_coefficient)
@@ -323,9 +315,7 @@ class EfficientNetLite(keras.Model):
 
                 b += 1
             
-            if current_block in features_at:
-                features.append(x)
-            current_block += 1
+            features.append(x)
 
         x = layers.Conv2D(
             1280,

@@ -539,7 +539,7 @@ class EfficientNetV2(keras.Model):
                 activation=classifier_activation,
                 kernel_initializer=DENSE_KERNEL_INITIALIZER,
                 bias_initializer=initializers.Constant(0.0),
-                name="classifier",
+                name="predictions",
             )(x)
         elif as_backbone:
             x = features

@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.efficientnetv2 import EfficientNetV2S
+from kv.models.inceptionv4 import InceptionV4
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -16,38 +16,22 @@ from kv.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
+    "features_": "features.",
+    "_conv": ".conv",
     "_kernel": ".weight",
     "_gamma": ".weight",
     "_beta": ".bias",
     "_bias": ".bias",
+    "_bn": ".bn",
     "_moving_mean": ".running_mean",
     "_moving_variance": ".running_var",
-    # For FusedMBConvBlock
-    "FMBconv1": "conv_exp",
-    "FMBconv2": "conv_pwl",
-    # For MBConvBlock
-    "MBconv1": "conv_pw",
-    "MBdwconv": "conv_dw",
-    "MBconv2": "conv_pwl",
-    "batchnorm1": "bn1",
-    "batchnorm2": "bn2",
-    "batchnorm3": "bn3",
-    "se_": "se.",
-    "blocks.0.0.conv_pwl": "blocks.0.0.conv",
-    "blocks.0.1.conv_pwl": "blocks.0.1.conv",
-    "blocks.0.2.conv_pwl": "blocks.0.2.conv",
-    "blocks.0.3.conv_pwl": "blocks.0.3.conv",
-    "blocks.0.0.bn2": "blocks.0.0.bn1",
-    "blocks.0.1.bn2": "blocks.0.1.bn1",
-    "blocks.0.2.bn2": "blocks.0.2.bn1",
-    "blocks.0.3.bn2": "blocks.0.3.bn1",
-    "predictions": "classifier",
+    "predictions": "last_linear",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": EfficientNetV2S,
-    "torch_model_name": "tf_efficientnetv2_s.in1k",
-    "input_shape": [224, 224, 3],
+    "keras_model_cls": InceptionV4,
+    "torch_model_name": "inception_v4",
+    "input_shape": [299, 299, 3],
     "num_classes": 1000,
     "include_top": True,
     "include_preprocessing": False,
@@ -93,7 +77,8 @@ def create_model(
 
 keras_model: keras.Model = create_model("keras", config=model_config)
 torch_model: torch.nn.Module = create_model(
-    "torch", model_name=model_config["torch_model_name"]
+    "torch",
+    model_name=model_config["torch_model_name"],
 )
 
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
@@ -107,12 +92,24 @@ for keras_weight, keras_weight_name in tqdm(
     desc="Transferring weights",
 ):
     torch_weight_name: str = keras_weight_name
-    torch_weight_name = re.sub(
-        r"blocks_(\d+)_(\d+)_", r"blocks.\1.\2.", torch_weight_name
-    )
 
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
+
+    torch_weight_name = re.sub(r"features\.(\d+)_", r"features.\1.", torch_weight_name)
+
+    if re.match(r"features\.(19|20|21)\.", torch_weight_name):
+        if "branch3_1" in torch_weight_name:
+            torch_weight_name = torch_weight_name.replace("branch3_1", "branch3.1")
+        else:
+            torch_weight_name = re.sub(
+                r"\.branch([12])\.([0-9]+[ab]?)", r".branch\1_\2", torch_weight_name
+            )
+    else:
+        torch_weight_name = re.sub(
+            r"\.branch([0-9])_([0-9][ab]?)", r".branch\1.\2", torch_weight_name
+        )
+        torch_weight_name = torch_weight_name.replace("branch3_1", "branch3.1")
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,
@@ -123,7 +120,6 @@ for keras_weight, keras_weight_name in tqdm(
         raise WeightMappingError(keras_weight_name, torch_weight_name)
 
     torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
     if not compare_keras_torch_names(
         keras_weight_name, keras_weight, torch_weight_name, torch_weight
     ):
@@ -137,17 +133,14 @@ for keras_weight, keras_weight_name in tqdm(
 results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,
-    input_shape=(224, 224, 3),
+    input_shape=(299, 299, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
 )
 
 
-if not results["standard_input"]:
-    raise ValueError(
-        "Model equivalence test failed - model outputs do not match for standard input"
-    )
-
-model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
-keras_model.save(model_filename)
-print(f"Model saved successfully as {model_filename}")
+if results["standard_input"]:
+    # Save model
+    model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
+    keras_model.save(model_filename)
+    print(f"Model saved successfully as {model_filename}")

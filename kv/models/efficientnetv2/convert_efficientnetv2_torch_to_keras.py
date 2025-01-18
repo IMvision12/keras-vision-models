@@ -41,7 +41,7 @@ weight_name_mapping = {
     "blocks.0.1.bn2": "blocks.0.1.bn1",
     "blocks.0.2.bn2": "blocks.0.2.bn1",
     "blocks.0.3.bn2": "blocks.0.3.bn1",
-    "predictions": "head",
+    "predictions": "classifier",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {

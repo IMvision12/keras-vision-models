@@ -451,7 +451,6 @@ class InceptionV3Main(keras.Model):
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
-        # Store configuration
         self.include_top = include_top
         self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing

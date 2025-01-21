@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .efficient_multi_head_self_attention import EfficientMultiheadSelfAttention
+from kv.layers import EfficientMultiheadSelfAttention
 
 
 class TestEfficientMultiheadSelfAttention(TestCase):
@@ -15,8 +15,6 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         self.head_dim = self.project_dim // self.num_heads
         self.input_shape = (self.batch_size, self.seq_length, self.project_dim)
         self.test_inputs = ops.ones(self.input_shape)
-        self.H = 8
-        self.W = 8
 
     def test_init_default(self):
         layer = EfficientMultiheadSelfAttention(
@@ -30,7 +28,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         assert layer.epsilon == 1e-6
         assert not layer.built
         assert not layer.q.use_bias
-        assert layer.attn_drop.rate == 0.0
+        assert layer.attn_drop.rate == 0.1
 
     def test_init_with_options(self):
         layer = EfficientMultiheadSelfAttention(
@@ -82,7 +80,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         layer = EfficientMultiheadSelfAttention(
             project_dim=self.project_dim, sr_ratio=1, block_prefix="block1"
         )
-        outputs = layer(self.test_inputs, H=self.H, W=self.W)
+        outputs = layer(self.test_inputs)
         output_shape = ops.shape(outputs)
         assert len(output_shape) == len(self.input_shape)
         assert all(
@@ -93,7 +91,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         layer = EfficientMultiheadSelfAttention(
             project_dim=self.project_dim, sr_ratio=2, block_prefix="block1"
         )
-        outputs = layer(self.test_inputs, H=self.H, W=self.W)
+        outputs = layer(self.test_inputs)
         output_shape = ops.shape(outputs)
         assert len(output_shape) == len(self.input_shape)
         assert all(
@@ -110,8 +108,8 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         )
 
         for _ in range(5):
-            train_output = layer(self.test_inputs, H=self.H, W=self.W, training=True)
-            infer_output = layer(self.test_inputs, H=self.H, W=self.W, training=False)
+            train_output = layer(self.test_inputs, training=True)
+            infer_output = layer(self.test_inputs, training=False)
 
             assert ops.shape(train_output) == ops.shape(infer_output)
 
@@ -169,7 +167,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
                 qkv_bias=use_bias,
             )
 
-            outputs = layer(self.test_inputs, H=self.H, W=self.W)
+            outputs = layer(self.test_inputs)
             assert ops.shape(outputs) == self.input_shape
 
             assert layer.q.use_bias == use_bias
@@ -190,10 +188,10 @@ class TestEfficientMultiheadSelfAttention(TestCase):
                 attn_drop=attn_drop_rate,
             )
 
-            train_output = layer(self.test_inputs, H=self.H, W=self.W, training=True)
+            train_output = layer(self.test_inputs, training=True)
             assert ops.shape(train_output) == self.input_shape
 
-            infer_output = layer(self.test_inputs, H=self.H, W=self.W, training=False)
+            infer_output = layer(self.test_inputs, training=False)
             assert ops.shape(infer_output) == self.input_shape
 
             assert layer.attn_drop.rate == attn_drop_rate
@@ -205,7 +203,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         test_batch_sizes = [1, 8, 16]
         for batch_size in test_batch_sizes:
             inputs = ops.ones((batch_size, self.seq_length, self.project_dim))
-            outputs = layer(inputs, H=self.H, W=self.W)
+            outputs = layer(inputs)
             output_shape = ops.shape(outputs)
             expected_shape = (batch_size, self.seq_length, self.project_dim)
             assert all(
@@ -222,7 +220,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
                 qkv_bias=True,
                 attn_drop=0.1,
             )
-            outputs = layer(self.test_inputs, H=self.H, W=self.W)
+            outputs = layer(self.test_inputs)
             output_shape = ops.shape(outputs)
             assert all(
                 output_shape[i] == self.input_shape[i]
@@ -241,7 +239,7 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         x = ops.expand_dims(x, axis=0)
         x = ops.repeat(x, self.project_dim // self.seq_length, axis=-1)
         x = ops.repeat(x, self.batch_size, axis=0)
-        outputs = layer(x, H=self.H, W=self.W)
+        outputs = layer(x)
         assert ops.shape(outputs) == (
             self.batch_size,
             self.seq_length,

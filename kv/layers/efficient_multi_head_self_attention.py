@@ -57,8 +57,8 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         block_prefix=None,
         qkv_bias=False,
         num_heads=8,
-        attn_drop=0.0,
-        proj_drop=0.0,
+        attn_drop=0.1,
+        proj_drop=0.1,
         epsilon=1e-6,
         **kwargs,
     ):
@@ -155,9 +155,10 @@ class EfficientMultiheadSelfAttention(layers.Layer):
 
         self.built = True
 
-    def call(self, x, H, W, training=None):
+    def call(self, x, training=None):
         input_shape = ops.shape(x)
         B, N, C = input_shape[0], input_shape[1], input_shape[2]
+        H = W = ops.cast(ops.sqrt(ops.cast(N, "float32")), "int32")
 
         q = self.q(x)
         q = ops.reshape(q, (B, N, self.num_heads, C // self.num_heads))

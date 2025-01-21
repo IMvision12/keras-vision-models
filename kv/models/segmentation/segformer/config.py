@@ -9,59 +9,50 @@ SEGFORMER_MODEL_CONFIG = {
 
 SEGFORMER_WEIGHTS_CONFIG = {
     "SegFormer_B0": {
-        "segformer_b0_1024x1024_city_160k": {
+        "cityscapes_1024": {
             "url": "",
         },
-        "segformer_b0_512x1024_city_160k": {
-            "url": "",
-        },
-        "segformer_b0_512x512_ade_160k": {
-            "url": "",
-        },
-        "segformer_b0_640x1280_city_160k": {
-            "url": "",
-        },
-        "segformer_b0_768x768_city_160k": {
+        "ade20k_512": {
             "url": "",
         },
     },
     "SegFormer_B1": {
-        "segformer_b1_1024x1024_city_160k": {
+        "cityscapes_1024": {
             "url": "",
         },
-        "segformer_b1_512x512_ade_160k": {
+        "ade20k_512": {
             "url": "",
         },
     },
     "SegFormer_B2": {
-        "segformer_b2_1024x1024_city_160k": {
+        "cityscapes_1024": {
             "url": "",
         },
-        "segformer_b2_512x512_ade_160k": {
+        "ade20k_512": {
             "url": "",
         },
     },
     "SegFormer_B3": {
-        "segformer_b3_1024x1024_city_160k": {
+        "cityscapes_1024": {
             "url": "",
         },
-        "segformer_b3_512x512_ade_160k": {
-            "url": "",
-        },
-    },
-    "SegFormer_B4": {
-        "segformer_b4_1024x1024_city_160k": {
-            "url": "",
-        },
-        "segformer_b4_512x512_ade_160k": {
+        "ade20k_512": {
             "url": "",
         },
     },
     "SegFormer_B4": {
-        "segformer_b5_1024x1024_city_160k": {
+        "cityscapes_1024": {
             "url": "",
         },
-        "segformer_b5_640x640_ade_160k": {
+        "ade20k_512": {
+            "url": "",
+        },
+    },
+    "SegFormer_B4": {
+        "cityscapes_1024": {
+            "url": "",
+        },
+        "ade20k_512": {
             "url": "",
         },
     },

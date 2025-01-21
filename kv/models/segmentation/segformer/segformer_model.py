@@ -165,14 +165,15 @@ def SegFormerB0(
         name="SegFormer_B0",
         **kwargs,
     )
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SegFormer_B0", weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    if not backbone_weights:
+        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+            load_weights_from_config(
+                "SegFormer_B0", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            )
+        elif weights is not None:
+            model.load_weights(weights)
+        else:
+            print("No weights loaded.")
     return model
 
 
@@ -212,14 +213,15 @@ def SegFormerB1(
         name="SegFormer_B1",
         **kwargs,
     )
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SegFormer_B1", weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    if not backbone_weights:
+        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+            load_weights_from_config(
+                "SegFormer_B1", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            )
+        elif weights is not None:
+            model.load_weights(weights)
+        else:
+            print("No weights loaded.")
     return model
 
 
@@ -259,14 +261,15 @@ def SegFormerB2(
         name="SegFormer_B2",
         **kwargs,
     )
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SegFormer_B2", weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    if not backbone_weights:
+        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+            load_weights_from_config(
+                "SegFormer_B2", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            )
+        elif weights is not None:
+            model.load_weights(weights)
+        else:
+            print("No weights loaded.")
     return model
 
 
@@ -306,14 +309,15 @@ def SegFormerB3(
         name="SegFormer_B3",
         **kwargs,
     )
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SegFormer_B3", weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    if not backbone_weights:
+        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+            load_weights_from_config(
+                "SegFormer_B3", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            )
+        elif weights is not None:
+            model.load_weights(weights)
+        else:
+            print("No weights loaded.")
     return model
 
 
@@ -353,14 +357,15 @@ def SegFormerB4(
         name="SegFormer_B4",
         **kwargs,
     )
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SegFormer_B4", weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    if not backbone_weights:
+        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+            load_weights_from_config(
+                "SegFormer_B4", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            )
+        elif weights is not None:
+            model.load_weights(weights)
+        else:
+            print("No weights loaded.")
     return model
 
 
@@ -400,12 +405,14 @@ def SegFormerB5(
         name="SegFormer_B5",
         **kwargs,
     )
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SegFormer_B5", weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
+    if not backbone_weights:
+        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+            load_weights_from_config(
+                "SegFormer_B5", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            )
+        elif weights is not None:
+            model.load_weights(weights)
+        else:
+            print("No weights loaded.")
+
     return model

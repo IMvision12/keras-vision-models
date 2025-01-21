@@ -75,11 +75,12 @@ def overlap_patch_embedding_block(
         - W: Width of the feature map after patching
 
     """
+    x = keras.layers.ZeroPadding2D(padding=(patch_size // 2, patch_size // 2))(x)
     x = layers.Conv2D(
         filters=out_channels,
         kernel_size=patch_size,
         strides=stride,
-        padding="same",
+        padding="valid",
         data_format=data_format,
         name=f"overlap_patch_embed{stage_idx}_conv",
     )(x)
@@ -88,7 +89,7 @@ def overlap_patch_embedding_block(
     x = layers.Reshape((-1, out_channels))(x)
     x = layers.LayerNormalization(
         axis=channels_axis,
-        epsilon=1e-6,
+        epsilon=1e-5,
         name=f"overlap_patch_embed{stage_idx}_layernorm",
     )(x)
     return x, H, W
@@ -130,7 +131,6 @@ def hierarchical_transformer_encoder_block(
         Tensor of shape (batch_size, H*W, project_dim) containing the processed features
         after self-attention and MLP operations with residual connections
     """
-
     block_prefix = f"block{stage_idx}_{block_idx}"
 
     attn_layer = EfficientMultiheadSelfAttention(
@@ -141,7 +141,7 @@ def hierarchical_transformer_encoder_block(
     norm1 = layers.LayerNormalization(
         axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm1"
     )(x)
-    attn_out = attn_layer(norm1, H=H, W=W)
+    attn_out = attn_layer(norm1)
     attn_out = drop_path_layer(attn_out)
     add1 = layers.Add()([x, attn_out])
 
@@ -165,7 +165,7 @@ def hierarchical_transformer_encoder_block(
 
 @keras.saving.register_keras_serializable(package="kv")
 class MixTransformer(keras.Model):
-    """ "Instantiates the Mix Transformer (MiT) architecture from the SegFormer paper.
+    """Instantiates the Mix Transformer (MiT) architecture from the SegFormer paper.
 
     The Mix Transformer (MiT) serves as the backbone of the SegFormer architecture,
     featuring hierarchical transformer blocks with efficient local attention and
@@ -337,7 +337,7 @@ class MixTransformer(keras.Model):
                 cur_block += 1
 
             x = layers.LayerNormalization(
-                name=f"layernorm{i + 1}", axis=channels_axis, epsilon=1e-6
+                name=f"layernorm{i + 1}", axis=channels_axis, epsilon=1e-5
             )(x)
             x = layers.Reshape((H, W, embed_dims[i]))(x)
             features.append(x)

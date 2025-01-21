@@ -3,7 +3,7 @@ from keras import layers, utils
 
 from kv.models import MiT_B0, MiT_B1, MiT_B2, MiT_B3, MiT_B4, MiT_B5
 from kv.utils import register_model
-
+from .config import SEGFORMER_MODEL_CONFIG
 
 def segformer_head(
     features, embed_dim=256, num_classes=19, dropout_rate=0.1, name="segformer_head"
@@ -61,7 +61,6 @@ class SegFormer(keras.Model):
         embed_dim=256,
         dropout_rate=0.1,
         input_shape=None,
-        weights=None,
         input_tensor=None,
         name="SegFormer",
         **kwargs,
@@ -155,10 +154,9 @@ def SegFormerB0(
         )
 
     return SegFormer(
+        **SEGFORMER_MODEL_CONFIG["SegFormer_B0"],
         backbone=backbone,
         num_classes=num_classes,
-        embed_dim=256,
-        dropout_rate=0.1,
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -194,10 +192,9 @@ def SegFormerB1(
         )
 
     return SegFormer(
+        **SEGFORMER_MODEL_CONFIG["SegFormer_B1"],
         backbone=backbone,
         num_classes=num_classes,
-        embed_dim=256,
-        dropout_rate=0.1,
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -233,10 +230,9 @@ def SegFormerB2(
         )
 
     return SegFormer(
+        **SEGFORMER_MODEL_CONFIG["SegFormer_B2"],
         backbone=backbone,
         num_classes=num_classes,
-        embed_dim=768,
-        dropout_rate=0.1,
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -272,10 +268,9 @@ def SegFormerB3(
         )
 
     return SegFormer(
+        **SEGFORMER_MODEL_CONFIG["SegFormer_B3"],
         backbone=backbone,
         num_classes=num_classes,
-        embed_dim=768,
-        dropout_rate=0.1,
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -311,10 +306,9 @@ def SegFormerB4(
         )
 
     return SegFormer(
+        **SEGFORMER_MODEL_CONFIG["SegFormer_B4"],
         backbone=backbone,
         num_classes=num_classes,
-        embed_dim=768,
-        dropout_rate=0.1,
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -350,10 +344,9 @@ def SegFormerB5(
         )
 
     return SegFormer(
+        **SEGFORMER_MODEL_CONFIG["SegFormer_B5"],
         backbone=backbone,
         num_classes=num_classes,
-        embed_dim=768,
-        dropout_rate=0.1,
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,

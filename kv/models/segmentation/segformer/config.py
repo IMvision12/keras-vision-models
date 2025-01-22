@@ -9,50 +9,50 @@ SEGFORMER_MODEL_CONFIG = {
 
 SEGFORMER_WEIGHTS_CONFIG = {
     "SegFormer_B0": {
-        "cityscapes_1024": {
+        "cityscapes": {
             "url": "",
         },
-        "ade20k_512": {
+        "ade20k": {
             "url": "",
         },
     },
     "SegFormer_B1": {
-        "cityscapes_1024": {
+        "cityscapes": {
             "url": "",
         },
-        "ade20k_512": {
+        "ade20k": {
             "url": "",
         },
     },
     "SegFormer_B2": {
-        "cityscapes_1024": {
+        "cityscapes": {
             "url": "",
         },
-        "ade20k_512": {
+        "ade20k": {
             "url": "",
         },
     },
     "SegFormer_B3": {
-        "cityscapes_1024": {
+        "cityscapes": {
             "url": "",
         },
-        "ade20k_512": {
-            "url": "",
-        },
-    },
-    "SegFormer_B4": {
-        "cityscapes_1024": {
-            "url": "",
-        },
-        "ade20k_512": {
+        "ade20k": {
             "url": "",
         },
     },
     "SegFormer_B4": {
-        "cityscapes_1024": {
+        "cityscapes": {
             "url": "",
         },
-        "ade20k_512": {
+        "ade20k": {
+            "url": "",
+        },
+    },
+    "SegFormer_B4": {
+        "cityscapes": {
+            "url": "",
+        },
+        "ade20k": {
             "url": "",
         },
     },

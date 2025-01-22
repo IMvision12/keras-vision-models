@@ -148,6 +148,10 @@ def SegFormerB0(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+    if backbone_weights and backbone_weight_type is None:
+        raise ValueError(
+            "backbone_weight_type must be specified when backbone_weights=True"
+        )
     if backbone is None:
         backbone = MiT_B0(
             include_top=False,
@@ -199,6 +203,10 @@ def SegFormerB1(
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
+        )
+    if backbone_weights and backbone_weight_type is None:
+        raise ValueError(
+            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B1(
@@ -252,6 +260,10 @@ def SegFormerB2(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+    if backbone_weights and backbone_weight_type is None:
+        raise ValueError(
+            "backbone_weight_type must be specified when backbone_weights=True"
+        )
     if backbone is None:
         backbone = MiT_B2(
             include_top=False,
@@ -303,6 +315,10 @@ def SegFormerB3(
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
+        )
+    if backbone_weights and backbone_weight_type is None:
+        raise ValueError(
+            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B3(
@@ -356,6 +372,10 @@ def SegFormerB4(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+    if backbone_weights and backbone_weight_type is None:
+        raise ValueError(
+            "backbone_weight_type must be specified when backbone_weights=True"
+        )
     if backbone is None:
         backbone = MiT_B4(
             include_top=False,
@@ -407,6 +427,10 @@ def SegFormerB5(
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
+        )
+    if backbone_weights and backbone_weight_type is None:
+        raise ValueError(
+            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B5(

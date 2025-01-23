@@ -134,25 +134,41 @@ def SegFormerB0(
     input_shape=(512, 512, 3),
     input_tensor=None,
     weights="ade20k",
-    backbone_weights=False,
     **kwargs,
 ):
-    if weights is not None and backbone_weights:
+    if weights not in [None, "cityscapes", "ade20k", "mit"]:
         raise ValueError(
-            "Cannot use both SegFormer weights and backbone weights. "
-            "Please choose either weights='ade20k'/'cityscapes' or backbone_weights=True"
+            f"Invalid weights: {weights}. "
+            "Supported weights are 'cityscapes', 'ade20k', 'mit', or None."
         )
+
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+
     if backbone is None:
+        if weights == "mit":
+            print(
+                "No backbone specified. "
+                "Using MiT_B0 backbone with ImageNet-1K (in1k) weights by default."
+            )
+            backbone_weights = "in1k"
+        elif weights is None:
+            print(
+                "No backbone specified and no weights provided. "
+                "Using MiT_B0 backbone with no pre-trained weights."
+            )
+            backbone_weights = None
+        else:
+            backbone_weights = None
+
         backbone = MiT_B0(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights="in1k",
+            weights=backbone_weights,
             include_preprocessing=False,
         )
 
@@ -166,15 +182,16 @@ def SegFormerB0(
         name="SegFormer_B0",
         **kwargs,
     )
-    if not backbone_weights:
-        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                "SegFormer_B0", weights, model, SEGFORMER_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
+
+    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "SegFormer_B0", weights, model, SEGFORMER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -187,17 +204,39 @@ def SegFormerB1(
     weights="ade20k",
     **kwargs,
 ):
+    if weights not in [None, "cityscapes", "ade20k", "mit"]:
+        raise ValueError(
+            f"Invalid weights: {weights}. "
+            "Supported weights are 'cityscapes', 'ade20k', 'mit', or None."
+        )
+
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+
     if backbone is None:
+        if weights == "mit":
+            print(
+                "No backbone specified. "
+                "Using MiT_B1 backbone with ImageNet-1K (in1k) weights by default."
+            )
+            backbone_weights = "in1k"
+        elif weights is None:
+            print(
+                "No backbone specified and no weights provided. "
+                "Using MiT_B1 backbone with no pre-trained weights."
+            )
+            backbone_weights = None
+        else:
+            backbone_weights = None
+
         backbone = MiT_B1(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=None,
+            weights=backbone_weights,
             include_preprocessing=False,
         )
 
@@ -211,15 +250,16 @@ def SegFormerB1(
         name="SegFormer_B1",
         **kwargs,
     )
-    if not backbone:
-        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                "SegFormer_B1", weights, model, SEGFORMER_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
+
+    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "SegFormer_B1", weights, model, SEGFORMER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -232,17 +272,39 @@ def SegFormerB2(
     weights="ade20k",
     **kwargs,
 ):
+    if weights not in [None, "cityscapes", "ade20k", "mit"]:
+        raise ValueError(
+            f"Invalid weights: {weights}. "
+            "Supported weights are 'cityscapes', 'ade20k', 'mit', or None."
+        )
+
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+
     if backbone is None:
+        if weights == "mit":
+            print(
+                "No backbone specified. "
+                "Using MiT_B2 backbone with ImageNet-1K (in1k) weights by default."
+            )
+            backbone_weights = "in1k"
+        elif weights is None:
+            print(
+                "No backbone specified and no weights provided. "
+                "Using MiT_B2 backbone with no pre-trained weights."
+            )
+            backbone_weights = None
+        else:
+            backbone_weights = None
+
         backbone = MiT_B2(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=None,
+            weights=backbone_weights,
             include_preprocessing=False,
         )
 
@@ -256,15 +318,16 @@ def SegFormerB2(
         name="SegFormer_B2",
         **kwargs,
     )
-    if not backbone:
-        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                "SegFormer_B2", weights, model, SEGFORMER_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
+
+    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "SegFormer_B2", weights, model, SEGFORMER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -275,21 +338,42 @@ def SegFormerB3(
     input_shape=(512, 512, 3),
     input_tensor=None,
     weights="ade20k",
-    backbone_weights=False,
     backbone_weight_type=None,
     **kwargs,
 ):
+    if weights not in [None, "cityscapes", "ade20k", "mit"]:
+        raise ValueError(
+            f"Invalid weights: {weights}. "
+            "Supported weights are 'cityscapes', 'ade20k', 'mit', or None."
+        )
+
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+
     if backbone is None:
+        if weights == "mit":
+            print(
+                "No backbone specified. "
+                "Using MiT_B3 backbone with ImageNet-1K (in1k) weights by default."
+            )
+            backbone_weights = "in1k"
+        elif weights is None:
+            print(
+                "No backbone specified and no weights provided. "
+                "Using MiT_B3 backbone with no pre-trained weights."
+            )
+            backbone_weights = None
+        else:
+            backbone_weights = backbone_weight_type
+
         backbone = MiT_B3(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=backbone_weight_type,
+            weights=backbone_weights,
             include_preprocessing=False,
         )
 
@@ -303,15 +387,16 @@ def SegFormerB3(
         name="SegFormer_B3",
         **kwargs,
     )
-    if not backbone:
-        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                "SegFormer_B3", weights, model, SEGFORMER_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
+
+    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "SegFormer_B3", weights, model, SEGFORMER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -324,17 +409,39 @@ def SegFormerB4(
     weights="ade20k",
     **kwargs,
 ):
+    if weights not in [None, "cityscapes", "ade20k", "mit"]:
+        raise ValueError(
+            f"Invalid weights: {weights}. "
+            "Supported weights are 'cityscapes', 'ade20k', 'mit', or None."
+        )
+
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+
     if backbone is None:
+        if weights == "mit":
+            print(
+                "No backbone specified. "
+                "Using MiT_B4 backbone with ImageNet-1K (in1k) weights by default."
+            )
+            backbone_weights = "in1k"
+        elif weights is None:
+            print(
+                "No backbone specified and no weights provided. "
+                "Using MiT_B4 backbone with no pre-trained weights."
+            )
+            backbone_weights = None
+        else:
+            backbone_weights = None
+
         backbone = MiT_B4(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=None,
+            weights=backbone_weights,
             include_preprocessing=False,
         )
 
@@ -348,15 +455,16 @@ def SegFormerB4(
         name="SegFormer_B4",
         **kwargs,
     )
-    if not backbone:
-        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                "SegFormer_B4", weights, model, SEGFORMER_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
+
+    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "SegFormer_B4", weights, model, SEGFORMER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
 
@@ -369,17 +477,39 @@ def SegFormerB5(
     weights="ade20k",
     **kwargs,
 ):
+    if weights not in [None, "cityscapes", "ade20k", "mit"]:
+        raise ValueError(
+            f"Invalid weights: {weights}. "
+            "Supported weights are 'cityscapes', 'ade20k', 'mit', or None."
+        )
+
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
+
     if backbone is None:
+        if weights == "mit":
+            print(
+                "No backbone specified. "
+                "Using MiT_B5 backbone with ImageNet-1K (in1k) weights by default."
+            )
+            backbone_weights = "in1k"
+        elif weights is None:
+            print(
+                "No backbone specified and no weights provided. "
+                "Using MiT_B5 backbone with no pre-trained weights."
+            )
+            backbone_weights = None
+        else:
+            backbone_weights = None
+
         backbone = MiT_B5(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=None,
+            weights=backbone_weights,
             include_preprocessing=False,
         )
 
@@ -393,14 +523,14 @@ def SegFormerB5(
         name="SegFormer_B5",
         **kwargs,
     )
-    if not backbone:
-        if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                "SegFormer_B5", weights, model, SEGFORMER_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
+
+    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "SegFormer_B5", weights, model, SEGFORMER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
 
     return model

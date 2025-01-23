@@ -9,21 +9,21 @@ MIT_MODEL_CONFIG = {
 
 MIT_WEIGHTS_CONFIG = {
     "MiT_B0": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B1": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B2": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B3": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B4": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B5": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
 }

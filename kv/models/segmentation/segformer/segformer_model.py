@@ -135,7 +135,6 @@ def SegFormerB0(
     input_tensor=None,
     weights="ade20k",
     backbone_weights=False,
-    backbone_weight_type=None,
     **kwargs,
 ):
     if weights is not None and backbone_weights:
@@ -148,16 +147,12 @@ def SegFormerB0(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
         )
-    if backbone_weights and backbone_weight_type is None:
-        raise ValueError(
-            "backbone_weight_type must be specified when backbone_weights=True"
-        )
     if backbone is None:
         backbone = MiT_B0(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=backbone_weight_type,
+            weights="in1k",
             include_preprocessing=False,
         )
 
@@ -190,30 +185,19 @@ def SegFormerB1(
     input_shape=(512, 512, 3),
     input_tensor=None,
     weights="ade20k",
-    backbone_weights=False,
-    backbone_weight_type=None,
     **kwargs,
 ):
-    if weights is not None and backbone_weights:
-        raise ValueError(
-            "Cannot use both SegFormer weights and backbone weights. "
-            "Please choose either weights='ade20k'/'cityscapes' or backbone_weights=True"
-        )
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
-        )
-    if backbone_weights and backbone_weight_type is None:
-        raise ValueError(
-            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B1(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=backbone_weight_type,
+            weights=None,
             include_preprocessing=False,
         )
 
@@ -227,7 +211,7 @@ def SegFormerB1(
         name="SegFormer_B1",
         **kwargs,
     )
-    if not backbone_weights:
+    if not backbone:
         if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
             load_weights_from_config(
                 "SegFormer_B1", weights, model, SEGFORMER_WEIGHTS_CONFIG
@@ -246,30 +230,19 @@ def SegFormerB2(
     input_shape=(512, 512, 3),
     input_tensor=None,
     weights="ade20k",
-    backbone_weights=False,
-    backbone_weight_type=None,
     **kwargs,
 ):
-    if weights is not None and backbone_weights:
-        raise ValueError(
-            "Cannot use both SegFormer weights and backbone weights. "
-            "Please choose either weights='ade20k'/'cityscapes' or backbone_weights=True"
-        )
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
-        )
-    if backbone_weights and backbone_weight_type is None:
-        raise ValueError(
-            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B2(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=backbone_weight_type,
+            weights=None,
             include_preprocessing=False,
         )
 
@@ -283,7 +256,7 @@ def SegFormerB2(
         name="SegFormer_B2",
         **kwargs,
     )
-    if not backbone_weights:
+    if not backbone:
         if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
             load_weights_from_config(
                 "SegFormer_B2", weights, model, SEGFORMER_WEIGHTS_CONFIG
@@ -306,19 +279,10 @@ def SegFormerB3(
     backbone_weight_type=None,
     **kwargs,
 ):
-    if weights is not None and backbone_weights:
-        raise ValueError(
-            "Cannot use both SegFormer weights and backbone weights. "
-            "Please choose either weights='ade20k'/'cityscapes' or backbone_weights=True"
-        )
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
-        )
-    if backbone_weights and backbone_weight_type is None:
-        raise ValueError(
-            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B3(
@@ -339,7 +303,7 @@ def SegFormerB3(
         name="SegFormer_B3",
         **kwargs,
     )
-    if not backbone_weights:
+    if not backbone:
         if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
             load_weights_from_config(
                 "SegFormer_B3", weights, model, SEGFORMER_WEIGHTS_CONFIG
@@ -358,30 +322,19 @@ def SegFormerB4(
     input_shape=(512, 512, 3),
     input_tensor=None,
     weights="ade20k",
-    backbone_weights=False,
-    backbone_weight_type=None,
     **kwargs,
 ):
-    if weights is not None and backbone_weights:
-        raise ValueError(
-            "Cannot use both SegFormer weights and backbone weights. "
-            "Please choose either weights='ade20k'/'cityscapes' or backbone_weights=True"
-        )
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
-        )
-    if backbone_weights and backbone_weight_type is None:
-        raise ValueError(
-            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B4(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=backbone_weight_type,
+            weights=None,
             include_preprocessing=False,
         )
 
@@ -395,7 +348,7 @@ def SegFormerB4(
         name="SegFormer_B4",
         **kwargs,
     )
-    if not backbone_weights:
+    if not backbone:
         if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
             load_weights_from_config(
                 "SegFormer_B4", weights, model, SEGFORMER_WEIGHTS_CONFIG
@@ -414,30 +367,19 @@ def SegFormerB5(
     input_shape=(512, 512, 3),
     input_tensor=None,
     weights="ade20k",
-    backbone_weights=False,
-    backbone_weight_type=None,
     **kwargs,
 ):
-    if weights is not None and backbone_weights:
-        raise ValueError(
-            "Cannot use both SegFormer weights and backbone weights. "
-            "Please choose either weights='ade20k'/'cityscapes' or backbone_weights=True"
-        )
     if weights == "cityscapes" and num_classes != 19:
         raise ValueError(
             f"Invalid number of classes: {num_classes}. "
             "When using 'cityscapes' weights, num_classes must be 19."
-        )
-    if backbone_weights and backbone_weight_type is None:
-        raise ValueError(
-            "backbone_weight_type must be specified when backbone_weights=True"
         )
     if backbone is None:
         backbone = MiT_B5(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-            weights=backbone_weight_type,
+            weights=None,
             include_preprocessing=False,
         )
 
@@ -451,7 +393,7 @@ def SegFormerB5(
         name="SegFormer_B5",
         **kwargs,
     )
-    if not backbone_weights:
+    if not backbone:
         if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
             load_weights_from_config(
                 "SegFormer_B5", weights, model, SEGFORMER_WEIGHTS_CONFIG

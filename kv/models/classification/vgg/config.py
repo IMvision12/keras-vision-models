@@ -46,15 +46,23 @@ VGG_MODEL_CONFIG = {
 
 VGG_WEIGHTS_CONFIG = {
     "VGG16": {
-        "tv_in1k": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg16_tv_in1k.keras",
+        "tv_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg16_tv_in1k.keras"
+        },
     },
     "VGG19": {
-        "tv_in1k": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg19_tv_in1k.keras",
+        "tv_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg19_tv_in1k.keras"
+        },
     },
     "VGG16_BN": {
-        "tv_in1k": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg16_bn_tv_in1k.keras",
+        "tv_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg16_bn_tv_in1k.keras"
+        },
     },
     "VGG19_BN": {
-        "tv_in1k": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg19_bn_tv_in1k.keras",
+        "tv_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/vgg19_bn_tv_in1k.keras"
+        },
     },
 }

@@ -130,10 +130,10 @@ class SegFormer(keras.Model):
 @register_model
 def SegFormerB0(
     backbone=None,
-    num_classes=150,
+    num_classes=None,
     input_shape=(512, 512, 3),
     input_tensor=None,
-    weights="ade20k",
+    weights="mit",
     **kwargs,
 ):
     if weights not in [None, "cityscapes", "ade20k", "mit"]:
@@ -198,10 +198,10 @@ def SegFormerB0(
 @register_model
 def SegFormerB1(
     backbone=None,
-    num_classes=150,
+    num_classes=None,
     input_shape=(512, 512, 3),
     input_tensor=None,
-    weights="ade20k",
+    weights="mit",
     **kwargs,
 ):
     if weights not in [None, "cityscapes", "ade20k", "mit"]:
@@ -266,10 +266,10 @@ def SegFormerB1(
 @register_model
 def SegFormerB2(
     backbone=None,
-    num_classes=150,
+    num_classes=None,
     input_shape=(512, 512, 3),
     input_tensor=None,
-    weights="ade20k",
+    weights="mit",
     **kwargs,
 ):
     if weights not in [None, "cityscapes", "ade20k", "mit"]:
@@ -334,11 +334,10 @@ def SegFormerB2(
 @register_model
 def SegFormerB3(
     backbone=None,
-    num_classes=150,
+    num_classes=None,
     input_shape=(512, 512, 3),
     input_tensor=None,
-    weights="ade20k",
-    backbone_weight_type=None,
+    weights="mit",
     **kwargs,
 ):
     if weights not in [None, "cityscapes", "ade20k", "mit"]:
@@ -367,7 +366,7 @@ def SegFormerB3(
             )
             backbone_weights = None
         else:
-            backbone_weights = backbone_weight_type
+            backbone_weights = None
 
         backbone = MiT_B3(
             include_top=False,
@@ -403,10 +402,10 @@ def SegFormerB3(
 @register_model
 def SegFormerB4(
     backbone=None,
-    num_classes=150,
+    num_classes=None,
     input_shape=(512, 512, 3),
     input_tensor=None,
-    weights="ade20k",
+    weights="mit",
     **kwargs,
 ):
     if weights not in [None, "cityscapes", "ade20k", "mit"]:
@@ -471,10 +470,10 @@ def SegFormerB4(
 @register_model
 def SegFormerB5(
     backbone=None,
-    num_classes=150,
+    num_classes=1000,
     input_shape=(512, 512, 3),
     input_tensor=None,
-    weights="ade20k",
+    weights="mit",
     **kwargs,
 ):
     if weights not in [None, "cityscapes", "ade20k", "mit"]:

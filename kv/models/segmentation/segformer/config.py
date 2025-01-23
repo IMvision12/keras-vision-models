@@ -48,7 +48,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "",
         },
     },
-    "SegFormer_B4": {
+    "SegFormer_B5": {
         "cityscapes": {
             "url": "",
         },

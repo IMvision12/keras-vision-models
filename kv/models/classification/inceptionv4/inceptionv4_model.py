@@ -642,7 +642,7 @@ def InceptionV4(
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
-        nama=name,
+        name=name,
         weights=weights,
         input_shape=input_shape,
         input_tensor=input_tensor,

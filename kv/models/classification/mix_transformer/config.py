@@ -4,26 +4,26 @@ MIT_MODEL_CONFIG = {
     "MiT_B2": {"embed_dims": [64, 128, 320, 512], "depths": [3, 4, 6, 3]},
     "MiT_B3": {"embed_dims": [64, 128, 320, 512], "depths": [3, 4, 18, 3]},
     "MiT_B4": {"embed_dims": [64, 128, 320, 512], "depths": [3, 8, 27, 3]},
-    "MiT_B5": {"embed_dims": [64, 128, 320, 512], "depths": [3, 8, 40, 3]},
+    "MiT_B5": {"embed_dims": [64, 128, 320, 512], "depths": [3, 6, 40, 3]},
 }
 
 MIT_WEIGHTS_CONFIG = {
     "MiT_B0": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B1": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B2": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B3": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B4": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
     "MiT_B5": {
-        "in1k": "",
+        "in1k": {"url": ""},
     },
 }

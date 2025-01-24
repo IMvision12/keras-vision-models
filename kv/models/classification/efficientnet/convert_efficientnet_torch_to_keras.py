@@ -59,46 +59,19 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
 }
 
 
-def create_model(
-    model_type: str,
-    config: Optional[Dict[str, Any]] = None,
-    model_name: Optional[str] = None,
-) -> Union[keras.Model, torch.nn.Module, None]:
-    """
-    Creates a Keras or Torch model based on the model_type.
-
-    Args:
-        model_type (str): Type of model to create ('keras' or 'torch').
-        config (dict, optional): Configuration for Keras model (if model_type is 'keras').
-        model_name (str, optional): Name of the Torch model (if model_type is 'torch').
-
-    Returns:
-        model: The created Keras or Torch model, or None if an error occurred.
-    """
-    if model_type == "keras" and config:
-        return config["keras_model_cls"](
-            weights=None,
-            num_classes=config["num_classes"],
-            include_top=config["include_top"],
-            include_preprocessing=config["include_preprocessing"],
-            input_shape=config["input_shape"],
-            classifier_activation=config["classifier_activation"],
-        )
-    elif model_type == "torch" and model_name:
-        try:
-            return timm.create_model(model_name, pretrained=True).eval()
-        except Exception as e:
-            print(f"Error loading Torch model '{model_name}': {e}")
-            return None
-    else:
-        print("Invalid model type or missing configuration.")
-        return None
-
-
-keras_model: keras.Model = create_model("keras", config=model_config)
-torch_model: torch.nn.Module = create_model(
-    "torch", model_name=model_config["torch_model_name"]
+keras_model: keras.Model = model_config["keras_model_cls"](
+    include_top=model_config["include_top"],
+    input_shape=model_config["input_shape"],
+    classifier_activation=model_config["classifier_activation"],
+    num_classes=model_config["num_classes"],
+    include_preprocessing=model_config["include_preprocessing"],
+    weights=None,
 )
+
+torch_model: torch.nn.Module = timm.create_model(
+    model_config["torch_model_name"], pretrained=True
+).eval()
+
 
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
     torch_model

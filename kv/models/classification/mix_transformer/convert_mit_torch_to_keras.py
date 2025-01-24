@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 import keras
 import torch
@@ -44,39 +44,16 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
 torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/resolve/main/mit_b0.pth"  # TODO: change once repo is open sourced
 
 
-def create_model(
-    model_type: str,
-    config: Optional[Dict[str, Any]] = None,
-    model_name: Optional[str] = None,
-) -> Union[keras.Model, torch.nn.Module, None]:
-    """Creates a Keras model or loads PyTorch weights"""
-
-    if model_type == "keras" and config:
-        return config["keras_model_cls"](
-            weights=None,
-            num_classes=config["num_classes"],
-            include_top=config["include_top"],
-            include_preprocessing=config["include_preprocessing"],
-            input_shape=config["input_shape"],
-            classifier_activation=config["classifier_activation"],
-        )
-
-    if model_type == "torch" and model_name:
-        try:
-            temp_path = download_weights(torch_model_path_mit_b0)
-            return torch.load(temp_path, map_location="cpu")
-        except Exception as e:
-            print(f"Error loading weights: {e}")
-            return None
-
-    print("Invalid model type or missing configuration")
-    return None
-
-
-keras_model: keras.Model = create_model("keras", config=model_config)
-torch_model: torch.nn.Module = create_model(
-    "torch", model_name=model_config["torch_model_name"]
+keras_model: keras.Model = model_config["keras_model_cls"](
+    include_top=model_config["include_top"],
+    input_shape=model_config["input_shape"],
+    classifier_activation=model_config["classifier_activation"],
+    num_classes=model_config["num_classes"],
+    include_preprocessing=model_config["include_preprocessing"],
+    weights=None,
 )
+temp_path = download_weights(torch_model_path_mit_b0)
+torch_model: torch.nn.Module = torch.load(temp_path, map_location="cpu")
 
 trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
 

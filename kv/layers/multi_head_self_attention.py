@@ -34,8 +34,7 @@ class MultiHeadSelfAttention(layers.Layer):
         epsilon (float, optional): Small constant used in normalization operations for
             numerical stability. A higher value reduces precision but increases stability.
             Defaults to 1e-6
-        block_idx (int, optional): Index of the transformer block this attention belongs
-            to. Used for naming components. Defaults to None
+        block_prefix (str, optional): Prefix for naming layer components. Defaults to None
         **kwargs: Additional keyword arguments passed to the parent Layer class
 
     Input shape:
@@ -53,8 +52,6 @@ class MultiHeadSelfAttention(layers.Layer):
           Attention(Q, K, V) = softmax(QK^T/sqrt(d_k))V
     """
 
-    _block_counter = 0
-
     def __init__(
         self,
         dim: int,
@@ -64,16 +61,13 @@ class MultiHeadSelfAttention(layers.Layer):
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
         epsilon=1e-6,
-        block_idx=None,
+        block_prefix=None,
         **kwargs,
     ):
         super().__init__(**kwargs)
 
-        if block_idx is None:
-            self.block_idx = MultiHeadSelfAttention._block_counter
-            MultiHeadSelfAttention._block_counter += 1
-        else:
-            self.block_idx = block_idx
+        self.block_prefix = block_prefix if block_prefix is not None else "blocks"
+        prefix = f"{self.block_prefix}_"
 
         assert dim % num_heads == 0, "dim should be divisible by num_heads"
         self.dim = dim
@@ -88,7 +82,7 @@ class MultiHeadSelfAttention(layers.Layer):
             dim * 3,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
-            name=f"blocks_{block_idx}_attn_qkv",
+            name=prefix + "attn_qkv",
         )
 
         self.q_norm = (
@@ -96,7 +90,7 @@ class MultiHeadSelfAttention(layers.Layer):
                 axis=self.channels_axis,
                 epsilon=self.epsilon,
                 dtype=self.dtype_policy,
-                name=f"blocks_{block_idx}_attn_layernorm_1",
+                name=prefix + "attn_norm1",
             )
             if qk_norm
             else None
@@ -106,7 +100,7 @@ class MultiHeadSelfAttention(layers.Layer):
                 axis=self.channels_axis,
                 epsilon=self.epsilon,
                 dtype=self.dtype_policy,
-                name=f"blocks_{block_idx}_attn_layernorm_2",
+                name=prefix + "attn_norm2",
             )
             if qk_norm
             else None
@@ -117,7 +111,7 @@ class MultiHeadSelfAttention(layers.Layer):
             dtype=self.dtype_policy,
         )
         self.proj = layers.Dense(
-            dim, dtype=self.dtype_policy, name=f"blocks_{block_idx}_attn_proj"
+            dim, dtype=self.dtype_policy, name=prefix + "attn_proj"
         )
         self.proj_drop = layers.Dropout(
             proj_drop,
@@ -198,7 +192,7 @@ class MultiHeadSelfAttention(layers.Layer):
                 "attn_drop": self.attn_drop.rate,
                 "proj_drop": self.proj_drop.rate,
                 "epsilon": self.epsilon,
-                "block_idx": self.block_idx,
+                "block_prefix": self.block_prefix,
             }
         )
         return config

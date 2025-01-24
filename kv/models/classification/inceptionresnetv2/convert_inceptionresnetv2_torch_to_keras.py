@@ -14,7 +14,6 @@ from kv.utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-
 weight_name_mapping = {
     "_conv": ".conv",
     "_batchnorm": ".bn",
@@ -24,13 +23,11 @@ weight_name_mapping = {
     "_bias": ".bias",
     "_moving_mean": ".running_mean",
     "_moving_variance": ".running_var",
-
     "mixed_5b_": "mixed_5b.",
     "mixed_6a_": "mixed_6a.",
     "mixed_7a_": "mixed_7a.",
-    "repeats_1_":"repeat_1.",
-    "repeats_2_":"repeat_2.",
-
+    "repeats_1_": "repeat_1.",
+    "repeats_2_": "repeat_2.",
     "branch1_0": "branch1.0",
     "branch1_1": "branch1.1",
     "branch1_2": "branch1.2",
@@ -40,10 +37,10 @@ weight_name_mapping = {
     "branch3_1": "branch3.1",
     "branch0_0": "branch0.0",
     "branch0_1": "branch0.1",
-
-    "block8_":"block8.",
-    "predictions":"classif",
+    "block8_": "block8.",
+    "predictions": "classif",
 }
+
 
 def generate_repeat_mappings():
     mappings = {}
@@ -72,6 +69,7 @@ def generate_repeat_mappings():
         mappings[f"{base}.conv2d"] = f"{keras_base}.conv2d"
 
     return mappings
+
 
 weight_name_mapping.update(generate_repeat_mappings())
 

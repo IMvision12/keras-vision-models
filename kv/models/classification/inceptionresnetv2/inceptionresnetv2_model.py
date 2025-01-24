@@ -8,6 +8,7 @@ from kv.utils import get_all_weight_names, load_weights_from_config, register_mo
 
 from .config import INCEPTIONRESNETV2_WEIGHTS_CONFIG
 
+
 def conv_block(
     inputs,
     filters=None,
@@ -61,6 +62,7 @@ def conv_block(
     x = layers.Activation("relu", name=name)(x)
     return x
 
+
 def mixed_5b_block(inputs, name="mixed_5b"):
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
@@ -81,7 +83,10 @@ def mixed_5b_block(inputs, name="mixed_5b"):
     )(inputs)
     branch_pool = conv_block(branch_pool, 64, name=f"{name}_branch3_1")
 
-    return layers.Concatenate(axis=channels_axis)([branch0, branch1, branch2, branch_pool])
+    return layers.Concatenate(axis=channels_axis)(
+        [branch0, branch1, branch2, branch_pool]
+    )
+
 
 def block35(inputs, scale=1.0, name="repeat_0"):
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
@@ -103,18 +108,24 @@ def block35(inputs, scale=1.0, name="repeat_0"):
     x = layers.Activation("relu", name=name)(x)
     return x
 
+
 def mixed_6a_block(inputs, name="mixed_6a"):
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
-    branch0 = conv_block(inputs, 384, 3, strides=2, padding="valid", name=f"{name}_branch0")
+    branch0 = conv_block(
+        inputs, 384, 3, strides=2, padding="valid", name=f"{name}_branch0"
+    )
 
     branch1 = conv_block(inputs, 256, 1, name=f"{name}_branch1_0")
     branch1 = conv_block(branch1, 256, 3, padding="same", name=f"{name}_branch1_1")
-    branch1 = conv_block(branch1, 384, 3, strides=2, padding="valid", name=f"{name}_branch1_2")
+    branch1 = conv_block(
+        branch1, 384, 3, strides=2, padding="valid", name=f"{name}_branch1_2"
+    )
 
     branch_pool = layers.MaxPooling2D(pool_size=3, strides=2)(inputs)
 
     return layers.Concatenate(axis=channels_axis)([branch0, branch1, branch_pool])
+
 
 def block17(inputs, scale=1.0, name="repeat_1_0"):
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
@@ -133,22 +144,32 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
     x = layers.Activation("relu", name=name)(x)
     return x
 
+
 def mixed_7a_block(inputs, name="mixed_7a"):
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
 
     branch0 = conv_block(inputs, 256, 1, name=f"{name}_branch0_0")
-    branch0 = conv_block(branch0, 384, 3, strides=2, padding="valid", name=f"{name}_branch0_1")
+    branch0 = conv_block(
+        branch0, 384, 3, strides=2, padding="valid", name=f"{name}_branch0_1"
+    )
 
     branch1 = conv_block(inputs, 256, 1, name=f"{name}_branch1_0")
-    branch1 = conv_block(branch1, 288, 3, strides=2, padding="valid", name=f"{name}_branch1_1")
+    branch1 = conv_block(
+        branch1, 288, 3, strides=2, padding="valid", name=f"{name}_branch1_1"
+    )
 
     branch2 = conv_block(inputs, 256, 1, name=f"{name}_branch2_0")
     branch2 = conv_block(branch2, 288, 3, padding="same", name=f"{name}_branch2_1")
-    branch2 = conv_block(branch2, 320, 3, strides=2, padding="valid", name=f"{name}_branch2_2")
+    branch2 = conv_block(
+        branch2, 320, 3, strides=2, padding="valid", name=f"{name}_branch2_2"
+    )
 
     branch_pool = layers.MaxPooling2D(pool_size=3, strides=2)(inputs)
 
-    return layers.Concatenate(axis=channels_axis)([branch0, branch1, branch2, branch_pool])
+    return layers.Concatenate(axis=channels_axis)(
+        [branch0, branch1, branch2, branch_pool]
+    )
+
 
 def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
@@ -167,6 +188,7 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     if activation:
         x = layers.Activation("relu", name=name)(x)
     return x
+
 
 @keras.saving.register_keras_serializable(package="kv")
 class InceptionResNetV2Main(keras.Model):
@@ -196,7 +218,7 @@ class InceptionResNetV2Main(keras.Model):
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=299,
@@ -298,6 +320,7 @@ class InceptionResNetV2Main(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
 
 @register_model
 def InceptionResNetV2(

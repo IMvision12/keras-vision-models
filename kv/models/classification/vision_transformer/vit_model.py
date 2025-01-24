@@ -98,7 +98,7 @@ def transformer_block(
         qk_norm=qk_norm,
         attn_drop=attn_drop,
         proj_drop=proj_drop,
-        block_idx=block_idx,
+        block_prefix=f"blocks_{block_idx}",
     )(x)
     if init_values:
         x = LayerScale(

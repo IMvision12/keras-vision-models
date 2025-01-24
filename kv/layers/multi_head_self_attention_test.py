@@ -23,7 +23,7 @@ class TestMultiHeadSelfAttention(TestCase):
         assert layer.num_heads == 8
         assert layer.head_dim == self.dim // 8
         assert layer.scale == (self.dim // 8) ** -0.5
-        assert layer.block_idx == 9
+        assert layer.block_prefix == "blocks"
         assert not layer.built
         assert layer.q_norm is None
         assert layer.k_norm is None
@@ -38,13 +38,13 @@ class TestMultiHeadSelfAttention(TestCase):
             qk_norm=True,
             attn_drop=0.1,
             proj_drop=0.1,
-            block_idx=1,
+            block_prefix="custom_block",
             epsilon=custom_epsilon,
         )
         assert layer.dim == self.dim
         assert layer.num_heads == 4
         assert layer.head_dim == self.dim // 4
-        assert layer.block_idx == 1
+        assert layer.block_prefix == "custom_block"
         assert layer.q_norm is not None
         assert layer.k_norm is not None
         assert layer.epsilon == custom_epsilon
@@ -101,21 +101,24 @@ class TestMultiHeadSelfAttention(TestCase):
     def test_get_config(self):
         custom_epsilon = 1e-5
         layer = MultiHeadSelfAttention(
-            dim=self.dim, num_heads=4, block_idx=1, epsilon=custom_epsilon
+            dim=self.dim,
+            num_heads=4,
+            block_prefix="custom_block",
+            epsilon=custom_epsilon,
         )
         config = layer.get_config()
         assert "dim" in config
         assert "num_heads" in config
-        assert "block_idx" in config
+        assert "block_prefix" in config
         assert "epsilon" in config
         assert config["dim"] == self.dim
         assert config["num_heads"] == 4
-        assert config["block_idx"] == 1
+        assert config["block_prefix"] == "custom_block"
         assert config["epsilon"] == custom_epsilon
         reconstructed_layer = MultiHeadSelfAttention.from_config(config)
         assert reconstructed_layer.dim == layer.dim
         assert reconstructed_layer.num_heads == layer.num_heads
-        assert reconstructed_layer.block_idx == layer.block_idx
+        assert reconstructed_layer.block_prefix == layer.block_prefix
         assert reconstructed_layer.epsilon == layer.epsilon
 
     def test_different_batch_sizes(self):

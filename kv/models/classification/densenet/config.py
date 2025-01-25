@@ -21,22 +21,22 @@ DENSENET_WEIGHTS_CONFIG = {
     # DenseNet Variants
     "DenseNet121": {
         "tv_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/densenet121_tv_in1k.keras",
+            "url": "",
         },
     },
     "DenseNet161": {
         "tv_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/densenet161_tv_in1k.keras",
+            "url": "",
         },
     },
     "DenseNet169": {
         "tv_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/densenet169_tv_in1k.keras",
+            "url": "",
         },
     },
     "DenseNet201": {
         "tv_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision/releases/download/v0.1/densenet201_tv_in1k.keras",
+            "url": "",
         },
     },
 }

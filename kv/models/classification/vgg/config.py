@@ -46,23 +46,15 @@ VGG_MODEL_CONFIG = {
 
 VGG_WEIGHTS_CONFIG = {
     "VGG16": {
-        "tv_in1k": {
-            "url": ""
-        },
+        "tv_in1k": {"url": ""},
     },
     "VGG19": {
-        "tv_in1k": {
-            "url": ""
-        },
+        "tv_in1k": {"url": ""},
     },
     "VGG16_BN": {
-        "tv_in1k": {
-            "url": ""
-        },
+        "tv_in1k": {"url": ""},
     },
     "VGG19_BN": {
-        "tv_in1k": {
-            "url": ""
-        },
+        "tv_in1k": {"url": ""},
     },
 }

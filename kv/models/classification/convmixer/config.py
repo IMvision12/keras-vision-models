@@ -21,18 +21,12 @@ CONVMIXER_MODEL_CONFIG = {
 
 CONVMIXER_WEIGHTS_CONFIG = {
     "ConvMixer_1536_20": {
-        "in1k": {
-            "url": ""
-        },
+        "in1k": {"url": ""},
     },
     "ConvMixer_768_32": {
-        "in1k": {
-            "url": ""
-        },
+        "in1k": {"url": ""},
     },
     "ConvMixer_1024_20": {
-        "in1k": {
-            "url": ""
-        },
+        "in1k": {"url": ""},
     },
 }

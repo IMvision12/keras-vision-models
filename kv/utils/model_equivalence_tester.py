@@ -183,6 +183,24 @@ def verify_cls_model_equivalence(
                 "url": "https://huggingface.co/IMvision12/Test/resolve/main/valley.png",  # TODO: Change Before Open Sourcing
                 "expected_class": "valley",
             },
+            {
+                "name": "dam",
+                "file_name": "dam_image.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/dam.png",  # TODO: Change Before Open Sourcing
+                "expected_class": "dam",
+            },
+            {
+                "name": "space",
+                "file_name": "space_image.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/space.png",  # TODO: Change Before Open Sourcing
+                "expected_class": "space_shuttle",
+            },
+            {
+                "name": "train",
+                "file_name": "train_image.png",
+                "url": "https://huggingface.co/IMvision12/Test/resolve/main/train.png",  # TODO: Change Before Open Sourcing
+                "expected_class": "bullet_train",
+            },
         ]
 
         for test_case in test_cases:

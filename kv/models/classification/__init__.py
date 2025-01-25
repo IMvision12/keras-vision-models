@@ -7,7 +7,7 @@ from .efficientnet import *
 from .efficientnet_lite import *
 from .efficientnetv2 import *
 from .flexivit import *
-from .inceptionresnetv2 import *
+from .inception_resnetv2 import *
 from .inceptionv3 import *
 from .inceptionv4 import *
 from .mix_transformer import *

@@ -268,7 +268,7 @@ def transfer_attention_weights(
     if name_replacements:
         for old_name, new_name in name_replacements.items():
             layer_name = layer_name.replace(old_name, new_name)
-            
+
     if "kernel" in keras_name:
         torch_name = f"{layer_name}.weight"
     elif "bias" in keras_name:

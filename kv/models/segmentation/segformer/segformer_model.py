@@ -178,7 +178,6 @@ def SegFormerB0(
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
         name="SegFormer_B0",
         **kwargs,
     )
@@ -246,7 +245,6 @@ def SegFormerB1(
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
         name="SegFormer_B1",
         **kwargs,
     )
@@ -314,7 +312,6 @@ def SegFormerB2(
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
         name="SegFormer_B2",
         **kwargs,
     )
@@ -382,7 +379,6 @@ def SegFormerB3(
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
         name="SegFormer_B3",
         **kwargs,
     )
@@ -450,7 +446,6 @@ def SegFormerB4(
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
         name="SegFormer_B4",
         **kwargs,
     )
@@ -518,7 +513,6 @@ def SegFormerB5(
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
         name="SegFormer_B5",
         **kwargs,
     )

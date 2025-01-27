@@ -15,20 +15,20 @@ from kv.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping: Dict[str, str] = {
-    "_":".",
-    "batchnorm.1":"bn1",
-    "batchnorm.s":"bns",
-    "batchnorm.3":"bn3",
-    "conv.1":"conv1",
-    "conv.3":"conv3",
-    "conv.s":"convs",
+    "_": ".",
+    "batchnorm.1": "bn1",
+    "batchnorm.s": "bns",
+    "batchnorm.3": "bn3",
+    "conv.1": "conv1",
+    "conv.3": "conv3",
+    "conv.s": "convs",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
-    "bias":"bias",
+    "bias": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
-    "predictions":"fc",
+    "predictions": "fc",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {

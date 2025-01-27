@@ -1,10 +1,12 @@
 import keras
-from keras import layers, utils, ops
+from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from kv.layers import ImagePreprocessingLayer
+from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+
 from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHTS_CONFIG
+
 
 def conv_block(
     x,
@@ -60,15 +62,12 @@ def conv_block(
         name=name,
     )(x)
 
-    x = layers.BatchNormalization(
-        axis=channels_axis,
-        epsilon=1e-6,
-        name=bn_name
-    )(x)
+    x = layers.BatchNormalization(axis=channels_axis, epsilon=1e-6, name=bn_name)(x)
 
     if use_relu:
         x = layers.ReLU()(x)
     return x
+
 
 def bottle2neck_block(
     x,
@@ -82,7 +81,7 @@ def bottle2neck_block(
     scale=4,
 ):
     """Res2Net/ResNeSt Bottle2neck block with multi-scale features.
-    
+
     Args:
         x: Input Keras layer.
         filters: Number of filters for the bottleneck layers.
@@ -94,10 +93,10 @@ def bottle2neck_block(
         scale: Scale factor that determines number of feature scales.
         data_format: String, either 'channels_last' or 'channels_first',
             specifies the input data format.
-    
+
     Returns:
         Output tensor for the block.
-        
+
     Notes:
         The block implements multi-scale feature processing by:
         1. Initial 1x1 conv to expand channels
@@ -105,7 +104,7 @@ def bottle2neck_block(
         3. Hierarchical residual-like connections between scales
         4. Optional average pooling for the last scale
         5. Concatenate all scales and reduce with 1x1 conv
-        
+
         The expansion factor is fixed at 4, similar to standard ResNet bottleneck blocks.
     """
     channels_axis = -1 if data_format == "channels_last" else 1
@@ -150,7 +149,9 @@ def bottle2neck_block(
 
     if scale > 1:
         if is_first:
-            padded = layers.ZeroPadding2D(padding=(1, 1), data_format=data_format)(splits[-1])
+            padded = layers.ZeroPadding2D(padding=(1, 1), data_format=data_format)(
+                splits[-1]
+            )
             last = layers.AveragePooling2D(
                 pool_size=3,
                 strides=stride,
@@ -190,12 +191,13 @@ def bottle2neck_block(
     x = layers.ReLU()(x)
     return x
 
+
 @keras.saving.register_keras_serializable(package="kv")
 class Res2Net(keras.Model):
     """
     Instantiates the Res2Net architecture, which introduces a novel building block for
     CNNs that constructs hierarchical residual-like connections within a single residual block.
-    
+
     Reference:
     - [Res2Net: A New Multi-scale Backbone Architecture](https://arxiv.org/abs/1904.01169) (TPAMI 2019)
 
@@ -248,6 +250,7 @@ class Res2Net(keras.Model):
     - Compatible with various CNN architectures as a drop-in replacement for ResNet blocks
     - Maintains computational efficiency while increasing feature expressiveness
     """
+
     def __init__(
         self,
         depth,
@@ -327,7 +330,7 @@ class Res2Net(keras.Model):
             x = bottle2neck_block(
                 x,
                 filter_size,
-                f"layer{i+1}_0",
+                f"layer{i + 1}_0",
                 stride=stride,
                 downsample=True,
                 base_width=base_width,
@@ -340,7 +343,7 @@ class Res2Net(keras.Model):
                 x = bottle2neck_block(
                     x,
                     filter_size,
-                    f"layer{i+1}_{j}",
+                    f"layer{i + 1}_{j}",
                     base_width=base_width,
                     cardinality=cardinality,
                     scale=scale,
@@ -349,7 +352,9 @@ class Res2Net(keras.Model):
             features.append(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -407,6 +412,7 @@ class Res2Net(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
+
 @register_model
 def Res2Net50_26w_4s(
     include_top=True,
@@ -448,6 +454,7 @@ def Res2Net50_26w_4s(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def Res2Net101_26w_4s(
@@ -491,6 +498,7 @@ def Res2Net101_26w_4s(
 
     return model
 
+
 @register_model
 def Res2Net50_26w_6s(
     include_top=True,
@@ -532,6 +540,7 @@ def Res2Net50_26w_6s(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def Res2Net50_26w_8s(
@@ -575,6 +584,7 @@ def Res2Net50_26w_8s(
 
     return model
 
+
 @register_model
 def Res2Net50_48w_2s(
     include_top=True,
@@ -616,6 +626,7 @@ def Res2Net50_48w_2s(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def Res2Net50_14w_8s(
@@ -659,6 +670,7 @@ def Res2Net50_14w_8s(
 
     return model
 
+
 @register_model
 def Res2Next50(
     include_top=True,
@@ -691,9 +703,7 @@ def Res2Next50(
     )
 
     if weights in get_all_weight_names(RES2NET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "Res2Next50", weights, model, RES2NET_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("Res2Next50", weights, model, RES2NET_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

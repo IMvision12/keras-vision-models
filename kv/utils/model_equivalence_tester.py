@@ -113,7 +113,7 @@ def verify_cls_model_equivalence(
     atol: float = 1e-4,
     rtol: float = 1e-4,
     test_imagenet_image: bool = False,
-    prediction_threshold: float = 0.5,
+    prediction_threshold: float = 0.75,
 ) -> Dict[str, Any]:
     """
     Verify equivalence between two models, with optional ImageNet testing.

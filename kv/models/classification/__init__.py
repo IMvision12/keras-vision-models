@@ -18,3 +18,4 @@ from .senet import *
 from .vgg import *
 from .vision_transformer import *
 from .xception import *
+from .res2net import *

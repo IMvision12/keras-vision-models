@@ -243,6 +243,7 @@ def transfer_attention_weights(
     keras_name: str,
     keras_weight: keras.Variable,
     torch_weights_dict: Dict[str, torch.Tensor],
+    name_replacements: Dict[str, str] = None,
 ) -> None:
     """
     Transfer attention mechanism weights from PyTorch to Keras.
@@ -254,6 +255,9 @@ def transfer_attention_weights(
         keras_weight (keras.Variable): Keras weight variable to update.
         torch_weight_name (str): Name of the corresponding PyTorch weight.
         torch_weights_dict (Dict[str, torch.Tensor]): Dictionary of PyTorch weights.
+        name_replacements (Dict[str, str], optional): Dictionary of custom name replacements
+            to apply after replacing "_" with ".". Keys are strings to replace, values are
+            their replacements. Defaults to None.
 
     Raises:
         ValueError: If the PyTorch weight is missing or weight type is unexpected.
@@ -261,6 +265,10 @@ def transfer_attention_weights(
     keras_layer_path = keras_weight.path
     layer_name = keras_layer_path.split("/")[-2].replace("_", ".")
 
+    if name_replacements:
+        for old_name, new_name in name_replacements.items():
+            layer_name = layer_name.replace(old_name, new_name)
+            
     if "kernel" in keras_name:
         torch_name = f"{layer_name}.weight"
     elif "bias" in keras_name:

@@ -7,7 +7,6 @@ from tqdm import tqdm
 
 from kv.models import SegFormerB0
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.model_weights_util import download_weights
 from kv.utils.weight_split_torch_and_keras import split_model_weights
 from kv.utils.weight_transfer_torch_to_keras import (

@@ -12,6 +12,7 @@ from .inceptionv3 import *
 from .inceptionv4 import *
 from .mix_transformer import *
 from .mlp_mixer import *
+from .res2net import *
 from .resnet import *
 from .resnext import *
 from .senet import *

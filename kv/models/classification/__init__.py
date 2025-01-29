@@ -7,6 +7,7 @@ from .efficientnet import *
 from .efficientnet_lite import *
 from .efficientnetv2 import *
 from .flexivit import *
+from .inception_next import *
 from .inception_resnetv2 import *
 from .inceptionv3 import *
 from .inceptionv4 import *
@@ -19,4 +20,3 @@ from .senet import *
 from .vgg import *
 from .vision_transformer import *
 from .xception import *
-from .inception_next import *

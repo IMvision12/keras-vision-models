@@ -1,6 +1,6 @@
+import re
 from typing import Dict, List, Union
 
-import re
 import keras
 import timm
 import torch
@@ -16,25 +16,25 @@ from kv.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
-    "_":".",
-    "stem.conv":"stem.0",
-    "stem.batchnorm":"stem.1",
-    "token.mixer":"token_mixer",
-    "dwconv.hw":"dwconv_hw",
-    "dwconv.w":"dwconv_w",
-    "dwconv.h":"dwconv_h",
-    "batchnorm":"norm",
-    "conv1":"mlp.fc1",
-    "conv2":"mlp.fc2",
-    "downsample.conv":"downsample.1",
-    "downsample.norm":"downsample.0",
+    "_": ".",
+    "stem.conv": "stem.0",
+    "stem.batchnorm": "stem.1",
+    "token.mixer": "token_mixer",
+    "dwconv.hw": "dwconv_hw",
+    "dwconv.w": "dwconv_w",
+    "dwconv.h": "dwconv_h",
+    "batchnorm": "norm",
+    "conv1": "mlp.fc1",
+    "conv2": "mlp.fc2",
+    "downsample.conv": "downsample.1",
+    "downsample.norm": "downsample.0",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
-    "bias":"bias",
+    "bias": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
-    "head.fc":"head.fc1",
+    "head.fc": "head.fc1",
     "predictions": "head.fc2",
 }
 
@@ -74,9 +74,7 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-    torch_weight_name = re.sub(
-        r"weight.variable(?:.\d+)?", "gamma", torch_weight_name
-    )
+    torch_weight_name = re.sub(r"weight.variable(?:.\d+)?", "gamma", torch_weight_name)
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,

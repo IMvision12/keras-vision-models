@@ -16,6 +16,27 @@ def inception_dwconv2d(
     channels_axis=None,
     name="token_mixer",
 ):
+    """Implements the InceptionNeXt token mixer with parallel convolutional pathways.
+    
+    Args:
+        x: Input tensor.
+        square_kernel_size: Integer, size of the square kernel for local spatial mixing.
+            Defaults to 3.
+        band_kernel_size: Integer, size of the band kernels (horizontal and vertical)
+            for capturing wide-range spatial dependencies. Defaults to 11.
+        branch_ratio: Float, ratio determining the number of channels allocated to each
+            specialized convolution branch. Defaults to 0.125.
+        data_format: String, either 'channels_last' or 'channels_first'.
+            Specifies the input data format.
+        channels_axis: Integer, axis along which the channels are defined.
+            (-1 for 'channels_last', 1 for 'channels_first')
+        name: String, prefix for naming the layers. Defaults to "token_mixer".
+    
+    Returns:
+        Tensor with same shape as input after applying parallel convolutions
+        and concatenating results.
+
+    """
     input_channels = x.shape[channels_axis]
     branch_channels = int(input_channels * branch_ratio)
 
@@ -73,6 +94,29 @@ def apply_inception_next_block(
     channels_axis=None,
     name="blocks",
 ):
+    """Applies a complete InceptionNeXt block combining token mixing and channel mixing.
+    
+    Args:
+        x: Input tensor.
+        num_filter: Integer, number of output filters for the block.
+        mlp_ratio: Float, expansion ratio for the MLP hidden dimension.
+            Defaults to 4.0.
+        dropout_rate: Float between 0 and 1, dropout rate applied after
+            each dense layer. Defaults to 0.0.
+        layer_scale_init_value: Float, initial value for the layer scale
+            parameter. Helps stabilize training of deep networks.
+            Defaults to 1e-6.
+        data_format: String, either 'channels_last' or 'channels_first'.
+            Specifies the input data format.
+        channels_axis: Integer, axis along which the channels are defined.
+            (-1 for 'channels_last', 1 for 'channels_first')
+        name: String, prefix for naming the layers. Defaults to "blocks".
+    
+    Returns:
+        Output tensor after applying the complete InceptionNeXt block.
+        Shape is same as input tensor.
+    
+    """
     x_input = x
 
     x = inception_dwconv2d(
@@ -116,6 +160,56 @@ def apply_inception_next_block(
 
 @keras.saving.register_keras_serializable(package="kv")
 class InceptionNeXt(keras.Model):
+    """Instantiates the InceptionNeXt architecture.
+
+    Reference:
+    - [InceptionNeXt: When Inception Meets ConvNeXt](
+        https://arxiv.org/abs/2303.16900)
+
+    Args:
+        depths: List of integers, specifying the number of blocks in each stage.
+            Defaults to [3, 3, 9, 3].
+        num_filters: List of integers, specifying the number of filters for each stage.
+            Defaults to [96, 192, 384, 768].
+        mlp_ratios: List of integers, specifying the MLP ratio for each stage.
+            Defaults to [4, 4, 4, 3].
+        include_top: Boolean, whether to include the classification head at the top
+            of the network. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
+        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_preprocessing=True.
+        weights: String, specifying the path to pretrained weights or one of the
+            available options in `keras-vision`.
+        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
+            the model's input. If not provided, a new input tensor is created based
+            on `input_shape`.
+        input_shape: Optional tuple specifying the shape of the input data. If not
+            specified, it defaults to `(224, 224, 3)` when `include_top=True`.
+        pooling: Optional pooling mode for feature extraction when `include_top=False`:
+            - `None` (default): the output is the 4D tensor from the last convolutional block.
+            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
+            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
+        num_classes: Integer, the number of output classes for classification.
+            Defaults to `1000`.
+        classifier_activation: String or callable, activation function for the top
+            layer. Set to `None` to return logits. Defaults to `"softmax"`.
+        name: String, the name of the model. Defaults to `"InceptionNeXt"`.
+
+    Returns:
+        A Keras `Model` instance.
+
+    The InceptionNeXt architecture combines design principles from the Inception family
+    and ConvNeXt models. It introduces an efficient token mixer that processes spatial
+    information through parallel pathways with different receptive fields, enabling
+    better feature extraction at multiple scales. The model maintains computational
+    efficiency while achieving strong performance on image classification tasks.
+    """
     def __init__(
         self,
         depths=[3, 3, 9, 3],

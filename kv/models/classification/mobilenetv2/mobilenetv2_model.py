@@ -4,7 +4,9 @@ from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+
 from .config import MOBILENETV2_MODEL_CONFIG, MOBILENETV2_WEIGHTS_CONFIG
+
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
     """
@@ -19,7 +21,7 @@ def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
             Default is 0.9.
 
     Returns:
-        int: The adjusted value that is divisible by `divisor` and meets the 
+        int: The adjusted value that is divisible by `divisor` and meets the
             given constraints.
     """
     min_value = min_value or divisor
@@ -29,7 +31,17 @@ def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
     return new_v
 
 
-def inverted_residual_block(x, filters, kernel_size, stride, expansion_ratio, channels_axis, data_format, block_id, sub_block_id):
+def inverted_residual_block(
+    x,
+    filters,
+    kernel_size,
+    stride,
+    expansion_ratio,
+    channels_axis,
+    data_format,
+    block_id,
+    sub_block_id,
+):
     """A building block for MobileNetV2-style architectures using inverted residuals.
 
     Args:
@@ -38,9 +50,9 @@ def inverted_residual_block(x, filters, kernel_size, stride, expansion_ratio, ch
         kernel_size: int, the size of the depthwise convolution kernel.
         stride: int, the stride of the depthwise convolution.
         expansion_ratio: float, the expansion factor applied to the input channels.
-        channels_axis: int, axis along which the channels are defined (-1 for 
+        channels_axis: int, axis along which the channels are defined (-1 for
             'channels_last', 1 for 'channels_first').
-        data_format: string, either 'channels_last' or 'channels_first', 
+        data_format: string, either 'channels_last' or 'channels_first',
             specifies the input data format.
         block_id: int, unique identifier for the block.
         sub_block_id: int, unique identifier for the sub-block within the block.
@@ -76,7 +88,7 @@ def inverted_residual_block(x, filters, kernel_size, stride, expansion_ratio, ch
         x = layers.ZeroPadding2D(
             padding=((1, 1), (1, 1)),
             data_format=data_format,
-            name=f"{block_name}_zeropadding"
+            name=f"{block_name}_zeropadding",
         )(x)
         padding = "valid"
     else:
@@ -163,6 +175,7 @@ class MobileNetV2(keras.Model):
     Returns:
         A Keras Model instance.
     """
+
     def __init__(
         self,
         width_multiplier=1.0,
@@ -191,7 +204,7 @@ class MobileNetV2(keras.Model):
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         default_config = [
             # t, c, n, s
             [1, 16, 1, 1],
@@ -234,9 +247,7 @@ class MobileNetV2(keras.Model):
 
         first_channels = make_divisible(32 * width_multiplier)
         x = layers.ZeroPadding2D(
-            padding=((1, 1), (1, 1)),
-            data_format=data_format,
-            name="stem_padding"
+            padding=((1, 1), (1, 1)), data_format=data_format, name="stem_padding"
         )(x)
         x = layers.Conv2D(
             first_channels,
@@ -283,7 +294,9 @@ class MobileNetV2(keras.Model):
                 block_id += 1
             current_block += 1
 
-        last_channels = make_divisible(1280 * width_multiplier) if width_multiplier > 1.0 else 1280
+        last_channels = (
+            make_divisible(1280 * width_multiplier) if width_multiplier > 1.0 else 1280
+        )
         x = layers.Conv2D(
             last_channels,
             1,
@@ -302,7 +315,9 @@ class MobileNetV2(keras.Model):
         features.append(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 use_bias=True,
@@ -317,7 +332,9 @@ class MobileNetV2(keras.Model):
                     data_format=data_format, name="avg_pool"
                 )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
@@ -385,16 +402,13 @@ def MobileNetV2WM50(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, MOBILENETV2_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
-
 
 
 def MobileNetV2WM100(
@@ -428,9 +442,7 @@ def MobileNetV2WM100(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, MOBILENETV2_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -470,9 +482,7 @@ def MobileNetV2WM140(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, MOBILENETV2_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

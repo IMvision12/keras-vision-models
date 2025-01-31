@@ -371,6 +371,7 @@ class MobileNetV2(keras.Model):
         return cls(**config)
 
 
+@register_model
 def MobileNetV2WM50(
     include_top=True,
     as_backbone=False,
@@ -411,6 +412,7 @@ def MobileNetV2WM50(
     return model
 
 
+@register_model
 def MobileNetV2WM100(
     include_top=True,
     as_backbone=False,
@@ -451,6 +453,7 @@ def MobileNetV2WM100(
     return model
 
 
+@register_model
 def MobileNetV2WM140(
     include_top=True,
     as_backbone=False,

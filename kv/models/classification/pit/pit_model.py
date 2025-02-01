@@ -2,25 +2,27 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer, MultiHeadSelfAttention, ClassDistToken, AddPositionEmbs
-from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_CONFIG
+from kv.layers import (
+    AddPositionEmbs,
+    ClassDistToken,
+    ImagePreprocessingLayer,
+    MultiHeadSelfAttention,
+)
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
+from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_CONFIG
+
+
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
-    x = layers.Dense(
-        hidden_features,
-        use_bias=True,
-        name = block_prefix + "_dense_1"
-    )(inputs)
+    x = layers.Dense(hidden_features, use_bias=True, name=block_prefix + "_dense_1")(
+        inputs
+    )
     x = layers.Activation("gelu")(x)
     x = layers.Dropout(drop)(x)
-    x = layers.Dense(
-        out_features,
-        use_bias=True,
-        name = block_prefix+ "_dense_2"
-    )(x)
+    x = layers.Dense(out_features, use_bias=True, name=block_prefix + "_dense_2")(x)
     x = layers.Dropout(drop)(x)
     return x
+
 
 def transformer_block(
     inputs,
@@ -28,38 +30,35 @@ def transformer_block(
     num_heads,
     mlp_ratio,
     channels_axis,
-    block_prefix = None,
+    block_prefix=None,
 ):
     x = layers.LayerNormalization(
-        epsilon=1e-6,
-        axis=channels_axis,
-        name= block_prefix+"_layernorm_1"
+        epsilon=1e-6, axis=channels_axis, name=block_prefix + "_layernorm_1"
     )(inputs)
 
     x = MultiHeadSelfAttention(
         dim=dim,
         num_heads=num_heads,
         qkv_bias=True,
-        block_prefix=block_prefix.replace("pit","transformers")
+        block_prefix=block_prefix.replace("pit", "transformers"),
     )(x)
 
     x = layers.Add()([inputs, x])
 
     y = layers.LayerNormalization(
-        epsilon=1e-6,
-        axis=channels_axis,
-        name=block_prefix+"_layernorm_2"
+        epsilon=1e-6, axis=channels_axis, name=block_prefix + "_layernorm_2"
     )(x)
 
     y = mlp_block(
         y,
         hidden_features=int(dim * mlp_ratio),
         out_features=dim,
-        block_prefix=block_prefix
+        block_prefix=block_prefix,
     )
 
     outputs = layers.Add()([x, y])
     return outputs
+
 
 def conv_pooling(
     x,
@@ -80,20 +79,19 @@ def conv_pooling(
 
     spatial = layers.Reshape((height, width, in_channels))(spatial)
 
-    spatial = layers.ZeroPadding2D(data_format=data_format, padding=stride // 2)(spatial)
+    spatial = layers.ZeroPadding2D(data_format=data_format, padding=stride // 2)(
+        spatial
+    )
     spatial = layers.Conv2D(
         filters=out_channels,
         kernel_size=stride + 1,
         strides=stride,
         groups=in_channels,
         data_format=data_format,
-        name=block_prefix+"_conv"
+        name=block_prefix + "_conv",
     )(spatial)
 
-    tokens = layers.Dense(
-        units=out_channels,
-        name=block_prefix+"_dense"
-    )(tokens)
+    tokens = layers.Dense(units=out_channels, name=block_prefix + "_dense")(tokens)
 
     spatial = layers.Reshape((new_height * new_width, out_channels))(spatial)
 
@@ -101,30 +99,31 @@ def conv_pooling(
 
     return output, (new_height, new_width)
 
+
 @keras.saving.register_keras_serializable(package="kv")
 class PoolingVisionTransformer(keras.Model):
     def __init__(
         self,
-        patch_size = 16,
-        stride = 8,
-        embed_dim = (64, 128, 256),
-        depth = (2, 6, 4),
-        heads = (2, 4, 8),
-        mlp_ratio = 4.0,
-        distilled = False,
-        drop_rate = 0.0,
-        include_top = True,
-        as_backbone = False,
-        include_preprocessing = True,
-        preprocessing_mode = "imagenet",
-        weights = None,
-        input_tensor = None,
-        input_shape = None,
-        pooling = None,
-        num_classes = 1000,
-        classifier_activation = "softmax",
-        name = "PoolingVisionTransformer",
-        **kwargs
+        patch_size=16,
+        stride=8,
+        embed_dim=(64, 128, 256),
+        depth=(2, 6, 4),
+        heads=(2, 4, 8),
+        mlp_ratio=4.0,
+        distilled=False,
+        drop_rate=0.0,
+        include_top=True,
+        as_backbone=False,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
+        weights=None,
+        input_tensor=None,
+        input_shape=None,
+        pooling=None,
+        num_classes=1000,
+        classifier_activation="softmax",
+        name="PoolingVisionTransformer",
+        **kwargs,
     ):
         if include_top and as_backbone:
             raise ValueError(
@@ -137,7 +136,7 @@ class PoolingVisionTransformer(keras.Model):
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -195,7 +194,7 @@ class PoolingVisionTransformer(keras.Model):
         features.append(x)
 
         x = layers.Dropout(drop_rate, name="pos_drop")(x)
-        
+
         for stage_idx in range(len(depth)):
             for block_idx in range(depth[stage_idx]):
                 x = transformer_block(
@@ -204,7 +203,7 @@ class PoolingVisionTransformer(keras.Model):
                     num_heads=heads[stage_idx],
                     mlp_ratio=mlp_ratio,
                     channels_axis=channels_axis,
-                    block_prefix=f"pit_{stage_idx}_blocks_{block_idx}"
+                    block_prefix=f"pit_{stage_idx}_blocks_{block_idx}",
                 )
 
             if stage_idx < len(depth) - 1:
@@ -215,18 +214,20 @@ class PoolingVisionTransformer(keras.Model):
                     out_channels=embed_dim[stage_idx + 1],
                     stride=2,
                     data_format=data_format,
-                    block_prefix=f"pit_{stage_idx+1}_pool",
+                    block_prefix=f"pit_{stage_idx + 1}_pool",
                 )
 
             features.append(x)
 
-        x = x[:, :2 if distilled else 1]
+        x = x[:, : 2 if distilled else 1]
         x = layers.LayerNormalization(epsilon=1e-6, axis=channels_axis, name="norm")(x)
 
         if include_top:
             if distilled:
                 cls_token = layers.Lambda(lambda v: v[:, 0], name="ExtractClsToken")(x)
-                dist_token = layers.Lambda(lambda v: v[:, 1], name="ExtractDistToken")(x)
+                dist_token = layers.Lambda(lambda v: v[:, 1], name="ExtractDistToken")(
+                    x
+                )
 
                 cls_token = layers.Dropout(drop_rate)(cls_token)
                 dist_token = layers.Dropout(drop_rate)(dist_token)
@@ -235,7 +236,9 @@ class PoolingVisionTransformer(keras.Model):
                     num_classes, activation=classifier_activation, name="predictions"
                 )(cls_token)
                 dist_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="predictions_dist"
+                    num_classes,
+                    activation=classifier_activation,
+                    name="predictions_dist",
                 )(dist_token)
 
                 x = layers.Average()([cls_head, dist_head])
@@ -300,6 +303,7 @@ class PoolingVisionTransformer(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
+
 # Model variants
 @register_model
 def PiT_XS(
@@ -314,10 +318,10 @@ def PiT_XS(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_XS",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_XS'],
+        **PIT_MODEL_CONFIG["PiT_XS"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -329,19 +333,18 @@ def PiT_XS(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def PiT_XS_Distilled(
@@ -356,10 +359,10 @@ def PiT_XS_Distilled(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_XS_Distilled",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_XS_Distilled'],
+        **PIT_MODEL_CONFIG["PiT_XS_Distilled"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -371,19 +374,18 @@ def PiT_XS_Distilled(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def PiT_Ti(
@@ -398,10 +400,10 @@ def PiT_Ti(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_Ti",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_Ti'],
+        **PIT_MODEL_CONFIG["PiT_Ti"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -413,19 +415,18 @@ def PiT_Ti(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def PiT_Ti_Distilled(
@@ -440,10 +441,10 @@ def PiT_Ti_Distilled(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_Ti_Distilled",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_Ti_Distilled'],
+        **PIT_MODEL_CONFIG["PiT_Ti_Distilled"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -455,19 +456,18 @@ def PiT_Ti_Distilled(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def PiT_S(
@@ -482,10 +482,10 @@ def PiT_S(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_S",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_S'],
+        **PIT_MODEL_CONFIG["PiT_S"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -497,13 +497,11 @@ def PiT_S(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -525,10 +523,10 @@ def PiT_S_Distilled(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_S_Distilled",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_S_Distilled'],
+        **PIT_MODEL_CONFIG["PiT_S_Distilled"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -540,19 +538,18 @@ def PiT_S_Distilled(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def PiT_B(
@@ -567,10 +564,10 @@ def PiT_B(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_B",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_B'],
+        **PIT_MODEL_CONFIG["PiT_B"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -582,19 +579,18 @@ def PiT_B(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def PiT_B_Distilled(
@@ -609,10 +605,10 @@ def PiT_B_Distilled(
     num_classes=1000,
     classifier_activation="softmax",
     name="PiT_B_Distilled",
-    **kwargs
+    **kwargs,
 ):
     model = PoolingVisionTransformer(
-        **PIT_MODEL_CONFIG['PiT_B_Distilled'],
+        **PIT_MODEL_CONFIG["PiT_B_Distilled"],
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
@@ -623,13 +619,11 @@ def PiT_B_Distilled(
         num_classes=num_classes,
         classifier_activation=classifier_activation,
         name=name,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            name, weights, model, PIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

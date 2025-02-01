@@ -2,10 +2,10 @@ import re
 from typing import Dict, List, Union
 
 import keras
+import numpy as np
 import timm
 import torch
 from tqdm import tqdm
-import numpy as np
 
 from kv.models import PiT_Ti
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
@@ -18,22 +18,22 @@ from kv.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
-    "_":".",
-    "pit":"transformers",
-    "patch.embed":"patch_embed",
+    "_": ".",
+    "pit": "transformers",
+    "patch.embed": "patch_embed",
     "pos.embed.pos.embed": "pos_embed",
-    "class.dist.token.cls.token":"cls_token",
-    "dense.1":"mlp.fc1",
-    "dense.2":"mlp.fc2",
-    "layernorm.1":"norm1",
-    "layernorm.2":"norm2",
-    "layerscale.1":"ls1",
-    "layerscale.2":"ls2",
-    "pool.dense":"pool.fc",
+    "class.dist.token.cls.token": "cls_token",
+    "dense.1": "mlp.fc1",
+    "dense.2": "mlp.fc2",
+    "layernorm.1": "norm1",
+    "layernorm.2": "norm2",
+    "layerscale.1": "ls1",
+    "layerscale.2": "ls2",
+    "pool.dense": "pool.fc",
     "kernel": "weight",  # conv2d
     "gamma": "weight",  # batchnorm weight
     "beta": "bias",  # batchnorm bias
-    "bias":"bias",
+    "bias": "bias",
     "moving.mean": "running_mean",  # batchnorm moving mean
     "moving.variance": "running_var",  # batchnorm moving variance
     "predictions": "head",

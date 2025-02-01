@@ -3,7 +3,7 @@ from keras import layers, ops
 
 class ClassDistToken(layers.Layer):
     """
-    Implements learnable class and distillation tokens for Vision Transformer (ViT), 
+    Implements learnable class and distillation tokens for Vision Transformer (ViT),
     Data-efficient image Transformer (DeiT), and Pyramid Vision Transformer (PiT) architectures.
 
     This layer can operate in three modes:
@@ -44,7 +44,9 @@ class ClassDistToken(layers.Layer):
         - PiT: https://arxiv.org/abs/2103.14030
     """
 
-    def __init__(self, use_distillation=False, combine_tokens=False, name=None, **kwargs):
+    def __init__(
+        self, use_distillation=False, combine_tokens=False, name=None, **kwargs
+    ):
         super().__init__(name=name, **kwargs)
         self.use_distillation = use_distillation
         self.combine_tokens = combine_tokens
@@ -82,30 +84,31 @@ class ClassDistToken(layers.Layer):
         if self.combine_tokens and self.use_distillation:
             # Combined tokens approach
             tokens_broadcasted = ops.broadcast_to(
-                self.tokens,
-                [batch_size, 2, self.hidden_size]
+                self.tokens, [batch_size, 2, self.hidden_size]
             )
             return ops.concatenate([tokens_broadcasted, inputs], axis=1)
         else:
             # Separate tokens approach
             cls_broadcasted = ops.broadcast_to(
-                self.cls,
-                [batch_size, 1, self.hidden_size]
+                self.cls, [batch_size, 1, self.hidden_size]
             )
 
             if self.use_distillation:
                 dist_broadcasted = ops.broadcast_to(
-                    self.dist,
-                    [batch_size, 1, self.hidden_size]
+                    self.dist, [batch_size, 1, self.hidden_size]
                 )
-                return ops.concatenate([cls_broadcasted, dist_broadcasted, inputs], axis=1)
+                return ops.concatenate(
+                    [cls_broadcasted, dist_broadcasted, inputs], axis=1
+                )
             else:
                 return ops.concatenate([cls_broadcasted, inputs], axis=1)
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "use_distillation": self.use_distillation,
-            "combine_tokens": self.combine_tokens,
-        })
+        config.update(
+            {
+                "use_distillation": self.use_distillation,
+                "combine_tokens": self.combine_tokens,
+            }
+        )
         return config

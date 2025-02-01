@@ -3,6 +3,8 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImagePreprocessingLayer, MultiHeadSelfAttention, LayerScale, ClassDistToken, AddPositionEmbs
+from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_CONFIG
+from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
     x = layers.Dense(
@@ -275,40 +277,7 @@ class PoolingVisionTransformer(keras.Model):
         return cls(**config)
 
 # Model variants
-def PiT_Ti(
-    include_top=True,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
-    weights=None,
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="PiT_Ti",
-    **kwargs
-):
-    model = PoolingVisionTransformer(
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        nb_blocks=(2, 6, 4),
-        nb_heads=(2, 4, 8),
-        mlp_ratio=4.0,
-        include_top=include_top,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
-        weights=weights,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        name=name,
-        **kwargs
-    )
-    return model
-
+@register_model
 def PiT_XS(
     include_top=True,
     include_preprocessing=True,
@@ -323,12 +292,7 @@ def PiT_XS(
     **kwargs
 ):
     model = PoolingVisionTransformer(
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        nb_blocks=(2, 6, 4),
-        nb_heads=(2, 4, 8),
-        mlp_ratio=4.0,
+        **PIT_MODEL_CONFIG['PiT_XS'],
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
@@ -341,8 +305,59 @@ def PiT_XS(
         name=name,
         **kwargs
     )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
+@register_model
+def PiT_XS_Distilled(
+    include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights=None,
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="PiT_XS_Distilled",
+    **kwargs
+):
+    model = PoolingVisionTransformer(
+        **PIT_MODEL_CONFIG['PiT_XS_Distilled'],
+        include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        weights=weights,
+        input_tensor=input_tensor,
+        input_shape=input_shape,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        name=name,
+        **kwargs
+    )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+@register_model
 def PiT_Ti(
     include_top=True,
     include_preprocessing=True,
@@ -353,15 +368,11 @@ def PiT_Ti(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PiT_Ti",
     **kwargs
 ):
     model = PoolingVisionTransformer(
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        nb_blocks=(2, 6, 4),
-        nb_heads=(2, 4, 8),
-        mlp_ratio=4.0,
+        **PIT_MODEL_CONFIG['PiT_Ti'],
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
@@ -371,12 +382,23 @@ def PiT_Ti(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PiT_Ti",
+        name=name,
         **kwargs
     )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
-def PiT_Ti(
+@register_model
+def PiT_Ti_Distilled(
     include_top=True,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
@@ -386,15 +408,11 @@ def PiT_Ti(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PiT_Ti_Distilled",
     **kwargs
 ):
     model = PoolingVisionTransformer(
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        nb_blocks=(2, 6, 4),
-        nb_heads=(2, 4, 8),
-        mlp_ratio=4.0,
+        **PIT_MODEL_CONFIG['PiT_Ti_Distilled'],
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
@@ -404,12 +422,23 @@ def PiT_Ti(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PiT_Ti",
+        name=name,
         **kwargs
     )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model
 
-def PiT_Ti_Dist_224(
+@register_model
+def PiT_S(
     include_top=True,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
@@ -419,16 +448,11 @@ def PiT_Ti_Dist_224(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PiT_S",
     **kwargs
 ):
     model = PoolingVisionTransformer(
-        patch_size=16,
-        stride=8,
-        embed_dim=(64, 128, 256),
-        nb_blocks=(2, 6, 4),
-        nb_heads=(2, 4, 8),
-        mlp_ratio=4.0,
-        distilled=True,
+        **PIT_MODEL_CONFIG['PiT_S'],
         include_top=include_top,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
@@ -438,7 +462,138 @@ def PiT_Ti_Dist_224(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="pit_ti_224",
+        name=name,
         **kwargs
     )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def PiT_S_Distilled(
+    include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights=None,
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="PiT_S_Distilled",
+    **kwargs
+):
+    model = PoolingVisionTransformer(
+        **PIT_MODEL_CONFIG['PiT_S_Distilled'],
+        include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        weights=weights,
+        input_tensor=input_tensor,
+        input_shape=input_shape,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        name=name,
+        **kwargs
+    )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+@register_model
+def PiT_B(
+    include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights=None,
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="PiT_B",
+    **kwargs
+):
+    model = PoolingVisionTransformer(
+        **PIT_MODEL_CONFIG['PiT_B'],
+        include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        weights=weights,
+        input_tensor=input_tensor,
+        input_shape=input_shape,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        name=name,
+        **kwargs
+    )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+@register_model
+def PiT_B_Distilled(
+    include_top=True,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights=None,
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="PiT_B_Distilled",
+    **kwargs
+):
+    model = PoolingVisionTransformer(
+        **PIT_MODEL_CONFIG['PiT_B_Distilled'],
+        include_top=include_top,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        weights=weights,
+        input_tensor=input_tensor,
+        input_shape=input_shape,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        name=name,
+        **kwargs
+    )
+
+    if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            name, weights, model, PIT_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
     return model

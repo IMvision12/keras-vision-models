@@ -42,10 +42,12 @@ def inception_dwconv2d(
     split_sizes = [input_channels - 3 * branch_channels] + [branch_channels] * 3
     split_indices = [sum(split_sizes[: i + 1]) for i in range(len(split_sizes) - 1)]
 
-    padding = lambda k: (k - 1) // 2
+    def calculate_padding(kernel_size):
+        return (kernel_size - 1) // 2
+
     square_padding, band_padding = (
-        padding(square_kernel_size),
-        padding(band_kernel_size),
+        calculate_padding(square_kernel_size),
+        calculate_padding(band_kernel_size),
     )
 
     x_splits = keras.ops.split(x, split_indices, axis=channels_axis)

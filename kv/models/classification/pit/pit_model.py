@@ -107,6 +107,7 @@ def conv_pooling(
 
     return output, (new_height, new_width)
 
+@keras.saving.register_keras_serializable(package="kv")
 class PoolingVisionTransformer(keras.Model):
     def __init__(
         self,
@@ -119,6 +120,7 @@ class PoolingVisionTransformer(keras.Model):
         distilled = False,
         drop_rate = 0.0,
         include_top = True,
+        as_backbone = False,
         include_preprocessing = True,
         preprocessing_mode = "imagenet",
         weights = None,
@@ -130,6 +132,17 @@ class PoolingVisionTransformer(keras.Model):
         name = "PoolingVisionTransformer",
         **kwargs
     ):
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
@@ -148,6 +161,8 @@ class PoolingVisionTransformer(keras.Model):
                 img_input = input_tensor
 
         x = img_input
+        features = []
+
         if include_preprocessing:
             x = ImagePreprocessingLayer(mode=preprocessing_mode)(x)
 
@@ -178,8 +193,10 @@ class PoolingVisionTransformer(keras.Model):
             name="pos_embed",
         )(x)
 
-        x = layers.Dropout(drop_rate, name="pos_drop")(x)
+        features.append(x)
 
+        x = layers.Dropout(drop_rate, name="pos_drop")(x)
+        
         for stage_idx in range(len(depth)):
             for block_idx in range(depth[stage_idx]):
                 x = transformer_block(
@@ -199,6 +216,8 @@ class PoolingVisionTransformer(keras.Model):
                     stride=2,
                     block_prefix=f"pit_{stage_idx+1}_pool",
                 )
+
+            features.append(x)
 
         x = x[:, :2 if distilled else 1]
         x = layers.LayerNormalization(epsilon=1e-6, name="norm")(x)
@@ -225,6 +244,8 @@ class PoolingVisionTransformer(keras.Model):
                 x = layers.Dense(
                     num_classes, activation=classifier_activation, name="predictions"
                 )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
@@ -243,6 +264,7 @@ class PoolingVisionTransformer(keras.Model):
         self.distilled = distilled
         self.drop_rate = drop_rate
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
         self.preprocessing_mode = preprocessing_mode
         self.input_tensor = input_tensor
@@ -261,6 +283,7 @@ class PoolingVisionTransformer(keras.Model):
             "distilled": self.distilled,
             "drop_rate": self.drop_rate,
             "include_top": self.include_top,
+            "as_backbone": self.as_backbone,
             "include_preprocessing": self.include_preprocessing,
             "preprocessing_mode": self.preprocessing_mode,
             "input_shape": self.input_shape[1:],
@@ -280,6 +303,7 @@ class PoolingVisionTransformer(keras.Model):
 @register_model
 def PiT_XS(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -294,6 +318,7 @@ def PiT_XS(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_XS'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -320,6 +345,7 @@ def PiT_XS(
 @register_model
 def PiT_XS_Distilled(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -334,6 +360,7 @@ def PiT_XS_Distilled(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_XS_Distilled'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -360,6 +387,7 @@ def PiT_XS_Distilled(
 @register_model
 def PiT_Ti(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -374,6 +402,7 @@ def PiT_Ti(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_Ti'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -400,6 +429,7 @@ def PiT_Ti(
 @register_model
 def PiT_Ti_Distilled(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -414,6 +444,7 @@ def PiT_Ti_Distilled(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_Ti_Distilled'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -440,6 +471,7 @@ def PiT_Ti_Distilled(
 @register_model
 def PiT_S(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -454,6 +486,7 @@ def PiT_S(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_S'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -481,6 +514,7 @@ def PiT_S(
 @register_model
 def PiT_S_Distilled(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -495,6 +529,7 @@ def PiT_S_Distilled(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_S_Distilled'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -521,6 +556,7 @@ def PiT_S_Distilled(
 @register_model
 def PiT_B(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,
@@ -535,6 +571,7 @@ def PiT_B(
     model = PoolingVisionTransformer(
         **PIT_MODEL_CONFIG['PiT_B'],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
@@ -561,6 +598,7 @@ def PiT_B(
 @register_model
 def PiT_B_Distilled(
     include_top=True,
+    as_backbone=False,
     include_preprocessing=True,
     preprocessing_mode="imagenet",
     weights=None,

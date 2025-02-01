@@ -63,21 +63,22 @@ class ClassDistToken(layers.Layer):
                 initializer="zeros",
                 trainable=True,
             )
-        # Class token
-        self.cls = self.add_weight(
-            name="cls_token",
-            shape=(1, 1, self.hidden_size),
-            initializer="zeros",
-            trainable=True,
-        )
-        # Distillation token for DeiT
-        if self.use_distillation:
-            self.dist = self.add_weight(
-                name="dist_token",
+        else:
+            # Class token
+            self.cls = self.add_weight(
+                name="cls_token",
                 shape=(1, 1, self.hidden_size),
                 initializer="zeros",
                 trainable=True,
             )
+            # Distillation token for DeiT
+            if self.use_distillation:
+                self.dist = self.add_weight(
+                    name="dist_token",
+                    shape=(1, 1, self.hidden_size),
+                    initializer="zeros",
+                    trainable=True,
+                )
 
     def call(self, inputs):
         batch_size = ops.shape(inputs)[0]

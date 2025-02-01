@@ -7,7 +7,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models import PiT_Ti
+from kv.models import PiT_XS
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -37,12 +37,13 @@ weight_name_mapping = {
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
     "predictions": "head",
+    "head.dist": "head_dist",
 }
 
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": PiT_Ti,
-    "torch_model_name": "pit_ti_224.in1k",
+    "keras_model_cls": PiT_XS,
+    "torch_model_name": "pit_xs_224.in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,

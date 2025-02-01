@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer, MultiHeadSelfAttention, LayerScale, ClassDistToken, AddPositionEmbs
+from kv.layers import ImagePreprocessingLayer, MultiHeadSelfAttention, ClassDistToken, AddPositionEmbs
 from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_CONFIG
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
@@ -27,11 +27,12 @@ def transformer_block(
     dim,
     num_heads,
     mlp_ratio,
+    channels_axis,
     block_prefix = None,
-    init_values = None,
 ):
     x = layers.LayerNormalization(
         epsilon=1e-6,
+        axis=channels_axis,
         name= block_prefix+"_layernorm_1"
     )(inputs)
 
@@ -42,15 +43,11 @@ def transformer_block(
         block_prefix=block_prefix.replace("pit","transformers")
     )(x)
 
-    if init_values:
-        x = LayerScale(
-            init_values=init_values,
-            name=block_prefix+"_layerscale_1",
-        )(x)
     x = layers.Add()([inputs, x])
 
     y = layers.LayerNormalization(
         epsilon=1e-6,
+        axis=channels_axis,
         name=block_prefix+"_layernorm_2"
     )(x)
 
@@ -61,11 +58,6 @@ def transformer_block(
         block_prefix=block_prefix
     )
 
-    if init_values:
-        y = LayerScale(
-            init_values=init_values,
-            name=block_prefix+"_layerscale_2",
-        )(y)
     outputs = layers.Add()([x, y])
     return outputs
 
@@ -75,6 +67,7 @@ def conv_pooling(
     in_channels,
     out_channels,
     stride,
+    data_format,
     block_prefix,
 ):
     input_tensor, (height, width) = x
@@ -87,12 +80,13 @@ def conv_pooling(
 
     spatial = layers.Reshape((height, width, in_channels))(spatial)
 
-    spatial = layers.ZeroPadding2D(padding=stride // 2)(spatial)
+    spatial = layers.ZeroPadding2D(data_format=data_format, padding=stride // 2)(spatial)
     spatial = layers.Conv2D(
         filters=out_channels,
         kernel_size=stride + 1,
         strides=stride,
         groups=in_channels,
+        data_format=data_format,
         name=block_prefix+"_conv"
     )(spatial)
 
@@ -143,11 +137,15 @@ class PoolingVisionTransformer(keras.Model):
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
+        
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=keras.backend.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -155,7 +153,7 @@ class PoolingVisionTransformer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            if not keras.backend.is_keras_tensor(input_tensor):
+            if not utils.is_keras_tensor(input_tensor):
                 img_input = layers.Input(tensor=input_tensor, shape=input_shape)
             else:
                 img_input = input_tensor
@@ -170,6 +168,7 @@ class PoolingVisionTransformer(keras.Model):
             filters=embed_dim[0],
             kernel_size=patch_size,
             strides=stride,
+            data_format=data_format,
             name="patch_embed_conv",
         )(x)
 
@@ -204,6 +203,7 @@ class PoolingVisionTransformer(keras.Model):
                     dim=embed_dim[stage_idx],
                     num_heads=heads[stage_idx],
                     mlp_ratio=mlp_ratio,
+                    channels_axis=channels_axis,
                     block_prefix=f"pit_{stage_idx}_blocks_{block_idx}"
                 )
 
@@ -214,13 +214,14 @@ class PoolingVisionTransformer(keras.Model):
                     in_channels=embed_dim[stage_idx],
                     out_channels=embed_dim[stage_idx + 1],
                     stride=2,
+                    data_format=data_format,
                     block_prefix=f"pit_{stage_idx+1}_pool",
                 )
 
             features.append(x)
 
         x = x[:, :2 if distilled else 1]
-        x = layers.LayerNormalization(epsilon=1e-6, name="norm")(x)
+        x = layers.LayerNormalization(epsilon=1e-6, axis=channels_axis, name="norm")(x)
 
         if include_top:
             if distilled:

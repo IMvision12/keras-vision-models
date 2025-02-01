@@ -113,8 +113,8 @@ class PoolingVisionTransformer(keras.Model):
         patch_size = 16,
         stride = 8,
         embed_dim = (64, 128, 256),
-        nb_blocks = (2, 6, 4),
-        nb_heads = (2, 4, 8),
+        depth = (2, 6, 4),
+        heads = (2, 4, 8),
         mlp_ratio = 4.0,
         distilled = False,
         drop_rate = 0.0,
@@ -180,17 +180,17 @@ class PoolingVisionTransformer(keras.Model):
 
         x = layers.Dropout(drop_rate, name="pos_drop")(x)
 
-        for stage_idx in range(len(nb_blocks)):
-            for block_idx in range(nb_blocks[stage_idx]):
+        for stage_idx in range(len(depth)):
+            for block_idx in range(depth[stage_idx]):
                 x = transformer_block(
                     x,
                     dim=embed_dim[stage_idx],
-                    num_heads=nb_heads[stage_idx],
+                    num_heads=heads[stage_idx],
                     mlp_ratio=mlp_ratio,
                     block_prefix=f"pit_{stage_idx}_blocks_{block_idx}"
                 )
 
-            if stage_idx < len(nb_blocks) - 1:
+            if stage_idx < len(depth) - 1:
                 x, input_size = conv_pooling(
                     (x, input_size),
                     nb_tokens=2 if distilled else 1,
@@ -237,8 +237,8 @@ class PoolingVisionTransformer(keras.Model):
         self.patch_size = patch_size
         self.stride = stride
         self.embed_dim = embed_dim
-        self.nb_blocks = nb_blocks
-        self.nb_heads = nb_heads
+        self.depth = depth
+        self.heads = heads
         self.mlp_ratio = mlp_ratio
         self.distilled = distilled
         self.drop_rate = drop_rate
@@ -255,8 +255,8 @@ class PoolingVisionTransformer(keras.Model):
             "patch_size": self.patch_size,
             "stride": self.stride,
             "embed_dim": self.embed_dim,
-            "nb_blocks": self.nb_blocks,
-            "nb_heads": self.nb_heads,
+            "depth": self.depth,
+            "heads": self.heads,
             "mlp_ratio": self.mlp_ratio,
             "distilled": self.distilled,
             "drop_rate": self.drop_rate,

@@ -36,34 +36,26 @@ def conv_block(
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
     channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
     x = inputs
-    
+
     if padding is None:
+
         def calculate_padding(kernel_dim):
             pad_total = kernel_dim - 1
             pad_size = pad_total // 2
             pad_extra = (kernel_dim - 1) % 2
             return pad_size, pad_extra
-        
+
         pad_h, extra_h = calculate_padding(kernel_size[0])
         pad_w, extra_w = calculate_padding(kernel_size[1])
-        
+
         if strides > 1:
-            padding_config = (
-                (pad_h + extra_h, pad_h), 
-                (pad_w + extra_w, pad_w)
-            )
+            padding_config = ((pad_h + extra_h, pad_h), (pad_w + extra_w, pad_w))
         else:
-            padding_config = (
-                (pad_h, pad_h),
-                (pad_w, pad_w)
-            )
-        
-        x = layers.ZeroPadding2D(
-            padding=padding_config,
-            name=f"{name}_padding"
-        )(x)
+            padding_config = ((pad_h, pad_h), (pad_w, pad_w))
+
+        x = layers.ZeroPadding2D(padding=padding_config, name=f"{name}_padding")(x)
         padding = "valid"
-        
+
     x = layers.Conv2D(
         filters=filters,
         kernel_size=kernel_size,

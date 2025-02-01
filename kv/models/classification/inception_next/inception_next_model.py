@@ -36,54 +36,35 @@ def inception_dwconv2d(
     Returns:
         Tensor with same shape as input after applying parallel convolutions
         and concatenating results.
-
     """
     input_channels = x.shape[channels_axis]
     branch_channels = int(input_channels * branch_ratio)
+    split_sizes = [input_channels - 3 * branch_channels] + [branch_channels] * 3
+    split_indices = [sum(split_sizes[: i + 1]) for i in range(len(split_sizes) - 1)]
 
-    split_sizes = (
-        input_channels - 3 * branch_channels,
-        branch_channels,
-        branch_channels,
-        branch_channels,
+    padding = lambda k: (k - 1) // 2
+    square_padding, band_padding = (
+        padding(square_kernel_size),
+        padding(band_kernel_size),
     )
 
-    split_indices = [
-        split_sizes[0],
-        split_sizes[0] + split_sizes[1],
-        split_sizes[0] + split_sizes[1] + split_sizes[2],
+    x_splits = keras.ops.split(x, split_indices, axis=channels_axis)
+    x_id, *x_branches = x_splits
+
+    conv_configs = [
+        (square_kernel_size, square_padding, f"{name}_dwconv_hw"),
+        ((1, band_kernel_size), (0, band_padding), f"{name}_dwconv_w"),
+        ((band_kernel_size, 1), (band_padding, 0), f"{name}_dwconv_h"),
     ]
 
-    square_padding = (square_kernel_size - 1) // 2
-    band_padding = (band_kernel_size - 1) // 2
+    x = [
+        layers.DepthwiseConv2D(
+            kernel, use_bias=True, data_format=data_format, name=name
+        )(layers.ZeroPadding2D(padding)(x))
+        for (kernel, padding, name), x in zip(conv_configs, x_branches)
+    ]
 
-    x_id, x_hw, x_w, x_h = keras.ops.split(x, split_indices, axis=channels_axis)
-    x_hw = layers.ZeroPadding2D(square_padding)(x_hw)
-    x_hw = layers.DepthwiseConv2D(
-        square_kernel_size,
-        use_bias=True,
-        data_format=data_format,
-        name=f"{name}_dwconv_hw",
-    )(x_hw)
-
-    x_w = layers.ZeroPadding2D((0, band_padding))(x_w)
-    x_w = layers.DepthwiseConv2D(
-        (1, band_kernel_size),
-        use_bias=True,
-        data_format=data_format,
-        name=f"{name}_dwconv_w",
-    )(x_w)
-
-    x_h = layers.ZeroPadding2D((band_padding, 0))(x_h)
-    x_h = layers.DepthwiseConv2D(
-        (band_kernel_size, 1),
-        use_bias=True,
-        data_format=data_format,
-        name=f"{name}_dwconv_h",
-    )(x_h)
-
-    x = layers.Concatenate(axis=channels_axis)([x_id, x_hw, x_w, x_h])
-    return x
+    return layers.Concatenate(axis=channels_axis)([x_id, *x])
 
 
 def inception_next_block(

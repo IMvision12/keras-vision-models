@@ -70,7 +70,6 @@ def conv_pooling(
     block_prefix,
 ):
     input_tensor, (height, width) = x
-
     tokens = input_tensor[:, :nb_tokens]
     spatial = input_tensor[:, nb_tokens:]
 
@@ -78,7 +77,6 @@ def conv_pooling(
     new_width = (width + stride - 1) // stride
 
     spatial = layers.Reshape((height, width, in_channels))(spatial)
-
     spatial = layers.ZeroPadding2D(data_format=data_format, padding=stride // 2)(
         spatial
     )
@@ -92,9 +90,7 @@ def conv_pooling(
     )(spatial)
 
     tokens = layers.Dense(units=out_channels, name=block_prefix + "_dense")(tokens)
-
     spatial = layers.Reshape((new_height * new_width, out_channels))(spatial)
-
     output = layers.Concatenate(axis=1)([tokens, spatial])
 
     return output, (new_height, new_width)
@@ -228,7 +224,6 @@ class PoolingVisionTransformer(keras.Model):
                 dist_token = layers.Lambda(lambda v: v[:, 1], name="ExtractDistToken")(
                     x
                 )
-
                 cls_token = layers.Dropout(drop_rate)(cls_token)
                 dist_token = layers.Dropout(drop_rate)(dist_token)
 

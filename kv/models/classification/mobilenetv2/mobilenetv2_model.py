@@ -270,7 +270,6 @@ class MobileNetV2(keras.Model):
 
         spatial_reduction = 2
         for layer_idx, layer_config in enumerate(mobilenetv2_default_config):
-
             expansion_factor, output_channels, num_blocks, initial_stride = layer_config
             scaled_output_channels = make_divisible(output_channels * width_multiplier)
 
@@ -289,13 +288,16 @@ class MobileNetV2(keras.Model):
                     channels_axis=channels_axis,
                     data_format=data_format,
                     block_id=layer_idx,
-                    sub_block_id=block_idx
+                    sub_block_id=block_idx,
                 )
                 spatial_reduction *= current_stride
             features.append(x)
 
-
-        head_channels = 1280 if fix_channels or width_multiplier <= 1.0 else make_divisible(1280 * width_multiplier)
+        head_channels = (
+            1280
+            if fix_channels or width_multiplier <= 1.0
+            else make_divisible(1280 * width_multiplier)
+        )
         x = layers.Conv2D(
             head_channels,
             1,
@@ -451,6 +453,7 @@ def MobileNetV2WM100(
 
     return model
 
+
 @register_model
 def MobileNetV2WM110(
     include_top=True,
@@ -491,6 +494,7 @@ def MobileNetV2WM110(
 
     return model
 
+
 @register_model
 def MobileNetV2WM120(
     include_top=True,
@@ -530,6 +534,7 @@ def MobileNetV2WM120(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def MobileNetV2WM140(

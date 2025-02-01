@@ -30,12 +30,12 @@ weight_name_mapping = {
     "layerscale.1": "ls1",
     "layerscale.2": "ls2",
     "pool.dense": "pool.fc",
-    "kernel": "weight",  # conv2d
-    "gamma": "weight",  # batchnorm weight
-    "beta": "bias",  # batchnorm bias
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
     "bias": "bias",
-    "moving.mean": "running_mean",  # batchnorm moving mean
-    "moving.variance": "running_var",  # batchnorm moving variance
+    "moving.mean": "running_mean",
+    "moving.variance": "running_var",
     "predictions": "head",
 }
 

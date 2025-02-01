@@ -9,12 +9,12 @@ MOBILENETV2_MODEL_CONFIG = {
         "depth_multiplier": 1.0,
         "fix_channels": False,
     },
-    "MobileNetV2W110": {
+    "MobileNetV2WM110": {
         "width_multiplier": 1.1,
         "depth_multiplier": 1.2,
         "fix_channels": True,
     },
-    "MobileNetV2W120": {
+    "MobileNetV2WM120": {
         "width_multiplier": 1.2,
         "depth_multiplier": 1.4,
         "fix_channels": True,
@@ -33,10 +33,10 @@ MOBILENETV2_WEIGHTS_CONFIG = {
     "MobileNetV2WM100": {
         "ra_in1k": {"url": ""},
     },
-    "MobileNetV2W110": {
+    "MobileNetV2WM110": {
         "ra_in1k": {"url": ""},
     },
-    "MobileNetV2W120": {
+    "MobileNetV2WM120": {
         "ra_in1k": {"url": ""},
     },
     "MobileNetV2WM140": {

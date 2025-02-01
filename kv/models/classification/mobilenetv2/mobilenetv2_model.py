@@ -180,6 +180,7 @@ class MobileNetV2(keras.Model):
         self,
         width_multiplier=1.0,
         depth_multiplier=1.0,
+        fix_channels=False,
         include_top=True,
         as_backbone=False,
         include_preprocessing=True,
@@ -205,7 +206,7 @@ class MobileNetV2(keras.Model):
                 f"Received: pooling={pooling}"
             )
 
-        default_config = [
+        mobilenetv2_default_config = [
             # t, c, n, s
             [1, 16, 1, 1],
             [6, 24, 2, 2],
@@ -245,12 +246,12 @@ class MobileNetV2(keras.Model):
             else inputs
         )
 
-        first_channels = make_divisible(32 * width_multiplier)
+        stem_channels = 32 if fix_channels else make_divisible(32 * width_multiplier)
         x = layers.ZeroPadding2D(
             padding=((1, 1), (1, 1)), data_format=data_format, name="stem_padding"
         )(x)
         x = layers.Conv2D(
-            first_channels,
+            stem_channels,
             3,
             2,
             padding="valid",
@@ -267,38 +268,38 @@ class MobileNetV2(keras.Model):
         x = layers.Activation("relu6", name="relu1")(x)
         features.append(x)
 
-        block_id = 0
-        features_at = [1, 3, 6]
-        current_block = 0
+        spatial_reduction = 2
+        for layer_idx, layer_config in enumerate(mobilenetv2_default_config):
+            expansion_factor, output_channels, num_blocks, initial_stride = layer_config
+            scaled_output_channels = make_divisible(output_channels * width_multiplier)
 
-        for config in default_config:
-            t, c, n, s = config
-            n = max(1, int(n * depth_multiplier))
-            c = make_divisible(c * width_multiplier)
+            if layer_idx not in (0, len(mobilenetv2_default_config) - 1):
+                num_blocks = int(keras.ops.ceil(num_blocks * depth_multiplier))
 
-            for i in range(n):
-                stride = s if i == 0 else 1
+            for block_idx in range(num_blocks):
+                current_stride = initial_stride if block_idx == 0 else 1
+
                 x = inverted_residual_block(
                     x,
-                    c,
-                    3,
-                    stride,
-                    t,
-                    channels_axis,
-                    data_format,
-                    current_block,
-                    i,
+                    filters=scaled_output_channels,
+                    kernel_size=3,
+                    stride=current_stride,
+                    expansion_ratio=expansion_factor,
+                    channels_axis=channels_axis,
+                    data_format=data_format,
+                    block_id=layer_idx,
+                    sub_block_id=block_idx,
                 )
-                if block_id in features_at:
-                    features.append(x)
-                block_id += 1
-            current_block += 1
+                spatial_reduction *= current_stride
+            features.append(x)
 
-        last_channels = (
-            make_divisible(1280 * width_multiplier) if width_multiplier > 1.0 else 1280
+        head_channels = (
+            1280
+            if fix_channels or width_multiplier <= 1.0
+            else make_divisible(1280 * width_multiplier)
         )
         x = layers.Conv2D(
-            last_channels,
+            head_channels,
             1,
             1,
             use_bias=False,
@@ -429,6 +430,88 @@ def MobileNetV2WM100(
 ):
     model = MobileNetV2(
         **MOBILENETV2_MODEL_CONFIG["MobileNetV2WM100"],
+        include_top=include_top,
+        as_backbone=as_backbone,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        name=name,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def MobileNetV2WM110(
+    include_top=True,
+    as_backbone=False,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights="ra_in1k",
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="MobileNetV2WM110",
+    **kwargs,
+):
+    model = MobileNetV2(
+        **MOBILENETV2_MODEL_CONFIG["MobileNetV2WM110"],
+        include_top=include_top,
+        as_backbone=as_backbone,
+        include_preprocessing=include_preprocessing,
+        preprocessing_mode=preprocessing_mode,
+        name=name,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        pooling=pooling,
+        num_classes=num_classes,
+        classifier_activation=classifier_activation,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def MobileNetV2WM120(
+    include_top=True,
+    as_backbone=False,
+    include_preprocessing=True,
+    preprocessing_mode="imagenet",
+    weights="ra_in1k",
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    num_classes=1000,
+    classifier_activation="softmax",
+    name="MobileNetV2WM120",
+    **kwargs,
+):
+    model = MobileNetV2(
+        **MOBILENETV2_MODEL_CONFIG["MobileNetV2WM120"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,

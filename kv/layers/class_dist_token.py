@@ -83,13 +83,11 @@ class ClassDistToken(layers.Layer):
     def call(self, inputs):
         batch_size = ops.shape(inputs)[0]
         if self.combine_tokens and self.use_distillation:
-            # Combined tokens approach
             tokens_broadcasted = ops.broadcast_to(
                 self.tokens, [batch_size, 2, self.hidden_size]
             )
             return ops.concatenate([tokens_broadcasted, inputs], axis=1)
         else:
-            # Separate tokens approach
             cls_broadcasted = ops.broadcast_to(
                 self.cls, [batch_size, 1, self.hidden_size]
             )

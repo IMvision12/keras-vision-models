@@ -86,7 +86,7 @@ def inception_dwconv2d(
     return x
 
 
-def apply_inception_next_block(
+def inception_next_block(
     x,
     num_filter,
     mlp_ratio=4.0,
@@ -299,7 +299,7 @@ class InceptionNeXt(keras.Model):
                 )(x)
 
             for j in range(depths[i]):
-                x = apply_inception_next_block(
+                x = inception_next_block(
                     x,
                     num_filter=num_filters[i],
                     mlp_ratio=mlp_ratios[i],

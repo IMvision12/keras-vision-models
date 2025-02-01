@@ -46,7 +46,6 @@ def generate_repeat_mappings():
     mappings = {}
 
     for i in range(10):
-        print(i)
         mappings[f"repeat_{i}_"] = f"repeat.{i}."
         mappings[f"repeat_{i}"] = f"repeat.{i}"
 

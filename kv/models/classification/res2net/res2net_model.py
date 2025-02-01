@@ -40,10 +40,7 @@ def conv_block(
        Output tensor for the block.
     """
 
-    if isinstance(kernel_size, int):
-        pad_h = pad_w = kernel_size // 2
-    else:
-        pad_h, pad_w = kernel_size[0] // 2, kernel_size[1] // 2
+    pad_h = pad_w = kernel_size // 2
 
     if strides > 1:
         x = layers.ZeroPadding2D(data_format=data_format, padding=(pad_h, pad_w))(x)

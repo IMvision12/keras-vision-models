@@ -128,6 +128,7 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
+#for distill variant use imagenet testing
 results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,

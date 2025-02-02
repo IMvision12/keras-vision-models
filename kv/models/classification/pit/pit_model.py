@@ -171,20 +171,22 @@ class PoolingVisionTransformer(keras.Model):
         width = (input_shape[1] - patch_size) // stride + 1
         input_size = (height, width)
 
-        x = layers.Reshape((height * width, embed_dim[0]))(x)
+        x = layers.Reshape((height * width, embed_dim[0]), name="patch_tokens_reshape")(
+            x
+        )
+
+        x = AddPositionEmbs(
+            grid_h=height,
+            grid_w=width,
+            no_embed_class=True,
+            use_distillation=distilled,
+            name="pos_embed",
+        )(x)
 
         x = ClassDistToken(
             use_distillation=distilled,
             combine_tokens=True,
             name="class_dist_token",
-        )(x)
-
-        x = AddPositionEmbs(
-            grid_h=height,
-            grid_w=width,
-            no_embed_class=False,
-            use_distillation=distilled,
-            name="pos_embed",
         )(x)
 
         features.append(x)

@@ -2,11 +2,12 @@ import re
 from typing import Dict, List, Union
 
 import keras
+import numpy as np
 import timm
 import torch
 from tqdm import tqdm
 
-from kv.models import DEiTTinyDistilled16
+from kv.models import PiT_XS
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -18,29 +19,31 @@ from kv.utils.weight_transfer_torch_to_keras import (
 
 weight_name_mapping = {
     "_": ".",
-    "conv1": "patch_embed.proj",
+    "pit": "transformers",
+    "patch.embed": "patch_embed",
     "pos.embed.pos.embed": "pos_embed",
-    "cls.token.cls.token": "cls_token",
-    "cls.token.dist.token": "dist_token",
-    "layerscale.1": "ls1",
-    "layerscale.2": "ls2",
+    "class.dist.token.cls.token": "cls_token",
     "dense.1": "mlp.fc1",
     "dense.2": "mlp.fc2",
     "layernorm.1": "norm1",
     "layernorm.2": "norm2",
-    "final.layernorm": "norm",
+    "layerscale.1": "ls1",
+    "layerscale.2": "ls2",
+    "pool.dense": "pool.fc",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
+    "bias": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
     "predictions": "head",
     "head.dist": "head_dist",
 }
 
+
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": DEiTTinyDistilled16,
-    "torch_model_name": "deit_tiny_distilled_patch16_224.fb_in1k",
+    "keras_model_cls": PiT_XS,
+    "torch_model_name": "pit_xs_224.in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
@@ -62,7 +65,6 @@ torch_model: torch.nn.Module = timm.create_model(
     model_config["torch_model_name"], pretrained=True
 ).eval()
 
-
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
     torch_model
 )
@@ -82,7 +84,6 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name = re.sub(
         r"cls_token_variable_\d+$", "cls_token", torch_weight_name
     )
-    torch_weight_name = re.sub(r"\.variable(?:[\._]\d+)?$", ".gamma", torch_weight_name)
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,
@@ -102,13 +103,19 @@ for keras_weight, keras_weight_name in tqdm(
         keras_weight.assign(torch_weight)
         continue
 
-    if torch_weight_name == "dist_token":
-        keras_weight.assign(torch_weight)
-        continue
-
     if torch_weight_name == "pos_embed":
-        if torch_weight.shape[1] == keras_weight.shape[1] + 1:
-            torch_weight = torch_weight[:, 1:, :]
+        torch_weight = torch_weight.numpy()
+
+        if torch_weight.ndim == 4:
+            C, H, W = torch_weight.shape[1:]
+            torch_weight = torch_weight.transpose(0, 2, 3, 1)
+            torch_weight = torch_weight.reshape(1, H * W, C)
+
+            if keras_weight.shape[1] > H * W:
+                num_extra_tokens = keras_weight.shape[1] - H * W
+                class_pos_embed = np.zeros((1, num_extra_tokens, C))
+                torch_weight = np.concatenate([class_pos_embed, torch_weight], axis=1)
+
         keras_weight.assign(torch_weight)
         continue
 
@@ -121,6 +128,7 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
+# for distill variant use imagenet testing
 results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,
@@ -128,6 +136,7 @@ results = verify_cls_model_equivalence(
     output_specs={"num_classes": 1000},
     run_performance=False,
 )
+
 
 if not results["standard_input"]:
     raise ValueError(

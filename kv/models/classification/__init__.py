@@ -14,6 +14,7 @@ from .inceptionv4 import *
 from .mix_transformer import *
 from .mlp_mixer import *
 from .mobilenetv2 import *
+from .pit import *
 from .res2net import *
 from .resnet import *
 from .resnext import *

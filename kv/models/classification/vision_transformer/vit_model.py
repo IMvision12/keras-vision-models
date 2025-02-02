@@ -378,11 +378,13 @@ class ViT(keras.Model):
                 dist_token = layers.Dropout(drop_rate)(dist_token)
 
                 cls_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="head"
+                    num_classes, activation=classifier_activation, name="predictions"
                 )(cls_token)
 
                 dist_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="head.dist"
+                    num_classes,
+                    activation=classifier_activation,
+                    name="predictions_dist",
                 )(dist_token)
 
                 x = (cls_head + dist_head) / 2
@@ -470,7 +472,7 @@ def ViTTiny16(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTTiny16",
     **kwargs,
@@ -510,7 +512,7 @@ def ViTSmall16(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTSmall16",
     **kwargs,
@@ -550,7 +552,7 @@ def ViTSmall32(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTSmall32",
     **kwargs,
@@ -590,7 +592,7 @@ def ViTBase16(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTBase16",
     **kwargs,
@@ -630,7 +632,7 @@ def ViTBase32(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTBase32",
     **kwargs,
@@ -670,7 +672,7 @@ def ViTLarge16(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTLarge16",
     **kwargs,
@@ -710,7 +712,7 @@ def ViTLarge32(
     input_tensor=None,
     input_shape=None,
     pooling=None,
-    num_classes=None,
+    num_classes=1000,
     classifier_activation="softmax",
     name="ViTLarge32",
     **kwargs,

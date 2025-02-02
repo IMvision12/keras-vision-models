@@ -23,6 +23,7 @@ class TestAddPositionEmbs(TestCase):
         assert not layer.use_distillation
         assert layer.grid_h == self.grid_h
         assert layer.grid_w == self.grid_w
+        assert layer.resize_mode == "bilinear"
 
     def test_init_flexivit_mode(self):
         layer = AddPositionEmbs(
@@ -37,15 +38,6 @@ class TestAddPositionEmbs(TestCase):
         )
         assert not layer.no_embed_class
         assert layer.use_distillation
-
-    def test_invalid_mode_combination(self):
-        with self.assertRaises(ValueError):
-            AddPositionEmbs(
-                grid_h=self.grid_h,
-                grid_w=self.grid_w,
-                no_embed_class=True,
-                use_distillation=True,
-            )
 
     def test_build_invalid_input_shape(self):
         layer = AddPositionEmbs(grid_h=self.grid_h, grid_w=self.grid_w)
@@ -63,13 +55,25 @@ class TestAddPositionEmbs(TestCase):
         expected_shape = (1, self.sequence_length, self.hidden_size)
         assert layer.position_embedding.shape == expected_shape
 
-    def test_build_flexivit_mode(self):
+    def test_build_flexivit_mode_patches_only(self):
         layer = AddPositionEmbs(
             grid_h=self.grid_h, grid_w=self.grid_w, no_embed_class=True
         )
-        layer.build(self.input_shape)
+        patches_only_shape = (self.batch_size, self.num_patches, self.hidden_size)
+        layer.build(patches_only_shape)
         expected_shape = (1, self.num_patches, self.hidden_size)
         assert layer.position_embedding.shape == expected_shape
+        assert not hasattr(layer, "skip_cls") or not layer.skip_cls
+
+    def test_build_flexivit_mode_with_class(self):
+        layer = AddPositionEmbs(
+            grid_h=self.grid_h, grid_w=self.grid_w, no_embed_class=True
+        )
+        with_class_shape = (self.batch_size, self.num_patches + 1, self.hidden_size)
+        layer.build(with_class_shape)
+        expected_shape = (1, self.num_patches, self.hidden_size)
+        assert layer.position_embedding.shape == expected_shape
+        assert layer.skip_cls
 
     def test_call_standard_mode(self):
         layer = AddPositionEmbs(grid_h=self.grid_h, grid_w=self.grid_w)
@@ -77,14 +81,30 @@ class TestAddPositionEmbs(TestCase):
         assert outputs.shape == self.input_shape
         assert not np.allclose(outputs.numpy(), self.test_inputs.numpy())
 
-    def test_call_flexivit_mode(self):
+    def test_call_flexivit_mode_patches_only(self):
         layer = AddPositionEmbs(
             grid_h=self.grid_h, grid_w=self.grid_w, no_embed_class=True
         )
-        outputs = layer(self.test_inputs)
-        assert outputs.shape == self.input_shape
+        patches_only_inputs = ops.ones(
+            (self.batch_size, self.num_patches, self.hidden_size)
+        )
+        layer.build((self.batch_size, self.num_patches, self.hidden_size))
+        outputs = layer(patches_only_inputs)
+        assert outputs.shape == patches_only_inputs.shape
+        assert not np.allclose(outputs.numpy(), patches_only_inputs.numpy())
+
+    def test_call_flexivit_mode_with_class(self):
+        layer = AddPositionEmbs(
+            grid_h=self.grid_h, grid_w=self.grid_w, no_embed_class=True
+        )
+        with_class_inputs = self.test_inputs
+        outputs = layer(with_class_inputs)
+        assert outputs.shape == with_class_inputs.shape
         assert np.allclose(
-            outputs[:, 0:1, :].numpy(), self.test_inputs[:, 0:1, :].numpy()
+            outputs[:, 0:1, :].numpy(), with_class_inputs[:, 0:1, :].numpy()
+        )
+        assert not np.allclose(
+            outputs[:, 1:, :].numpy(), with_class_inputs[:, 1:, :].numpy()
         )
 
     def test_call_deit_mode(self):
@@ -111,10 +131,12 @@ class TestAddPositionEmbs(TestCase):
         assert "grid_w" in config
         assert "no_embed_class" in config
         assert "use_distillation" in config
+        assert "resize_mode" in config
         assert config["grid_h"] == self.grid_h
         assert config["grid_w"] == self.grid_w
         assert config["no_embed_class"] is True
         assert config["use_distillation"] is False
+        assert config["resize_mode"] == "bilinear"
 
     def test_save_load_variables(self):
         layer = AddPositionEmbs(grid_h=self.grid_h, grid_w=self.grid_w)

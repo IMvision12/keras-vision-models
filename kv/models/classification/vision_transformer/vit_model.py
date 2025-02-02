@@ -382,7 +382,9 @@ class ViT(keras.Model):
                 )(cls_token)
 
                 dist_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="predictions_dist"
+                    num_classes,
+                    activation=classifier_activation,
+                    name="predictions_dist",
                 )(dist_token)
 
                 x = (cls_head + dist_head) / 2

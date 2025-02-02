@@ -36,6 +36,7 @@ weight_name_mapping = {
     "moving.variance": "running_var",
     "head.dist": "head_dist",
     "predictions": "head",
+    "predictions.dist": "head.dist",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {

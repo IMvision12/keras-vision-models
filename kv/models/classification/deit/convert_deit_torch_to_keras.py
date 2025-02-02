@@ -34,9 +34,8 @@ weight_name_mapping = {
     "beta": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
-    "head.dist": "head_dist",
     "predictions": "head",
-    "predictions.dist": "head.dist",
+    "head.dist": "head_dist",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {

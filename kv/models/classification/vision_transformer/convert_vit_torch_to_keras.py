@@ -32,7 +32,6 @@ weight_name_mapping = {
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
     "predictions": "head",
-    "predictions.dist": "head.dist",
 }
 
 

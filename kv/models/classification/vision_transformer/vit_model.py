@@ -378,11 +378,11 @@ class ViT(keras.Model):
                 dist_token = layers.Dropout(drop_rate)(dist_token)
 
                 cls_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="head"
+                    num_classes, activation=classifier_activation, name="predictions"
                 )(cls_token)
 
                 dist_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="head.dist"
+                    num_classes, activation=classifier_activation, name="predictions_dist"
                 )(dist_token)
 
                 x = (cls_head + dist_head) / 2

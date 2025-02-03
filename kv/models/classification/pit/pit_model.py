@@ -229,16 +229,11 @@ class PoolingVisionTransformer(keras.Model):
                 cls_token = layers.Dropout(drop_rate)(cls_token)
                 dist_token = layers.Dropout(drop_rate)(dist_token)
 
-                cls_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="predictions"
-                )(cls_token)
-                dist_head = layers.Dense(
-                    num_classes,
-                    activation=classifier_activation,
-                    name="predictions_dist",
-                )(dist_token)
-
+                cls_head = layers.Dense(num_classes, name="predictions")(cls_token)
+                dist_head = layers.Dense(num_classes, name="predictions_dist")(dist_token)
                 x = layers.Average()([cls_head, dist_head])
+                if classifier_activation is not None:
+                    x = layers.Activation(classifier_activation, name="predictions_activation")(x)
             else:
                 x = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
                 x = layers.Dropout(drop_rate)(x)

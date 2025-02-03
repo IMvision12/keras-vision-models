@@ -129,7 +129,6 @@ for keras_weight, keras_weight_name in tqdm(
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
 if "distilled" in str(model_config["keras_model_cls"]).lower():
-
     test_keras_with_weights = model_config["keras_model_cls"](
         weights=None,
         num_classes=model_config["num_classes"],
@@ -150,7 +149,7 @@ if "distilled" in str(model_config["keras_model_cls"]).lower():
         prediction_threshold=0.68,
     )
 
- 
+
 else:
     results = verify_cls_model_equivalence(
         model_a=torch_model,
@@ -158,11 +157,10 @@ else:
         input_shape=(224, 224, 3),
         output_specs={"num_classes": 1000},
         run_performance=False,
-)
+    )
 
-if (
-    ("standard_input" in results and not results["standard_input"]) or 
-    ("imagenet_test" in results and not results["imagenet_test"]["all_passed"])
+if ("standard_input" in results and not results["standard_input"]) or (
+    "imagenet_test" in results and not results["imagenet_test"]["all_passed"]
 ):
     raise ValueError(
         "Model equivalence test failed - model outputs do not match for standard input"

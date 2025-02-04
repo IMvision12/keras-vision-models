@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kv.models import MiT_B0, MiT_B1, MiT_B2, MiT_B3, MiT_B4, MiT_B5
+from kv.models.mix_transformer import MiT_B0, MiT_B1, MiT_B2, MiT_B3, MiT_B4, MiT_B5
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import SEGFORMER_MODEL_CONFIG, SEGFORMER_WEIGHTS_CONFIG

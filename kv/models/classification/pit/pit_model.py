@@ -14,6 +14,23 @@ from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_CONFIG
 
 
 def mlp_block(inputs, hidden_features, out_features=None, drop=0.0, block_prefix=None):
+    """
+    Implements a Multi-Layer Perceptron (MLP) block typically used in transformer architectures.
+
+    The block consists of two fully connected (dense) layers with GELU activation,
+    dropout regularization, and optional feature dimension specification.
+
+    Args:
+        inputs: Input tensor to the MLP block.
+        hidden_features: Number of neurons in the first (hidden) dense layer.
+        out_features: Number of neurons in the second (output) dense layer.
+            If None, uses the same number of features as the input.
+        drop: Dropout rate applied after each dense layer. Default is 0.0.
+        block_prefix: String prefix used for naming layers. Default is None.
+
+    Returns:
+        Output tensor after passing through the MLP block.
+    """
     x = layers.Dense(hidden_features, use_bias=True, name=block_prefix + "_dense_1")(
         inputs
     )
@@ -32,6 +49,26 @@ def transformer_block(
     channels_axis,
     block_prefix=None,
 ):
+    """
+    Implements a standard Transformer block with self-attention and MLP layers.
+
+    The block consists of two main components:
+    1. Multi-Head Self-Attention layer with layer normalization and residual connection
+    2. Multi-Layer Perceptron (MLP) layer with layer normalization and residual connection
+
+    Args:
+        inputs: Input tensor to the transformer block.
+        dim: Dimensionality of the input and output features.
+        num_heads: Number of attention heads in the multi-head attention mechanism.
+        mlp_ratio: Expansion ratio for the hidden dimension in the MLP layer.
+            Hidden layer size will be `dim * mlp_ratio`.
+        channels_axis: Axis along which the channels are defined.
+        block_prefix: String prefix used for naming layers. Default is None.
+
+    Returns:
+        Output tensor after passing through the transformer block,
+        with the same shape and dimensionality as the input.
+    """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=channels_axis, name=block_prefix + "_layernorm_1"
     )(inputs)
@@ -69,6 +106,34 @@ def conv_pooling(
     data_format,
     block_prefix,
 ):
+    """
+    Implements a convolutional pooling operation for transforming token representations.
+
+    This function performs pooling on both token and spatial representations separately,
+    then combines them. It includes:
+    1. Separate processing for class/distillation tokens and spatial tokens
+    2. Convolution-based downsampling of spatial representations
+    3. Linear projection of class/distillation tokens
+    4. Concatenation of processed tokens
+
+    Args:
+        x: Tuple of (input_tensor, (height, width)) where input_tensor contains
+            the token representations and (height, width) are spatial dimensions.
+        nb_tokens: Number of special tokens (e.g., class token, distillation token)
+            at the beginning of the sequence.
+        in_channels: Number of input channels.
+        out_channels: Number of output channels.
+        stride: Stride value for the convolution operation, determines
+            the downsampling factor.
+        data_format: String, either 'channels_first' or 'channels_last'.
+        block_prefix: String prefix used for naming layers.
+
+    Returns:
+        Tuple of (output, (new_height, new_width)) where output is the processed
+        and concatenated tokens, and (new_height, new_width) are the new spatial
+        dimensions after pooling.
+    """
+
     input_tensor, (height, width) = x
     tokens = input_tensor[:, :nb_tokens]
     spatial = input_tensor[:, nb_tokens:]
@@ -98,6 +163,81 @@ def conv_pooling(
 
 @keras.saving.register_keras_serializable(package="kv")
 class PoolingVisionTransformer(keras.Model):
+    """Instantiates the Pooling Vision Transformer architecture.
+
+    This implementation provides a hierarchical vision transformer that uses pooling
+    to progressively reduce spatial dimensions while increasing the channel dimension
+    through multiple stages.
+
+    Args:
+        patch_size: Integer, size of the patches to extract from the image.
+            Defaults to `16`.
+        stride: Integer, stride size for patch extraction.
+            Defaults to `8`.
+        embed_dim: Tuple of integers, embedding dimensions for each transformer stage.
+            Defaults to `(64, 128, 256)`.
+        depth: Tuple of integers, number of transformer blocks in each stage.
+            Defaults to `(2, 6, 4)`.
+        heads: Tuple of integers, number of attention heads in each stage.
+            Defaults to `(2, 4, 8)`.
+        mlp_ratio: Float, ratio of MLP hidden dimension to embedding dimension.
+            Defaults to `4.0`.
+        distilled: Boolean, whether to use distillation tokens.
+            Defaults to `False`.
+        drop_rate: Float, dropout rate applied to the model.
+            Defaults to `0.0`.
+        include_top: Boolean, whether to include the classification head.
+            Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
+        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_preprocessing=True.
+        weights: String, specifying the path to pretrained weights or one of the
+            available options in `keras-vision`.
+        input_tensor: Optional Keras tensor as input.
+            Useful for connecting the model to other Keras components.
+        input_shape: Optional tuple specifying the shape of the input data.
+        pooling: Optional pooling mode when `include_top=False`:
+            - `None`: output is the last transformer block's output
+            - `"avg"`: global average pooling is applied
+            - `"max"`: global max pooling is applied
+        num_classes: Integer, the number of output classes for classification.
+            Defaults to `1000`.
+        classifier_activation: String or callable, activation function for the top layer.
+            Set to `None` to return logits. Defaults to `"softmax"`.
+        name: String, the name of the model. Defaults to `"PoolingVisionTransformer"`.
+
+    Returns:
+        A Keras `Model` instance.
+
+    Example:
+        ```python
+        # Create a basic pooling vision transformer
+        model = PoolingVisionTransformer(
+            patch_size=16,
+            stride=8,
+            embed_dim=(64, 128, 256),
+            depth=(2, 6, 4),
+            heads=(2, 4, 8)
+        )
+
+        # Create a pooling vision transformer with distillation
+        model = PoolingVisionTransformer(
+            patch_size=16,
+            stride=8,
+            embed_dim=(64, 128, 256),
+            depth=(2, 6, 4),
+            heads=(2, 4, 8),
+            distilled=True
+        )
+        ```
+    """
+
     def __init__(
         self,
         patch_size=16,
@@ -229,16 +369,15 @@ class PoolingVisionTransformer(keras.Model):
                 cls_token = layers.Dropout(drop_rate)(cls_token)
                 dist_token = layers.Dropout(drop_rate)(dist_token)
 
-                cls_head = layers.Dense(
-                    num_classes, activation=classifier_activation, name="predictions"
-                )(cls_token)
-                dist_head = layers.Dense(
-                    num_classes,
-                    activation=classifier_activation,
-                    name="predictions_dist",
-                )(dist_token)
-
+                cls_head = layers.Dense(num_classes, name="predictions")(cls_token)
+                dist_head = layers.Dense(num_classes, name="predictions_dist")(
+                    dist_token
+                )
                 x = layers.Average()([cls_head, dist_head])
+                if classifier_activation is not None:
+                    x = layers.Activation(
+                        classifier_activation, name="predictions_activation"
+                    )(x)
             else:
                 x = layers.Lambda(lambda v: v[:, 0], name="ExtractToken")(x)
                 x = layers.Dropout(drop_rate)(x)

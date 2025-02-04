@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models import EfficientNetV2S
+from kv.models.efficientnetv2 import EfficientNetV2S
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -22,10 +22,8 @@ weight_name_mapping = {
     "_bias": ".bias",
     "_moving_mean": ".running_mean",
     "_moving_variance": ".running_var",
-    # For FusedMBConvBlock
     "FMBconv1": "conv_exp",
     "FMBconv2": "conv_pwl",
-    # For MBConvBlock
     "MBconv1": "conv_pw",
     "MBdwconv": "conv_dw",
     "MBconv2": "conv_pwl",

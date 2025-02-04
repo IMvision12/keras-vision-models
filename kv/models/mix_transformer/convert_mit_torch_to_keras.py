@@ -4,7 +4,7 @@ import keras
 import torch
 from tqdm import tqdm
 
-from kv.models import MiT_B0
+from kv.models.mix_transformer import MiT_B0
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.model_weights_util import download_weights

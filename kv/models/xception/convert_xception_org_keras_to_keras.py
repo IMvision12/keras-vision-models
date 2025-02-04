@@ -1,6 +1,6 @@
 import keras
 
-from kv.models import Xception
+from kv.models.xception import Xception
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 
 model_config = {

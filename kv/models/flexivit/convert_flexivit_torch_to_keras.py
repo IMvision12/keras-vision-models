@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models import FlexiViTSmall
+from kv.models.flexivit import FlexiViTSmall
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights

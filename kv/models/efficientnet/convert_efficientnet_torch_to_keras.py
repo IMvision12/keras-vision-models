@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models import EfficientNetB0
+from kv.models.efficientnet import EfficientNetB0
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -19,9 +19,7 @@ block_mappings = {}
 
 for i in range(6):
     block_prefix = f"blocks.0.{i}"
-    # Conv layer mappings
     block_mappings[f"{block_prefix}.conv_pwl"] = f"{block_prefix}.conv_pw"
-    # BN layer mappings
     block_mappings[f"{block_prefix}.bn2"] = f"{block_prefix}.bn1"
     block_mappings[f"{block_prefix}.bn3"] = f"{block_prefix}.bn2"
 

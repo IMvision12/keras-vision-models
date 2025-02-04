@@ -1,7 +1,7 @@
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
-
 from kv.models.resnet import ResNet
 from kv.models.resnext import resnext_block
+from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+
 from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_CONFIG
 
 __all__ = [

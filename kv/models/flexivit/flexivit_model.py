@@ -1,6 +1,6 @@
+from kv.models.vision_transformer import ViT
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
-from kv.models.vision_transformer import ViT
 from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_CONFIG
 
 

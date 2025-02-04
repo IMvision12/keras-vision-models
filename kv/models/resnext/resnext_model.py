@@ -2,7 +2,7 @@ from typing import Optional
 
 from keras import layers
 
-from kv.models.resnet import ResNet, conv_block, squeeze_excitation_block
+from kv.models.resnet.resnet_model import ResNet, conv_block, squeeze_excitation_block
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_CONFIG

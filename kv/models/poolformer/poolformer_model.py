@@ -8,7 +8,7 @@ from kv.utils import get_all_weight_names, load_weights_from_config, register_mo
 from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_CONFIG
 
 
-def mlp_block(x, hidden_dim, embed_dim, drop_rate, name):
+def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):
     """
     Implements a Multi-Layer Perceptron (MLP) block using 1x1 convolutions for vision models.
 
@@ -30,6 +30,7 @@ def mlp_block(x, hidden_dim, embed_dim, drop_rate, name):
         filters=hidden_dim,
         kernel_size=1,
         use_bias=True,
+        data_format=data_format,
         name=f"{name}_conv_1",
     )(x)
     x = layers.Activation("gelu", name=f"{name}_act")(x)
@@ -39,6 +40,7 @@ def mlp_block(x, hidden_dim, embed_dim, drop_rate, name):
         filters=embed_dim,
         kernel_size=1,
         use_bias=True,
+        data_format=data_format,
         name=f"{name}_conv_2",
     )(x)
     x = layers.Dropout(drop_rate, name=f"{name}_drop_2")(x)
@@ -46,7 +48,7 @@ def mlp_block(x, hidden_dim, embed_dim, drop_rate, name):
     return x
 
 
-def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_scale, name):
+def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_scale, data_format, channels_axis, name):
     """
    Implements a PoolFormer block that uses average pooling for token mixing instead of self-attention.
    
@@ -74,10 +76,10 @@ def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_sc
    """
     shortcut = x
 
-    x = layers.GroupNormalization(groups=1, name=f"{name}_groupnorm_1")(x)
+    x = layers.GroupNormalization(groups=1, axis=channels_axis, name=f"{name}_groupnorm_1")(x)
 
-    zero_pad = layers.ZeroPadding2D(padding=((1, 1), (1, 1)))(x)
-    x_pool = layers.AveragePooling2D(pool_size=3, strides=1, padding='valid')(zero_pad)
+    zero_pad = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), data_format=data_format)(x)
+    x_pool = layers.AveragePooling2D(pool_size=3, strides=1, padding='valid', data_format=data_format)(zero_pad)
     x = layers.Subtract(name=f"{name}_token_mixer")([x_pool, x])
 
     layer_scale_1 = LayerScale(
@@ -91,12 +93,13 @@ def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_sc
     x = layers.Add(name=f"{name}_add_1")([shortcut, layer_scale_1])
 
     shortcut = x
-    x = layers.GroupNormalization(groups=1, name=f"{name}_groupnorm_2")(x)
+    x = layers.GroupNormalization(groups=1, axis=channels_axis, name=f"{name}_groupnorm_2")(x)
     x = mlp_block(
         x,
         hidden_dim=int(embed_dim * mlp_ratio),
         embed_dim=embed_dim,
         drop_rate=drop_rate,
+        data_format=data_format,
         name=f"{name}_mlp"
     )
 
@@ -209,11 +212,14 @@ class PoolFormer(keras.Model):
                 f"Received: pooling={pooling}"
             )
         
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else -3
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
             min_size=32,
-            data_format=utils.image_data_format(),
+            data_format=data_format,
             require_flatten=include_top,
             weights=weights,
         )
@@ -221,7 +227,10 @@ class PoolFormer(keras.Model):
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
-            img_input = input_tensor
+            if not utils.is_keras_tensor(input_tensor):
+                img_input = layers.Input(tensor=input_tensor, shape=input_shape)
+            else:
+                img_input = input_tensor
 
         inputs = img_input
         features = []
@@ -236,13 +245,14 @@ class PoolFormer(keras.Model):
         stride = 4
         padding = 2
         if stride != patch_size:
-            x = layers.ZeroPadding2D(padding=padding, name="stem_pad")(x)
+            x = layers.ZeroPadding2D(padding=padding, data_format=data_format, name="stem_pad")(x)
         
         x = layers.Conv2D(
             filters=embed_dims[0],
             kernel_size=patch_size,
             strides=stride,
             use_bias=True,
+            data_format=data_format,
             name="stem_conv",
         )(x)
         features.append(x)
@@ -260,6 +270,8 @@ class PoolFormer(keras.Model):
                     drop_rate=drop_rate,
                     drop_path_rate=dpr[cur],
                     init_scale=init_scale,
+                    data_format=data_format,
+                    channels_axis=channels_axis,
                     name=f"stage_{stage_idx}_block_{block_idx}"
                 )
                 cur += 1
@@ -273,6 +285,7 @@ class PoolFormer(keras.Model):
                 if stride != patch_size:
                     x = layers.ZeroPadding2D(
                         padding=padding,
+                        data_format=data_format,
                         name=f"stage_{stage_idx+1}_downsample_pad"
                     )(x)
                 
@@ -281,11 +294,12 @@ class PoolFormer(keras.Model):
                     kernel_size=patch_size,
                     strides=stride,
                     use_bias=True,
+                    data_format=data_format,
                     name=f"stage_{stage_idx+1}_downsample_conv",
                 )(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
             x = layers.LayerNormalization(epsilon=1e-6, name="layernorm")(x)
             x = layers.Dense(
                 num_classes,
@@ -296,9 +310,9 @@ class PoolFormer(keras.Model):
             x = features
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(x)
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

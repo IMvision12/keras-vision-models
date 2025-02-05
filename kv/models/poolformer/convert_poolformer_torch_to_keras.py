@@ -16,19 +16,19 @@ from kv.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
-    "_":".",
-    "stage":"stages",
-    "block":"blocks",
-    "conv.1":"fc1",
-    "conv.2":"fc2",
-    "groupnorm.1":"norm1",
-    "groupnorm.2":"norm2",
+    "_": ".",
+    "stage": "stages",
+    "block": "blocks",
+    "conv.1": "fc1",
+    "conv.2": "fc2",
+    "groupnorm.1": "norm1",
+    "groupnorm.2": "norm2",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
-    "bias":"bias",
-    "predictions":"head.fc",
-    "layernorm":"head.norm",
+    "bias": "bias",
+    "predictions": "head.fc",
+    "layernorm": "head.norm",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
@@ -69,7 +69,11 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-    torch_weight_name = re.sub(r"layerscale\.(\d+)\.variable(?:\.\d+)?$", r"layer_scale\1.scale", torch_weight_name)
+    torch_weight_name = re.sub(
+        r"layerscale\.(\d+)\.variable(?:\.\d+)?$",
+        r"layer_scale\1.scale",
+        torch_weight_name,
+    )
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,

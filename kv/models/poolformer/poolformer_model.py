@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer, StochasticDepth, LayerScale
+from kv.layers import ImagePreprocessingLayer, LayerScale, StochasticDepth
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_CONFIG
@@ -48,44 +48,57 @@ def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):
     return x
 
 
-def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_scale, data_format, channels_axis, name):
+def poolformer_block(
+    x,
+    embed_dim,
+    mlp_ratio,
+    drop_rate,
+    drop_path_rate,
+    init_scale,
+    data_format,
+    channels_axis,
+    name,
+):
     """
-   Implements a PoolFormer block that uses average pooling for token mixing instead of self-attention.
-   
-   The block consists of two main components:
-   1. Token mixing layer using average pooling and subtraction
-   2. Multi-Layer Perceptron (MLP) layer
-   
-   Both components use group normalization and residual connections with optional layer scaling
-   and stochastic depth.
+    Implements a PoolFormer block that uses average pooling for token mixing instead of self-attention.
 
-   Args:
-       x: Input tensor to the PoolFormer block.
-       embed_dim: Dimensionality of the input and output features.
-       mlp_ratio: Expansion ratio for the hidden dimension in the MLP layer.
-           Hidden layer size will be embed_dim * mlp_ratio.
-       drop_rate: Dropout rate used in the MLP layer.
-       drop_path_rate: Drop path rate for stochastic depth. If 0, stochastic depth
-           is disabled. 
-       init_scale: Initial scaling factor for the LayerScale layers.
-       name: Base name used for all layers in this block.
+    The block consists of two main components:
+    1. Token mixing layer using average pooling and subtraction
+    2. Multi-Layer Perceptron (MLP) layer
 
-   Returns:
-       Output tensor after passing through the PoolFormer block,
-       with the same shape and dimensionality as the input.
-   """
+    Both components use group normalization and residual connections with optional layer scaling
+    and stochastic depth.
+
+    Args:
+        x: Input tensor to the PoolFormer block.
+        embed_dim: Dimensionality of the input and output features.
+        mlp_ratio: Expansion ratio for the hidden dimension in the MLP layer.
+            Hidden layer size will be embed_dim * mlp_ratio.
+        drop_rate: Dropout rate used in the MLP layer.
+        drop_path_rate: Drop path rate for stochastic depth. If 0, stochastic depth
+            is disabled.
+        init_scale: Initial scaling factor for the LayerScale layers.
+        name: Base name used for all layers in this block.
+
+    Returns:
+        Output tensor after passing through the PoolFormer block,
+        with the same shape and dimensionality as the input.
+    """
     shortcut = x
 
-    x = layers.GroupNormalization(groups=1, axis=channels_axis, name=f"{name}_groupnorm_1")(x)
+    x = layers.GroupNormalization(
+        groups=1, axis=channels_axis, name=f"{name}_groupnorm_1"
+    )(x)
 
-    zero_pad = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), data_format=data_format)(x)
-    x_pool = layers.AveragePooling2D(pool_size=3, strides=1, padding='valid', data_format=data_format)(zero_pad)
+    zero_pad = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), data_format=data_format)(
+        x
+    )
+    x_pool = layers.AveragePooling2D(
+        pool_size=3, strides=1, padding="valid", data_format=data_format
+    )(zero_pad)
     x = layers.Subtract(name=f"{name}_token_mixer")([x_pool, x])
 
-    layer_scale_1 = LayerScale(
-        init_scale,
-        name=f"{name}_layerscale_1"
-    )(x)
+    layer_scale_1 = LayerScale(init_scale, name=f"{name}_layerscale_1")(x)
 
     if drop_path_rate > 0:
         layer_scale_1 = StochasticDepth(drop_path_rate)(layer_scale_1)
@@ -93,20 +106,19 @@ def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_sc
     x = layers.Add(name=f"{name}_add_1")([shortcut, layer_scale_1])
 
     shortcut = x
-    x = layers.GroupNormalization(groups=1, axis=channels_axis, name=f"{name}_groupnorm_2")(x)
+    x = layers.GroupNormalization(
+        groups=1, axis=channels_axis, name=f"{name}_groupnorm_2"
+    )(x)
     x = mlp_block(
         x,
         hidden_dim=int(embed_dim * mlp_ratio),
         embed_dim=embed_dim,
         drop_rate=drop_rate,
         data_format=data_format,
-        name=f"{name}_mlp"
+        name=f"{name}_mlp",
     )
 
-    layer_scale_2 = LayerScale(
-        init_scale,
-        name=f"{name}_layerscale_2"
-    )(x)
+    layer_scale_2 = LayerScale(init_scale, name=f"{name}_layerscale_2")(x)
 
     if drop_path_rate > 0:
         layer_scale_2 = StochasticDepth(drop_path_rate)(layer_scale_2)
@@ -115,10 +127,11 @@ def poolformer_block(x, embed_dim, mlp_ratio, drop_rate, drop_path_rate, init_sc
 
     return x
 
+
 @keras.saving.register_keras_serializable(package="kv")
 class PoolFormer(keras.Model):
     """Instantiates the PoolFormer architecture that uses pooling for token mixing.
-    
+
     This implementation follows the PoolFormer design which replaces the self-attention
     mechanism in transformers with a simple pooling-based token mixer, providing an
     efficient alternative for vision tasks.
@@ -179,27 +192,28 @@ class PoolFormer(keras.Model):
         )
         ```
     """
+
     def __init__(
-            self,
-            embed_dims,
-            nb_blocks,
-            mlp_ratio=4.0,
-            drop_rate=0.0,
-            drop_path_rate=0.0,
-            init_scale=1e-5,
-            include_top=True,
-            as_backbone=False,
-            include_preprocessing=True,
-            preprocessing_mode="imagenet",
-            weights=None,
-            input_shape=None,
-            input_tensor=None,
-            pooling=None,
-            num_classes=1000,
-            classifier_activation="softmax",
-            name="PoolFormer",
-            **kwargs
-        ):
+        self,
+        embed_dims,
+        nb_blocks,
+        mlp_ratio=4.0,
+        drop_rate=0.0,
+        drop_path_rate=0.0,
+        init_scale=1e-5,
+        include_top=True,
+        as_backbone=False,
+        include_preprocessing=True,
+        preprocessing_mode="imagenet",
+        weights=None,
+        input_shape=None,
+        input_tensor=None,
+        pooling=None,
+        num_classes=1000,
+        classifier_activation="softmax",
+        name="PoolFormer",
+        **kwargs,
+    ):
         if include_top and as_backbone:
             raise ValueError(
                 "Cannot use `as_backbone=True` with `include_top=True`. "
@@ -211,7 +225,7 @@ class PoolFormer(keras.Model):
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
@@ -236,17 +250,19 @@ class PoolFormer(keras.Model):
         features = []
 
         x = (
-                ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
-                if include_preprocessing
-                else inputs
-            )
-        
+            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            if include_preprocessing
+            else inputs
+        )
+
         patch_size = 7
         stride = 4
         padding = 2
         if stride != patch_size:
-            x = layers.ZeroPadding2D(padding=padding, data_format=data_format, name="stem_pad")(x)
-        
+            x = layers.ZeroPadding2D(
+                padding=padding, data_format=data_format, name="stem_pad"
+            )(x)
+
         x = layers.Conv2D(
             filters=embed_dims[0],
             kernel_size=patch_size,
@@ -272,7 +288,7 @@ class PoolFormer(keras.Model):
                     init_scale=init_scale,
                     data_format=data_format,
                     channels_axis=channels_axis,
-                    name=f"stage_{stage_idx}_block_{block_idx}"
+                    name=f"stage_{stage_idx}_block_{block_idx}",
                 )
                 cur += 1
 
@@ -286,33 +302,37 @@ class PoolFormer(keras.Model):
                     x = layers.ZeroPadding2D(
                         padding=padding,
                         data_format=data_format,
-                        name=f"stage_{stage_idx+1}_downsample_pad"
+                        name=f"stage_{stage_idx + 1}_downsample_pad",
                     )(x)
-                
+
                 x = layers.Conv2D(
                     filters=embed_dims[stage_idx + 1],
                     kernel_size=patch_size,
                     strides=stride,
                     use_bias=True,
                     data_format=data_format,
-                    name=f"stage_{stage_idx+1}_downsample_conv",
+                    name=f"stage_{stage_idx + 1}_downsample_conv",
                 )(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.LayerNormalization(epsilon=1e-6, name="layernorm")(x)
             x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions"
+                num_classes, activation=classifier_activation, name="predictions"
             )(x)
         elif as_backbone:
             x = features
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
@@ -321,7 +341,7 @@ class PoolFormer(keras.Model):
         self.mlp_ratio = mlp_ratio
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
-        self.init_scale= init_scale
+        self.init_scale = init_scale
         self.include_top = include_top
         self.as_backbone = as_backbone
         self.include_preprocessing = include_preprocessing
@@ -369,7 +389,7 @@ def PoolFormerS12(
     num_classes=1000,
     classifier_activation="softmax",
     name="PoolFormerS12",
-    **kwargs
+    **kwargs,
 ):
     model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS12"],
@@ -384,7 +404,7 @@ def PoolFormerS12(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
@@ -395,6 +415,7 @@ def PoolFormerS12(
         print("No weights loaded.")
 
     return model
+
 
 def PoolFormerS24(
     include_top=True,
@@ -408,10 +429,9 @@ def PoolFormerS24(
     num_classes=1000,
     classifier_activation="softmax",
     name="PoolFormerS24",
-    **kwargs
+    **kwargs,
 ):
-
-    model =  PoolFormer(
+    model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS24"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -424,7 +444,7 @@ def PoolFormerS24(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        **kwargs
+        **kwargs,
     )
 
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
@@ -435,6 +455,7 @@ def PoolFormerS24(
         print("No weights loaded.")
 
     return model
+
 
 def PoolFormerS36(
     include_top=True,
@@ -448,9 +469,8 @@ def PoolFormerS36(
     num_classes=1000,
     classifier_activation="softmax",
     name="PoolFormerS36",
-    **kwargs
+    **kwargs,
 ):
-
     model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS36"],
         include_top=include_top,
@@ -464,7 +484,7 @@ def PoolFormerS36(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        **kwargs
+        **kwargs,
     )
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
@@ -474,6 +494,7 @@ def PoolFormerS36(
         print("No weights loaded.")
 
     return model
+
 
 def PoolFormerM36(
     include_top=True,
@@ -487,9 +508,8 @@ def PoolFormerM36(
     num_classes=1000,
     classifier_activation="softmax",
     name="PoolFormerM36",
-    **kwargs
+    **kwargs,
 ):
-
     model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerM36"],
         include_top=include_top,
@@ -503,7 +523,7 @@ def PoolFormerM36(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        **kwargs
+        **kwargs,
     )
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
@@ -513,6 +533,7 @@ def PoolFormerM36(
         print("No weights loaded.")
 
     return model
+
 
 def PoolFormerM48(
     include_top=True,
@@ -526,9 +547,8 @@ def PoolFormerM48(
     num_classes=1000,
     classifier_activation="softmax",
     name="PoolFormerM48",
-    **kwargs
+    **kwargs,
 ):
-
     model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerM48"],
         include_top=include_top,
@@ -542,7 +562,7 @@ def PoolFormerM48(
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        **kwargs
+        **kwargs,
     )
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)

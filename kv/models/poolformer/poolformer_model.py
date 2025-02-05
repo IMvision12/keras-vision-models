@@ -147,7 +147,7 @@ class PoolFormer(keras.Model):
 
     Args:
         embed_dims: List of integers, dimensions for each stage's embedding.
-        nb_blocks: List of integers, number of blocks in each stage.
+        num_blocks: List of integers, number of blocks in each stage.
         mlp_ratio: Float, ratio of MLP hidden dimension to embedding dimension.
             Defaults to `4.0`.
         drop_rate: Float, dropout rate applied to the MLP layers.
@@ -192,7 +192,7 @@ class PoolFormer(keras.Model):
         # PoolFormer-S12
         model = PoolFormer(
             embed_dims=[64, 128, 320, 512],
-            nb_blocks=[2, 2, 6, 2],
+            num_blocks=[2, 2, 6, 2],
             mlp_ratio=4.0,
             drop_path_rate=0.1
         )
@@ -202,7 +202,7 @@ class PoolFormer(keras.Model):
     def __init__(
         self,
         embed_dims,
-        nb_blocks,
+        num_blocks,
         mlp_ratio=4.0,
         drop_rate=0.0,
         drop_path_rate=0.0,
@@ -279,12 +279,12 @@ class PoolFormer(keras.Model):
         )(x)
         features.append(x)
 
-        total_blocks = sum(nb_blocks)
+        total_blocks = sum(num_blocks)
         dpr = [x * drop_path_rate / total_blocks for x in range(total_blocks)]
         cur = 0
 
-        for stage_idx in range(len(nb_blocks)):
-            for block_idx in range(nb_blocks[stage_idx]):
+        for stage_idx in range(len(num_blocks)):
+            for block_idx in range(num_blocks[stage_idx]):
                 x = poolformer_block(
                     x,
                     embed_dim=embed_dims[stage_idx],
@@ -300,7 +300,7 @@ class PoolFormer(keras.Model):
 
             features.append(x)
 
-            if stage_idx < len(nb_blocks) - 1:
+            if stage_idx < len(num_blocks) - 1:
                 patch_size = 3
                 stride = 2
                 padding = 1
@@ -343,7 +343,7 @@ class PoolFormer(keras.Model):
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
         self.embed_dims = embed_dims
-        self.nb_blocks = nb_blocks
+        self.num_blocks = num_blocks
         self.mlp_ratio = mlp_ratio
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
@@ -360,7 +360,7 @@ class PoolFormer(keras.Model):
     def get_config(self):
         return {
             "embed_dims": self.embed_dims,
-            "nb_blocks": self.nb_blocks,
+            "num_blocks": self.num_blocks,
             "mlp_ratio": self.mlp_ratio,
             "drop_rate": self.drop_rate,
             "drop_path_rate": self.drop_path_rate,

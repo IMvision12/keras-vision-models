@@ -21,6 +21,8 @@ def mlp_block(x, hidden_dim, embed_dim, drop_rate, data_format, name):
         hidden_dim: Number of filters in the first (hidden) convolution layer.
         embed_dim: Number of filters in the second (output) convolution layer.
         drop_rate: Dropout rate applied after each convolution layer.
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         name: Base name for the layers in this block, used for layer naming.
 
     Returns:
@@ -78,6 +80,10 @@ def poolformer_block(
         drop_path_rate: Drop path rate for stochastic depth. If 0, stochastic depth
             is disabled.
         init_scale: Initial scaling factor for the LayerScale layers.
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
+        channels_axis: int, axis along which the channels are defined (-1 for
+            'channels_last', 1 for 'channels_first').
         name: Base name used for all layers in this block.
 
     Returns:

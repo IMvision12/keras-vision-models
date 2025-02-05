@@ -69,7 +69,7 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-    torch_weight_name = re.sub(r"layerscale\.(\d+)\.variable\.\d+", r"layer_scale\1.scale", torch_weight_name)
+    torch_weight_name = re.sub(r"layerscale\.(\d+)\.variable(?:\.\d+)?$", r"layer_scale\1.scale", torch_weight_name)
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,

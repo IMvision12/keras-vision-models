@@ -354,24 +354,33 @@ def PoolFormerS12(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PoolFormerS12",
     **kwargs
 ):
-    return PoolFormer(
+    model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS12"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_shape=input_shape,
         input_tensor=input_tensor,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PoolFormerS12",
         **kwargs
     )
 
+    if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 def PoolFormerS24(
     include_top=True,
@@ -384,24 +393,34 @@ def PoolFormerS24(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PoolFormerS24",
     **kwargs
 ):
 
-    return PoolFormer(
+    model =  PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS24"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_shape=input_shape,
         input_tensor=input_tensor,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PoolFormerS24",
         **kwargs
     )
+
+    if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 def PoolFormerS36(
     include_top=True,
@@ -414,24 +433,33 @@ def PoolFormerS36(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PoolFormerS36",
     **kwargs
 ):
 
-    return PoolFormer(
+    model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS36"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_shape=input_shape,
         input_tensor=input_tensor,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PoolFormerS36",
         **kwargs
     )
+    if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 def PoolFormerM36(
     include_top=True,
@@ -444,24 +472,33 @@ def PoolFormerM36(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PoolFormerM36",
     **kwargs
 ):
 
-    return PoolFormer(
+    model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerM36"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_shape=input_shape,
         input_tensor=input_tensor,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PoolFormerM36",
         **kwargs
     )
+    if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 def PoolFormerM48(
     include_top=True,
@@ -474,21 +511,30 @@ def PoolFormerM48(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="PoolFormerM48",
     **kwargs
 ):
 
-    return PoolFormer(
+    model = PoolFormer(
         **POOLFORMER_MODEL_CONFIG["PoolFormerM48"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_shape=input_shape,
         input_tensor=input_tensor,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name="PoolFormerM48",
         **kwargs
     )
+    if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
+        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model

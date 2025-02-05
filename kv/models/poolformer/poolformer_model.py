@@ -383,6 +383,7 @@ class PoolFormer(keras.Model):
         return cls(**config)
 
 
+@register_model
 def PoolFormerS12(
     include_top=True,
     as_backbone=False,
@@ -423,6 +424,7 @@ def PoolFormerS12(
     return model
 
 
+@register_model
 def PoolFormerS24(
     include_top=True,
     as_backbone=False,
@@ -463,6 +465,7 @@ def PoolFormerS24(
     return model
 
 
+@register_model
 def PoolFormerS36(
     include_top=True,
     as_backbone=False,
@@ -502,6 +505,7 @@ def PoolFormerS36(
     return model
 
 
+@register_model
 def PoolFormerM36(
     include_top=True,
     as_backbone=False,
@@ -541,6 +545,7 @@ def PoolFormerM36(
     return model
 
 
+@register_model
 def PoolFormerM48(
     include_top=True,
     as_backbone=False,

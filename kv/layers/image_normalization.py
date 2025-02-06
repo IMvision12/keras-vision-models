@@ -1,4 +1,5 @@
 import typing
+
 from keras import layers, ops
 
 IMAGENET_DEFAULT_MEAN = (0.485, 0.456, 0.406)

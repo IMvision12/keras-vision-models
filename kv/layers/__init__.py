@@ -5,5 +5,5 @@ from .image_normalization import ImageNormalizationLayer
 from .layer_scale import LayerScale
 from .multi_head_self_attention import MultiHeadSelfAttention
 from .pos_embedding import AddPositionEmbs
-from .stochastic_depth import StochasticDepth
 from .std_conv2d import StdConv2D
+from .stochastic_depth import StochasticDepth

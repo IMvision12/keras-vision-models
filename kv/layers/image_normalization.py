@@ -1,8 +1,6 @@
 import typing
-
 from keras import layers, ops
 
-# Standard preprocessing constants for various models
 IMAGENET_DEFAULT_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_DEFAULT_STD = (0.229, 0.224, 0.225)
 IMAGENET_INCEPTION_MEAN = (0.5, 0.5, 0.5)
@@ -13,14 +11,14 @@ OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
 OPENAI_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
 
 
-class ImagePreprocessingLayer(layers.Layer):
+class ImageNormalizationLayer(layers.Layer):
     """
-    Implements image preprocessing operations commonly used in computer vision models.
+    Implements image normalization  operations commonly used in computer vision models.
     This layer handles pixel value normalization and standardization using predefined
     constants for popular model architectures.
 
     Args:
-        mode (str): Preprocessing mode to use. Must be one of:
+        mode (str): Normalization  mode to use. Must be one of:
             - 'imagenet': Standard ImageNet normalization (default)
             - 'inception': Inception-style normalization
             - 'dpn': DPN model normalization
@@ -31,7 +29,7 @@ class ImagePreprocessingLayer(layers.Layer):
 
     Methods:
         call(inputs):
-            Applies the specified preprocessing to the input images.
+            Applies the specified normalization to the input images.
             Input should be in uint8 format with values in [0, 255].
         compute_output_shape(input_shape):
             Returns the shape of the output tensor.
@@ -39,7 +37,7 @@ class ImagePreprocessingLayer(layers.Layer):
             Returns a dictionary containing the configuration of the layer.
 
     Example:
-        >>> layer = ImagePreprocessingLayer(mode='imagenet')
+        >>> layer = ImageNormalizationLayer(mode='imagenet')
         >>> normalized_images = layer(raw_images)
     """
 

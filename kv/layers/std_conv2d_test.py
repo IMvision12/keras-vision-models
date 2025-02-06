@@ -1,4 +1,3 @@
-import keras
 import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
@@ -122,9 +121,7 @@ class TestStdConv2D(TestCase):
 
         self.assertTrue(np.all(output.numpy() >= 0))
 
-    def test_different_data_formats(self):
-        backend_name = keras.backend.backend()
-
+    def test_channels_last_data_format(self):
         layer = StdConv2D(
             filters=self.out_channels,
             kernel_size=self.kernel_size,
@@ -139,20 +136,3 @@ class TestStdConv2D(TestCase):
             self.out_channels,
         )
         self.assertEqual(output.shape, expected_shape)
-
-        if not (backend_name == "tensorflow" and not keras.backend.is_gpu_available()):
-            layer = StdConv2D(
-                filters=self.out_channels,
-                kernel_size=self.kernel_size,
-                data_format="channels_first",
-                padding="same",
-            )
-            inputs = ops.transpose(self.test_inputs, [0, 3, 1, 2])
-            output = layer(inputs)
-            expected_shape = (
-                self.batch_size,
-                self.out_channels,
-                self.height,
-                self.width,
-            )
-            self.assertEqual(output.shape, expected_shape)

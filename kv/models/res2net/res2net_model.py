@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer
+from kv.layers import ImageNormalizationLayer
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHTS_CONFIG
@@ -297,7 +297,7 @@ class Res2Net(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 
 from kv.layers import (
     EfficientMultiheadSelfAttention,
-    ImagePreprocessingLayer,
+    ImageNormalizationLayer,
     StochasticDepth,
 )
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
@@ -303,7 +303,7 @@ class MixTransformer(keras.Model):
         cur_block = 0
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(x)
+            ImageNormalizationLayer(mode=preprocessing_mode)(x)
             if include_preprocessing
             else x
         )

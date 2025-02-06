@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 from kv.layers import (
     AddPositionEmbs,
     ClassDistToken,
-    ImagePreprocessingLayer,
+    ImageNormalizationLayer,
     LayerScale,
     MultiHeadSelfAttention,
 )
@@ -319,7 +319,7 @@ class ViT(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

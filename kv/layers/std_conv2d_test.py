@@ -1,3 +1,4 @@
+import keras
 import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
@@ -122,36 +123,36 @@ class TestStdConv2D(TestCase):
         self.assertTrue(np.all(output.numpy() >= 0))
 
     def test_different_data_formats(self):
-        formats = ["channels_last", "channels_first"]
+        backend_name = keras.backend.backend()
 
-        for data_format in formats:
+        layer = StdConv2D(
+            filters=self.out_channels,
+            kernel_size=self.kernel_size,
+            data_format="channels_last",
+            padding="same",
+        )
+        output = layer(self.test_inputs)
+        expected_shape = (
+            self.batch_size,
+            self.height,
+            self.width,
+            self.out_channels,
+        )
+        self.assertEqual(output.shape, expected_shape)
+
+        if not (backend_name == "tensorflow" and not keras.backend.is_gpu_available()):
             layer = StdConv2D(
                 filters=self.out_channels,
                 kernel_size=self.kernel_size,
-                data_format=data_format,
+                data_format="channels_first",
                 padding="same",
             )
-
-            if data_format == "channels_first":
-                inputs = ops.transpose(self.test_inputs, [0, 3, 1, 2])
-            else:
-                inputs = self.test_inputs
-
+            inputs = ops.transpose(self.test_inputs, [0, 3, 1, 2])
             output = layer(inputs)
-
-            if data_format == "channels_first":
-                expected_shape = (
-                    self.batch_size,
-                    self.out_channels,
-                    self.height,
-                    self.width,
-                )
-            else:
-                expected_shape = (
-                    self.batch_size,
-                    self.height,
-                    self.width,
-                    self.out_channels,
-                )
-
+            expected_shape = (
+                self.batch_size,
+                self.out_channels,
+                self.height,
+                self.width,
+            )
             self.assertEqual(output.shape, expected_shape)

@@ -5,7 +5,7 @@ import keras
 from keras import initializers, layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer
+from kv.layers import ImageNormalizationLayer
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import (
@@ -444,7 +444,7 @@ class EfficientNetV2(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

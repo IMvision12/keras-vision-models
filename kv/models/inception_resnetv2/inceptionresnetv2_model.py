@@ -3,7 +3,7 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
-from kv.layers import ImagePreprocessingLayer
+from kv.layers import ImageNormalizationLayer
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import INCEPTIONRESNETV2_WEIGHTS_CONFIG
@@ -252,7 +252,7 @@ class InceptionResNetV2Main(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

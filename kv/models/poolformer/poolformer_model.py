@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer, LayerScale, StochasticDepth
+from kv.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_CONFIG
@@ -256,7 +256,7 @@ class PoolFormer(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

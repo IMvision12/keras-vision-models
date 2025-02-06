@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .image_preprocessing import (
+from .image_normalization import (
     IMAGENET_DEFAULT_MEAN,
     IMAGENET_DEFAULT_STD,
     IMAGENET_DPN_MEAN,
@@ -12,11 +12,11 @@ from .image_preprocessing import (
     IMAGENET_INCEPTION_STD,
     OPENAI_CLIP_MEAN,
     OPENAI_CLIP_STD,
-    ImagePreprocessingLayer,
+    ImageNormalizationLayer,
 )
 
 
-class TestImagePreprocessingLayer(TestCase):
+class TestImageNormalizationLayer(TestCase):
     def setUp(self):
         super().setUp()
         self.batch_size = 4
@@ -41,15 +41,15 @@ class TestImagePreprocessingLayer(TestCase):
             "minus_one_to_one",
         ]
         for mode in modes:
-            layer = ImagePreprocessingLayer(mode=mode)
+            layer = ImageNormalizationLayer(mode=mode)
             self.assertEqual(layer.mode, mode)
 
     def test_invalid_mode(self):
         with self.assertRaises(ValueError):
-            ImagePreprocessingLayer(mode="invalid_mode")
+            ImageNormalizationLayer(mode="invalid_mode")
 
     def test_imagenet_preprocessing(self):
-        layer = ImagePreprocessingLayer(mode="imagenet")
+        layer = ImageNormalizationLayer(mode="imagenet")
         output = layer(self.test_inputs)
         self.assertEqual(output.shape, self.input_shape)
         output_np = output.numpy()
@@ -60,7 +60,7 @@ class TestImagePreprocessingLayer(TestCase):
         self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
 
     def test_inception_preprocessing(self):
-        layer = ImagePreprocessingLayer(mode="inception")
+        layer = ImageNormalizationLayer(mode="inception")
         output = layer(self.test_inputs)
         output_np = output.numpy()
         inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
@@ -70,7 +70,7 @@ class TestImagePreprocessingLayer(TestCase):
         self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
 
     def test_dpn_preprocessing(self):
-        layer = ImagePreprocessingLayer(mode="dpn")
+        layer = ImageNormalizationLayer(mode="dpn")
         output = layer(self.test_inputs)
         output_np = output.numpy()
         inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
@@ -80,7 +80,7 @@ class TestImagePreprocessingLayer(TestCase):
         self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
 
     def test_clip_preprocessing(self):
-        layer = ImagePreprocessingLayer(mode="clip")
+        layer = ImageNormalizationLayer(mode="clip")
         output = layer(self.test_inputs)
         output_np = output.numpy()
         inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
@@ -90,7 +90,7 @@ class TestImagePreprocessingLayer(TestCase):
         self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
 
     def test_zero_to_one_preprocessing(self):
-        layer = ImagePreprocessingLayer(mode="zero_to_one")
+        layer = ImageNormalizationLayer(mode="zero_to_one")
         output = layer(self.test_inputs)
 
         output_np = output.numpy()
@@ -102,7 +102,7 @@ class TestImagePreprocessingLayer(TestCase):
         self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
 
     def test_minus_one_to_one_preprocessing(self):
-        layer = ImagePreprocessingLayer(mode="minus_one_to_one")
+        layer = ImageNormalizationLayer(mode="minus_one_to_one")
         output = layer(self.test_inputs)
 
         output_np = output.numpy()
@@ -119,7 +119,7 @@ class TestImagePreprocessingLayer(TestCase):
             (8, 32, 32, 3),
         ]
 
-        layer = ImagePreprocessingLayer(mode="imagenet")
+        layer = ImageNormalizationLayer(mode="imagenet")
 
         for shape in test_shapes:
             inputs = ops.cast(keras.random.uniform(shape, 0, 255), dtype="uint8")
@@ -127,17 +127,17 @@ class TestImagePreprocessingLayer(TestCase):
             self.assertEqual(output.shape, shape)
 
     def test_get_config(self):
-        layer = ImagePreprocessingLayer(mode="imagenet")
+        layer = ImageNormalizationLayer(mode="imagenet")
         config = layer.get_config()
 
         self.assertIn("mode", config)
         self.assertEqual(config["mode"], "imagenet")
 
-        reconstructed_layer = ImagePreprocessingLayer.from_config(config)
+        reconstructed_layer = ImageNormalizationLayer.from_config(config)
         self.assertEqual(reconstructed_layer.mode, "imagenet")
 
     def test_output_dtypes(self):
-        layer = ImagePreprocessingLayer(mode="imagenet")
+        layer = ImageNormalizationLayer(mode="imagenet")
         output = layer(self.test_inputs)
         self.assertEqual(output.dtype, "float32")
 

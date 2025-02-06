@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 from kv.layers import (
     AddPositionEmbs,
     ClassDistToken,
-    ImagePreprocessingLayer,
+    ImageNormalizationLayer,
     MultiHeadSelfAttention,
 )
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
@@ -297,7 +297,7 @@ class PoolingVisionTransformer(keras.Model):
         features = []
 
         if include_preprocessing:
-            x = ImagePreprocessingLayer(mode=preprocessing_mode)(x)
+            x = ImageNormalizationLayer(mode=preprocessing_mode)(x)
 
         x = layers.Conv2D(
             filters=embed_dim[0],

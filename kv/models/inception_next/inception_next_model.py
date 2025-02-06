@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer, LayerScale
+from kv.layers import ImageNormalizationLayer, LayerScale
 from kv.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHTS_CONFIG
@@ -242,7 +242,7 @@ class InceptionNeXt(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

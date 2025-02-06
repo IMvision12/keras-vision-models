@@ -3,7 +3,7 @@ import numpy as np
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImagePreprocessingLayer
+from kv.layers import ImageNormalizationLayer
 from kv.layers.global_response_norm import GlobalResponseNorm
 from kv.layers.layer_scale import LayerScale
 from kv.layers.stochastic_depth import StochasticDepth
@@ -211,7 +211,7 @@ class ConvNeXt(keras.Model):
         features = []
 
         x = (
-            ImagePreprocessingLayer(mode=preprocessing_mode)(inputs)
+            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
             if include_preprocessing
             else inputs
         )

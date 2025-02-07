@@ -114,6 +114,7 @@ def ResNeXt50_32x4d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNeXt50_32x4d",
     **kwargs,
 ):
     model = ResNet(
@@ -127,6 +128,7 @@ def ResNeXt50_32x4d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -159,6 +161,7 @@ def ResNeXt101_32x4d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNeXt101_32x4d",
     **kwargs,
 ):
     model = ResNet(
@@ -172,6 +175,7 @@ def ResNeXt101_32x4d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -204,6 +208,7 @@ def ResNeXt101_32x8d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNeXt101_32x8d",
     **kwargs,
 ):
     model = ResNet(
@@ -217,6 +222,7 @@ def ResNeXt101_32x8d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -249,6 +255,7 @@ def ResNeXt101_32x16d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNeXt101_32x16d",
     **kwargs,
 ):
     model = ResNet(
@@ -262,6 +269,7 @@ def ResNeXt101_32x16d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -294,6 +302,7 @@ def ResNeXt101_32x32d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNeXt101_32x16d",
     **kwargs,
 ):
     model = ResNet(
@@ -307,6 +316,7 @@ def ResNeXt101_32x32d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,

@@ -1,4 +1,3 @@
-import re
 from typing import Dict, List, Union
 
 import keras
@@ -6,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.poolformer import PoolFormerS12
+from kv.models.resnetv2 import ResNetV2_50x1
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -17,24 +16,29 @@ from kv.utils.weight_transfer_torch_to_keras import (
 
 weight_name_mapping = {
     "_": ".",
-    "stage": "stages",
-    "block": "blocks",
-    "conv.1": "fc1",
-    "conv.2": "fc2",
     "groupnorm.1": "norm1",
     "groupnorm.2": "norm2",
+    "groupnorm.3": "norm3",
+    "groupnorm": "norm",
+    "batchnorm.1": "norm1",
+    "batchnorm.2": "norm2",
+    "batchnorm.3": "norm3",
+    "batchnorm": "norm",
+    "conv.1": "conv1",
+    "conv.2": "conv2",
+    "conv.3": "conv3",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "bias": "bias",
+    "moving.mean": "running_mean",
+    "moving.variance": "running_var",
     "predictions": "head.fc",
-    "layernorm": "head.norm",
 }
-
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": PoolFormerS12,
-    "torch_model_name": "poolformer_s12",
-    "input_shape": [224, 224, 3],
+    "keras_model_cls": ResNetV2_50x1,
+    "torch_model_name": "resnetv2_50x1_bitm",
+    "input_shape": [224, 224, 3],  # resnetv2_152x4 => 480
     "num_classes": 1000,
     "include_top": True,
     "include_preprocessing": False,
@@ -55,7 +59,6 @@ torch_model: torch.nn.Module = timm.create_model(
     model_config["torch_model_name"], pretrained=True
 ).eval()
 
-
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
     torch_model
 )
@@ -69,16 +72,18 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-    torch_weight_name = re.sub(
-        r"layerscale\.(\d+)\.variable(?:\.\d+)?$",
-        r"layer_scale\1.scale",
-        torch_weight_name,
-    )
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,
         **non_trainable_torch_weights,
     }
+
+    if "head.fc.weight" in torch_weight_name:
+        torch_weight = torch_weights_dict[torch_weight_name]
+        weight_numpy = torch_weight.detach().cpu().numpy()
+        weight_numpy = weight_numpy.squeeze().T
+        keras_weight.assign(weight_numpy)
+        continue
 
     if torch_weight_name not in torch_weights_dict:
         raise WeightMappingError(keras_weight_name, torch_weight_name)
@@ -104,9 +109,6 @@ test_keras_with_weights = model_config["keras_model_cls"](
 )
 test_keras_with_weights.set_weights(keras_model.get_weights())
 
-# Model confidence scores for the base variant predictions:
-# Current scores: 0.9991, 0.9916, 0.9997, 0.9999, 0.9767
-# All scores show high confidence (>97%) with the fourth prediction being the most certain
 results = verify_cls_model_equivalence(
     model_a=None,
     model_b=test_keras_with_weights,

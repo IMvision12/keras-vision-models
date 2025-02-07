@@ -434,6 +434,7 @@ def ResNet50(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNet50",
 ):
     model = ResNet(
         block_fn=globals()[RESNET_MODEL_CONFIG["ResNet50"]["block_fn"]],
@@ -444,6 +445,7 @@ def ResNet50(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -472,6 +474,7 @@ def ResNet101(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNet101",
     **kwargs,
 ):
     model = ResNet(
@@ -483,6 +486,7 @@ def ResNet101(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -513,6 +517,7 @@ def ResNet152(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="ResNet152",
     **kwargs,
 ):
     model = ResNet(
@@ -524,6 +529,7 @@ def ResNet152(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,

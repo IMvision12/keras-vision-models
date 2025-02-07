@@ -373,7 +373,7 @@ def InceptionNeXtAtto(
     **kwargs,
 ):
     model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG[name],
+        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtAtto"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -389,7 +389,9 @@ def InceptionNeXtAtto(
     )
 
     if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "InceptionNeXtAtto", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -414,7 +416,7 @@ def InceptionNeXtTiny(
     **kwargs,
 ):
     model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG[name],
+        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtTiny"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -430,7 +432,9 @@ def InceptionNeXtTiny(
     )
 
     if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "InceptionNeXtTiny", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -455,7 +459,7 @@ def InceptionNeXtSmall(
     **kwargs,
 ):
     model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG[name],
+        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtSmall"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -471,7 +475,9 @@ def InceptionNeXtSmall(
     )
 
     if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "InceptionNeXtSmall", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -496,7 +502,7 @@ def InceptionNeXtBase(
     **kwargs,
 ):
     model = InceptionNeXt(
-        **INCEPTION_NEXT_MODEL_CONFIG[name],
+        **INCEPTION_NEXT_MODEL_CONFIG["InceptionNeXtBase"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -512,7 +518,9 @@ def InceptionNeXtBase(
     )
 
     if weights in get_all_weight_names(INCEPTION_NEXT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "InceptionNeXtBase", weights, model, INCEPTION_NEXT_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:

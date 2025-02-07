@@ -426,7 +426,7 @@ def Res2Net50_26w_4s(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Net50_26w_4s"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -469,7 +469,7 @@ def Res2Net101_26w_4s(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Net101_26w_4s"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -512,7 +512,7 @@ def Res2Net50_26w_6s(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Net50_26w_6s"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -555,7 +555,7 @@ def Res2Net50_26w_8s(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Net50_26w_8s"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -598,7 +598,7 @@ def Res2Net50_48w_2s(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Net50_48w_2s"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -641,7 +641,7 @@ def Res2Net50_14w_8s(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Net50_14w_8s"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,
@@ -684,7 +684,7 @@ def Res2Next50(
     **kwargs,
 ):
     model = Res2Net(
-        **RES2NET_MODEL_CONFIG[name],
+        **RES2NET_MODEL_CONFIG["Res2Next50"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_preprocessing=include_preprocessing,

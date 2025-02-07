@@ -116,6 +116,7 @@ def preact_bottleneck(
     bottleneck_ratio=0.25,
     use_batchnorm=False,
     use_conv=False,
+    preact_inputs=True,
 ):
     """Pre-activation Bottleneck ResNet block with optional BatchNorm/GroupNorm.
 
@@ -134,6 +135,7 @@ def preact_bottleneck(
         use_batchnorm: bool, default False. Whether to use BatchNormalization instead of
             GroupNormalization.
         use_conv: bool, default False. Whether to use custom convolution implementation.
+        preact_inputs: bool, whether to apply pre-activation to inputs.
 
     Returns:
         Output tensor for the pre-activation bottleneck block.
@@ -159,7 +161,7 @@ def preact_bottleneck(
 
     if downsample:
         shortcut = conv_block(
-            preact,
+            preact if preact_inputs else x,
             filters=filters,
             kernel_size=1,
             data_format=data_format,
@@ -169,7 +171,7 @@ def preact_bottleneck(
             name=f"{block_prefix}_downsample_conv",
         )
 
-        if not preact:
+        if not preact_inputs:
             if use_batchnorm:
                 shortcut = layers.BatchNormalization(
                     axis=channels_axis,
@@ -411,6 +413,7 @@ class ResNetV2(keras.Model):
                     block_prefix=block_prefix,
                     use_batchnorm=use_batchnorm,
                     use_conv=use_conv,
+                    preact_inputs=preact,
                 )
                 block_idx += 1
             features.append(x)

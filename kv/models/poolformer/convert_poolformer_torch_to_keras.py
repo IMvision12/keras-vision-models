@@ -114,7 +114,6 @@ results = verify_cls_model_equivalence(
     output_specs={"num_classes": 1000},
     run_performance=False,
     test_imagenet_image=True,
-    prediction_threshold=0.68,
 )
 
 if not results["imagenet_test"]["all_passed"]:

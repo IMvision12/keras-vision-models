@@ -146,7 +146,6 @@ if "distilled" in str(model_config["keras_model_cls"]).lower():
         output_specs={"num_classes": 1000},
         run_performance=False,
         test_imagenet_image=True,
-        prediction_threshold=0.68,
     )
 
 

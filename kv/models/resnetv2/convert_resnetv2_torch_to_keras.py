@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kv.models.resnetv2 import ResNetV2_50
+from kv.models.resnetv2 import ResNetV2_50x1
 from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kv.utils.weight_split_torch_and_keras import split_model_weights
@@ -36,9 +36,9 @@ weight_name_mapping = {
     "predictions": "head.fc",
 }
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ResNetV2_50,
-    "torch_model_name": "resnetv2_50",
-    "input_shape": [224, 224, 3],
+    "keras_model_cls": ResNetV2_50x1,
+    "torch_model_name": "resnetv2_50x1_bitm",
+    "input_shape": [448, 448, 3],  # resnetv2_152x4 => 480
     "num_classes": 1000,
     "include_top": True,
     "include_preprocessing": False,
@@ -112,7 +112,7 @@ test_keras_with_weights.set_weights(keras_model.get_weights())
 results = verify_cls_model_equivalence(
     model_a=None,
     model_b=test_keras_with_weights,
-    input_shape=(224, 224, 3),
+    input_shape=(448, 448, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
     test_imagenet_image=True,

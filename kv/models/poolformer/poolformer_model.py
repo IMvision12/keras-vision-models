@@ -415,7 +415,9 @@ def PoolFormerS12(
     )
 
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "PoolFormerS12", weights, model, POOLFORMER_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -456,7 +458,9 @@ def PoolFormerS24(
     )
 
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "PoolFormerS24", weights, model, POOLFORMER_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -496,7 +500,9 @@ def PoolFormerS36(
         **kwargs,
     )
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "PoolFormerS36", weights, model, POOLFORMER_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -536,7 +542,9 @@ def PoolFormerM36(
         **kwargs,
     )
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "PoolFormerM36", weights, model, POOLFORMER_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -576,7 +584,9 @@ def PoolFormerM48(
         **kwargs,
     )
     if weights in get_all_weight_names(POOLFORMER_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, POOLFORMER_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "PoolFormerM48", weights, model, POOLFORMER_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:

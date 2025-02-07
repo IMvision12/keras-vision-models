@@ -463,17 +463,17 @@ def PiT_XS(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_XS", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -504,17 +504,17 @@ def PiT_XS_Distilled(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_XS_Distilled", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -545,17 +545,17 @@ def PiT_Ti(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_Ti", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -586,17 +586,17 @@ def PiT_Ti_Distilled(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_Ti_Distilled", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -627,17 +627,17 @@ def PiT_S(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_S", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -668,17 +668,17 @@ def PiT_S_Distilled(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_S_Distilled", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -709,17 +709,17 @@ def PiT_B(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_B", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -749,17 +749,17 @@ def PiT_B_Distilled(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
-        name=name,
         **kwargs,
     )
 
     if weights in get_all_weight_names(PIT_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, PIT_WEIGHTS_CONFIG)
+        load_weights_from_config("PiT_B_Distilled", weights, model, PIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

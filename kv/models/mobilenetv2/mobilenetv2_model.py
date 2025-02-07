@@ -404,7 +404,9 @@ def MobileNetV2WM50(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "MobileNetV2WM50", weights, model, MOBILENETV2_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -445,7 +447,9 @@ def MobileNetV2WM100(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "MobileNetV2WM100", weights, model, MOBILENETV2_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -486,7 +490,9 @@ def MobileNetV2WM110(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "MobileNetV2WM110", weights, model, MOBILENETV2_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -527,7 +533,9 @@ def MobileNetV2WM120(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "MobileNetV2WM120", weights, model, MOBILENETV2_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -568,7 +576,9 @@ def MobileNetV2WM140(
     )
 
     if weights in get_all_weight_names(MOBILENETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, MOBILENETV2_WEIGHTS_CONFIG)
+        load_weights_from_config(
+            "MobileNetV2WM140", weights, model, MOBILENETV2_WEIGHTS_CONFIG
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:

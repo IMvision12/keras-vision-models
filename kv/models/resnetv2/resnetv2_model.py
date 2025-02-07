@@ -395,7 +395,7 @@ class ResNetV2(keras.Model):
         )(x)
         features.append(x)
 
-        dpr = [x for x in np.linspace(0.0, drop_path_rate, sum(block_repeats))]
+        dpr = list(x for x in np.linspace(0.0, drop_path_rate, sum(block_repeats)))
         block_idx = 0
 
         for stage_idx in range(len(block_repeats)):

@@ -26,6 +26,7 @@ def SEResNet50(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="SEResNet50",
     **kwargs,
 ):
     model = ResNet(
@@ -37,6 +38,7 @@ def SEResNet50(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -67,6 +69,7 @@ def SEResNeXt50_32x4d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="SEResNeXt50_32x4d",
     **kwargs,
 ):
     model = ResNet(
@@ -81,6 +84,7 @@ def SEResNeXt50_32x4d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -113,6 +117,7 @@ def SEResNeXt101_32x4d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="SEResNeXt101_32x4d",
     **kwargs,
 ):
     model = ResNet(
@@ -127,6 +132,7 @@ def SEResNeXt101_32x4d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,
@@ -159,6 +165,7 @@ def SEResNeXt101_32x8d(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
+    name="SEResNeXt101_32x8d",
     **kwargs,
 ):
     model = ResNet(
@@ -173,6 +180,7 @@ def SEResNeXt101_32x8d(
         include_preprocessing=include_preprocessing,
         preprocessing_mode=preprocessing_mode,
         weights=weights,
+        name=name,
         input_tensor=input_tensor,
         input_shape=input_shape,
         pooling=pooling,

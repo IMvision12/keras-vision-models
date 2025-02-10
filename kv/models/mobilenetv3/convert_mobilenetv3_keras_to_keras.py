@@ -1,5 +1,4 @@
 import keras
-import tensorflow as tf
 
 from kv.models.mobilenetv3 import MobileNetV3Small075
 from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
@@ -28,7 +27,7 @@ custom_model = MobileNetV3Small075(
     weights=None,
     input_shape=model_config["input_shape"],
     include_top=model_config["include_top"],
-    include_normalization=False,
+    include_normalization=model_config["include_normalization"],
     classifier_activation=model_config["classifier_activation"],
 )
 

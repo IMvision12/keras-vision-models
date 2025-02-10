@@ -30,6 +30,7 @@ def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
         new_v += divisor
     return new_v
 
+
 def inverted_residual_block(
     x,
     expansion_ratio,
@@ -129,9 +130,7 @@ def inverted_residual_block(
 
     if se_ratio:
         x_se = layers.GlobalAveragePooling2D(
-            keepdims=True, 
-            data_format=data_format,
-            name=f"{prefix}_se_pool"
+            keepdims=True, data_format=data_format, name=f"{prefix}_se_pool"
         )(x)
         x_se = layers.Conv2D(
             make_divisible(expanded_filters * se_ratio),
@@ -169,6 +168,7 @@ def inverted_residual_block(
     if stride == 1 and input_filters == filters:
         x = layers.Add(name=f"{prefix}_add")([shortcut, x])
     return x
+
 
 @keras.saving.register_keras_serializable(package="kv")
 class MobileNetV3(keras.Model):
@@ -224,6 +224,7 @@ class MobileNetV3(keras.Model):
     - New activation functions (h-swish)
     - Platform-aware NAS for optimized inference
     """
+
     def __init__(
         self,
         width_multiplier=1.0,
@@ -252,16 +253,15 @@ class MobileNetV3(keras.Model):
 
         if config not in ["large", "small"]:
             raise ValueError(
-                "Invalid model type. Expected 'large' or 'small', "
-                f"got {config}"
+                f"Invalid model type. Expected 'large' or 'small', got {config}"
             )
 
         if config == "small":
             default_config = [
                 # [expansion_ratio, filters, kernel_size, stride, se_ratio, activation]
                 [1, 16, 3, 2, 0.25, "relu"],
-                [72.0/16, 24, 3, 2, None, "relu"],
-                [88.0/24, 24, 3, 1, None, "relu"],
+                [72.0 / 16, 24, 3, 2, None, "relu"],
+                [88.0 / 24, 24, 3, 1, None, "relu"],
                 [4, 40, 5, 2, 0.25, "hard_swish"],
                 [6, 40, 5, 1, 0.25, "hard_swish"],
                 [6, 40, 5, 1, 0.25, "hard_swish"],
@@ -337,11 +337,15 @@ class MobileNetV3(keras.Model):
             momentum=0.999,
             name="stem_batchnorm",
         )(x)
-        x = layers.Activation("hard_swish" if not minimal else "relu", name="stem_activation")(x)
+        x = layers.Activation(
+            "hard_swish" if not minimal else "relu", name="stem_activation"
+        )(x)
         features.append(x)
-        
+
         for idx, layer_config in enumerate(default_config):
-            expansion_ratio, filters, kernel_size, stride, se_ratio, activation = layer_config
+            expansion_ratio, filters, kernel_size, stride, se_ratio, activation = (
+                layer_config
+            )
 
             if minimal:
                 kernel_size = 3
@@ -363,7 +367,7 @@ class MobileNetV3(keras.Model):
             features.append(x)
 
         final_conv_head_channels = make_divisible(x.shape[channels_axis] * 6)
-        
+
         x = layers.Conv2D(
             final_conv_head_channels,
             kernel_size=1,
@@ -378,11 +382,15 @@ class MobileNetV3(keras.Model):
             momentum=0.999,
             name="final_batchnorm",
         )(x)
-        x = layers.Activation("hard_swish" if not minimal else "relu", name="final_activation")(x)
+        x = layers.Activation(
+            "hard_swish" if not minimal else "relu", name="final_activation"
+        )(x)
         features.append(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, keepdims=True, name="head_pool")(x)
+            x = layers.GlobalAveragePooling2D(
+                data_format=data_format, keepdims=True, name="head_pool"
+            )(x)
             x = layers.Conv2D(
                 head_channels,
                 kernel_size=1,
@@ -396,7 +404,11 @@ class MobileNetV3(keras.Model):
             if dropout_rate > 0:
                 x = layers.Dropout(dropout_rate, "head_dropout")(x)
             x = layers.Conv2D(
-                num_classes, kernel_size=1, padding="same", data_format=data_format, name="predictions"
+                num_classes,
+                kernel_size=1,
+                padding="same",
+                data_format=data_format,
+                name="predictions",
             )(x)
             x = layers.Flatten()(x)
             x = layers.Activation(
@@ -406,9 +418,13 @@ class MobileNetV3(keras.Model):
             x = features
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+                x = layers.GlobalAveragePooling2D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
@@ -428,21 +444,23 @@ class MobileNetV3(keras.Model):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "width_multiplier": self.width_multiplier,
-            "depth_multiplier": self.depth_multiplier,
-            "config": self.config,
-            "minimal": self.minimal,
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "dropout_rate": self.dropout_rate,
-        })
+        config.update(
+            {
+                "width_multiplier": self.width_multiplier,
+                "depth_multiplier": self.depth_multiplier,
+                "config": self.config,
+                "minimal": self.minimal,
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "dropout_rate": self.dropout_rate,
+            }
+        )
         return config
 
 

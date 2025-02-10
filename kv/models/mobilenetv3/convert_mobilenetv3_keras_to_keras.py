@@ -19,9 +19,9 @@ original_model = keras.applications.MobileNetV3Small(
     alpha=model_config["alpha"],
     minimalistic=model_config["minimalistic"],
     include_top=model_config["include_top"],
-    weights='imagenet',
+    weights="imagenet",
     classifier_activation=model_config["classifier_activation"],
-    include_preprocessing=model_config["include_preprocessing"]
+    include_preprocessing=model_config["include_preprocessing"],
 )
 
 custom_model = MobileNetV3Small075(

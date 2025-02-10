@@ -1,5 +1,5 @@
 import keras
-from keras import layers, ops, utils
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kv.layers import ImageNormalizationLayer
@@ -31,244 +31,142 @@ def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
     return new_v
 
 
-def depth_separation_block(
-    inputs,
-    filters,
-    kernel_size,
-    strides,
-    se_ratio,
-    activation,
-    residual_connection,
-    channels_axis,
-    data_format,
-    block_name,
-    minimal=False,
-):
-    """A building block for MobileNetV3-style architectures using depth-separable convolutions.
-
-    Args:
-        inputs: Input tensor.
-        filters: Integer, the number of output filters for the pointwise convolution.
-        kernel_size: Integer, the size of the depthwise convolution kernel.
-        strides: Integer, the stride of the depthwise convolution.
-        se_ratio: Float, squeeze and excitation ratio. If 0 or None, no SE block is added.
-        activation: String or callable, the activation function to use.
-            Can be 'relu', 'h_swish', or a custom activation function.
-        residual_connection: Boolean, whether to add a residual connection if input
-            and output shapes match.
-        channels_axis: Integer, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        data_format: String, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        block_name: String, unique identifier for the block used in layer names.
-        minimal: Boolean, whether to use the minimal version of the block with reduced
-            operators. Defaults to False.
-
-    Returns:
-        Output tensor for the block.
-
-    The block consists of the following operations:
-    1. Depthwise convolution
-    2. Batch normalization and activation
-    3. Squeeze-and-Excitation module (if se_ratio > 0)
-    4. Pointwise convolution (1x1)
-    5. Residual connection (if enabled and shapes match)
-
-    When minimal=True, certain optimizations are applied to reduce computation while
-    maintaining similar accuracy.
-    """
-    x = inputs
-
-    x = layers.DepthwiseConv2D(
-        kernel_size,
-        strides,
-        padding="same",
-        use_bias=False,
-        data_format=data_format,
-        name=f"{block_name}_dwconv",
-    )(x)
-
-    x = layers.BatchNormalization(
-        axis=channels_axis, momentum=0.9, epsilon=1e-3, name=f"{block_name}_batchnorm_1"
-    )(x)
-
-    if activation is not None:
-        x = layers.Activation(activation, name=f"{block_name}_act")(x)
-
-    if se_ratio > 0 and not minimal:
-        se_input_channels = x.shape[channels_axis]
-        se_channels = make_divisible(se_input_channels * se_ratio, 8)
-
-        se = layers.GlobalAveragePooling2D(
-            data_format=data_format, keepdims=True, name=f"{block_name}_se_pool"
-        )(x)
-
-        se = layers.Conv2D(
-            se_channels,
-            1,
-            use_bias=True,
-            data_format=data_format,
-            name=f"{block_name}_se_conv_reduce",
-        )(se)
-
-        se = layers.Activation("relu", name=f"{block_name}_se_act_1")(se)
-
-        se = layers.Conv2D(
-            se_input_channels,
-            1,
-            use_bias=True,
-            data_format=data_format,
-            name=f"{block_name}_se_conv_expand",
-        )(se)
-
-        se = layers.Activation("hard_sigmoid", name=f"{block_name}_se_act_2")(se)
-
-        x = layers.Multiply(name=f"{block_name}_multiply")([x, se])
-
-    x = layers.Conv2D(
-        filters,
-        1,
-        1,
-        padding="same",
-        use_bias=False,
-        data_format=data_format,
-        name=f"{block_name}_conv_pw",
-    )(x)
-
-    x = layers.BatchNormalization(
-        axis=channels_axis, momentum=0.9, epsilon=1e-3, name=f"{block_name}_batchnorm_2"
-    )(x)
-
-    if residual_connection:
-        x = layers.Add(name=f"{block_name}_add")([x, inputs])
-
-    return x
-
-
 def inverted_residual_block(
-    inputs,
+    x,
+    expansion_ratio,
     filters,
     kernel_size,
-    strides,
-    expansion_ratio,
+    stride,
     se_ratio,
     activation,
-    channels_axis,
+    block_id,
     data_format,
-    block_name,
-    minimal=False,
+    channels_axis,
 ):
-    """A building block for MobileNetV3-style architectures using inverted residuals with squeeze-excitation.
+    """A building block for MobileNetV3-style architectures using inverted residuals with optional squeeze-and-excitation.
+
+    This block implements an inverted residual structure where the input is first expanded
+    through a 1x1 convolution, then processed with a depthwise convolution, optionally
+    enhanced with squeeze-and-excitation, and finally projected back to a smaller size
+    through another 1x1 convolution. If input and output shapes match and stride is 1,
+    a residual connection is added.
 
     Args:
-        inputs: Input tensor.
-        filters: Integer, the number of output filters for the pointwise convolution.
-        kernel_size: Integer, the size of the depthwise convolution kernel.
-        strides: Integer, the stride of the depthwise convolution.
-        expansion_ratio: Float, the expansion factor applied to the input channels.
-        se_ratio: Float, squeeze and excitation ratio. If 0 or None, no SE block is added.
-        activation: String or callable, the activation function to use.
-            Can be 'relu', 'h_swish', or a custom activation function.
-        channels_axis: Integer, axis along which the channels are defined (-1 for
+        x: Input tensor.
+        expansion_ratio: float, the expansion multiplier for the input channels in the first 1x1 conv.
+            If 1, the expansion phase is skipped.
+        filters: int, the number of output filters for the final pointwise convolution.
+        kernel_size: int, the size of the depthwise convolution kernel.
+        stride: int, the stride of the depthwise convolution. Must be either 1 or 2.
+        se_ratio: float or None, squeeze-and-excitation ratio. If None, no SE is applied.
+            If float, should be between 0 and 1, representing the ratio of channels to use
+            in the SE block relative to the expanded filters.
+        activation: str or callable, the activation function to use after expansions
+            and depthwise convolutions.
+        block_id: int, unique identifier for the block used in layer naming.
+        data_format: str, either 'channels_first' or 'channels_last', specifies the
+            input data format.
+        channels_axis: int, axis along which the channels are defined (-1 for
             'channels_last', 1 for 'channels_first').
-        data_format: String, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        block_name: String, unique identifier for the block used in layer names.
-        minimal: Boolean, whether to use the minimal version of the block with reduced
-            operators. Defaults to False.
 
     Returns:
-        Output tensor for the block.
+        Output tensor for the block. If stride=1 and input/output channels match,
+        includes a residual connection.
 
-    The block consists of the following operations:
-    1. Expansion convolution (1x1)
-    2. Depthwise convolution
-    3. Squeeze-and-Excitation module (if se_ratio > 0)
-    4. Projection convolution (1x1)
-
-    When minimal=True, certain optimizations are applied to reduce computation while
-    maintaining similar accuracy.
+    Notes:
+        - The block follows MobileNetV3 architecture improvements including:
+          * Optional squeeze-and-excitation
+          * Hard sigmoid activation in SE blocks
+          * Configurable activation functions
+        - All convolution layers use same padding except when stride=2
+        - Batch normalization uses epsilon=1e-3 and momentum=0.999
+        - The make_divisible function should be imported separately to ensure channel
+          counts are efficiently aligned with hardware
     """
-    residual_connection = strides == 1 and inputs.shape[channels_axis] == filters
-    x = inputs
+    shortcut = x
+    prefix = f"ir_block_{block_id}"
+    input_filters = x.shape[channels_axis]
+    expanded_filters = make_divisible(input_filters * expansion_ratio)
 
-    x = layers.Conv2D(
-        make_divisible(inputs.shape[channels_axis] * expansion_ratio),
-        1,
-        1,
-        padding="same",
-        use_bias=False,
-        data_format=data_format,
-        name=f"{block_name}_conv_pw",
-    )(x)
+    if expansion_ratio != 1:
+        x = layers.Conv2D(
+            expanded_filters,
+            kernel_size=1,
+            padding="same",
+            use_bias=False,
+            data_format=data_format,
+            name=f"{prefix}_conv_pw",
+        )(x)
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-3,
+            momentum=0.999,
+            name=f"{prefix}_batchnorm_1",
+        )(x)
+        x = layers.Activation(activation, name=f"{prefix}_activation_1")(x)
 
-    x = layers.BatchNormalization(
-        axis=channels_axis, momentum=0.9, epsilon=1e-3, name=f"{block_name}_batchnorm_1"
-    )(x)
-
-    if activation is not None:
-        x = layers.Activation(activation)(x)
+    if stride == 1:
+        pad_h = pad_w = kernel_size // 2
+        x = layers.ZeroPadding2D(data_format=data_format, padding=(pad_h, pad_w))(x)
+        padding = "valid"
+    else:
+        padding = "same"
 
     x = layers.DepthwiseConv2D(
         kernel_size,
-        strides,
-        padding="same",
+        strides=stride,
+        padding=padding,
         use_bias=False,
         data_format=data_format,
-        name=f"{block_name}_dwconv",
+        name=f"{prefix}_dwconv",
     )(x)
-
     x = layers.BatchNormalization(
-        axis=channels_axis, momentum=0.9, epsilon=1e-3, name=f"{block_name}_batchnorm_2"
+        axis=channels_axis,
+        epsilon=1e-3,
+        momentum=0.999,
+        name=f"{prefix}_batchnorm_2",
     )(x)
+    x = layers.Activation(activation, name=f"{prefix}_activation_2")(x)
 
-    if activation is not None:
-        x = layers.Activation(activation, name=f"{block_name}_act")(x)
-
-    if se_ratio > 0 and not minimal:
-        se = layers.GlobalAveragePooling2D(
-            data_format=data_format, keepdims=True, name=f"{block_name}_se_pool"
+    if se_ratio:
+        x_se = layers.GlobalAveragePooling2D(
+            keepdims=True, data_format=data_format, name=f"{prefix}_se_pool"
         )(x)
-
-        se = layers.Conv2D(
-            make_divisible(x.shape[channels_axis] * se_ratio, 8),
-            1,
-            use_bias=True,
+        x_se = layers.Conv2D(
+            make_divisible(expanded_filters * se_ratio),
+            kernel_size=1,
+            padding="same",
             data_format=data_format,
-            name=f"{block_name}_se_conv_reduce",
-        )(se)
-
-        se = layers.Activation("relu", name=f"{block_name}_se_act_1")(se)
-
-        se = layers.Conv2D(
-            x.shape[channels_axis],
-            1,
-            use_bias=True,
+            name=f"{prefix}_se_conv_1",
+        )(x_se)
+        x_se = layers.ReLU(name=f"{prefix}_se_activation_1")(x_se)
+        x_se = layers.Conv2D(
+            expanded_filters,
+            kernel_size=1,
+            padding="same",
             data_format=data_format,
-            name=f"{block_name}_se_conv_expand",
-        )(se)
-
-        se = layers.Activation("hard_sigmoid", name=f"{block_name}_se_act_2")(se)
-
-        x = layers.Multiply(name=f"{block_name}_multiply")([x, se])
+            name=f"{prefix}_se_conv_2",
+        )(x_se)
+        x_se = layers.Activation("hard_sigmoid", name=f"{prefix}_se_activation_2")(x_se)
+        x = layers.Multiply(name=f"{prefix}_se_multiply")([x, x_se])
 
     x = layers.Conv2D(
         filters,
-        1,
-        1,
+        kernel_size=1,
         padding="same",
         use_bias=False,
         data_format=data_format,
-        name=f"{block_name}_conv_pwl",
+        name=f"{prefix}_conv_pwl",
     )(x)
-
     x = layers.BatchNormalization(
-        axis=channels_axis, momentum=0.9, epsilon=1e-3, name=f"{block_name}_batchnorm_3"
+        axis=channels_axis,
+        epsilon=1e-3,
+        momentum=0.999,
+        name=f"{prefix}_batchnorm_3",
     )(x)
 
-    if residual_connection:
-        x = layers.Add(name=f"{block_name}_add")([x, inputs])
-
+    if stride == 1 and input_filters == filters:
+        x = layers.Add(name=f"{prefix}_add")([shortcut, x])
     return x
 
 
@@ -298,10 +196,10 @@ class MobileNetV3(keras.Model):
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to True.
         normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'inception' (default), 'imagenet', 'dpn', 'clip', 'zero_to_one', or
             'minus_one_to_one'. Only used when include_normalization=True.
         weights: String, specifying the path to pretrained weights or one of the
-            available options in keras-vision. Defaults to "in1k".
+            available options in keras-vision. Defaults to "imagenet".
         input_tensor: Optional Keras tensor (output of layers.Input()) to use as
             the model's input. If not provided, a new input tensor is created based
             on input_shape.
@@ -331,19 +229,20 @@ class MobileNetV3(keras.Model):
         self,
         width_multiplier=1.0,
         depth_multiplier=1.0,
-        config="small",
+        config="large",
         minimal=False,
         include_top=True,
         as_backbone=False,
         include_normalization=True,
-        normalization_mode="imagenet",
-        weights="in1k",
+        normalization_mode="inception",
+        weights="imagenet",
         input_tensor=None,
         input_shape=None,
         pooling=None,
         num_classes=1000,
         classifier_activation="softmax",
-        name="MobileNetV2",
+        dropout_rate=0.2,
+        name="MobileNetV3",
         **kwargs,
     ):
         if include_top and as_backbone:
@@ -352,11 +251,47 @@ class MobileNetV3(keras.Model):
                 f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
 
-        if pooling is not None and pooling not in ["avg", "max"]:
+        if config not in ["large", "small"]:
             raise ValueError(
-                "The `pooling` argument should be one of 'avg', 'max', or None. "
-                f"Received: pooling={pooling}"
+                f"Invalid model type. Expected 'large' or 'small', got {config}"
             )
+
+        if config == "small":
+            default_config = [
+                # [expansion_ratio, filters, kernel_size, stride, se_ratio, activation]
+                [1, 16, 3, 2, 0.25, "relu"],
+                [72.0 / 16, 24, 3, 2, None, "relu"],
+                [88.0 / 24, 24, 3, 1, None, "relu"],
+                [4, 40, 5, 2, 0.25, "hard_swish"],
+                [6, 40, 5, 1, 0.25, "hard_swish"],
+                [6, 40, 5, 1, 0.25, "hard_swish"],
+                [3, 48, 5, 1, 0.25, "hard_swish"],
+                [3, 48, 5, 1, 0.25, "hard_swish"],
+                [6, 96, 5, 2, 0.25, "hard_swish"],
+                [6, 96, 5, 1, 0.25, "hard_swish"],
+                [6, 96, 5, 1, 0.25, "hard_swish"],
+            ]
+            head_channels = 1024
+        else:
+            default_config = [
+                # [expansion_ratio, filters, kernel_size, stride, se_ratio, activation]
+                [1, 16, 3, 1, None, "relu"],
+                [4, 24, 3, 2, None, "relu"],
+                [3, 24, 3, 1, None, "relu"],
+                [3, 40, 5, 2, 0.25, "relu"],
+                [3, 40, 5, 1, 0.25, "relu"],
+                [3, 40, 5, 1, 0.25, "relu"],
+                [6, 80, 3, 2, None, "hard_swish"],
+                [2.5, 80, 3, 1, None, "hard_swish"],
+                [2.3, 80, 3, 1, None, "hard_swish"],
+                [2.3, 80, 3, 1, None, "hard_swish"],
+                [6, 112, 3, 1, 0.25, "hard_swish"],
+                [6, 112, 3, 1, 0.25, "hard_swish"],
+                [6, 160, 5, 2, 0.25, "hard_swish"],
+                [6, 160, 5, 1, 0.25, "hard_swish"],
+                [6, 160, 5, 1, 0.25, "hard_swish"],
+            ]
+            head_channels = 1280
 
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
@@ -381,165 +316,103 @@ class MobileNetV3(keras.Model):
         inputs = img_input
         features = []
 
-        if config == "small":
-            default_config = [
-                [["depthwise_separable", 1, 3, 2, 1.0, 16, 0.25]],
-                [
-                    ["inverted_residual", 1, 3, 2, 4.5, 24, 0.0],
-                    ["inverted_residual", 1, 3, 1, 3.67, 24, 0.0],
-                ],
-                [
-                    ["inverted_residual", 1, 5, 2, 4.0, 40, 0.25],
-                    ["inverted_residual", 2, 5, 1, 6.0, 40, 0.25],
-                ],
-                [["inverted_residual", 2, 5, 1, 3.0, 48, 0.25]],
-                [["inverted_residual", 3, 5, 2, 6.0, 96, 0.25]],
-                [["conv_normal", 1, 1, 1, 1.0, 576, 0.0]],
-            ]
-            head_channels = 1024
-        elif config == "large":
-            default_config = [
-                [["depthwise_separable", 1, 3, 1, 1.0, 16, 0.0]],
-                [
-                    ["inverted_residual", 1, 3, 2, 4.0, 24, 0.0],
-                    ["inverted_residual", 1, 3, 1, 3.0, 24, 0.0],
-                ],
-                [["inverted_residual", 3, 5, 2, 3.0, 40, 0.25]],
-                [
-                    ["inverted_residual", 1, 3, 2, 6.0, 80, 0.0],
-                    ["inverted_residual", 1, 3, 1, 2.5, 80, 0.0],
-                    ["inverted_residual", 2, 3, 1, 2.3, 80, 0.0],
-                ],
-                [["inverted_residual", 2, 3, 1, 6.0, 112, 0.25]],
-                [["inverted_residual", 3, 5, 2, 6.0, 160, 0.25]],
-                [["conv_normal", 1, 1, 1, 1.0, 960, 0.0]],
-            ]
-            head_channels = 1280
-
         x = (
             ImageNormalizationLayer(mode=normalization_mode)(inputs)
             if include_normalization
             else inputs
         )
 
-        stem_channels = make_divisible(16 * width_multiplier)
         x = layers.Conv2D(
-            filters=stem_channels,
+            16,
             kernel_size=3,
-            strides=2,
+            strides=(2, 2),
             padding="same",
             use_bias=False,
+            data_format=data_format,
             name="stem_conv",
         )(x)
         x = layers.BatchNormalization(
-            axis=-1, momentum=0.9, epsilon=1e-3, name="stem_batchnorm"
+            axis=channels_axis,
+            epsilon=1e-3,
+            momentum=0.999,
+            name="stem_batchnorm",
         )(x)
-        x = layers.Activation("hard_swish" if not minimal else "relu", name="stem_act")(
-            x
-        )
+        x = layers.Activation(
+            "hard_swish" if not minimal else "relu", name="stem_activation"
+        )(x)
         features.append(x)
 
-        current_stride = 2
-        for stage_index, stage_config in enumerate(default_config):
-            for block_index, block_config in enumerate(stage_config):
-                (
-                    block_type,
-                    repeats,
-                    kernel_size,
-                    stride,
-                    expansion_ratio,
-                    output_channels,
-                    squeeze_ratio,
-                ) = block_config
+        for idx, layer_config in enumerate(default_config):
+            expansion_ratio, filters, kernel_size, stride, se_ratio, activation = (
+                layer_config
+            )
 
-                if minimal:
-                    activation_type = "relu"
-                    if kernel_size > 3:
-                        kernel_size = 3
-                else:
-                    activation_type = "relu" if stage_index < 2 else "hard_swish"
-                    if block_type == "conv_normal":
-                        activation_type = "hard_swish"
+            if minimal:
+                kernel_size = 3
+                activation = "relu"
+                se_ratio = None
 
-                output_channels = make_divisible(output_channels * width_multiplier)
-                if block_index not in (0, len(default_config) - 1):
-                    repeats = int(ops.ceil(repeats * depth_multiplier))
-                for layer_index in range(repeats):
-                    current_stride = stride if layer_index == 0 else 1
-                    block_name = f"blocks.{stage_index}.{block_index + layer_index}"
-
-                    if block_type == "depthwise_separable":
-                        residual_connection_connection = (
-                            x.shape[channels_axis] == output_channels
-                            and current_stride == 1
-                        )
-                        x = depth_separation_block(
-                            inputs=x,
-                            filters=output_channels,
-                            kernel_size=kernel_size,
-                            strides=current_stride,
-                            se_ratio=squeeze_ratio if not minimal else 0.0,
-                            activation=activation_type,
-                            residual_connection=residual_connection_connection,
-                            channels_axis=channels_axis,
-                            data_format=data_format,
-                            block_name=block_name,
-                            minimal=minimal,
-                        )
-                    elif block_type == "inverted_residual":
-                        x = inverted_residual_block(
-                            inputs=x,
-                            filters=output_channels,
-                            kernel_size=kernel_size,
-                            strides=current_stride,
-                            expansion_ratio=expansion_ratio,
-                            se_ratio=squeeze_ratio if not minimal else 0.0,
-                            activation=activation_type,
-                            channels_axis=channels_axis,
-                            data_format=data_format,
-                            block_name=block_name,
-                            minimal=minimal,
-                        )
-                    elif block_type == "conv_normal":
-                        x = layers.Conv2D(
-                            filters=output_channels,
-                            kernel_size=kernel_size,
-                            strides=current_stride,
-                            padding="same",
-                            use_bias=False,
-                            data_format=data_format,
-                            name=f"{block_name}_conv",
-                        )(x)
-                        x = layers.BatchNormalization(
-                            axis=-1,
-                            momentum=0.9,
-                            epsilon=1e-3,
-                            name=f"{block_name}_batchnorm_1",
-                        )(x)
-                        x = layers.Activation(activation_type)(x)
-                    current_stride *= current_stride
+            x = inverted_residual_block(
+                x,
+                expansion_ratio=expansion_ratio * depth_multiplier,
+                filters=make_divisible(filters * width_multiplier),
+                kernel_size=kernel_size,
+                stride=stride,
+                se_ratio=se_ratio,
+                activation=activation,
+                block_id=idx,
+                data_format=data_format,
+                channels_axis=channels_axis,
+            )
             features.append(x)
 
+        final_conv_head_channels = make_divisible(x.shape[channels_axis] * 6)
+
+        x = layers.Conv2D(
+            final_conv_head_channels,
+            kernel_size=1,
+            padding="same",
+            use_bias=False,
+            data_format=data_format,
+            name="final_conv",
+        )(x)
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-3,
+            momentum=0.999,
+            name="final_batchnorm",
+        )(x)
+        x = layers.Activation(
+            "hard_swish" if not minimal else "relu", name="final_activation"
+        )(x)
+        features.append(x)
+
         if include_top:
-            head_channels = max(
-                head_channels, make_divisible(head_channels * width_multiplier)
-            )
-            head_activation = "relu" if minimal else "hard_swish"
             x = layers.GlobalAveragePooling2D(
-                name="avg_pool", keepdims=True, data_format=data_format
+                data_format=data_format, keepdims=True, name="head_pool"
             )(x)
             x = layers.Conv2D(
                 head_channels,
-                1,
-                1,
+                kernel_size=1,
+                padding="same",
                 use_bias=True,
                 data_format=data_format,
                 name="head_conv",
             )(x)
-            x = layers.Activation(head_activation, name="final_act")(x)
+            x = layers.Activation(activation, name="head_activation")(x)
+
+            if dropout_rate > 0:
+                x = layers.Dropout(dropout_rate, "head_dropout")(x)
+            x = layers.Conv2D(
+                num_classes,
+                kernel_size=1,
+                padding="same",
+                data_format=data_format,
+                name="predictions",
+            )(x)
             x = layers.Flatten()(x)
-            x = layers.Dense(
-                num_classes, activation=classifier_activation, name="predictions"
+            x = layers.Activation(
+                activation=classifier_activation, name="predictions_act"
             )(x)
         elif as_backbone:
             x = features
@@ -553,7 +426,7 @@ class MobileNetV3(keras.Model):
                     x
                 )
 
-        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.width_multiplier = width_multiplier
         self.depth_multiplier = depth_multiplier
@@ -567,29 +440,28 @@ class MobileNetV3(keras.Model):
         self.pooling = pooling
         self.num_classes = num_classes
         self.classifier_activation = classifier_activation
+        self.dropout_rate = dropout_rate
 
     def get_config(self):
-        return {
-            "width_multiplier": self.width_multiplier,
-            "depth_multiplier": self.depth_multiplier,
-            "config": self.config,
-            "minimal": self.minimal,
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-            "trainable": self.trainable,
-        }
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(**config)
+        config = super().get_config()
+        config.update(
+            {
+                "width_multiplier": self.width_multiplier,
+                "depth_multiplier": self.depth_multiplier,
+                "config": self.config,
+                "minimal": self.minimal,
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "dropout_rate": self.dropout_rate,
+            }
+        )
+        return config
 
 
 @register_model
@@ -597,8 +469,8 @@ def MobileNetV3Small075(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
+    normalization_mode="inception",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -640,8 +512,8 @@ def MobileNetV3Small100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
+    normalization_mode="inception",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -683,8 +555,8 @@ def MobileNetV3SmallMinimal100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
+    normalization_mode="inception",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -722,22 +594,22 @@ def MobileNetV3SmallMinimal100(
 
 
 @register_model
-def MobileNetV3Large75(
+def MobileNetV3Large075(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
+    normalization_mode="inception",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="MobileNetV3Large75",
+    name="MobileNetV3Large075",
     **kwargs,
 ):
     model = MobileNetV3(
-        **MOBILENETV3_MODEL_CONFIG["MobileNetV3Large75"],
+        **MOBILENETV3_MODEL_CONFIG["MobileNetV3Large075"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -754,7 +626,7 @@ def MobileNetV3Large75(
 
     if weights in get_all_weight_names(MOBILENETV3_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "MobileNetV3Large75", weights, model, MOBILENETV3_WEIGHTS_CONFIG
+            "MobileNetV3Large075", weights, model, MOBILENETV3_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -769,8 +641,8 @@ def MobileNetV3Large100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
+    normalization_mode="inception",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -812,8 +684,8 @@ def MobileNetV3LargeMinimal100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
-    weights="in1k",
+    normalization_mode="inception",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,

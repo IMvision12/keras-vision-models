@@ -36,7 +36,7 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
-    "include_preprocessing": False,
+    "include_normalization": False,
     "classifier_activation": "linear",
 }
 
@@ -49,7 +49,7 @@ keras_model: keras.Model = model_config["keras_model_cls"](
     input_shape=model_config["input_shape"],
     classifier_activation=model_config["classifier_activation"],
     num_classes=model_config["num_classes"],
-    include_preprocessing=model_config["include_preprocessing"],
+    include_normalization=model_config["include_normalization"],
     weights=None,
 )
 temp_path = download_weights(torch_model_path_mit_b0)
@@ -90,7 +90,7 @@ test_keras_with_weights = MiT_B0(
     weights=None,
     num_classes=model_config["num_classes"],
     include_top=model_config["include_top"],
-    include_preprocessing=True,
+    include_normalization=True,
     input_shape=model_config["input_shape"],
     classifier_activation="softmax",
 )

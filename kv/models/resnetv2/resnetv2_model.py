@@ -270,12 +270,12 @@ class ResNetV2(keras.Model):
         as_backbone: Boolean, whether to output intermediate features for use as a
             backbone network. When True, returns a list of feature maps at different
             stages. Defaults to False.
-        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+        include_normalization: Boolean, whether to include normalization layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to True.
-        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+        normalization_mode: String, specifying the normalization mode to use. Must be one of:
             'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_preprocessing=True.
+            'minus_one_to_one'. Only used when include_normalization=True.
         weights: String, specifying the path to pretrained weights or one of the
             available options in keras-vision.
         input_tensor: Optional Keras tensor to use as the model's input. If not provided,
@@ -311,8 +311,8 @@ class ResNetV2(keras.Model):
         use_batchnorm=False,
         include_top=True,
         as_backbone=False,
-        include_preprocessing=True,
-        preprocessing_mode="imagenet",
+        include_normalization=True,
+        normalization_mode="imagenet",
         weights=None,
         input_tensor=None,
         input_shape=None,
@@ -358,8 +358,8 @@ class ResNetV2(keras.Model):
         features = []
 
         x = (
-            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
-            if include_preprocessing
+            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            if include_normalization
             else inputs
         )
 
@@ -461,8 +461,8 @@ class ResNetV2(keras.Model):
         self.drop_path_rate = drop_path_rate
         self.include_top = include_top
         self.as_backbone = as_backbone
-        self.include_preprocessing = include_preprocessing
-        self.preprocessing_mode = preprocessing_mode
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -483,8 +483,8 @@ class ResNetV2(keras.Model):
                 "drop_path_rate": self.drop_path_rate,
                 "include_top": self.include_top,
                 "as_backbone": self.as_backbone,
-                "include_preprocessing": self.include_preprocessing,
-                "preprocessing_mode": self.preprocessing_mode,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
                 "input_tensor": self.input_tensor,
                 "pooling": self.pooling,
                 "num_classes": self.num_classes,
@@ -502,8 +502,8 @@ class ResNetV2(keras.Model):
 def ResNetV2_50(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="a1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -516,8 +516,8 @@ def ResNetV2_50(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -540,8 +540,8 @@ def ResNetV2_50(
 def ResNetV2_50x1(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="goog_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -554,8 +554,8 @@ def ResNetV2_50x1(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -578,8 +578,8 @@ def ResNetV2_50x1(
 def ResNetV2_50x3(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="goog_in21k_ft_in1k",
     input_tensor=None,
     input_shape=None,
@@ -592,8 +592,8 @@ def ResNetV2_50x3(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -616,8 +616,8 @@ def ResNetV2_50x3(
 def ResNetV2_101(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="a1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -630,8 +630,8 @@ def ResNetV2_101(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -654,8 +654,8 @@ def ResNetV2_101(
 def ResNetV2_101x1(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="a1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -668,8 +668,8 @@ def ResNetV2_101x1(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -692,8 +692,8 @@ def ResNetV2_101x1(
 def ResNetV2_101x3(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="a1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -706,8 +706,8 @@ def ResNetV2_101x3(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -730,8 +730,8 @@ def ResNetV2_101x3(
 def ResNetV2_152x2(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="a1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -744,8 +744,8 @@ def ResNetV2_152x2(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -768,8 +768,8 @@ def ResNetV2_152x2(
 def ResNetV2_152x4(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="a1h_in1k",
     input_tensor=None,
     input_shape=None,
@@ -782,8 +782,8 @@ def ResNetV2_152x4(
         **RESNETV2_MODEL_CONFIG[name],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

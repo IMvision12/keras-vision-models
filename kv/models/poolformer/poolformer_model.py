@@ -161,12 +161,12 @@ class PoolFormer(keras.Model):
         as_backbone: Boolean, whether to output intermediate features for use as a
             backbone network. When True, returns a list of feature maps at different
             stages. Defaults to `False`.
-        include_preprocessing: Boolean, whether to include preprocessing layers at the start
+        include_normalization: Boolean, whether to include normalization layers at the start
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to `True`.
-        preprocessing_mode: String, specifying the preprocessing mode to use. Must be one of:
+        normalization_mode: String, specifying the normalization mode to use. Must be one of:
             'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_preprocessing=True.
+            'minus_one_to_one'. Only used when include_normalization=True.
         weights: String, specifying the path to pretrained weights or one of the
             available options in `keras-vision`.
         input_shape: Optional tuple specifying the shape of the input data.
@@ -209,8 +209,8 @@ class PoolFormer(keras.Model):
         init_scale=1e-5,
         include_top=True,
         as_backbone=False,
-        include_preprocessing=True,
-        preprocessing_mode="imagenet",
+        include_normalization=True,
+        normalization_mode="imagenet",
         weights=None,
         input_shape=None,
         input_tensor=None,
@@ -256,8 +256,8 @@ class PoolFormer(keras.Model):
         features = []
 
         x = (
-            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
-            if include_preprocessing
+            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            if include_normalization
             else inputs
         )
 
@@ -350,8 +350,8 @@ class PoolFormer(keras.Model):
         self.init_scale = init_scale
         self.include_top = include_top
         self.as_backbone = as_backbone
-        self.include_preprocessing = include_preprocessing
-        self.preprocessing_mode = preprocessing_mode
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -367,8 +367,8 @@ class PoolFormer(keras.Model):
             "init_scale": self.init_scale,
             "include_top": self.include_top,
             "as_backbone": self.as_backbone,
-            "include_preprocessing": self.include_preprocessing,
-            "preprocessing_mode": self.preprocessing_mode,
+            "include_normalization": self.include_normalization,
+            "normalization_mode": self.normalization_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -387,8 +387,8 @@ class PoolFormer(keras.Model):
 def PoolFormerS12(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights=None,
     input_tensor=None,
     input_shape=None,
@@ -402,8 +402,8 @@ def PoolFormerS12(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS12"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_shape=input_shape,
@@ -430,8 +430,8 @@ def PoolFormerS12(
 def PoolFormerS24(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights=None,
     input_tensor=None,
     input_shape=None,
@@ -445,8 +445,8 @@ def PoolFormerS24(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS24"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_shape=input_shape,
@@ -473,8 +473,8 @@ def PoolFormerS24(
 def PoolFormerS36(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights=None,
     input_tensor=None,
     input_shape=None,
@@ -488,8 +488,8 @@ def PoolFormerS36(
         **POOLFORMER_MODEL_CONFIG["PoolFormerS36"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_shape=input_shape,
@@ -515,8 +515,8 @@ def PoolFormerS36(
 def PoolFormerM36(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights=None,
     input_tensor=None,
     input_shape=None,
@@ -530,8 +530,8 @@ def PoolFormerM36(
         **POOLFORMER_MODEL_CONFIG["PoolFormerM36"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_shape=input_shape,
@@ -557,8 +557,8 @@ def PoolFormerM36(
 def PoolFormerM48(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights=None,
     input_tensor=None,
     input_shape=None,
@@ -572,8 +572,8 @@ def PoolFormerM48(
         **POOLFORMER_MODEL_CONFIG["PoolFormerM48"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_shape=input_shape,

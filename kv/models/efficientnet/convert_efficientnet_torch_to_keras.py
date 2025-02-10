@@ -52,7 +52,7 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     ],  # Change as per the default given for different models
     "num_classes": 1000,
     "include_top": True,
-    "include_preprocessing": False,
+    "include_normalization": False,
     "classifier_activation": "linear",
 }
 
@@ -62,7 +62,7 @@ keras_model: keras.Model = model_config["keras_model_cls"](
     input_shape=model_config["input_shape"],
     classifier_activation=model_config["classifier_activation"],
     num_classes=model_config["num_classes"],
-    include_preprocessing=model_config["include_preprocessing"],
+    include_normalization=model_config["include_normalization"],
     weights=None,
 )
 

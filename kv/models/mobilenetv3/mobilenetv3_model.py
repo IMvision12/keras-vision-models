@@ -196,7 +196,7 @@ class MobileNetV3(keras.Model):
             of the network. When True, input images should be in uint8 format with values
             in [0, 255]. Defaults to True.
         normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'inception' (default), 'imagenet', 'dpn', 'clip', 'zero_to_one', or
             'minus_one_to_one'. Only used when include_normalization=True.
         weights: String, specifying the path to pretrained weights or one of the
             available options in keras-vision. Defaults to "imagenet".
@@ -234,7 +234,7 @@ class MobileNetV3(keras.Model):
         include_top=True,
         as_backbone=False,
         include_normalization=True,
-        normalization_mode="imagenet",
+        normalization_mode="inception",
         weights="imagenet",
         input_tensor=None,
         input_shape=None,
@@ -469,7 +469,7 @@ def MobileNetV3Small075(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
+    normalization_mode="inception",
     weights="imagenet",
     input_tensor=None,
     input_shape=None,
@@ -512,7 +512,7 @@ def MobileNetV3Small100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
+    normalization_mode="inception",
     weights="imagenet",
     input_tensor=None,
     input_shape=None,
@@ -555,7 +555,7 @@ def MobileNetV3SmallMinimal100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
+    normalization_mode="inception",
     weights="imagenet",
     input_tensor=None,
     input_shape=None,
@@ -598,7 +598,7 @@ def MobileNetV3Large075(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
+    normalization_mode="inception",
     weights="imagenet",
     input_tensor=None,
     input_shape=None,
@@ -641,7 +641,7 @@ def MobileNetV3Large100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
+    normalization_mode="inception",
     weights="imagenet",
     input_tensor=None,
     input_shape=None,
@@ -684,7 +684,7 @@ def MobileNetV3LargeMinimal100(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
-    normalization_mode="imagenet",
+    normalization_mode="inception",
     weights="imagenet",
     input_tensor=None,
     input_shape=None,

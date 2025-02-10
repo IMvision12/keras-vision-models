@@ -208,8 +208,8 @@ class InceptionResNetV2Main(keras.Model):
         self,
         include_top=True,
         as_backbone=False,
-        include_preprocessing=True,
-        preprocessing_mode="inception",
+        include_normalization=True,
+        normalization_mode="inception",
         weights="ink1",
         input_shape=None,
         input_tensor=None,
@@ -252,8 +252,8 @@ class InceptionResNetV2Main(keras.Model):
         features = []
 
         x = (
-            ImageNormalizationLayer(mode=preprocessing_mode)(inputs)
-            if include_preprocessing
+            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            if include_normalization
             else inputs
         )
 
@@ -307,8 +307,8 @@ class InceptionResNetV2Main(keras.Model):
 
         self.include_top = include_top
         self.as_backbone = as_backbone
-        self.include_preprocessing = include_preprocessing
-        self.preprocessing_mode = preprocessing_mode
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -318,8 +318,8 @@ class InceptionResNetV2Main(keras.Model):
         return {
             "include_top": self.include_top,
             "as_backbone": self.as_backbone,
-            "include_preprocessing": self.include_preprocessing,
-            "preprocessing_mode": self.preprocessing_mode,
+            "include_normalization": self.include_normalization,
+            "normalization_mode": self.normalization_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -338,8 +338,8 @@ class InceptionResNetV2Main(keras.Model):
 def InceptionResNetV2(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="inception",
+    include_normalization=True,
+    normalization_mode="inception",
     num_classes=1000,
     weights="in1k",
     input_shape=None,
@@ -352,8 +352,8 @@ def InceptionResNetV2(
     model = InceptionResNetV2Main(
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         name=name,
         weights=weights,
         input_shape=input_shape,

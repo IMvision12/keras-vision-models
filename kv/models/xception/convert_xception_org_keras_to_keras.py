@@ -6,7 +6,7 @@ from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
 model_config = {
     "input_shape": (299, 299, 3),
     "include_top": True,
-    "include_preprocessing": False,
+    "include_normalization": False,
     "classifier_activation": "linear",
 }
 
@@ -21,7 +21,7 @@ custom_model = Xception(
     weights=None,
     input_shape=model_config["input_shape"],
     include_top=model_config["include_top"],
-    include_preprocessing=model_config["include_preprocessing"],
+    include_normalization=model_config["include_normalization"],
     classifier_activation=model_config["classifier_activation"],
 )
 

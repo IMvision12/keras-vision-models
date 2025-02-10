@@ -169,7 +169,7 @@ def SegFormerB0(
             as_backbone=True,
             input_shape=input_shape,
             weights=backbone_weights,
-            include_preprocessing=False,
+            include_normalization=False,
         )
 
     model = SegFormer(
@@ -236,7 +236,7 @@ def SegFormerB1(
             as_backbone=True,
             input_shape=input_shape,
             weights=backbone_weights,
-            include_preprocessing=False,
+            include_normalization=False,
         )
 
     model = SegFormer(
@@ -303,7 +303,7 @@ def SegFormerB2(
             as_backbone=True,
             input_shape=input_shape,
             weights=backbone_weights,
-            include_preprocessing=False,
+            include_normalization=False,
         )
 
     model = SegFormer(
@@ -370,7 +370,7 @@ def SegFormerB3(
             as_backbone=True,
             input_shape=input_shape,
             weights=backbone_weights,
-            include_preprocessing=False,
+            include_normalization=False,
         )
 
     model = SegFormer(
@@ -437,7 +437,7 @@ def SegFormerB4(
             as_backbone=True,
             input_shape=input_shape,
             weights=backbone_weights,
-            include_preprocessing=False,
+            include_normalization=False,
         )
 
     model = SegFormer(
@@ -504,7 +504,7 @@ def SegFormerB5(
             as_backbone=True,
             input_shape=input_shape,
             weights=backbone_weights,
-            include_preprocessing=False,
+            include_normalization=False,
         )
 
     model = SegFormer(

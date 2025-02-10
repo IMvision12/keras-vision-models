@@ -187,12 +187,12 @@ class MixTransformer(keras.Model):
         as_backbone: Boolean, whether to output intermediate features for use as a
             backbone network. When True, returns a list of feature maps at different
             stages. Defaults to `False`.
-        include_preprocessing: Boolean, whether to include preprocessing layers at the
+        include_normalization: Boolean, whether to include normalization layers at the
             start of the network. When True, input images should be in uint8 format
             with values in [0, 255]. Defaults to `True`.
-        preprocessing_mode: String, specifying the preprocessing mode to use. Must be
+        normalization_mode: String, specifying the normalization mode to use. Must be
             one of: 'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one',
-            or 'minus_one_to_one'. Only used when include_preprocessing=True.
+            or 'minus_one_to_one'. Only used when include_normalization=True.
         weights: String or None, specifying the path to pretrained weights or one of
             the available options. Defaults to None.
         input_shape: Optional tuple specifying the shape of the input data.
@@ -246,8 +246,8 @@ class MixTransformer(keras.Model):
         depths,
         include_top=True,
         as_backbone=False,
-        include_preprocessing=True,
-        preprocessing_mode="imagenet",
+        include_normalization=True,
+        normalization_mode="imagenet",
         weights="in1k",
         input_tensor=None,
         input_shape=None,
@@ -303,8 +303,8 @@ class MixTransformer(keras.Model):
         cur_block = 0
 
         x = (
-            ImageNormalizationLayer(mode=preprocessing_mode)(x)
-            if include_preprocessing
+            ImageNormalizationLayer(mode=normalization_mode)(x)
+            if include_normalization
             else x
         )
 
@@ -369,8 +369,8 @@ class MixTransformer(keras.Model):
         self.depths = depths
         self.include_top = include_top
         self.as_backbone = as_backbone
-        self.include_preprocessing = include_preprocessing
-        self.preprocessing_mode = preprocessing_mode
+        self.include_normalization = include_normalization
+        self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
         self.pooling = pooling
         self.num_classes = num_classes
@@ -382,8 +382,8 @@ class MixTransformer(keras.Model):
             "depths": self.depths,
             "include_top": self.include_top,
             "as_backbone": self.as_backbone,
-            "include_preprocessing": self.include_preprocessing,
-            "preprocessing_mode": self.preprocessing_mode,
+            "include_normalization": self.include_normalization,
+            "normalization_mode": self.normalization_mode,
             "input_shape": self.input_shape[1:],
             "input_tensor": self.input_tensor,
             "pooling": self.pooling,
@@ -402,8 +402,8 @@ class MixTransformer(keras.Model):
 def MiT_B0(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -417,8 +417,8 @@ def MiT_B0(
         **MIT_MODEL_CONFIG["MiT_B0"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -443,8 +443,8 @@ def MiT_B0(
 def MiT_B1(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -458,8 +458,8 @@ def MiT_B1(
         **MIT_MODEL_CONFIG["MiT_B1"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -484,8 +484,8 @@ def MiT_B1(
 def MiT_B2(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -499,8 +499,8 @@ def MiT_B2(
         **MIT_MODEL_CONFIG["MiT_B2"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -525,8 +525,8 @@ def MiT_B2(
 def MiT_B3(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -540,8 +540,8 @@ def MiT_B3(
         **MIT_MODEL_CONFIG["MiT_B3"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -566,8 +566,8 @@ def MiT_B3(
 def MiT_B4(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -581,8 +581,8 @@ def MiT_B4(
         **MIT_MODEL_CONFIG["MiT_B4"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,
@@ -607,8 +607,8 @@ def MiT_B4(
 def MiT_B5(
     include_top=True,
     as_backbone=False,
-    include_preprocessing=True,
-    preprocessing_mode="imagenet",
+    include_normalization=True,
+    normalization_mode="imagenet",
     weights="in1k",
     input_tensor=None,
     input_shape=None,
@@ -622,8 +622,8 @@ def MiT_B5(
         **MIT_MODEL_CONFIG["MiT_B5"],
         include_top=include_top,
         as_backbone=as_backbone,
-        include_preprocessing=include_preprocessing,
-        preprocessing_mode=preprocessing_mode,
+        include_normalization=include_normalization,
+        normalization_mode=normalization_mode,
         weights=weights,
         name=name,
         input_tensor=input_tensor,

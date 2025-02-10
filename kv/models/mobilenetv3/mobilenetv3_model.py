@@ -199,7 +199,7 @@ class MobileNetV3(keras.Model):
             'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
             'minus_one_to_one'. Only used when include_normalization=True.
         weights: String, specifying the path to pretrained weights or one of the
-            available options in keras-vision. Defaults to "in1k".
+            available options in keras-vision. Defaults to "imagenet".
         input_tensor: Optional Keras tensor (output of layers.Input()) to use as
             the model's input. If not provided, a new input tensor is created based
             on input_shape.
@@ -470,7 +470,7 @@ def MobileNetV3Small075(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="in1k",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -513,7 +513,7 @@ def MobileNetV3Small100(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="in1k",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -556,7 +556,7 @@ def MobileNetV3SmallMinimal100(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="in1k",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -599,7 +599,7 @@ def MobileNetV3Large075(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="in1k",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -642,7 +642,7 @@ def MobileNetV3Large100(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="in1k",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -685,7 +685,7 @@ def MobileNetV3LargeMinimal100(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="in1k",
+    weights="imagenet",
     input_tensor=None,
     input_shape=None,
     pooling=None,

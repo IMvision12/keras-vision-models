@@ -17,7 +17,7 @@ MOBILENETV3_MODEL_CONFIG = {
         "config": "small",
         "minimal": True,
     },
-    "MobileNetV3Large75": {
+    "MobileNetV3Large075": {
         "width_multiplier": 0.75,
         "depth_multiplier": 1.0,
         "config": "large",
@@ -48,7 +48,7 @@ MOBILENETV3_WEIGHTS_CONFIG = {
     "MobileNetV3SmallMinimal100": {
         "in1k": {"url": ""},
     },
-    "MobileNetV3Large75": {
+    "MobileNetV3Large075": {
         "in1k": {"url": ""},
     },
     "MobileNetV3Large100": {

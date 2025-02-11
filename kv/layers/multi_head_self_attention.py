@@ -133,13 +133,17 @@ class MultiHeadSelfAttention(layers.Layer):
             )
 
         batch_dim = input_shape[0]
-        seq_length = input_shape[1]
 
-        qkv_shape = input_shape
-        attention_shape = (batch_dim, self.num_heads, seq_length, seq_length)
-        head_shape = (batch_dim, self.num_heads, seq_length, self.head_dim)
+        if self.input_spec.ndim == 3:
+            seq_length = input_shape[1]
+            attention_shape = (batch_dim, self.num_heads, seq_length, seq_length)
+            head_shape = (batch_dim, self.num_heads, seq_length, self.head_dim)
+        else:  # 4D input
+            height, width = input_shape[1], input_shape[2]
+            attention_shape = (batch_dim, height, self.num_heads, width, width)
+            head_shape = (batch_dim, height, self.num_heads, width, self.head_dim)
 
-        self.qkv.build(qkv_shape)
+        self.qkv.build(input_shape)
         self.proj.build(input_shape)
 
         if self.q_norm is not None:
@@ -156,12 +160,28 @@ class MultiHeadSelfAttention(layers.Layer):
         self.built = True
 
     def call(self, x, training=None):
-        B, N, C = ops.shape(x)[0], ops.shape(x)[1], ops.shape(x)[2]
+        batch_size = ops.shape(x)[0]
+        ndim = len(x.shape)
 
         qkv = self.qkv(x)
-        qkv = ops.reshape(qkv, (B, N, 3, self.num_heads, self.head_dim))
-        qkv = ops.transpose(qkv, (0, 3, 2, 1, 4))
-        q, k, v = ops.unstack(qkv, 3, axis=2)
+
+        if ndim == 3:
+            seq_length = ops.shape(x)[1]
+            qkv = ops.reshape(
+                qkv, (batch_size, seq_length, 3, self.num_heads, self.head_dim)
+            )
+            qkv = ops.transpose(qkv, (2, 0, 3, 1, 4))
+        else:  # 4D input
+            height, width = ops.shape(x)[1], ops.shape(x)[2]
+            qkv = ops.reshape(
+                qkv, (batch_size, height, width, 3, self.num_heads, self.head_dim)
+            )
+            qkv = ops.transpose(qkv, (3, 0, 4, 1, 2, 5))
+            qkv = ops.reshape(
+                qkv, (3, batch_size, self.num_heads, height * width, self.head_dim)
+            )
+
+        q, k, v = qkv[0], qkv[1], qkv[2]
 
         if self.q_norm is not None:
             q = self.q_norm(q)
@@ -169,13 +189,20 @@ class MultiHeadSelfAttention(layers.Layer):
             k = self.k_norm(k)
 
         q = q * self.scale
-        attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2)))
+
+        attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
         attn = ops.softmax(attn, axis=-1)
         attn = self.attn_drop(attn, training=training)
 
         x = ops.matmul(attn, v)
-        x = ops.transpose(x, (0, 2, 1, 3))
-        x = ops.reshape(x, (B, N, C))
+
+        if ndim == 3:
+            x = ops.transpose(x, (0, 2, 1, 3))
+            x = ops.reshape(x, (batch_size, seq_length, self.dim))
+        else:
+            x = ops.transpose(x, (0, 2, 1, 3))
+            x = ops.reshape(x, (batch_size, height, width, self.dim))
+
         x = self.proj(x)
         x = self.proj_drop(x, training=training)
 
@@ -188,7 +215,7 @@ class MultiHeadSelfAttention(layers.Layer):
                 "dim": self.dim,
                 "num_heads": self.num_heads,
                 "qkv_bias": self.qkv.use_bias,
-                "qk_norm": self.q_norm,
+                "qk_norm": self.q_norm is not None,
                 "attn_drop": self.attn_drop.rate,
                 "proj_drop": self.proj_drop.rate,
                 "epsilon": self.epsilon,

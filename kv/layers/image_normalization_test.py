@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .image_normalization import (
+from kv.layers.image_normalization import (
     IMAGENET_DEFAULT_MEAN,
     IMAGENET_DEFAULT_STD,
     IMAGENET_DPN_MEAN,
@@ -148,3 +148,47 @@ class TestImageNormalizationLayer(TestCase):
         inputs_int32 = ops.cast(self.test_inputs, "int32")
         output_int32 = layer(inputs_int32)
         self.assertEqual(output_int32.dtype, "float32")
+
+    def test_data_format(self):
+        input_channels_last = ops.cast(
+            keras.random.uniform((2, 224, 224, 3), 0, 255),
+            dtype="uint8",
+        )
+
+        input_channels_first = ops.cast(
+            keras.random.uniform((2, 3, 224, 224), 0, 255),
+            dtype="uint8",
+        )
+
+        layer = ImageNormalizationLayer(mode="imagenet")
+
+        original_data_format = keras.config.image_data_format()
+        keras.config.set_image_data_format("channels_last")
+        try:
+            output_channels_last = layer(input_channels_last)
+
+            self.assertEqual(output_channels_last.shape, (2, 224, 224, 3))
+
+            output_np = output_channels_last.numpy()
+            inputs_float = input_channels_last.numpy().astype(np.float32) / 255.0
+            mean = np.reshape(IMAGENET_DEFAULT_MEAN, (1, 1, 1, 3))
+            std = np.reshape(IMAGENET_DEFAULT_STD, (1, 1, 1, 3))
+            expected = (inputs_float - mean) / std
+            self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        finally:
+            keras.config.set_image_data_format(original_data_format)
+
+        keras.config.set_image_data_format("channels_first")
+        try:
+            output_channels_first = layer(input_channels_first)
+
+            self.assertEqual(output_channels_first.shape, (2, 3, 224, 224))
+
+            output_np = output_channels_first.numpy()
+            inputs_float = input_channels_first.numpy().astype(np.float32) / 255.0
+            mean = np.reshape(IMAGENET_DEFAULT_MEAN, (1, 3, 1, 1))
+            std = np.reshape(IMAGENET_DEFAULT_STD, (1, 3, 1, 1))
+            expected = (inputs_float - mean) / std
+            self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        finally:
+            keras.config.set_image_data_format(original_data_format)

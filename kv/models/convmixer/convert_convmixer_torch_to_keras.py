@@ -95,8 +95,6 @@ results = verify_cls_model_equivalence(
     input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
-    atol=1e-5,
-    rtol=1e-5,
 )
 
 

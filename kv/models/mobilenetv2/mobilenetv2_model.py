@@ -60,16 +60,12 @@ def inverted_residual_block(
     Returns:
         Output tensor for the block.
     """
-    input_channels = x.shape[channels_axis]
-    hidden_channels = make_divisible(input_channels * expansion_ratio)
-    has_skip = stride == 1 and input_channels == filters
-
     inputs = x
     block_name = f"blocks_{block_id}_{sub_block_id}"
 
     if expansion_ratio > 1:
         x = layers.Conv2D(
-            hidden_channels,
+            make_divisible(x.shape[channels_axis] * expansion_ratio),
             1,
             1,
             use_bias=False,
@@ -125,7 +121,7 @@ def inverted_residual_block(
         name=f"{block_name}_batchnorm_3",
     )(x)
 
-    if has_skip:
+    if stride == 1 and inputs.shape[channels_axis] == filters:
         x = layers.Add(name=f"{block_name}_add")([inputs, x])
 
     return x
@@ -246,12 +242,12 @@ class MobileNetV2(keras.Model):
             else inputs
         )
 
-        stem_channels = 32 if fix_channels else make_divisible(32 * width_multiplier)
+        initial_dims = 32 if fix_channels else make_divisible(32 * width_multiplier)
         x = layers.ZeroPadding2D(
             padding=((1, 1), (1, 1)), data_format=data_format, name="stem_padding"
         )(x)
         x = layers.Conv2D(
-            stem_channels,
+            initial_dims,
             3,
             2,
             padding="valid",
@@ -293,13 +289,13 @@ class MobileNetV2(keras.Model):
                 spatial_reduction *= current_stride
             features.append(x)
 
-        head_channels = (
+        head_dims = (
             1280
             if fix_channels or width_multiplier <= 1.0
             else make_divisible(1280 * width_multiplier)
         )
         x = layers.Conv2D(
-            head_channels,
+            head_dims,
             1,
             1,
             use_bias=False,

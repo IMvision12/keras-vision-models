@@ -258,7 +258,9 @@ class PoolFormer(keras.Model):
             else inputs
         )
 
-        x = layers.ZeroPadding2D(padding=((2, 2), (2, 2)), data_format=data_format, name="stem_pad")(x)
+        x = layers.ZeroPadding2D(
+            padding=((2, 2), (2, 2)), data_format=data_format, name="stem_pad"
+        )(x)
         x = layers.Conv2D(
             filters=embed_dims[0],
             kernel_size=7,

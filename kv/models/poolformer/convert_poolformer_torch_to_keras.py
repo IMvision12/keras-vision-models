@@ -94,29 +94,17 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-test_keras_with_weights = model_config["keras_model_cls"](
-    weights=None,
-    num_classes=model_config["num_classes"],
-    include_top=model_config["include_top"],
-    include_normalization=True,
-    input_shape=model_config["input_shape"],
-    classifier_activation="softmax",
-)
-test_keras_with_weights.set_weights(keras_model.get_weights())
-
-# Model confidence scores for the base variant predictions:
-# Current scores: 0.9991, 0.9916, 0.9997, 0.9999, 0.9767
-# All scores show high confidence (>97%) with the fourth prediction being the most certain
 results = verify_cls_model_equivalence(
-    model_a=None,
-    model_b=test_keras_with_weights,
+    model_a=torch_model,
+    model_b=keras_model,
     input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
-    test_imagenet_image=True,
+    atol=1e-5,
+    rtol=1e-5,
 )
 
-if not results["imagenet_test"]["all_passed"]:
+if not results["standard_input"]:
     raise ValueError(
         "Model equivalence test failed - model outputs do not match for standard input"
     )

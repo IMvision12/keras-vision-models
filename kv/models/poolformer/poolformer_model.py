@@ -93,15 +93,12 @@ def poolformer_block(
     shortcut = x
 
     x = layers.GroupNormalization(
-        groups=1, axis=channels_axis, name=f"{name}_groupnorm_1"
+        groups=1, axis=channels_axis, epsilon=1e-5, name=f"{name}_groupnorm_1"
     )(x)
 
-    zero_pad = layers.ZeroPadding2D(padding=((1, 1), (1, 1)), data_format=data_format)(
-        x
-    )
     x_pool = layers.AveragePooling2D(
-        pool_size=3, strides=1, padding="valid", data_format=data_format
-    )(zero_pad)
+        pool_size=3, strides=1, padding="same", data_format=data_format
+    )(x)
     x = layers.Subtract(name=f"{name}_token_mixer")([x_pool, x])
 
     layer_scale_1 = LayerScale(init_scale, name=f"{name}_layerscale_1")(x)
@@ -113,7 +110,7 @@ def poolformer_block(
 
     shortcut = x
     x = layers.GroupNormalization(
-        groups=1, axis=channels_axis, name=f"{name}_groupnorm_2"
+        groups=1, axis=channels_axis, epsilon=1e-5, name=f"{name}_groupnorm_2"
     )(x)
     x = mlp_block(
         x,
@@ -261,19 +258,15 @@ class PoolFormer(keras.Model):
             else inputs
         )
 
-        patch_size = 7
-        stride = 4
-        padding = 2
-        if stride != patch_size:
-            x = layers.ZeroPadding2D(
-                padding=padding, data_format=data_format, name="stem_pad"
-            )(x)
-
+        x = layers.ZeroPadding2D(
+            padding=((2, 2), (2, 2)), data_format=data_format, name="stem_pad"
+        )(x)
         x = layers.Conv2D(
             filters=embed_dims[0],
-            kernel_size=patch_size,
-            strides=stride,
+            kernel_size=7,
+            strides=4,
             use_bias=True,
+            padding="valid",
             data_format=data_format,
             name="stem_conv",
         )(x)
@@ -301,21 +294,17 @@ class PoolFormer(keras.Model):
             features.append(x)
 
             if stage_idx < len(num_blocks) - 1:
-                patch_size = 3
-                stride = 2
-                padding = 1
-                if stride != patch_size:
-                    x = layers.ZeroPadding2D(
-                        padding=padding,
-                        data_format=data_format,
-                        name=f"stage_{stage_idx + 1}_downsample_pad",
-                    )(x)
-
+                x = layers.ZeroPadding2D(
+                    padding=((1, 1), (1, 1)),
+                    data_format=data_format,
+                    name=f"stage_{stage_idx + 1}_downsample_pad",
+                )(x)
                 x = layers.Conv2D(
                     filters=embed_dims[stage_idx + 1],
-                    kernel_size=patch_size,
-                    strides=stride,
+                    kernel_size=3,
+                    strides=2,
                     use_bias=True,
+                    padding="valid",
                     data_format=data_format,
                     name=f"stage_{stage_idx + 1}_downsample_conv",
                 )(x)

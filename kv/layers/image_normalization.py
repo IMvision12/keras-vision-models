@@ -1,5 +1,6 @@
 import typing
 
+import keras
 from keras import layers, ops
 
 IMAGENET_DEFAULT_MEAN = (0.485, 0.456, 0.406)
@@ -83,7 +84,14 @@ class ImageNormalizationLayer(layers.Layer):
         elif self.mode == "zero_to_one":
             return x
         else:
-            x = (x - self.mean) / self.std
+            if keras.config.image_data_format() == "channels_first":
+                mean = ops.reshape(self.mean, (-1, 1, 1))
+                std = ops.reshape(self.std, (-1, 1, 1))
+            else:
+                mean = ops.reshape(self.mean, (1, 1, -1))
+                std = ops.reshape(self.std, (1, 1, -1))
+
+            x = (x - mean) / std
             return x
 
     def compute_output_shape(self, input_shape):

@@ -508,7 +508,7 @@ class InceptionV4Main(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="inception",
-        weights=None,
+        weights="tf_in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,
@@ -560,6 +560,8 @@ class InceptionV4Main(keras.Model):
         features.append(x)
 
         x = mixed3a(x, conv_block)
+        features.append(x)
+
         x = mixed4a(x, conv_block)
         x = mixed5a(x, conv_block)
         features.append(x)

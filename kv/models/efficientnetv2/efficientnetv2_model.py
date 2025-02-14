@@ -383,7 +383,7 @@ class EfficientNetV2(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="imagenet",
+        weights="in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,

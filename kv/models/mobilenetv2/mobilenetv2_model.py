@@ -181,7 +181,7 @@ class MobileNetV2(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="imagenet",
+        weights="ra_in1k",
         input_tensor=None,
         input_shape=None,
         pooling=None,

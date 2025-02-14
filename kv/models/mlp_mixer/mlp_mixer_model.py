@@ -134,7 +134,7 @@ class MLPMixer(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="imagenet",
+        weights="goog_in21k_ft_in1k",
         input_tensor=None,
         input_shape=None,
         pooling=None,

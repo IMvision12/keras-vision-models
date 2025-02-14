@@ -78,7 +78,7 @@ class BaseVisionTest:
 
             if (
                 keras.config.backend() == "tensorflow"
-                and not tf.config.list_physical_devices("GPU")
+                and tf.config.list_physical_devices("GPU")
             ):
                 keras.config.set_image_data_format("channels_first")
                 current_shape = (

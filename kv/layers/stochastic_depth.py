@@ -1,5 +1,6 @@
-from keras import layers, ops, random
 import keras
+from keras import layers, ops, random
+
 
 @keras.saving.register_keras_serializable(package="kv")
 class StochasticDepth(layers.Layer):

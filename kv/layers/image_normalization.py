@@ -12,6 +12,7 @@ IMAGENET_DPN_STD = tuple([1 / (0.0167 * 255)] * 3)
 OPENAI_CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
 OPENAI_CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
 
+
 @keras.saving.register_keras_serializable(package="kv")
 class ImageNormalizationLayer(layers.Layer):
     """

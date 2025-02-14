@@ -1,5 +1,6 @@
-from keras import initializers, layers
 import keras
+from keras import initializers, layers
+
 
 @keras.saving.register_keras_serializable(package="kv")
 class LayerScale(layers.Layer):

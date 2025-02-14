@@ -301,7 +301,8 @@ class ConvNeXt(keras.Model):
         self.classifier_activation = classifier_activation
 
     def get_config(self):
-        return {
+        config = super().get_config()
+        config.update({
             "depths": self.depths,
             "projection_dims": self.projection_dims,
             "drop_path_rate": self.drop_path_rate,
@@ -319,7 +320,8 @@ class ConvNeXt(keras.Model):
             "classifier_activation": self.classifier_activation,
             "name": self.name,
             "trainable": self.trainable,
-        }
+        })
+        return config
 
     @classmethod
     def from_config(cls, config):

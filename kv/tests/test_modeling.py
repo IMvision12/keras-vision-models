@@ -1,6 +1,7 @@
 import os
 import tempfile
 from typing import Any, Dict, Tuple, Type
+import json
 
 import keras
 import numpy as np
@@ -103,29 +104,62 @@ class BaseVisionTest:
         finally:
             keras.config.set_image_data_format(original_data_format)
 
-    def test_serialization(self, model_config):
+    def test_model_saving(self, model_config):
         model = self.create_model(model_config)
         input_data = self.get_input_data(model_config)
         original_output = model(input_data)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             save_path = os.path.join(temp_dir, "test_model.keras")
-
+            
             model.save(save_path)
             loaded_model = keras.models.load_model(save_path)
+            
+            assert isinstance(loaded_model, model.__class__), (
+                f"Loaded model should be an instance of {model.__class__.__name__}"
+            )
+            
             loaded_output = loaded_model(input_data)
             np.testing.assert_allclose(
-                original_output.numpy(), loaded_output.numpy(), rtol=1e-5, atol=1e-5
+                original_output.numpy(),
+                loaded_output.numpy(),
+                rtol=1e-5,
+                atol=1e-5
             )
 
-            config = model.get_config()
-            restored_model = model.__class__.from_config(config)
-            assert isinstance(restored_model, Model)
-
-            restored_output = restored_model(input_data)
-            np.testing.assert_allclose(
-                original_output.numpy(), restored_output.numpy(), rtol=1e-5, atol=1e-5
-            )
+    def test_serialization(self, model_config):
+        model = self.create_model(model_config)
+        
+        run_dir_test = not keras.config.backend() == "tensorflow"
+        
+        cls = model.__class__
+        cfg = model.get_config()
+        cfg_json = json.dumps(cfg, sort_keys=True, indent=4)
+        ref_dir = dir(model)[:]
+        
+        revived_instance = cls.from_config(cfg)
+        revived_cfg = revived_instance.get_config()
+        revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
+        assert cfg_json == revived_cfg_json, "Config JSON mismatch after from_config roundtrip"
+        
+        if run_dir_test:
+            assert set(ref_dir) == set(dir(revived_instance)), "Dir mismatch after from_config roundtrip"
+        
+        serialized = keras.saving.serialize_keras_object(model)
+        serialized_json = json.dumps(serialized, sort_keys=True, indent=4)
+        revived_instance = keras.saving.deserialize_keras_object(
+            json.loads(serialized_json)
+        )
+        revived_cfg = revived_instance.get_config()
+        revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
+        assert cfg_json == revived_cfg_json, "Config JSON mismatch after full serialization roundtrip"
+        
+        if run_dir_test:
+            new_dir = dir(revived_instance)[:]
+            for lst in [ref_dir, new_dir]:
+                if "__annotations__" in lst:
+                    lst.remove("__annotations__")
+            assert set(ref_dir) == set(new_dir), "Dir mismatch after full serialization roundtrip"
 
     def test_training_mode(self, model_config):
         model = self.create_model(model_config)

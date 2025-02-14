@@ -1,6 +1,7 @@
 from keras import layers, ops, random
+import keras
 
-
+@keras.saving.register_keras_serializable(package="kv")
 class StochasticDepth(layers.Layer):
     """
     Implements the Stochastic Depth regularization layer, which randomly drops

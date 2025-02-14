@@ -27,7 +27,7 @@ jobs:
     - name: Find and run model tests
       run: |
         # Find all test files in the models directory
-        TEST_FILES=$(find kv/models -type f -name "test_*.py")
+        TEST_FILES=$(find kv/models -type f \( -name "test_*.py" -o -name "*_test.py" \))
         
         echo "Found $(echo "$TEST_FILES" | wc -l) test files to run"
 

@@ -1,0 +1,91 @@
+name: Model Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-models:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install torch tensorflow keras pytest timm
+        pip install -e .
+        
+    - name: Find and run model tests
+      run: |
+        # Find all test files in the models directory
+        TEST_FILES=$(find kv/models -type f \( -name "test_*.py" -o -name "*_test.py" \))
+        
+        echo "Found $(echo "$TEST_FILES" | wc -l) test files to run"
+
+        if [ -z "$TEST_FILES" ]; then
+          echo "⚠️ No test files found. Exiting..."
+          exit 1
+        fi
+
+        echo "Listing all test files:"
+        for test in $TEST_FILES; do
+          echo " - $test"
+        done
+
+        # Run each test file
+        for test in $TEST_FILES; do
+          echo "🧪 Running test file: $test"
+          if pytest "$test" -v; then
+            echo "✅ Test passed: $test"
+          else
+            echo "❌ Test failed: $test"
+            echo "Stopping further execution due to failure"
+            echo "Failed test: $test"
+            exit 1
+          fi
+          echo "----------------------------------------"
+        done
+        
+        echo "🎉 All tests completed successfully!"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pytest-results
+        path: |
+          ./**/.pytest_cache/**
+          ./**/test-results/**
+          ./**/*_test_results.txt
+          ./**/*_error.log
+        if-no-files-found: ignore
+        retention-days: 7
+
+    - name: Cleanup workspace
+      if: always()
+      run: |
+        echo "🧹 Performing final cleanup..."
+        # Clean up Python cache files
+        find . -name "__pycache__" -exec rm -rf {} +
+        find . -name "*.pyc" -delete
+        find . -name ".pytest_cache" -exec rm -rf {} +
+        
+        # Clean up model files
+        echo "🗑️ Cleaning up model files..."
+        find . -name "*.keras" -type f -delete
+        
+        # Clean up any temporary or generated files
+        find . -name "temp_*" -type f -delete
+        find . -name "*_temp" -type f -delete
+        find . -name "*.log" -type f -delete
+        
+        echo "✨ Cleanup completed!"

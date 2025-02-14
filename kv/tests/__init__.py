@@ -1,1 +1,1 @@
-from .test_case import BaseVisionTest, ModelConfig
+from .test_modeling import BaseVisionTest, ModelConfig

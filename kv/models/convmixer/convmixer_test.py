@@ -1,7 +1,7 @@
 import pytest
 
 from kv.models.convmixer import ConvMixer_768_32
-from kv.tests.test_case import BaseVisionTest, ModelConfig
+from kv.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestConvMixer(BaseVisionTest):

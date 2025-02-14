@@ -1,13 +1,13 @@
 import pytest
 
-from kv.models.convnext import ConvNeXtAtto
+from kv.models.efficientnet import EfficientNetB0
 from kv.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
-class TestConvNeXt(BaseVisionTest):
+class TestEfficientNet(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=ConvNeXtAtto, input_shape=(224, 224, 3))
+        return ModelConfig(model_cls=EfficientNetB0, input_shape=(224, 224, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

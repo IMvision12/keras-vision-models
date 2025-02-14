@@ -1,13 +1,13 @@
 import pytest
 
-from kv.models.convnext import ConvNeXtAtto
+from kv.models.poolformer import PoolFormerS12
 from kv.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
-class TestConvNeXt(BaseVisionTest):
+class TestPoolFormer(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=ConvNeXtAtto, input_shape=(224, 224, 3))
+        return ModelConfig(model_cls=PoolFormerS12, input_shape=(224, 224, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

@@ -126,3 +126,87 @@ class BaseVisionTest:
             np.testing.assert_allclose(
                 original_output.numpy(), restored_output.numpy(), rtol=1e-5, atol=1e-5
             )
+
+    def test_training_mode(self, model_config):
+        model = self.create_model(model_config)
+        model.trainable = True
+        assert model.trainable
+
+        input_data = self.get_input_data(model_config)
+
+        training_output = model(input_data, training=True)
+        inference_output = model(input_data, training=False)
+
+        assert training_output.shape == inference_output.shape
+
+    def test_backbone_features(self, model_config):
+        model = self.create_model(model_config, include_top=False, as_backbone=True)
+        input_data = self.get_input_data(model_config)
+        features = model(input_data)
+
+        assert isinstance(features, list), (
+            "Backbone output should be a list of feature maps"
+        )
+
+        assert len(features) >= 2, "Backbone should output at least 2 feature maps"
+
+        for i, feature_map in enumerate(features):
+            assert len(feature_map.shape) == 4, (
+                f"Feature map {i} should be a 4D tensor, got shape {feature_map.shape}"
+            )
+
+            assert feature_map.shape[0] == model_config.batch_size, (
+                f"Feature map {i} has incorrect batch size. "
+                f"Expected {model_config.batch_size}, got {feature_map.shape[0]}"
+            )
+
+            if keras.config.image_data_format() == "channels_last":
+                h, w, c = feature_map.shape[1:]
+            else:
+                c, h, w = feature_map.shape[1:]
+
+            assert h > 0 and w > 0 and c > 0, (
+                f"Feature map {i} has invalid dimensions: height={h}, width={w}, channels={c}"
+            )
+
+            if i > 0:
+                prev_map = features[i - 1]
+                prev_h = (
+                    prev_map.shape[1]
+                    if keras.config.image_data_format() == "channels_last"
+                    else prev_map.shape[2]
+                )
+                prev_w = (
+                    prev_map.shape[2]
+                    if keras.config.image_data_format() == "channels_last"
+                    else prev_map.shape[3]
+                )
+
+                assert h <= prev_h and w <= prev_w, (
+                    f"Feature map {i} has larger spatial dimensions than previous feature map. "
+                    f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
+                )
+
+                assert prev_h / h <= 4 and prev_w / w <= 4, (
+                    f"Feature map {i} has too large spatial reduction from previous feature map. "
+                    f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
+                )
+
+        features_train = model(input_data, training=True)
+        assert len(features_train) == len(features), (
+            "Number of feature maps should be consistent between training and inference modes"
+        )
+
+        if model_config.batch_size > 1:
+            single_input = input_data[:1]
+            single_features = model(single_input)
+            assert len(single_features) == len(features), (
+                "Number of feature maps should be consistent across different batch sizes"
+            )
+
+            for i, (single_feat, batch_feat) in enumerate(
+                zip(single_features, features)
+            ):
+                assert single_feat.shape[1:] == batch_feat.shape[1:], (
+                    f"Feature map {i} shapes don't match between different batch sizes"
+                )

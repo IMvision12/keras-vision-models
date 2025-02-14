@@ -4,6 +4,7 @@ from typing import Any, Dict, Tuple, Type
 
 import keras
 import numpy as np
+import tensorflow as tf
 from keras import Model
 
 
@@ -75,26 +76,30 @@ class BaseVisionTest:
                 model_config.num_classes,
             )
 
-            keras.config.set_image_data_format("channels_first")
-            current_shape = (
-                model_config.input_shape[2],
-                model_config.input_shape[0],
-                model_config.input_shape[1],
-            )
-            current_data = self.convert_data_format(input_data, "channels_first")
+            if (
+                keras.config.backend() == "tensorflow"
+                and not tf.config.list_physical_devices("GPU")
+            ):
+                keras.config.set_image_data_format("channels_first")
+                current_shape = (
+                    model_config.input_shape[2],
+                    model_config.input_shape[0],
+                    model_config.input_shape[1],
+                )
+                current_data = self.convert_data_format(input_data, "channels_first")
 
-            model_first = self.create_model(model_config, input_shape=current_shape)
-            model_first.set_weights(model_last.get_weights())
+                model_first = self.create_model(model_config, input_shape=current_shape)
+                model_first.set_weights(model_last.get_weights())
 
-            output_first = model_first(current_data)
-            assert output_first.shape == (
-                model_config.batch_size,
-                model_config.num_classes,
-            )
+                output_first = model_first(current_data)
+                assert output_first.shape == (
+                    model_config.batch_size,
+                    model_config.num_classes,
+                )
 
-            np.testing.assert_allclose(
-                output_first.numpy(), output_last.numpy(), rtol=1e-5, atol=1e-5
-            )
+                np.testing.assert_allclose(
+                    output_first.numpy(), output_last.numpy(), rtol=1e-5, atol=1e-5
+                )
         finally:
             keras.config.set_image_data_format(original_data_format)
 

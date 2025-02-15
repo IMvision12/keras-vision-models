@@ -232,7 +232,7 @@ class ViT(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="imagenet",
+        weights="augreg_in21k_ft_in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,

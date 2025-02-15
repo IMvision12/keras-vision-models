@@ -190,8 +190,12 @@ class BaseVisionTest:
         assert len(features) >= 2, "Backbone should output at least 2 feature maps"
 
         for i, feature_map in enumerate(features):
-            assert len(feature_map.shape) == 4, (
-                f"Feature map {i} should be a 4D tensor, got shape {feature_map.shape}"
+            # Check if the feature map is from a transformer (3D) or CNN (4D)
+            is_transformer_output = len(feature_map.shape) == 3
+
+            assert len(feature_map.shape) in (3, 4), (
+                f"Feature map {i} should be a 3D (transformer) or 4D (CNN) tensor, "
+                f"got shape {feature_map.shape}"
             )
 
             assert feature_map.shape[0] == model_config.batch_size, (
@@ -199,37 +203,56 @@ class BaseVisionTest:
                 f"Expected {model_config.batch_size}, got {feature_map.shape[0]}"
             )
 
-            if keras.config.image_data_format() == "channels_last":
-                h, w, c = feature_map.shape[1:]
+            if is_transformer_output:
+                seq_len, channels = feature_map.shape[1:]
+                assert seq_len > 0 and channels > 0, (
+                    f"Feature map {i} has invalid dimensions: "
+                    f"sequence_length={seq_len}, channels={channels}"
+                )
+
+                if i > 0:
+                    prev_map = features[i - 1]
+                    prev_seq_len = prev_map.shape[1]
+
+                    assert seq_len <= prev_seq_len, (
+                        f"Feature map {i} has larger sequence length than previous feature map. "
+                        f"Got {seq_len}, previous was {prev_seq_len}"
+                    )
+
             else:
-                c, h, w = feature_map.shape[1:]
+                if keras.config.image_data_format() == "channels_last":
+                    h, w, c = feature_map.shape[1:]
+                else:
+                    c, h, w = feature_map.shape[1:]
 
-            assert h > 0 and w > 0 and c > 0, (
-                f"Feature map {i} has invalid dimensions: height={h}, width={w}, channels={c}"
-            )
-
-            if i > 0:
-                prev_map = features[i - 1]
-                prev_h = (
-                    prev_map.shape[1]
-                    if keras.config.image_data_format() == "channels_last"
-                    else prev_map.shape[2]
-                )
-                prev_w = (
-                    prev_map.shape[2]
-                    if keras.config.image_data_format() == "channels_last"
-                    else prev_map.shape[3]
+                assert h > 0 and w > 0 and c > 0, (
+                    f"Feature map {i} has invalid dimensions: "
+                    f"height={h}, width={w}, channels={c}"
                 )
 
-                assert h <= prev_h and w <= prev_w, (
-                    f"Feature map {i} has larger spatial dimensions than previous feature map. "
-                    f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
-                )
+                if i > 0:
+                    prev_map = features[i - 1]
+                    if len(prev_map.shape) == 4:
+                        prev_h = (
+                            prev_map.shape[1]
+                            if keras.config.image_data_format() == "channels_last"
+                            else prev_map.shape[2]
+                        )
+                        prev_w = (
+                            prev_map.shape[2]
+                            if keras.config.image_data_format() == "channels_last"
+                            else prev_map.shape[3]
+                        )
 
-                assert prev_h / h <= 4 and prev_w / w <= 4, (
-                    f"Feature map {i} has too large spatial reduction from previous feature map. "
-                    f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
-                )
+                        assert h <= prev_h and w <= prev_w, (
+                            f"Feature map {i} has larger spatial dimensions than previous feature map. "
+                            f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
+                        )
+
+                        assert prev_h / h <= 4 and prev_w / w <= 4, (
+                            f"Feature map {i} has too large spatial reduction from previous feature map. "
+                            f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
+                        )
 
         features_train = model(input_data, training=True)
         assert len(features_train) == len(features), (

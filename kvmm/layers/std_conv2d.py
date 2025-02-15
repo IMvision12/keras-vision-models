@@ -2,7 +2,7 @@ import keras
 from keras import ops
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class StdConv2D(keras.layers.Conv2D):
     """2D Convolution layer with Weight Standardization.
 

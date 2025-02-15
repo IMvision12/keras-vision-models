@@ -2,7 +2,7 @@ import keras
 from keras import InputSpec, layers, ops
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class MultiHeadSelfAttention(layers.Layer):
     """Multi-Head Self-Attention layer implementing scaled dot-product attention.
 

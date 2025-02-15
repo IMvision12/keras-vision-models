@@ -2,7 +2,7 @@ import keras
 from keras import InputSpec, layers, ops
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class EfficientMultiheadSelfAttention(layers.Layer):
     """Efficient Multi-head Self-Attention layer with hierarchical spatial reduction.
 

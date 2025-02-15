@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class ClassDistToken(layers.Layer):
     """
     Implements learnable class and distillation tokens for Vision Transformer (ViT),

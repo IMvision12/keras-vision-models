@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from kv.layers.image_normalization import (
+from kvmm.layers.image_normalization import (
     IMAGENET_DEFAULT_MEAN,
     IMAGENET_DEFAULT_STD,
     IMAGENET_DPN_MEAN,

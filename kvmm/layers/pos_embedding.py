@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class AddPositionEmbs(layers.Layer):
     """
     A custom Keras layer that adds learnable position embeddings to input tensors with support for

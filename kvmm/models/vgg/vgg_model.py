@@ -2,8 +2,8 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import VGG_MODEL_CONFIG, VGG_WEIGHTS_CONFIG
 
@@ -71,7 +71,7 @@ def vgg_block(
     return x, features
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class VGG(keras.Model):
     """Instantiates the VGG architecture with optional batch normalization.
 

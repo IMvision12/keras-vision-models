@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.vgg import VGG16
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.vgg import VGG16
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestVGG(BaseVisionTest):

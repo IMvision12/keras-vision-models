@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.poolformer import PoolFormerS12
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.poolformer import PoolFormerS12
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestPoolFormer(BaseVisionTest):

@@ -3,8 +3,8 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import INCEPTIONRESNETV2_WEIGHTS_CONFIG
 
@@ -202,7 +202,7 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class InceptionResNetV2Main(keras.Model):
     """
     Instantiates the Inception-ResNet-v2 architecture.

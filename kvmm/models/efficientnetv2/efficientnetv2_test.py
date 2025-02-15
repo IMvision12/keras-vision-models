@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.efficientnetv2 import EfficientNetV2S
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.efficientnetv2 import EfficientNetV2S
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestEfficientNetV2(BaseVisionTest):

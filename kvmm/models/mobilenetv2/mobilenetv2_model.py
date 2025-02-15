@@ -2,8 +2,8 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import MOBILENETV2_MODEL_CONFIG, MOBILENETV2_WEIGHTS_CONFIG
 
@@ -127,7 +127,7 @@ def inverted_residual_block(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class MobileNetV2(keras.Model):
     """Instantiates the MobileNetV2 architecture.
 

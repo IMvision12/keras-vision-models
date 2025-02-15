@@ -3,8 +3,8 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import INCEPTIONV4_WEIGHTS_CONFIG
 
@@ -461,7 +461,7 @@ def inception_c(x, conv_block, block_idx):
     return layers.Concatenate(axis=-1, name=name)([branch0, branch1, branch2, branch3])
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class InceptionV4Main(keras.Model):
     """
     Instantiates the InceptionV4 architecture.

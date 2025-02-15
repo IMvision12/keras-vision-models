@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.pit import PiT_XS
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.pit import PiT_XS
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestPiT(BaseVisionTest):

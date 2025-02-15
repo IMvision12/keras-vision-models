@@ -1,5 +1,5 @@
-from kv.models.vision_transformer.vit_model import ViT
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.models.vision_transformer.vit_model import ViT
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHTS_CONFIG
 

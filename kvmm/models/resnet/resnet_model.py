@@ -4,8 +4,8 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import RESNET_MODEL_CONFIG, RESNET_WEIGHTS_CONFIG
 
@@ -207,7 +207,7 @@ def bottleneck_block(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class ResNet(keras.Model):
     """
     Instantiates the ResNet architecture with support for ResNeXt and SE-ResNet/SE-ResNeXt configurations.
@@ -449,7 +449,7 @@ class ResNet(keras.Model):
                 if block_fn_name == "bottleneck_block":
                     config["block_fn"] = bottleneck_block
             elif module_path == "kv.models.resnext.resnext_model":
-                from kv.models.resnext.resnext_model import resnext_block
+                from kvmm.models.resnext.resnext_model import resnext_block
 
                 if block_fn_name == "resnext_block":
                     config["block_fn"] = resnext_block

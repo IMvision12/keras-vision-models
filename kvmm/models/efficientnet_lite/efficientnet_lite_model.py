@@ -5,8 +5,8 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import (
     CONV_KERNEL_INITIALIZER,
@@ -159,7 +159,7 @@ def efficientnetlite_block(
         x = layers.add([x, inputs], name=name + "add")
     return x
 
-
+@keras.saving.register_keras_serializable(package="kvmm")
 class EfficientNetLite(keras.Model):
     """
     Instantiates the EfficientNet-Lite architecture, a lighter variant of the original EfficientNet

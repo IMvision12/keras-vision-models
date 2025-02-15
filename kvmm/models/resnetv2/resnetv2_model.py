@@ -3,8 +3,8 @@ import numpy as np
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer, StdConv2D, StochasticDepth
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer, StdConv2D, StochasticDepth
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHTS_CONFIG
 
@@ -239,7 +239,7 @@ def preact_bottleneck(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class ResNetV2(keras.Model):
     """
     Instantiates the ResNetV2 architecture with pre-activation residual blocks.

@@ -3,11 +3,11 @@ import numpy as np
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.layers.global_response_norm import GlobalResponseNorm
-from kv.layers.layer_scale import LayerScale
-from kv.layers.stochastic_depth import StochasticDepth
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.layers.global_response_norm import GlobalResponseNorm
+from kvmm.layers.layer_scale import LayerScale
+from kvmm.layers.stochastic_depth import StochasticDepth
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_CONFIG
 
@@ -80,7 +80,7 @@ def convnext_block(
     return layers.Add(name=name + "_add")([inputs, x])
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class ConvNeXt(keras.Model):
     """Instantiates the ConvNeXt architecture.
 

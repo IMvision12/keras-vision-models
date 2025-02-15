@@ -2,8 +2,8 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import DENSENET_MODEL_CONFIG, DENSENET_WEIGHTS_CONFIG
 
@@ -136,7 +136,7 @@ def transition_block(x, reduction, channels_axis, data_format, name):
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class DenseNet(keras.Model):
     """Instantiates the DenseNet architecture.
 

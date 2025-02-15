@@ -45,9 +45,9 @@ dynamic = ["version"]
 dependencies = ["keras"]
 
 [project.urls]
-homepage = "https://github.com/IMvision12/keras-vision"
-documentation = "https://github.com/IMvision12/keras-vision"
-repository = "https://github.com/IMvision12/keras-vision"
+homepage = "https://github.com/IMvision12/keras-vision-models"
+documentation = "https://github.com/IMvision12/keras-vision-models"
+repository = "https://github.com/IMvision12/keras-vision-models"
 
 [tool.ruff.lint]
 ignore = ["C901", "E501", "E741", "F402", "F823"]

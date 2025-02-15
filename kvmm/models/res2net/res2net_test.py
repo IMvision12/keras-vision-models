@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.res2net import Res2Net50_26w_4s
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.res2net import Res2Net50_26w_4s
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestRes2Net(BaseVisionTest):

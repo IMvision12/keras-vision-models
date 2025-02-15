@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.inception_resnetv2 import InceptionResNetV2
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.inception_resnetv2 import InceptionResNetV2
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestInceptionResNetV2(BaseVisionTest):

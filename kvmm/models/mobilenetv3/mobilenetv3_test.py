@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.mobilenetv3 import MobileNetV3Small075
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.mobilenetv3 import MobileNetV3Small075
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestMobileNetV3(BaseVisionTest):

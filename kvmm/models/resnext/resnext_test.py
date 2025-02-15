@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.resnext import ResNeXt50_32x4d
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.resnext import ResNeXt50_32x4d
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestResNeXt(BaseVisionTest):

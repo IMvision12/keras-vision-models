@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.mix_transformer import MiT_B0
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.mix_transformer import MiT_B0
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestMixTransformer(BaseVisionTest):

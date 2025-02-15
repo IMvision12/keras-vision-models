@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.mlp_mixer import MLPMixer_B16
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.mlp_mixer import MLPMixer_B16
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestMLPMixer(BaseVisionTest):

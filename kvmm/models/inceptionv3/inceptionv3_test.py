@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.inceptionv3 import InceptionV3
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.inceptionv3 import InceptionV3
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestInceptionV3(BaseVisionTest):

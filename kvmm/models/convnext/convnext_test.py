@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.convnext import ConvNeXtAtto
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.convnext import ConvNeXtAtto
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestConvNeXt(BaseVisionTest):

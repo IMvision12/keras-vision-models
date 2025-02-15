@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.inception_next import InceptionNeXtTiny
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.inception_next import InceptionNeXtTiny
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestInceptionNeXt(BaseVisionTest):

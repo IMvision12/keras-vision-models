@@ -2,8 +2,8 @@ import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import RES2NET_MODEL_CONFIG, RES2NET_WEIGHTS_CONFIG
 
@@ -189,7 +189,7 @@ def bottle2neck_block(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class Res2Net(keras.Model):
     """
     Instantiates the Res2Net architecture, which introduces a novel building block for

@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.xception import Xception
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.xception import Xception
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestXception(BaseVisionTest):

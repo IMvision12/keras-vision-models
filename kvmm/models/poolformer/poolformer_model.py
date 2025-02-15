@@ -2,8 +2,8 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import POOLFORMER_MODEL_CONFIG, POOLFORMER_WEIGHTS_CONFIG
 
@@ -131,7 +131,7 @@ def poolformer_block(
     return x
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class PoolFormer(keras.Model):
     """Instantiates the PoolFormer architecture that uses pooling for token mixing.
 

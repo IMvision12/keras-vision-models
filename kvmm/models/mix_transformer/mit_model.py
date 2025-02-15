@@ -3,12 +3,12 @@ import numpy as np
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import (
+from kvmm.layers import (
     EfficientMultiheadSelfAttention,
     ImageNormalizationLayer,
     StochasticDepth,
 )
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
 
@@ -163,7 +163,7 @@ def hierarchical_transformer_encoder_block(
     return out
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class MixTransformer(keras.Model):
     """Instantiates the Mix Transformer (MiT) architecture from the SegFormer paper.
 

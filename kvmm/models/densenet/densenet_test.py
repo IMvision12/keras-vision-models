@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.densenet import DenseNet121
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.densenet import DenseNet121
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestDenseNet(BaseVisionTest):

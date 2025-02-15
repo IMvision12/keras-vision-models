@@ -2,13 +2,13 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import (
+from kvmm.layers import (
     AddPositionEmbs,
     ClassDistToken,
     ImageNormalizationLayer,
     MultiHeadSelfAttention,
 )
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import PIT_MODEL_CONFIG, PIT_WEIGHTS_CONFIG
 
@@ -161,7 +161,7 @@ def conv_pooling(
     return output, (new_height, new_width)
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class PoolingVisionTransformer(keras.Model):
     """Instantiates the Pooling Vision Transformer architecture.
 

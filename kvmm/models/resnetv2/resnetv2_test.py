@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.resnetv2 import ResNetV2_50x1
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.resnetv2 import ResNetV2_50x1
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestResNetV2(BaseVisionTest):

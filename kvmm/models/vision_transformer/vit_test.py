@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.vision_transformer import ViTTiny16
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.vision_transformer import ViTTiny16
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestViT(BaseVisionTest):

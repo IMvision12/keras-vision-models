@@ -2,14 +2,14 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kv.layers import (
+from kvmm.layers import (
     AddPositionEmbs,
     ClassDistToken,
     ImageNormalizationLayer,
     LayerScale,
     MultiHeadSelfAttention,
 )
-from kv.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_CONFIG
 
@@ -129,7 +129,7 @@ def transformer_block(
     return outputs
 
 
-@keras.saving.register_keras_serializable(package="kv")
+@keras.saving.register_keras_serializable(package="kvmm")
 class ViT(keras.Model):
     """Instantiates the Vision Transformer (ViT) architecture with optional FlexiViT support.
 

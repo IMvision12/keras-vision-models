@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.flexivit import FlexiViTSmall
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.flexivit import FlexiViTSmall
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestFlexiViT(BaseVisionTest):

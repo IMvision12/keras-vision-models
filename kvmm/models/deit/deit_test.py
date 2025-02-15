@@ -1,7 +1,7 @@
 import pytest
 
-from kv.models.deit import DEiTTinyDistilled16
-from kv.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.models.deit import DEiTTinyDistilled16
+from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestDEiT(BaseVisionTest):

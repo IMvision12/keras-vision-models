@@ -5,11 +5,11 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from kv.models.segformer import SegFormerB0
-from kv.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kv.utils.model_weights_util import download_weights
-from kv.utils.weight_split_torch_and_keras import split_model_weights
-from kv.utils.weight_transfer_torch_to_keras import (
+from kvmm.models.segformer import SegFormerB0
+from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
+from kvmm.utils.model_weights_util import download_weights
+from kvmm.utils.weight_split_torch_and_keras import split_model_weights
+from kvmm.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_attention_weights,
     transfer_weights,

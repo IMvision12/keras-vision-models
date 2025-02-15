@@ -1,7 +1,7 @@
 import keras
 
-from kv.models.xception import Xception
-from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
+from kvmm.models.xception import Xception
+from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 
 model_config = {
     "input_shape": (299, 299, 3),

@@ -1,7 +1,7 @@
 import keras
 
-from kv.models.mobilenetv3 import MobileNetV3Small075
-from kv.utils.model_equivalence_tester import verify_cls_model_equivalence
+from kvmm.models.mobilenetv3 import MobileNetV3Small075
+from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 
 model_config = {
     "input_shape": (224, 224, 3),

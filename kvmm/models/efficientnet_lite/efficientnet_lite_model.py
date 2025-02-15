@@ -159,6 +159,7 @@ def efficientnetlite_block(
         x = layers.add([x, inputs], name=name + "add")
     return x
 
+
 @keras.saving.register_keras_serializable(package="kvmm")
 class EfficientNetLite(keras.Model):
     """

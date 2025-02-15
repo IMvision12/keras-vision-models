@@ -342,7 +342,7 @@ class ResNet(keras.Model):
         }
 
         if isinstance(block_fn, dict):
-            if block_fn.get("module") == "kv.models.resnext.resnext_model":
+            if block_fn.get("module") == "kvmm.models.resnext.resnext_model":
                 common_args.update({"groups": groups, "width_factor": width_factor})
         elif hasattr(block_fn, "__module__") and "resnext" in block_fn.__module__:
             common_args.update({"groups": groups, "width_factor": width_factor})

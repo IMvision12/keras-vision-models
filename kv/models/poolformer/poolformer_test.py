@@ -1,13 +1,13 @@
 import pytest
 
-from kv.models.convmixer import ConvMixer_768_32
+from kv.models.poolformer import PoolFormerS12
 from kv.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
-class TestConvMixer(BaseVisionTest):
+class TestPoolFormer(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=ConvMixer_768_32, input_shape=(224, 224, 3))
+        return ModelConfig(model_cls=PoolFormerS12, input_shape=(224, 224, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

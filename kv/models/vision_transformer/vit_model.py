@@ -232,7 +232,7 @@ class ViT(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="imagenet",
+        weights="augreg_in21k_ft_in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,
@@ -431,31 +431,35 @@ class ViT(keras.Model):
         self.classifier_activation = classifier_activation
 
     def get_config(self):
-        return {
-            "patch_size": self.patch_size,
-            "dim": self.dim,
-            "depth": self.depth,
-            "num_heads": self.num_heads,
-            "mlp_ratio": self.mlp_ratio,
-            "qkv_bias": self.qkv_bias,
-            "qk_norm": self.qk_norm,
-            "drop_rate": self.drop_rate,
-            "attn_drop_rate": self.attn_drop_rate,
-            "no_embed_class": self.no_embed_class,
-            "use_distillation": self.use_distillation,
-            "init_values": self.init_values,
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-            "trainable": self.trainable,
-        }
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "dim": self.dim,
+                "depth": self.depth,
+                "num_heads": self.num_heads,
+                "mlp_ratio": self.mlp_ratio,
+                "qkv_bias": self.qkv_bias,
+                "qk_norm": self.qk_norm,
+                "drop_rate": self.drop_rate,
+                "attn_drop_rate": self.attn_drop_rate,
+                "no_embed_class": self.no_embed_class,
+                "use_distillation": self.use_distillation,
+                "init_values": self.init_values,
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
 
     @classmethod
     def from_config(cls, config):

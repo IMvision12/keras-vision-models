@@ -413,26 +413,29 @@ class PoolingVisionTransformer(keras.Model):
         self.classifier_activation = classifier_activation
 
     def get_config(self):
-        config = {
-            "patch_size": self.patch_size,
-            "stride": self.stride,
-            "embed_dim": self.embed_dim,
-            "depth": self.depth,
-            "heads": self.heads,
-            "mlp_ratio": self.mlp_ratio,
-            "distilled": self.distilled,
-            "drop_rate": self.drop_rate,
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-        }
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "stride": self.stride,
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "heads": self.heads,
+                "mlp_ratio": self.mlp_ratio,
+                "distilled": self.distilled,
+                "drop_rate": self.drop_rate,
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+            }
+        )
         return config
 
     @classmethod

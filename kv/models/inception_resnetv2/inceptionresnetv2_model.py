@@ -204,6 +204,43 @@ def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
 
 @keras.saving.register_keras_serializable(package="kv")
 class InceptionResNetV2Main(keras.Model):
+    """
+    Instantiates the Inception-ResNet-v2 architecture.
+
+    Reference:
+    - [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) (AAAI 2017)
+
+    Args:
+        include_top: Boolean, whether to include the fully-connected classification layer at the top of the model.
+            Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to False.
+        include_normalization: Boolean, whether to include normalization layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_normalization=True.
+        weights: String, specifying the path to pretrained weights or one of the
+            available options in `keras-vision`.
+        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as the model's input.
+            If not provided, a new input tensor is created based on `input_shape`.
+        input_shape: Optional tuple specifying the shape of the input data. If not specified, defaults to `(299, 299, 3)`.
+        pooling: Optional pooling mode for feature extraction when `include_top=False`:
+            - `None` (default): the output is the 4D tensor from the last convolutional block.
+            - `"avg"`: global average pooling is applied, and the output is a 2D tensor.
+            - `"max"`: global max pooling is applied, and the output is a 2D tensor.
+        num_classes: Integer, the number of output classes for classification. Defaults to `1000`.
+            Only applicable if `include_top=True`.
+        classifier_activation: String or callable, activation function for the classification layer.
+            Set to `None` to return logits. Defaults to `"softmax"`.
+        name: String, name of the model. Defaults to `"InceptionResNetV2"`.
+
+    Returns:
+        A Keras `Model` instance.
+    """
+
     def __init__(
         self,
         include_top=True,
@@ -315,19 +352,23 @@ class InceptionResNetV2Main(keras.Model):
         self.classifier_activation = classifier_activation
 
     def get_config(self) -> dict:
-        return {
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-            "trainable": self.trainable,
-        }
+        config = super().get_config()
+        config.update(
+            {
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
 
     @classmethod
     def from_config(cls, config):

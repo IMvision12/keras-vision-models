@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 from typing import Any, Dict, Tuple, Type
@@ -103,7 +104,7 @@ class BaseVisionTest:
         finally:
             keras.config.set_image_data_format(original_data_format)
 
-    def test_serialization(self, model_config):
+    def test_model_saving(self, model_config):
         model = self.create_model(model_config)
         input_data = self.get_input_data(model_config)
         original_output = model(input_data)
@@ -113,18 +114,56 @@ class BaseVisionTest:
 
             model.save(save_path)
             loaded_model = keras.models.load_model(save_path)
+
+            assert isinstance(loaded_model, model.__class__), (
+                f"Loaded model should be an instance of {model.__class__.__name__}"
+            )
+
             loaded_output = loaded_model(input_data)
             np.testing.assert_allclose(
                 original_output.numpy(), loaded_output.numpy(), rtol=1e-5, atol=1e-5
             )
 
-            config = model.get_config()
-            restored_model = model.__class__.from_config(config)
-            assert isinstance(restored_model, Model)
+    def test_serialization(self, model_config):
+        model = self.create_model(model_config)
 
-            restored_output = restored_model(input_data)
-            np.testing.assert_allclose(
-                original_output.numpy(), restored_output.numpy(), rtol=1e-5, atol=1e-5
+        run_dir_test = not keras.config.backend() == "tensorflow"
+
+        cls = model.__class__
+        cfg = model.get_config()
+        cfg_json = json.dumps(cfg, sort_keys=True, indent=4)
+        ref_dir = dir(model)[:]
+
+        revived_instance = cls.from_config(cfg)
+        revived_cfg = revived_instance.get_config()
+        revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
+        assert cfg_json == revived_cfg_json, (
+            "Config JSON mismatch after from_config roundtrip"
+        )
+
+        if run_dir_test:
+            assert set(ref_dir) == set(dir(revived_instance)), (
+                "Dir mismatch after from_config roundtrip"
+            )
+
+        serialized = keras.saving.serialize_keras_object(model)
+        serialized_json = json.dumps(serialized, sort_keys=True, indent=4)
+        revived_instance = keras.saving.deserialize_keras_object(
+            json.loads(serialized_json)
+        )
+        revived_cfg = revived_instance.get_config()
+        revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
+        assert cfg_json == revived_cfg_json, (
+            "Config JSON mismatch after full serialization roundtrip"
+        )
+
+        if run_dir_test:
+            new_dir = dir(revived_instance)[:]
+            for lst in [ref_dir, new_dir]:
+                if "__annotations__" in lst:
+                    lst.remove("__annotations__")
+            assert set(ref_dir) == set(new_dir), (
+                "Dir mismatch after full serialization roundtrip"
             )
 
     def test_training_mode(self, model_config):
@@ -151,8 +190,12 @@ class BaseVisionTest:
         assert len(features) >= 2, "Backbone should output at least 2 feature maps"
 
         for i, feature_map in enumerate(features):
-            assert len(feature_map.shape) == 4, (
-                f"Feature map {i} should be a 4D tensor, got shape {feature_map.shape}"
+            # Check if the feature map is from a transformer (3D) or CNN (4D)
+            is_transformer_output = len(feature_map.shape) == 3
+
+            assert len(feature_map.shape) in (3, 4), (
+                f"Feature map {i} should be a 3D (transformer) or 4D (CNN) tensor, "
+                f"got shape {feature_map.shape}"
             )
 
             assert feature_map.shape[0] == model_config.batch_size, (
@@ -160,37 +203,56 @@ class BaseVisionTest:
                 f"Expected {model_config.batch_size}, got {feature_map.shape[0]}"
             )
 
-            if keras.config.image_data_format() == "channels_last":
-                h, w, c = feature_map.shape[1:]
+            if is_transformer_output:
+                seq_len, channels = feature_map.shape[1:]
+                assert seq_len > 0 and channels > 0, (
+                    f"Feature map {i} has invalid dimensions: "
+                    f"sequence_length={seq_len}, channels={channels}"
+                )
+
+                if i > 0:
+                    prev_map = features[i - 1]
+                    prev_seq_len = prev_map.shape[1]
+
+                    assert seq_len <= prev_seq_len, (
+                        f"Feature map {i} has larger sequence length than previous feature map. "
+                        f"Got {seq_len}, previous was {prev_seq_len}"
+                    )
+
             else:
-                c, h, w = feature_map.shape[1:]
+                if keras.config.image_data_format() == "channels_last":
+                    h, w, c = feature_map.shape[1:]
+                else:
+                    c, h, w = feature_map.shape[1:]
 
-            assert h > 0 and w > 0 and c > 0, (
-                f"Feature map {i} has invalid dimensions: height={h}, width={w}, channels={c}"
-            )
-
-            if i > 0:
-                prev_map = features[i - 1]
-                prev_h = (
-                    prev_map.shape[1]
-                    if keras.config.image_data_format() == "channels_last"
-                    else prev_map.shape[2]
-                )
-                prev_w = (
-                    prev_map.shape[2]
-                    if keras.config.image_data_format() == "channels_last"
-                    else prev_map.shape[3]
+                assert h > 0 and w > 0 and c > 0, (
+                    f"Feature map {i} has invalid dimensions: "
+                    f"height={h}, width={w}, channels={c}"
                 )
 
-                assert h <= prev_h and w <= prev_w, (
-                    f"Feature map {i} has larger spatial dimensions than previous feature map. "
-                    f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
-                )
+                if i > 0:
+                    prev_map = features[i - 1]
+                    if len(prev_map.shape) == 4:
+                        prev_h = (
+                            prev_map.shape[1]
+                            if keras.config.image_data_format() == "channels_last"
+                            else prev_map.shape[2]
+                        )
+                        prev_w = (
+                            prev_map.shape[2]
+                            if keras.config.image_data_format() == "channels_last"
+                            else prev_map.shape[3]
+                        )
 
-                assert prev_h / h <= 4 and prev_w / w <= 4, (
-                    f"Feature map {i} has too large spatial reduction from previous feature map. "
-                    f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
-                )
+                        assert h <= prev_h and w <= prev_w, (
+                            f"Feature map {i} has larger spatial dimensions than previous feature map. "
+                            f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
+                        )
+
+                        assert prev_h / h <= 4 and prev_w / w <= 4, (
+                            f"Feature map {i} has too large spatial reduction from previous feature map. "
+                            f"Got {h}x{w}, previous was {prev_h}x{prev_w}"
+                        )
 
         features_train = model(input_data, training=True)
         assert len(features_train) == len(features), (

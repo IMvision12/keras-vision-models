@@ -341,7 +341,10 @@ class ResNet(keras.Model):
             "senet": senet,
         }
 
-        if block_fn.__name__ == "resnext_block":
+        if isinstance(block_fn, dict):
+            if block_fn.get("module") == "kv.models.resnext.resnext_model":
+                common_args.update({"groups": groups, "width_factor": width_factor})
+        elif hasattr(block_fn, "__module__") and "resnext" in block_fn.__module__:
             common_args.update({"groups": groups, "width_factor": width_factor})
 
         for i, num_blocks in enumerate(block_repeats):
@@ -396,28 +399,65 @@ class ResNet(keras.Model):
         self.classifier_activation = classifier_activation
 
     def get_config(self):
-        return {
-            "block_fn": self.block_fn,
-            "block_repeats": self.block_repeats,
-            "filters": self.filters,
-            "groups": self.groups,
-            "senet": self.senet,
-            "width_factor": self.width_factor,
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-            "trainable": self.trainable,
-        }
+        config = super().get_config()
+
+        if hasattr(self.block_fn, "__module__"):
+            block_fn_config = {
+                "class_name": "function",
+                "config": self.block_fn.__name__,
+                "module": self.block_fn.__module__,
+                "registered_name": "function",
+            }
+        else:
+            block_fn_config = {
+                "class_name": "function",
+                "config": "bottleneck_block",
+                "module": "kv.models.resnet.resnet_model",
+                "registered_name": "function",
+            }
+
+        config.update(
+            {
+                "block_fn": block_fn_config,
+                "block_repeats": self.block_repeats,
+                "filters": self.filters,
+                "groups": self.groups,
+                "senet": self.senet,
+                "width_factor": self.width_factor,
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
 
     @classmethod
     def from_config(cls, config):
+        if isinstance(config["block_fn"], dict):
+            block_fn_name = config["block_fn"]["config"]
+            module_path = config["block_fn"]["module"]
+
+            if module_path == "kv.models.resnet.resnet_model":
+                if block_fn_name == "bottleneck_block":
+                    config["block_fn"] = bottleneck_block
+            elif module_path == "kv.models.resnext.resnext_model":
+                from kv.models.resnext.resnext_model import resnext_block
+
+                if block_fn_name == "resnext_block":
+                    config["block_fn"] = resnext_block
+            else:
+                raise ValueError(
+                    f"Unknown block function: {block_fn_name} from module {module_path}"
+                )
+
         return cls(**config)
 
 

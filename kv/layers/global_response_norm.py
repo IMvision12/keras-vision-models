@@ -2,6 +2,7 @@ import keras
 from keras import layers, ops
 
 
+@keras.saving.register_keras_serializable(package="kv")
 class GlobalResponseNorm(layers.Layer):
     """
     GRN (Global Response Normalization) layer.

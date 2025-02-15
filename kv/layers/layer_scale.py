@@ -1,6 +1,8 @@
+import keras
 from keras import initializers, layers
 
 
+@keras.saving.register_keras_serializable(package="kv")
 class LayerScale(layers.Layer):
     """
     Implements LayerScale, a learnable scaling layer that multiplies the input by a

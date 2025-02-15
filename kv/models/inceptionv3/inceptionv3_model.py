@@ -359,7 +359,7 @@ class InceptionV3Main(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="inception",
-        weights="ink1",
+        weights="tf_in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,
@@ -418,6 +418,8 @@ class InceptionV3Main(keras.Model):
         x = layers.MaxPooling2D(3, 2, name="Pool1")(x)
         x = conv_block(x, 80, 1, name="Conv2d_3b_1x1")
         x = conv_block(x, 192, 3, name="Conv2d_4a_3x3")
+        features.append(x)
+
         x = layers.MaxPooling2D(3, 2, name="Pool2")(x)
         x = inception_blocka(x, 32, "Mixed_5b")
         x = inception_blocka(x, 64, "Mixed_5c")
@@ -470,19 +472,23 @@ class InceptionV3Main(keras.Model):
         self.classifier_activation = classifier_activation
 
     def get_config(self) -> dict:
-        return {
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-            "trainable": self.trainable,
-        }
+        config = super().get_config()
+        config.update(
+            {
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
+        return config
 
     @classmethod
     def from_config(cls, config):
@@ -496,7 +502,7 @@ def InceptionV3(
     include_normalization=True,
     normalization_mode="inception",
     num_classes=1000,
-    weights="gluon_in1k",
+    weights="tf_in1k",
     input_shape=None,
     input_tensor=None,
     pooling=None,

@@ -110,16 +110,19 @@ class SegFormer(keras.Model):
         self.input_tensor = input_tensor
 
     def get_config(self):
-        config = {
-            "backbone": self.backbone,
-            "num_classes": self.num_classes,
-            "embed_dim": self.embed_dim,
-            "dropout_rate": self.dropout_rate,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "name": self.name,
-            "trainable": self.trainable,
-        }
+        config = super().get_config()
+        config.update(
+            {
+                "backbone": self.backbone,
+                "num_classes": self.num_classes,
+                "embed_dim": self.embed_dim,
+                "dropout_rate": self.dropout_rate,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
         return config
 
     @classmethod

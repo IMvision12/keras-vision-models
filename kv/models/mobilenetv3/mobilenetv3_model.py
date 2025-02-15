@@ -402,7 +402,7 @@ class MobileNetV3(keras.Model):
             x = layers.Activation(activation, name="head_activation")(x)
 
             if dropout_rate > 0:
-                x = layers.Dropout(dropout_rate, "head_dropout")(x)
+                x = layers.Dropout(dropout_rate, name="head_dropout")(x)
             x = layers.Conv2D(
                 num_classes,
                 kernel_size=1,

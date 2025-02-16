@@ -1,10 +1,10 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="keras-vision",
+    name="keras-vision-models",
     version="0.1",
     description="A library that offers Keras3 models, including popular computer vision architectures like ResNet, EfficientNet, and MobileNet, with pretrained weights, supporting transfer learning, object detection, image segmentation, and other functionalities.",
-    url="https://github.com/IMvision12/keras-vision",
+    url="https://github.com/IMvision12/keras-vision-models",
     author="Gitesh Chawda",
     author_email="gitesh.ch.0912@gmail.com",
     license="Apache License 2.0",

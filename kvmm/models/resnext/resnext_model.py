@@ -82,7 +82,7 @@ def resnext_block(
             x, data_format=data_format, name=f"{block_name}_se"
         )
 
-    if downsample or strides != 1 or x.shape[-1] != residual.shape[-1]:
+    if downsample or strides != 1 or x.shape[channels_axis] != residual.shape[channels_axis]:
         residual = conv_block(
             residual,
             filters * expansion,

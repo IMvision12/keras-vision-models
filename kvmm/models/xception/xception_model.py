@@ -37,7 +37,7 @@ def conv_block(
         Processed tensor
     """
     data_format = keras.config.image_data_format()
-    channels_axis = -1 if data_format == "channels_last" else -3
+    channels_axis = -1 if data_format == "channels_last" else 1
 
     x = layers.Activation("relu")(x) if use_preactivation else x
 

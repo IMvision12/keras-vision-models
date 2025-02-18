@@ -104,7 +104,6 @@ def squeeze_excitation_block(
     """
     filters = x.shape[-1]
     se = layers.GlobalAveragePooling2D(data_format=data_format)(x)
-    se = layers.Reshape((1, 1, filters))(se)
     se = layers.Dense(
         filters // reduction_ratio,
         activation="relu",
@@ -119,6 +118,10 @@ def squeeze_excitation_block(
         use_bias=True,
         name=f"{name}_dense2" if name else None,
     )(se)
+    if data_format == 'channels_last':
+        se = layers.Reshape((1, 1, filters))(se)
+    else:
+        se = layers.Reshape((filters, 1, 1))(se)
     return layers.Multiply(name=f"{name}_scale" if name else None)([x, se])
 
 
@@ -188,7 +191,7 @@ def bottleneck_block(
             x, data_format=data_format, name=f"{block_name}.se"
         )
 
-    if downsample or strides != 1 or x.shape[-1] != residual.shape[-1]:
+    if downsample or strides != 1 or x.shape[channels_axis] != residual.shape[channels_axis]:
         residual = conv_block(
             residual,
             filters * expansion,
@@ -292,7 +295,7 @@ class ResNet(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,

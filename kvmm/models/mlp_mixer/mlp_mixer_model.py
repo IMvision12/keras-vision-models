@@ -167,7 +167,7 @@ class MLPMixer(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
@@ -204,7 +204,13 @@ class MLPMixer(keras.Model):
             name="stem_conv",
         )(x)
 
-        num_patches = (input_shape[0] // patch_size) * (input_shape[1] // patch_size)
+        if data_format == "channels_first":
+            height, width = input_shape[1], input_shape[2]
+            x = layers.Permute((2, 3, 1))(x)
+        else:
+            height, width = input_shape[0], input_shape[1]
+
+        num_patches = (height // patch_size) * (width // patch_size)
         x = layers.Reshape((num_patches, embed_dim))(x)
         features.append(x)
 

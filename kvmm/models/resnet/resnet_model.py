@@ -90,22 +90,36 @@ def conv_block(
 def squeeze_excitation_block(
     x: layers.Layer, data_format, reduction_ratio: int = 16, name: Optional[str] = None
 ) -> layers.Layer:
-    """Applies a Squeeze-and-Excitation block for channel recalibration.
+    """
+    Squeeze-and-Excitation block that properly handles both channels_first and channels_last formats.
 
     Args:
-        x: Input Keras layer.
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        reduction_ratio: Reduction ratio for squeeze operation.
-        name: Optional name for layers within the block.
+        x: Input tensor
+        data_format: String, either 'channels_first' or 'channels_last'
+        reduction_ratio: Integer, reduction ratio for the bottleneck
+        name: String, optional name prefix for layers
 
     Returns:
-        Output tensor for the block.
+        Tensor with same shape as input after applying SE attention
     """
-    filters = x.shape[-1]
+    if data_format == "channels_first":
+        channel_axis = 1
+        filters = x.shape[channel_axis]
+    else:
+        channel_axis = -1
+        filters = x.shape[channel_axis]
+
     se = layers.GlobalAveragePooling2D(data_format=data_format)(x)
+
+    if data_format == "channels_first":
+        se = layers.Reshape((filters, 1, 1))(se)
+    else:
+        se = layers.Reshape((1, 1, filters))(se)
+
+    reduced_filters = max(1, filters // reduction_ratio)
+    se = layers.Reshape((filters,))(se)
     se = layers.Dense(
-        filters // reduction_ratio,
+        reduced_filters,
         activation="relu",
         kernel_initializer="he_normal",
         use_bias=True,
@@ -118,10 +132,12 @@ def squeeze_excitation_block(
         use_bias=True,
         name=f"{name}_dense2" if name else None,
     )(se)
-    if data_format == "channels_last":
-        se = layers.Reshape((1, 1, filters))(se)
-    else:
+
+    if data_format == "channels_first":
         se = layers.Reshape((filters, 1, 1))(se)
+    else:
+        se = layers.Reshape((1, 1, filters))(se)
+
     return layers.Multiply(name=f"{name}_scale" if name else None)([x, se])
 
 

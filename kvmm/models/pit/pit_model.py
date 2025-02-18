@@ -141,7 +141,10 @@ def conv_pooling(
     new_height = (height + stride - 1) // stride
     new_width = (width + stride - 1) // stride
 
-    spatial = layers.Reshape((height, width, in_channels))(spatial)
+    if data_format == "channels_first":
+        spatial = layers.Reshape((in_channels, height, width))(spatial)
+    else:
+        spatial = layers.Reshape((height, width, in_channels))(spatial)
     spatial = layers.ZeroPadding2D(data_format=data_format, padding=stride // 2)(
         spatial
     )
@@ -155,7 +158,11 @@ def conv_pooling(
     )(spatial)
 
     tokens = layers.Dense(units=out_channels, name=block_prefix + "_dense")(tokens)
-    spatial = layers.Reshape((new_height * new_width, out_channels))(spatial)
+    if data_format == "channels_first":
+        spatial = layers.Reshape((out_channels, new_height * new_width))(spatial)
+        spatial = layers.Permute((2, 1))(spatial)
+    else:
+        spatial = layers.Reshape((new_height * new_width, out_channels))(spatial)
     output = layers.Concatenate(axis=1)([tokens, spatial])
 
     return output, (new_height, new_width)
@@ -293,11 +300,25 @@ class PoolingVisionTransformer(keras.Model):
             else:
                 img_input = input_tensor
 
-        x = img_input
+        inputs = img_input
         features = []
 
-        if include_normalization:
-            x = ImageNormalizationLayer(mode=normalization_mode)(x)
+        if data_format == "channels_first":
+            if len(input_shape) == 3:
+                _, height, width = input_shape
+            else:
+                height, width = input_shape[1:]
+        else:  # channels_last
+            if len(input_shape) == 3:
+                height, width, _ = input_shape
+            else:
+                height, width = input_shape[:2]
+
+        x = (
+            ImageNormalizationLayer(mode=normalization_mode)(inputs)
+            if include_normalization
+            else inputs
+        )
 
         x = layers.Conv2D(
             filters=embed_dim[0],
@@ -307,17 +328,17 @@ class PoolingVisionTransformer(keras.Model):
             name="patch_embed_conv",
         )(x)
 
-        height = (input_shape[0] - patch_size) // stride + 1
-        width = (input_shape[1] - patch_size) // stride + 1
-        input_size = (height, width)
+        grid_h = (height - patch_size) // stride + 1
+        grid_w = (width - patch_size) // stride + 1
+        input_size = (grid_h, grid_w)
 
-        x = layers.Reshape((height * width, embed_dim[0]), name="patch_tokens_reshape")(
-            x
-        )
+        x = layers.Reshape(
+            (grid_h * grid_w, embed_dim[0]), name="patch_tokens_reshape"
+        )(x)
 
         x = AddPositionEmbs(
-            grid_h=height,
-            grid_w=width,
+            grid_h=grid_h,
+            grid_w=grid_w,
             no_embed_class=True,
             use_distillation=distilled,
             name="pos_embed",
@@ -392,7 +413,7 @@ class PoolingVisionTransformer(keras.Model):
             elif pooling == "max":
                 x = layers.GlobalMaxPooling1D(name="max_pool")(x)
 
-        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
+        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
         # Save configuration
         self.patch_size = patch_size

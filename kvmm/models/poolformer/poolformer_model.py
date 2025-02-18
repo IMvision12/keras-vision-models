@@ -230,7 +230,7 @@ class PoolFormer(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,

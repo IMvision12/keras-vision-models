@@ -282,7 +282,7 @@ class ViT(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         if no_embed_class:
             input_shape = imagenet_utils.obtain_input_shape(
@@ -304,9 +304,6 @@ class ViT(keras.Model):
                 weights=weights,
             )
 
-        grid_h = input_shape[0] // patch_size
-        grid_w = input_shape[1] // patch_size
-
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
         else:
@@ -317,6 +314,20 @@ class ViT(keras.Model):
 
         inputs = img_input
         features = []
+
+        if data_format == "channels_first":
+            if len(input_shape) == 3:
+                _, height, width = input_shape
+            else:
+                height, width = input_shape[1:]
+        else:  # channels_last
+            if len(input_shape) == 3:
+                height, width, _ = input_shape
+            else:
+                height, width = input_shape[:2]
+
+        grid_h = height // patch_size
+        grid_w = width // patch_size
 
         x = (
             ImageNormalizationLayer(mode=normalization_mode)(inputs)

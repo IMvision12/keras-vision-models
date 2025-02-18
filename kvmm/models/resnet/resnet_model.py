@@ -118,7 +118,7 @@ def squeeze_excitation_block(
         use_bias=True,
         name=f"{name}_dense2" if name else None,
     )(se)
-    if data_format == 'channels_last':
+    if data_format == "channels_last":
         se = layers.Reshape((1, 1, filters))(se)
     else:
         se = layers.Reshape((filters, 1, 1))(se)
@@ -191,7 +191,11 @@ def bottleneck_block(
             x, data_format=data_format, name=f"{block_name}.se"
         )
 
-    if downsample or strides != 1 or x.shape[channels_axis] != residual.shape[channels_axis]:
+    if (
+        downsample
+        or strides != 1
+        or x.shape[channels_axis] != residual.shape[channels_axis]
+    ):
         residual = conv_block(
             residual,
             filters * expansion,

@@ -217,7 +217,9 @@ def inception_a(x, conv_block, block_idx):
         branch3, 96, kernel_size=1, strides=1, name=f"{name}_branch3_1"
     )
 
-    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2, branch3])
+    return layers.Concatenate(axis=channels_axis, name=name)(
+        [branch0, branch1, branch2, branch3]
+    )
 
 
 def reduction_a(x, conv_block, name="features_10"):
@@ -250,7 +252,9 @@ def reduction_a(x, conv_block, name="features_10"):
         3, strides=2, data_format=keras.config.image_data_format()
     )(x)
 
-    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2])
+    return layers.Concatenate(axis=channels_axis, name=name)(
+        [branch0, branch1, branch2]
+    )
 
 
 def inception_b(x, conv_block, block_idx):
@@ -333,7 +337,9 @@ def inception_b(x, conv_block, block_idx):
         branch3, 128, kernel_size=1, strides=1, name=f"{name}_branch3_1"
     )
 
-    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2, branch3])
+    return layers.Concatenate(axis=channels_axis, name=name)(
+        [branch0, branch1, branch2, branch3]
+    )
 
 
 def reduction_b(x, conv_block, name="features_18"):
@@ -382,7 +388,9 @@ def reduction_b(x, conv_block, name="features_18"):
         3, strides=2, data_format=keras.config.image_data_format()
     )(x)
 
-    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2])
+    return layers.Concatenate(axis=channels_axis, name=name)(
+        [branch0, branch1, branch2]
+    )
 
 
 def inception_c(x, conv_block, block_idx):
@@ -466,7 +474,9 @@ def inception_c(x, conv_block, block_idx):
         branch3, 256, kernel_size=1, strides=1, name=f"{name}_branch3_1"
     )
 
-    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2, branch3])
+    return layers.Concatenate(axis=channels_axis, name=name)(
+        [branch0, branch1, branch2, branch3]
+    )
 
 
 @keras.saving.register_keras_serializable(package="kvmm")

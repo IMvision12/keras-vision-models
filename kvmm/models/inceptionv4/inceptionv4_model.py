@@ -37,7 +37,7 @@ def conv_block(
     """
 
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     x = inputs
     if padding is None:
@@ -107,11 +107,12 @@ def mixed3a(x, conv_block, name="features_3"):
     Returns:
         Output tensor for the block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     maxpool = layers.MaxPooling2D(
         3, strides=2, data_format=keras.config.image_data_format()
     )(x)
     conv = conv_block(x, 96, kernel_size=3, strides=2, name=f"{name}_conv")
-    return layers.Concatenate(axis=-1, name=name)([maxpool, conv])
+    return layers.Concatenate(axis=channels_axis, name=name)([maxpool, conv])
 
 
 def mixed4a(x, conv_block, name="features_4"):
@@ -126,6 +127,7 @@ def mixed4a(x, conv_block, name="features_4"):
     Returns:
         Output tensor for the block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     branch0 = conv_block(x, 64, kernel_size=1, strides=1, name=f"{name}_branch0_0")
     branch0 = conv_block(
         branch0, 96, kernel_size=3, strides=1, name=f"{name}_branch0_1"
@@ -152,7 +154,7 @@ def mixed4a(x, conv_block, name="features_4"):
         branch1, 96, kernel_size=3, strides=1, name=f"{name}_branch1_3"
     )
 
-    return layers.Concatenate(axis=-1, name=name)([branch0, branch1])
+    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1])
 
 
 def mixed5a(x, conv_block, name="features_5"):
@@ -167,11 +169,12 @@ def mixed5a(x, conv_block, name="features_5"):
     Returns:
         Output tensor for the block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     conv = conv_block(x, 192, kernel_size=3, strides=2, name=f"{name}_conv")
     maxpool = layers.MaxPooling2D(
         3, strides=2, data_format=keras.config.image_data_format()
     )(x)
-    return layers.Concatenate(axis=-1, name=name)([conv, maxpool])
+    return layers.Concatenate(axis=channels_axis, name=name)([conv, maxpool])
 
 
 def inception_a(x, conv_block, block_idx):
@@ -189,6 +192,7 @@ def inception_a(x, conv_block, block_idx):
     Returns:
         Output tensor for the Inception-A block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     name = f"features_{block_idx}"
 
     branch0 = conv_block(x, 96, kernel_size=1, strides=1, name=f"{name}_branch0")
@@ -213,7 +217,7 @@ def inception_a(x, conv_block, block_idx):
         branch3, 96, kernel_size=1, strides=1, name=f"{name}_branch3_1"
     )
 
-    return layers.Concatenate(axis=-1, name=name)([branch0, branch1, branch2, branch3])
+    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2, branch3])
 
 
 def reduction_a(x, conv_block, name="features_10"):
@@ -231,6 +235,7 @@ def reduction_a(x, conv_block, name="features_10"):
     Returns:
         Output tensor for the Reduction-A block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     branch0 = conv_block(x, 384, kernel_size=3, strides=2, name=f"{name}_branch0")
 
     branch1 = conv_block(x, 192, kernel_size=1, strides=1, name=f"{name}_branch1_0")
@@ -245,7 +250,7 @@ def reduction_a(x, conv_block, name="features_10"):
         3, strides=2, data_format=keras.config.image_data_format()
     )(x)
 
-    return layers.Concatenate(axis=-1, name=name)([branch0, branch1, branch2])
+    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2])
 
 
 def inception_b(x, conv_block, block_idx):
@@ -264,6 +269,7 @@ def inception_b(x, conv_block, block_idx):
     Returns:
         Output tensor for the Inception-B block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     name = f"features_{block_idx}"
 
     branch0 = conv_block(x, 384, kernel_size=1, strides=1, name=f"{name}_branch0")
@@ -327,7 +333,7 @@ def inception_b(x, conv_block, block_idx):
         branch3, 128, kernel_size=1, strides=1, name=f"{name}_branch3_1"
     )
 
-    return layers.Concatenate(axis=-1, name=name)([branch0, branch1, branch2, branch3])
+    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2, branch3])
 
 
 def reduction_b(x, conv_block, name="features_18"):
@@ -345,6 +351,7 @@ def reduction_b(x, conv_block, name="features_18"):
     Returns:
         Output tensor for the Reduction-B block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     branch0 = conv_block(x, 192, kernel_size=1, strides=1, name=f"{name}_branch0_0")
     branch0 = conv_block(
         branch0, 192, kernel_size=3, strides=2, name=f"{name}_branch0_1"
@@ -375,7 +382,7 @@ def reduction_b(x, conv_block, name="features_18"):
         3, strides=2, data_format=keras.config.image_data_format()
     )(x)
 
-    return layers.Concatenate(axis=-1, name=name)([branch0, branch1, branch2])
+    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2])
 
 
 def inception_c(x, conv_block, block_idx):
@@ -393,6 +400,7 @@ def inception_c(x, conv_block, block_idx):
     Returns:
         Output tensor for the Inception-C block
     """
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     name = f"features_{block_idx}"
 
     branch0 = conv_block(x, 256, kernel_size=1, strides=1, name=f"{name}_branch0")
@@ -414,7 +422,7 @@ def inception_c(x, conv_block, block_idx):
         padding=None,
         name=f"{name}_branch1_1b",
     )
-    branch1 = layers.Concatenate(axis=-1)([branch1_1a, branch1_1b])
+    branch1 = layers.Concatenate(axis=channels_axis)([branch1_1a, branch1_1b])
 
     branch2 = conv_block(x, 384, kernel_size=1, strides=1, name=f"{name}_branch2_0")
     branch2 = conv_block(
@@ -449,7 +457,7 @@ def inception_c(x, conv_block, block_idx):
         padding=None,
         name=f"{name}_branch2_3b",
     )
-    branch2 = layers.Concatenate(axis=-1)([branch2_3a, branch2_3b])
+    branch2 = layers.Concatenate(axis=channels_axis)([branch2_3a, branch2_3b])
 
     branch3 = layers.AveragePooling2D(
         3, strides=1, padding="same", data_format=keras.config.image_data_format()
@@ -458,7 +466,7 @@ def inception_c(x, conv_block, block_idx):
         branch3, 256, kernel_size=1, strides=1, name=f"{name}_branch3_1"
     )
 
-    return layers.Concatenate(axis=-1, name=name)([branch0, branch1, branch2, branch3])
+    return layers.Concatenate(axis=channels_axis, name=name)([branch0, branch1, branch2, branch3])
 
 
 @keras.saving.register_keras_serializable(package="kvmm")

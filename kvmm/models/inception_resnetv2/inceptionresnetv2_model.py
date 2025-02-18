@@ -34,7 +34,7 @@ def conv_block(
         Output tensor for the block.
     """
     kernel_size = standardize_tuple(kernel_size, 2, "kernel_size")
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
     x = inputs
 
     if padding is None:
@@ -76,7 +76,7 @@ def conv_block(
 
 
 def mixed_5b_block(inputs, name="mixed_5b"):
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 96, 1, name=f"{name}_branch0")
 
@@ -101,7 +101,7 @@ def mixed_5b_block(inputs, name="mixed_5b"):
 
 
 def block35(inputs, scale=1.0, name="repeat_0"):
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 32, 1, name=f"{name}_branch0")
 
@@ -122,7 +122,7 @@ def block35(inputs, scale=1.0, name="repeat_0"):
 
 
 def mixed_6a_block(inputs, name="mixed_6a"):
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(
         inputs, 384, 3, strides=2, padding="valid", name=f"{name}_branch0"
@@ -140,7 +140,7 @@ def mixed_6a_block(inputs, name="mixed_6a"):
 
 
 def block17(inputs, scale=1.0, name="repeat_1_0"):
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 192, 1, name=f"{name}_branch0")
 
@@ -158,7 +158,7 @@ def block17(inputs, scale=1.0, name="repeat_1_0"):
 
 
 def mixed_7a_block(inputs, name="mixed_7a"):
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 256, 1, name=f"{name}_branch0_0")
     branch0 = conv_block(
@@ -184,7 +184,7 @@ def mixed_7a_block(inputs, name="mixed_7a"):
 
 
 def block8(inputs, scale=1.0, activation=True, name="repeat_2_0"):
-    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else -3
+    channels_axis = -1 if keras.config.image_data_format() == "channels_last" else 1
 
     branch0 = conv_block(inputs, 192, 1, name=f"{name}_branch0")
 

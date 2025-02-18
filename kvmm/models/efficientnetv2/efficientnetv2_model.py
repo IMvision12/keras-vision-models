@@ -416,7 +416,7 @@ class EfficientNetV2(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = 3 if data_format == "channels_last" else 1
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         if name.startswith("EfficientNetV2B"):
             block_config = EFFICIENTNETV2_BLOCK_CONFIG["EfficientNetV2B"]

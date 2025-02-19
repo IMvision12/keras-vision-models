@@ -39,27 +39,29 @@ def conv_block(
     Returns:
        Output tensor for the block.
     """
-
-    pad_h = pad_w = kernel_size // 2
-
     if strides > 1:
-        x = layers.ZeroPadding2D(data_format=data_format, padding=(pad_h, pad_w))(x)
-        padding = "valid"
+        pad_h = pad_w = kernel_size // 2
+        x = layers.ZeroPadding2D(padding=(pad_h, pad_w), data_format=data_format)(x)
+        padding_mode = "valid"
     else:
-        padding = "same"
+        padding_mode = "same"
 
     x = layers.Conv2D(
         filters,
         kernel_size,
         strides=strides,
-        padding=padding,
+        padding=padding_mode,
         use_bias=False,
         groups=groups,
         data_format=data_format,
         name=name,
     )(x)
 
-    x = layers.BatchNormalization(axis=channels_axis, epsilon=1e-6, name=bn_name)(x)
+    x = layers.BatchNormalization(
+        axis=channels_axis,
+        epsilon=1e-5,
+        name=bn_name,
+    )(x)
 
     if use_relu:
         x = layers.ReLU()(x)
@@ -83,13 +85,13 @@ def bottle2neck_block(
         x: Input Keras layer.
         filters: Number of filters for the bottleneck layers.
         block_name: Name prefix for layers in the block.
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         stride: Stride for the 3x3 convolution layers.
         downsample: Whether to downsample the input.
         cardinality: Number of groups for grouped convolutions.
         base_width: Base width of the block, controls channel scaling.
         scale: Scale factor that determines number of feature scales.
-        data_format: String, either 'channels_last' or 'channels_first',
-            specifies the input data format.
 
     Returns:
         Output tensor for the block.
@@ -107,11 +109,11 @@ def bottle2neck_block(
     channels_axis = -1 if data_format == "channels_last" else 1
     expansion = 4
     is_first = stride > 1 or downsample
-    num_scales = max(1, scale - 1)
     width = int(filters * (base_width / 64.0)) * cardinality
     outplanes = filters * expansion
 
     identity = x
+
     x = conv_block(
         x,
         width * scale,
@@ -122,14 +124,14 @@ def bottle2neck_block(
         bn_name=f"{block_name}_batchnorm_1",
     )
 
-    splits = ops.split(x, scale, axis=channels_axis)
+    x_splits = ops.split(x, scale, axis=channels_axis)
     spouts = []
 
-    for i in range(num_scales):
+    for i in range(scale - 1):
         if i == 0 or is_first:
-            sp = splits[i]
+            sp = x_splits[i]
         else:
-            sp = layers.Add()([sp, splits[i]])
+            sp = layers.Add()([spouts[-1], x_splits[i]])
 
         sp = conv_block(
             sp,
@@ -137,7 +139,7 @@ def bottle2neck_block(
             kernel_size=3,
             channels_axis=channels_axis,
             data_format=data_format,
-            strides=stride,
+            strides=stride if is_first else 1,
             groups=cardinality,
             name=f"{block_name}_conv_s_{i}",
             bn_name=f"{block_name}_batchnorm_s_{i}",
@@ -146,22 +148,23 @@ def bottle2neck_block(
 
     if scale > 1:
         if is_first:
-            padded = layers.ZeroPadding2D(padding=(1, 1), data_format=data_format)(
-                splits[-1]
-            )
+            last = layers.ZeroPadding2D(
+                padding=((1, 1), (1, 1)), data_format=data_format
+            )(x_splits[-1])
             last = layers.AveragePooling2D(
                 pool_size=3,
                 strides=stride,
                 padding="valid",
                 data_format=data_format,
-            )(padded)
+            )(last)
         else:
-            last = splits[-1]
+            last = x_splits[-1]
         spouts.append(last)
 
-    x = layers.Concatenate(axis=channels_axis)(spouts)
-    x = conv_block(
-        x,
+    out = layers.Concatenate(axis=channels_axis)(spouts)
+
+    out = conv_block(
+        out,
         outplanes,
         kernel_size=1,
         channels_axis=channels_axis,
@@ -184,9 +187,10 @@ def bottle2neck_block(
             bn_name=f"{block_name}_downsample_1",
         )
 
-    x = layers.Add()([x, identity])
-    x = layers.ReLU()(x)
-    return x
+    out = layers.Add()([identity, out])
+    out = layers.ReLU()(out)
+
+    return out
 
 
 @keras.saving.register_keras_serializable(package="kvmm")
@@ -302,16 +306,23 @@ class Res2Net(keras.Model):
             else inputs
         )
 
-        x = conv_block(
-            x,
+        x = layers.ZeroPadding2D(padding=3, data_format=data_format)(x)
+        x = layers.Conv2D(
             64,
             kernel_size=7,
-            channels_axis=channels_axis,
-            data_format=data_format,
             strides=2,
-            name="conv_1",
-            bn_name="batchnorm_1",
-        )
+            padding="valid",
+            use_bias=False,
+            data_format=data_format,
+            name="conv1",
+        )(x)
+        x = layers.BatchNormalization(
+            axis=channels_axis,
+            epsilon=1e-5,
+            momentum=0.1,
+            name="bn1",
+        )(x)
+        x = layers.ReLU()(x)
         x = layers.ZeroPadding2D(data_format=data_format, padding=(1, 1))(x)
         x = layers.MaxPooling2D(
             pool_size=3,

@@ -386,11 +386,12 @@ class ResNetV2(keras.Model):
                 )(x)
             x = layers.Activation("relu", name="stem_relu")(x)
 
+        x = layers.ZeroPadding2D(data_format=data_format, padding=(1, 1))(x)
         x = layers.MaxPooling2D(
             pool_size=3,
             strides=2,
             data_format=data_format,
-            padding="same",
+            padding="valid",
             name="stem_maxpool",
         )(x)
         features.append(x)

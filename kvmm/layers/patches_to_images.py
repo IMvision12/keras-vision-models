@@ -6,63 +6,45 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class PatchesToImageLayer(layers.Layer):
-    """Folds patches back into their original feature map shape.
+    """A Keras layer that reconstructs images from patches.
 
-    This layer reconstructs an image or feature map from its patch representation by
-    combining patches into their original spatial arrangement. It automatically handles
-    both 'channels_first' and 'channels_last' data formats, and can handle resizing
-    to original dimensions when needed.
-
-    The transformation follows these steps:
-    1. Determines output dimensions (from original_size or patch arrangement)
-    2. Reshapes patches into their spatial arrangement
-    3. Resizes to original dimensions if requested
-    4. Converts to channels_first format if necessary
+    This layer takes a sequence of image patches and reconstructs the original image by
+    placing the patches back in their original positions. It can handle both cases where
+    the original image dimensions are known or unknown, and can optionally resize the
+    output to match the original image dimensions.
 
     Args:
-        patch_size (int): The size of each square patch (both height and width)
-        **kwargs: Additional layer arguments inherited from keras.layers.Layer
+        patch_size (int): The size of each square patch (both height and width).
+        **kwargs: Additional layer arguments.
 
     Input shape:
         4D tensor with shape:
-        `(batch_size, patch_size * patch_size, num_patches, channels)`
-        where num_patches should be a perfect square
+        - If data_format='channels_last': `(batch_size, patch_size*patch_size, num_patches, channels)`
+        - If data_format='channels_first': `(batch_size, channels, patch_size*patch_size, num_patches)`
 
     Output shape:
         4D tensor with shape:
-        - If channels_last: `(batch_size, height, width, channels)`
-        - If channels_first: `(batch_size, channels, height, width)`
-        where height and width are either:
-        - Specified by original_size parameter
-        - Computed as sqrt(num_patches) * patch_size
+        - If data_format='channels_last': `(batch_size, height, width, channels)`
+        - If data_format='channels_first': `(batch_size, channels, height, width)`
+        where height and width are either determined from the original_size parameter,
+        or calculated as sqrt(num_patches) * patch_size.
 
-    Examples:
+    Example:
         ```python
-        # Create layer with 8x8 patches
-        layer = PatchesToImageLayer(patch_size=8)
-
-        # Process patches back to image
-        patches_shape = (1, 64, 16, 3)  # From 32x32 image
-        output = layer(tf.random.normal(patches_shape),
-                      original_size=(32, 32))
-        # output shape: (1, 32, 32, 3)  # channels_last
+        layer = PatchesToImageLayer(patch_size=16)
+        patches = tf.random.normal((1, 256, 196, 3))  # 196 patches of size 16x16
+        image = layer(patches)  # Shape: (1, 224, 224, 3)
+        # Or with original size specified:
+        image = layer(patches, original_size=(220, 220), resize=True)
         ```
 
-    Notes:
-        - If original_size is not provided, output dimensions are inferred from
-          the number of patches, assuming they form a square arrangement
-        - The layer can handle non-square original images when original_size
-          is provided
-        - Resizing is optional and controlled by the resize parameter
-        - The layer maintains the original channel order and batch dimension
-        - The layer is serializable and can be saved as part of a Keras model
-
-    Attributes:
-        patch_size (int): Size of each square patch
-        data_format (str): The output data format ('channels_first' or 'channels_last')
-        h (int): Output height (set during build or call)
-        w (int): Output width (set during build or call)
-        c (int): Number of channels (set during build)
+    Args:
+        inputs: Input tensor of patches.
+        original_size (tuple, optional): Tuple of (height, width) of the original image.
+            If not provided, assumes the image is square with dimensions determined by
+            the number of patches.
+        resize (bool, optional): If True and original_size is provided, resizes the
+            output to match the original dimensions. Defaults to False.
     """
 
     def __init__(self, patch_size, **kwargs):
@@ -73,7 +55,9 @@ class PatchesToImageLayer(layers.Layer):
     def build(self, input_shape):
         self.h = None
         self.w = None
-        self.c = input_shape[-1]
+        self.c = (
+            input_shape[-1] if self.data_format == "channels_last" else input_shape[1]
+        )
         super().build(input_shape)
 
     def call(self, inputs, original_size=None, resize=False):
@@ -83,7 +67,11 @@ class PatchesToImageLayer(layers.Layer):
             self.h, self.w = original_size
 
         if self.h is None or self.w is None:
-            num_patches = inputs.shape[2]
+            num_patches = (
+                inputs.shape[2]
+                if self.data_format == "channels_last"
+                else inputs.shape[-1]
+            )
             side_patches = int(math.sqrt(num_patches))
             self.h = self.w = side_patches * self.patch_size
 
@@ -92,33 +80,36 @@ class PatchesToImageLayer(layers.Layer):
         num_patches_h = new_h // self.patch_size
         num_patches_w = new_w // self.patch_size
 
-        x = ops.reshape(
-            x,
-            [
-                -1,
-                self.patch_size,
-                self.patch_size,
-                num_patches_h,
-                num_patches_w,
-                self.c,
-            ],
-        )
-        x = ops.transpose(x, [0, 3, 1, 4, 2, 5])
-        x = ops.reshape(x, [-1, new_h, new_w, self.c])
+        if self.data_format == "channels_last":
+            x = ops.reshape(
+                x,
+                [
+                    -1,
+                    self.patch_size,
+                    self.patch_size,
+                    num_patches_h,
+                    num_patches_w,
+                    self.c,
+                ],
+            )
+            x = ops.transpose(x, [0, 3, 1, 4, 2, 5])
+            x = ops.reshape(x, [-1, new_h, new_w, self.c])
+        else:
+            x = ops.reshape(
+                x,
+                [
+                    -1,
+                    self.c,
+                    self.patch_size,
+                    self.patch_size,
+                    num_patches_h,
+                    num_patches_w,
+                ],
+            )
+            x = ops.transpose(x, [0, 1, 4, 2, 5, 3])
+            x = ops.reshape(x, [-1, self.c, new_h, new_w])
 
         if resize:
-            x = ops.image.resize(x, size=(self.h, self.w), data_format="channels_last")
-
-        if self.data_format == "channels_first":
-            x = ops.transpose(x, [0, 3, 1, 2])
+            x = ops.image.resize(x, size=(self.h, self.w), data_format=self.data_format)
 
         return x
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "patch_size": self.patch_size,
-            }
-        )
-        return config

@@ -84,7 +84,6 @@ class PatchesToImageLayer(layers.Layer):
 
         if self.h is None or self.w is None:
             num_patches = inputs.shape[2]
-            patch_area = self.patch_size * self.patch_size
             side_patches = int(math.sqrt(num_patches))
             self.h = self.w = side_patches * self.patch_size
 

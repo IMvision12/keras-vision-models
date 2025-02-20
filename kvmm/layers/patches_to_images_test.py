@@ -61,7 +61,7 @@ class TestPatchesToImageLayer(TestCase):
         num_patches_h = (original_height + self.patch_size - 1) // self.patch_size
         num_patches_w = (original_width + self.patch_size - 1) // self.patch_size
         num_patches = num_patches_h * num_patches_w
-        
+
         input_shape = (
             self.batch_size,
             self.patch_size * self.patch_size,
@@ -69,12 +69,10 @@ class TestPatchesToImageLayer(TestCase):
             self.channels,
         )
         inputs = ops.ones(input_shape)
-        
+
         layer = PatchesToImageLayer(patch_size=self.patch_size)
         outputs = layer(
-            inputs,
-            original_size=(original_height, original_width),
-            resize=True
+            inputs, original_size=(original_height, original_width), resize=True
         )
 
         expected_shape = (
@@ -121,7 +119,7 @@ class TestPatchesToImageLayer(TestCase):
 
         expected_output = np.arange(16).reshape(1, height, width, channels)
         outputs_np = outputs.numpy()
-        
+
         self.assertTrue(np.array_equal(outputs_np, expected_output))
 
     def test_get_config(self):
@@ -154,7 +152,7 @@ class TestPatchesToImageLayer(TestCase):
     def test_resize_without_original_size(self):
         layer = PatchesToImageLayer(patch_size=self.patch_size)
         outputs = layer(self.test_inputs_channels_last, resize=True)
-        
+
         expected_shape = (
             self.batch_size,
             self.height,

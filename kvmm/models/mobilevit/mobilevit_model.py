@@ -192,7 +192,7 @@ def mobilevit_block(
 
     x = layers.Conv2D(attention_dims, 1, use_bias=False, name=f"{name}_mv_conv_2")(x)
 
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         h, w = x.shape[-2], x.shape[-1]
     else:
         h, w = x.shape[-3], x.shape[-2]
@@ -201,7 +201,7 @@ def mobilevit_block(
     x = unfold_layer(x)
     resize = unfold_layer.resize
 
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         x = layers.Permute((2, 3, 1))(x)
 
     for i in range(num_attention_blocks):
@@ -239,7 +239,7 @@ def mobilevit_block(
 
     x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name=f"{name}_layernorm")(x)
 
-    if data_format == 'channels_first':
+    if data_format == "channels_first":
         x = layers.Permute((3, 1, 2))(x)
 
     fold_layer = PatchesToImageLayer(patch_size)

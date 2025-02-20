@@ -76,8 +76,6 @@ class MultiHeadSelfAttention(layers.Layer):
         self.head_dim = dim // num_heads
         self.scale = self.head_dim**-0.5
         self.epsilon = epsilon
-        self.data_format = keras.config.image_data_format()
-        self.channels_axis = -1 if self.data_format == "channels_last" else 1
 
         self.qkv = layers.Dense(
             dim * 3,
@@ -88,7 +86,6 @@ class MultiHeadSelfAttention(layers.Layer):
 
         self.q_norm = (
             layers.LayerNormalization(
-                axis=self.channels_axis,
                 epsilon=self.epsilon,
                 dtype=self.dtype_policy,
                 name=prefix + "attn_norm1",
@@ -98,7 +95,6 @@ class MultiHeadSelfAttention(layers.Layer):
         )
         self.k_norm = (
             layers.LayerNormalization(
-                axis=self.channels_axis,
                 epsilon=self.epsilon,
                 dtype=self.dtype_policy,
                 name=prefix + "attn_norm2",
@@ -133,56 +129,44 @@ class MultiHeadSelfAttention(layers.Layer):
                 f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
             )
 
-        batch_dim = input_shape[0]
-
-        if self.input_spec.ndim == 3:
-            seq_length = input_shape[1]
-            attention_shape = (batch_dim, self.num_heads, seq_length, seq_length)
-            head_shape = (batch_dim, self.num_heads, seq_length, self.head_dim)
-        else:  # 4D input
-            height, width = input_shape[1], input_shape[2]
-            attention_shape = (batch_dim, height, self.num_heads, width, width)
-            head_shape = (batch_dim, height, self.num_heads, width, self.head_dim)
-
         self.qkv.build(input_shape)
         self.proj.build(input_shape)
 
         if self.q_norm is not None:
-            self.q_norm.build(head_shape)
+            self.q_norm.build(input_shape)
         if self.k_norm is not None:
-            self.k_norm.build(head_shape)
-
-        self.attn_drop.build(attention_shape)
-        self.proj_drop.build(input_shape)
-
-        self._attention_head_size = self.head_dim
-        self._num_attention_heads = self.num_heads
+            self.k_norm.build(input_shape)
 
         self.built = True
 
-    def call(self, x, training=None):
-        batch_size = ops.shape(x)[0]
-        ndim = len(x.shape)
+    def call(self, inputs, training=None):
+        input_shape = ops.shape(inputs)
+        batch_size = input_shape[0]
+        ndim = len(inputs.shape)
 
-        qkv = self.qkv(x)
+        qkv = self.qkv(inputs)
 
         if ndim == 3:
-            seq_length = ops.shape(x)[1]
             qkv = ops.reshape(
-                qkv, (batch_size, seq_length, 3, self.num_heads, self.head_dim)
+                qkv,
+                [batch_size, input_shape[1], 3, self.num_heads, self.head_dim]
             )
-            qkv = ops.transpose(qkv, (2, 0, 3, 1, 4))
-        else:  # 4D input
-            height, width = ops.shape(x)[1], ops.shape(x)[2]
+            qkv = ops.transpose(qkv, [0, 3, 2, 1, 4])
+            q, k, v = ops.unstack(qkv, 3, axis=2)
+        else:
             qkv = ops.reshape(
-                qkv, (batch_size, height, width, 3, self.num_heads, self.head_dim)
+                qkv,
+                [
+                    batch_size,
+                    input_shape[1],
+                    input_shape[2],
+                    3,
+                    self.num_heads,
+                    self.head_dim,
+                ]
             )
-            qkv = ops.transpose(qkv, (3, 0, 4, 1, 2, 5))
-            qkv = ops.reshape(
-                qkv, (3, batch_size, self.num_heads, height * width, self.head_dim)
-            )
-
-        q, k, v = qkv[0], qkv[1], qkv[2]
+            qkv = ops.transpose(qkv, [0, 1, 4, 3, 2, 5])
+            q, k, v = ops.unstack(qkv, 3, axis=3)
 
         if self.q_norm is not None:
             q = self.q_norm(q)
@@ -191,18 +175,23 @@ class MultiHeadSelfAttention(layers.Layer):
 
         q = q * self.scale
 
-        attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
-        attn = ops.softmax(attn, axis=-1)
-        attn = self.attn_drop(attn, training=training)
-
-        x = ops.matmul(attn, v)
-
         if ndim == 3:
-            x = ops.transpose(x, (0, 2, 1, 3))
-            x = ops.reshape(x, (batch_size, seq_length, self.dim))
+            attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
+            attn = ops.softmax(attn)
+            attn = self.attn_drop(attn, training=training)
+            x = ops.matmul(attn, v)
+            x = ops.reshape(ops.swapaxes(x, -3, -2), input_shape)
         else:
-            x = ops.transpose(x, (0, 2, 1, 3))
-            x = ops.reshape(x, (batch_size, height, width, self.dim))
+            q = ops.reshape(q, [batch_size * input_shape[1], self.num_heads, input_shape[2], self.head_dim])
+            k = ops.reshape(k, [batch_size * input_shape[1], self.num_heads, input_shape[2], self.head_dim])
+            v = ops.reshape(v, [batch_size * input_shape[1], self.num_heads, input_shape[2], self.head_dim])
+
+            attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
+            attn = ops.softmax(attn)
+            attn = self.attn_drop(attn, training=training)
+            x = ops.matmul(attn, v)
+
+            x = ops.reshape(ops.swapaxes(x, -3, -2), input_shape)
 
         x = self.proj(x)
         x = self.proj_drop(x, training=training)

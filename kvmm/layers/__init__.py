@@ -7,3 +7,5 @@ from .multi_head_self_attention import MultiHeadSelfAttention
 from .pos_embedding import AddPositionEmbs
 from .std_conv2d import StdConv2D
 from .stochastic_depth import StochasticDepth
+from .patches_to_images import PatchesToImageLayer
+from .images_to_patches import ImageToPatchesLayer

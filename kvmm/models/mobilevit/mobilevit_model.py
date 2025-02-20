@@ -2,10 +2,16 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kvmm.layers import ImageNormalizationLayer, PatchesToImageLayer, ImageToPatchesLayer, MultiHeadSelfAttention
+from kvmm.layers import (
+    ImageNormalizationLayer,
+    ImageToPatchesLayer,
+    MultiHeadSelfAttention,
+    PatchesToImageLayer,
+)
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHTS_CONFIG
+
 
 def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
     """
@@ -35,15 +41,15 @@ def inverted_residual_block(
     filters,
     channels_axis,
     data_format,
-    strides = 1,
-    expansion_ratio = 1.0,
+    strides=1,
+    expansion_ratio=1.0,
     name: str = "inverted_residual_block",
 ):
     """Creates an inverted residual block as used in MobileNetV2 and MobileViT architectures.
-    
+
     This block consists of an expansion 1x1 conv, a depthwise 3x3 conv, and a projection
     1x1 conv. If input/output dimensions match and stride is 1, a residual connection is added.
-    
+
     Args:
         inputs: Input tensor.
         filters: Number of output filters.
@@ -54,7 +60,7 @@ def inverted_residual_block(
         strides: Integer, stride size for the depthwise convolution. Defaults to 1.
         expansion_ratio: Float, expansion ratio for the first 1x1 convolution. Defaults to 1.0.
         name: String, prefix for layer names in the block. Defaults to "inverted_residual_block".
-    
+
     Returns:
         Output tensor after applying the inverted residual block operations.
     """
@@ -130,17 +136,17 @@ def mobilevit_block(
     block_dims,
     channels_axis,
     data_format,
-    attention_dims = None,
-    num_attention_blocks = 2,
-    patch_size = 8,
-    name = "mobilevit_transformer_block",
+    attention_dims=None,
+    num_attention_blocks=2,
+    patch_size=8,
+    name="mobilevit_transformer_block",
 ):
     """Creates a MobileViT block that combines convolution and transformer operations.
-    
+
     This block first applies convolutional layers, then converts the feature map into patches,
     processes them through transformer blocks, converts back to image space, and finally
     applies fusion convolutions. The block enables both local and global feature processing.
-    
+
     Args:
         inputs: Input tensor.
         block_dims: Integer, number of output channels for the block.
@@ -151,12 +157,12 @@ def mobilevit_block(
         attention_dims: Integer, dimension of attention layers. If None, uses input channels.
         num_attention_blocks: Integer, number of transformer blocks to stack. Defaults to 2.
         patch_size: Integer, size of patches for converting image to sequences. Defaults to 8.
-        name: String, prefix for layer names in the block. 
+        name: String, prefix for layer names in the block.
             Defaults to "mobilevit_transformer_block".
-    
+
     Returns:
         Output tensor after applying the MobileViT block operations.
-        
+
     Notes:
         The block follows these main steps:
         1. Initial convolutional processing
@@ -180,22 +186,16 @@ def mobilevit_block(
         name=f"{name}_mv_conv_1",
     )(x)
     x = layers.BatchNormalization(
-        axis=channels_axis,
-        momentum=0.9,
-        epsilon=1e-5,
-        name=f"{name}_mv_batchnorm_1"
+        axis=channels_axis, momentum=0.9, epsilon=1e-5, name=f"{name}_mv_batchnorm_1"
     )(x)
     x = layers.Activation("swish", name=f"{name}_mv_act_1")(x)
 
-    x = layers.Conv2D(
-        attention_dims, 1, use_bias=False, name=f"{name}_mv_conv_2"
-    )(x)
+    x = layers.Conv2D(attention_dims, 1, use_bias=False, name=f"{name}_mv_conv_2")(x)
 
     h, w, _ = x.shape[-3], x.shape[-2], x.shape[-1]
     unfold_layer = ImageToPatchesLayer(patch_size)
     x = unfold_layer(x)
     resize = unfold_layer.resize
-
 
     for i in range(num_attention_blocks):
         residual_1 = x
@@ -274,12 +274,13 @@ def mobilevit_block(
 
     return x
 
+
 @keras.saving.register_keras_serializable(package="kvmm")
 class MobileViT(keras.Model):
     """Instantiates the MobileViT architecture.
 
-    MobileViT combines the benefits of CNNs and Transformers by introducing a lightweight 
-    transformer architecture for mobile vision tasks. It uses transformer blocks to capture 
+    MobileViT combines the benefits of CNNs and Transformers by introducing a lightweight
+    transformer architecture for mobile vision tasks. It uses transformer blocks to capture
     global dependencies while maintaining the computational efficiency of CNNs.
 
     Reference:
@@ -335,6 +336,7 @@ class MobileViT(keras.Model):
     - Lightweight architecture suitable for mobile devices
     - Decomposition of feature maps into patches for transformer processing
     """
+
     def __init__(
         self,
         initial_dims: int = 16,
@@ -415,24 +417,47 @@ class MobileViT(keras.Model):
         x = layers.Activation("swish", name="stem_act")(x)
 
         for i in range(5):
-            x = inverted_residual_block(x, filters=block_dims[i], channels_axis=channels_axis,
-                data_format=data_format, strides=2 if i > 0 else 1,
-                expansion_ratio=expansion_ratio[i], name=f"stages_{i}_0")
+            x = inverted_residual_block(
+                x,
+                filters=block_dims[i],
+                channels_axis=channels_axis,
+                data_format=data_format,
+                strides=2 if i > 0 else 1,
+                expansion_ratio=expansion_ratio[i],
+                name=f"stages_{i}_0",
+            )
 
             if i == 1:
-                x = inverted_residual_block(x, filters=block_dims[i], channels_axis=channels_axis,
-                    data_format=data_format, strides=1, expansion_ratio=expansion_ratio[i],
-                    name=f"stages_{i}_1")
-                x = inverted_residual_block(x, filters=block_dims[i], channels_axis=channels_axis,
-                    data_format=data_format, strides=1, expansion_ratio=expansion_ratio[i],
-                    name=f"stages_{i}_2")
+                x = inverted_residual_block(
+                    x,
+                    filters=block_dims[i],
+                    channels_axis=channels_axis,
+                    data_format=data_format,
+                    strides=1,
+                    expansion_ratio=expansion_ratio[i],
+                    name=f"stages_{i}_1",
+                )
+                x = inverted_residual_block(
+                    x,
+                    filters=block_dims[i],
+                    channels_axis=channels_axis,
+                    data_format=data_format,
+                    strides=1,
+                    expansion_ratio=expansion_ratio[i],
+                    name=f"stages_{i}_2",
+                )
 
             if i >= 2:
-                x = mobilevit_block(x, block_dims=block_dims[i],
-                    channels_axis=channels_axis, data_format=data_format,
+                x = mobilevit_block(
+                    x,
+                    block_dims=block_dims[i],
+                    channels_axis=channels_axis,
+                    data_format=data_format,
                     attention_dims=attention_dims[i],
                     num_attention_blocks=2 if i == 2 else 4 if i == 3 else 3,
-                    patch_size=2, name=f"stages_{i}_1")
+                    patch_size=2,
+                    name=f"stages_{i}_1",
+                )
 
             if as_backbone:
                 features.append(x)
@@ -454,7 +479,9 @@ class MobileViT(keras.Model):
         x = layers.Activation("swish", name="final_act")(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -468,7 +495,9 @@ class MobileViT(keras.Model):
                     data_format=data_format, name="avg_pool"
                 )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(x)
+                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
@@ -514,6 +543,7 @@ class MobileViT(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
+
 @register_model
 def MobileViTXXS(
     include_top=True,
@@ -554,6 +584,7 @@ def MobileViTXXS(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def MobileViTXS(
@@ -596,6 +627,7 @@ def MobileViTXS(
 
     return model
 
+
 @register_model
 def MobileViTS(
     include_top=True,
@@ -627,9 +659,7 @@ def MobileViTS(
         **kwargs,
     )
     if weights in get_all_weight_names(MOBILEVIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "MobileViTS", weights, model, MOBILEVIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("MobileViTS", weights, model, MOBILEVIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

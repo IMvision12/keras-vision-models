@@ -1,6 +1,8 @@
+import math
+
 import keras
 from keras import layers, ops
-import math
+
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class ImageToPatchesLayer(layers.Layer):
@@ -39,22 +41,24 @@ class ImageToPatchesLayer(layers.Layer):
 
         self.resize = False
         if new_h != h or new_w != w:
-            x = ops.image.resize(
-                x, size=(new_h, new_w), data_format="channels_last"
-            )
+            x = ops.image.resize(x, size=(new_h, new_w), data_format="channels_last")
             self.resize = True
 
         x = ops.reshape(
             x, [-1, num_patches_h, self.patch_size, num_patches_w, self.patch_size, c]
         )
         x = ops.transpose(x, [0, 2, 4, 1, 3, 5])
-        x = ops.reshape(x, [-1, self.patch_size * self.patch_size, num_patches_h * num_patches_w, c])
+        x = ops.reshape(
+            x, [-1, self.patch_size * self.patch_size, num_patches_h * num_patches_w, c]
+        )
 
         return x
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "patch_size": self.patch_size,
-        })
+        config.update(
+            {
+                "patch_size": self.patch_size,
+            }
+        )
         return config

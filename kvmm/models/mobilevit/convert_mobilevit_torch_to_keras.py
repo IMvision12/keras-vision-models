@@ -17,33 +17,33 @@ from kvmm.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
-    "_":".",
-    "batchnorm":"bn",
-    "ir.conv.1":"conv1_1x1.conv",
-    "ir.bn.1":"conv1_1x1.bn",
-    "ir.dwconv":"conv2_kxk.conv",
-    "ir.bn.2":"conv2_kxk.bn",
-    "ir.conv.2":"conv3_1x1.conv",
-    "ir.bn.3":"conv3_1x1.bn",
-    "mv.conv.1":"conv_kxk.conv",
-    "mv.bn.1":"conv_kxk.bn",
-    "mv.conv.2":"conv_1x1",
-    "layernorm":"norm",
-    "norm.1":"norm1",
-    "norm.2":"norm2",
-    "mv.conv.3":"conv_proj.conv",
-    "mv.bn.2":"conv_proj.bn",
-    "mv.conv.4":"conv_fusion.conv",
-    "mv.bn.3":"conv_fusion.bn",
-    "final.conv":"final_conv.conv",
-    "final.bn":"final_conv.bn",
+    "_": ".",
+    "batchnorm": "bn",
+    "ir.conv.1": "conv1_1x1.conv",
+    "ir.bn.1": "conv1_1x1.bn",
+    "ir.dwconv": "conv2_kxk.conv",
+    "ir.bn.2": "conv2_kxk.bn",
+    "ir.conv.2": "conv3_1x1.conv",
+    "ir.bn.3": "conv3_1x1.bn",
+    "mv.conv.1": "conv_kxk.conv",
+    "mv.bn.1": "conv_kxk.bn",
+    "mv.conv.2": "conv_1x1",
+    "layernorm": "norm",
+    "norm.1": "norm1",
+    "norm.2": "norm2",
+    "mv.conv.3": "conv_proj.conv",
+    "mv.bn.2": "conv_proj.bn",
+    "mv.conv.4": "conv_fusion.conv",
+    "mv.bn.3": "conv_fusion.bn",
+    "final.conv": "final_conv.conv",
+    "final.bn": "final_conv.bn",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "bias": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
-    "predictions":"head.fc",
+    "predictions": "head.fc",
 }
 
 
@@ -98,7 +98,6 @@ for keras_weight, keras_weight_name in tqdm(
         raise WeightMappingError(keras_weight_name, torch_weight_name)
 
     torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
 
     if not compare_keras_torch_names(
         keras_weight_name, keras_weight, torch_weight_name, torch_weight

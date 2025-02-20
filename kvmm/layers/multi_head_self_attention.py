@@ -148,8 +148,7 @@ class MultiHeadSelfAttention(layers.Layer):
 
         if ndim == 3:
             qkv = ops.reshape(
-                qkv,
-                [batch_size, input_shape[1], 3, self.num_heads, self.head_dim]
+                qkv, [batch_size, input_shape[1], 3, self.num_heads, self.head_dim]
             )
             qkv = ops.transpose(qkv, [0, 3, 2, 1, 4])
             q, k, v = ops.unstack(qkv, 3, axis=2)
@@ -163,7 +162,7 @@ class MultiHeadSelfAttention(layers.Layer):
                     3,
                     self.num_heads,
                     self.head_dim,
-                ]
+                ],
             )
             qkv = ops.transpose(qkv, [0, 1, 4, 3, 2, 5])
             q, k, v = ops.unstack(qkv, 3, axis=3)
@@ -182,9 +181,33 @@ class MultiHeadSelfAttention(layers.Layer):
             x = ops.matmul(attn, v)
             x = ops.reshape(ops.swapaxes(x, -3, -2), input_shape)
         else:
-            q = ops.reshape(q, [batch_size * input_shape[1], self.num_heads, input_shape[2], self.head_dim])
-            k = ops.reshape(k, [batch_size * input_shape[1], self.num_heads, input_shape[2], self.head_dim])
-            v = ops.reshape(v, [batch_size * input_shape[1], self.num_heads, input_shape[2], self.head_dim])
+            q = ops.reshape(
+                q,
+                [
+                    batch_size * input_shape[1],
+                    self.num_heads,
+                    input_shape[2],
+                    self.head_dim,
+                ],
+            )
+            k = ops.reshape(
+                k,
+                [
+                    batch_size * input_shape[1],
+                    self.num_heads,
+                    input_shape[2],
+                    self.head_dim,
+                ],
+            )
+            v = ops.reshape(
+                v,
+                [
+                    batch_size * input_shape[1],
+                    self.num_heads,
+                    input_shape[2],
+                    self.head_dim,
+                ],
+            )
 
             attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
             attn = ops.softmax(attn)

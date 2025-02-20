@@ -19,7 +19,7 @@ MOBILEVIT_MODEL_CONFIG = {
         "block_dims": [32, 64, 96, 128, 160],
         "expansion_ratio": [4.0, 4.0, 4.0, 4.0, 4.0],
         "attention_dims": [None, None, 144, 192, 240],
-    }
+    },
 }
 
 MOBILEVIT_WEIGHTS_CONFIG = {

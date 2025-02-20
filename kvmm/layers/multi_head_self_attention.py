@@ -133,9 +133,11 @@ class MultiHeadSelfAttention(layers.Layer):
         self.proj.build(input_shape)
 
         if self.q_norm is not None:
-            self.q_norm.build(input_shape)
+            norm_shape = (input_shape[-1],)
+            self.q_norm.build(norm_shape)
         if self.k_norm is not None:
-            self.k_norm.build(input_shape)
+            norm_shape = (input_shape[-1],)
+            self.k_norm.build(norm_shape)
 
         self.built = True
 
@@ -145,27 +147,9 @@ class MultiHeadSelfAttention(layers.Layer):
         ndim = len(inputs.shape)
 
         qkv = self.qkv(inputs)
-
-        if ndim == 3:
-            qkv = ops.reshape(
-                qkv, [batch_size, input_shape[1], 3, self.num_heads, self.head_dim]
-            )
-            qkv = ops.transpose(qkv, [0, 3, 2, 1, 4])
-            q, k, v = ops.unstack(qkv, 3, axis=2)
-        else:
-            qkv = ops.reshape(
-                qkv,
-                [
-                    batch_size,
-                    input_shape[1],
-                    input_shape[2],
-                    3,
-                    self.num_heads,
-                    self.head_dim,
-                ],
-            )
-            qkv = ops.transpose(qkv, [0, 1, 4, 3, 2, 5])
-            q, k, v = ops.unstack(qkv, 3, axis=3)
+        
+        qkv_split = ops.split(qkv, 3, axis=-1)
+        q, k, v = qkv_split
 
         if self.q_norm is not None:
             q = self.q_norm(q)
@@ -175,46 +159,42 @@ class MultiHeadSelfAttention(layers.Layer):
         q = q * self.scale
 
         if ndim == 3:
+            q = ops.reshape(q, [batch_size, -1, self.num_heads, self.head_dim])
+            k = ops.reshape(k, [batch_size, -1, self.num_heads, self.head_dim])
+            v = ops.reshape(v, [batch_size, -1, self.num_heads, self.head_dim])
+            
+            q = ops.transpose(q, [0, 2, 1, 3])
+            k = ops.transpose(k, [0, 2, 1, 3])
+            v = ops.transpose(v, [0, 2, 1, 3])
+
             attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
             attn = ops.softmax(attn)
             attn = self.attn_drop(attn, training=training)
             x = ops.matmul(attn, v)
-            x = ops.reshape(ops.swapaxes(x, -3, -2), input_shape)
+            
+            x = ops.transpose(x, [0, 2, 1, 3])
+            x = ops.reshape(x, input_shape)
         else:
-            q = ops.reshape(
-                q,
-                [
-                    batch_size * input_shape[1],
-                    self.num_heads,
-                    input_shape[2],
-                    self.head_dim,
-                ],
-            )
-            k = ops.reshape(
-                k,
-                [
-                    batch_size * input_shape[1],
-                    self.num_heads,
-                    input_shape[2],
-                    self.head_dim,
-                ],
-            )
-            v = ops.reshape(
-                v,
-                [
-                    batch_size * input_shape[1],
-                    self.num_heads,
-                    input_shape[2],
-                    self.head_dim,
-                ],
-            )
+            q = ops.reshape(q, [batch_size, input_shape[1], input_shape[2], self.num_heads, self.head_dim])
+            k = ops.reshape(k, [batch_size, input_shape[1], input_shape[2], self.num_heads, self.head_dim])
+            v = ops.reshape(v, [batch_size, input_shape[1], input_shape[2], self.num_heads, self.head_dim])
+
+            q = ops.transpose(q, [0, 1, 3, 2, 4])
+            k = ops.transpose(k, [0, 1, 3, 2, 4])
+            v = ops.transpose(v, [0, 1, 3, 2, 4])
+
+            q = ops.reshape(q, [-1, self.num_heads, input_shape[2], self.head_dim])
+            k = ops.reshape(k, [-1, self.num_heads, input_shape[2], self.head_dim])
+            v = ops.reshape(v, [-1, self.num_heads, input_shape[2], self.head_dim])
 
             attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
             attn = ops.softmax(attn)
             attn = self.attn_drop(attn, training=training)
             x = ops.matmul(attn, v)
 
-            x = ops.reshape(ops.swapaxes(x, -3, -2), input_shape)
+            x = ops.reshape(x, [batch_size, input_shape[1], self.num_heads, input_shape[2], self.head_dim])
+            x = ops.transpose(x, [0, 1, 3, 2, 4])
+            x = ops.reshape(x, input_shape)
 
         x = self.proj(x)
         x = self.proj_drop(x, training=training)

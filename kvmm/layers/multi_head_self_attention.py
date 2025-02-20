@@ -147,7 +147,7 @@ class MultiHeadSelfAttention(layers.Layer):
         ndim = len(inputs.shape)
 
         qkv = self.qkv(inputs)
-        
+
         qkv_split = ops.split(qkv, 3, axis=-1)
         q, k, v = qkv_split
 
@@ -162,7 +162,7 @@ class MultiHeadSelfAttention(layers.Layer):
             q = ops.reshape(q, [batch_size, -1, self.num_heads, self.head_dim])
             k = ops.reshape(k, [batch_size, -1, self.num_heads, self.head_dim])
             v = ops.reshape(v, [batch_size, -1, self.num_heads, self.head_dim])
-            
+
             q = ops.transpose(q, [0, 2, 1, 3])
             k = ops.transpose(k, [0, 2, 1, 3])
             v = ops.transpose(v, [0, 2, 1, 3])
@@ -171,13 +171,40 @@ class MultiHeadSelfAttention(layers.Layer):
             attn = ops.softmax(attn)
             attn = self.attn_drop(attn, training=training)
             x = ops.matmul(attn, v)
-            
+
             x = ops.transpose(x, [0, 2, 1, 3])
             x = ops.reshape(x, input_shape)
         else:
-            q = ops.reshape(q, [batch_size, input_shape[1], input_shape[2], self.num_heads, self.head_dim])
-            k = ops.reshape(k, [batch_size, input_shape[1], input_shape[2], self.num_heads, self.head_dim])
-            v = ops.reshape(v, [batch_size, input_shape[1], input_shape[2], self.num_heads, self.head_dim])
+            q = ops.reshape(
+                q,
+                [
+                    batch_size,
+                    input_shape[1],
+                    input_shape[2],
+                    self.num_heads,
+                    self.head_dim,
+                ],
+            )
+            k = ops.reshape(
+                k,
+                [
+                    batch_size,
+                    input_shape[1],
+                    input_shape[2],
+                    self.num_heads,
+                    self.head_dim,
+                ],
+            )
+            v = ops.reshape(
+                v,
+                [
+                    batch_size,
+                    input_shape[1],
+                    input_shape[2],
+                    self.num_heads,
+                    self.head_dim,
+                ],
+            )
 
             q = ops.transpose(q, [0, 1, 3, 2, 4])
             k = ops.transpose(k, [0, 1, 3, 2, 4])
@@ -192,7 +219,16 @@ class MultiHeadSelfAttention(layers.Layer):
             attn = self.attn_drop(attn, training=training)
             x = ops.matmul(attn, v)
 
-            x = ops.reshape(x, [batch_size, input_shape[1], self.num_heads, input_shape[2], self.head_dim])
+            x = ops.reshape(
+                x,
+                [
+                    batch_size,
+                    input_shape[1],
+                    self.num_heads,
+                    input_shape[2],
+                    self.head_dim,
+                ],
+            )
             x = ops.transpose(x, [0, 1, 3, 2, 4])
             x = ops.reshape(x, input_shape)
 

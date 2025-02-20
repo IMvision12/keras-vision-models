@@ -36,9 +36,9 @@ class TestImageToPatchesLayer(TestCase):
 
     def test_init_default(self):
         layer = ImageToPatchesLayer(patch_size=self.patch_size)
-        assert layer.patch_size == self.patch_size
-        assert not layer.resize
-        assert layer.data_format in ["channels_first", "channels_last"]
+        self.assertEqual(layer.patch_size, self.patch_size)
+        self.assertFalse(layer.resize)
+        self.assertIn(layer.data_format, ["channels_first", "channels_last"])
 
     def test_build_invalid_input_shape(self):
         layer = ImageToPatchesLayer(patch_size=self.patch_size)
@@ -56,8 +56,8 @@ class TestImageToPatchesLayer(TestCase):
             self.num_patches,
             self.channels,
         )
-        assert outputs.shape == expected_shape
-        assert not layer.resize
+        self.assertEqual(outputs.shape, expected_shape)
+        self.assertFalse(layer.resize)
 
     def test_uneven_dimensions(self):
         uneven_height = 30
@@ -78,8 +78,8 @@ class TestImageToPatchesLayer(TestCase):
             expected_patches,
             self.channels,
         )
-        assert outputs.shape == expected_shape
-        assert layer.resize
+        self.assertEqual(outputs.shape, expected_shape)
+        self.assertTrue(layer.resize)
 
     def test_single_patch(self):
         input_shape = (self.batch_size, self.patch_size, self.patch_size, self.channels)
@@ -94,8 +94,8 @@ class TestImageToPatchesLayer(TestCase):
             1,
             self.channels,
         )
-        assert outputs.shape == expected_shape
-        assert not layer.resize
+        self.assertEqual(outputs.shape, expected_shape)
+        self.assertFalse(layer.resize)
 
     def test_patch_content(self):
         height = width = 4
@@ -107,11 +107,6 @@ class TestImageToPatchesLayer(TestCase):
         layer = ImageToPatchesLayer(patch_size=patch_size)
         outputs = layer(inputs)
 
-        # Expected patches:
-        # Patch 0: [0, 1, 4, 5]
-        # Patch 1: [2, 3, 6, 7]
-        # Patch 2: [8, 9, 12, 13]
-        # Patch 3: [10, 11, 14, 15]
         expected_patches = np.array(
             [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]]
         )
@@ -119,17 +114,17 @@ class TestImageToPatchesLayer(TestCase):
         outputs_np = outputs.numpy()
         for i in range(4):
             patch = outputs_np[0, :, i, 0]
-            assert np.array_equal(patch, expected_patches[i])
+            self.assertTrue(np.array_equal(patch, expected_patches[i]))
 
     def test_get_config(self):
         layer = ImageToPatchesLayer(patch_size=self.patch_size)
         config = layer.get_config()
 
-        assert "patch_size" in config
-        assert config["patch_size"] == self.patch_size
+        self.assertIn("patch_size", config)
+        self.assertEqual(config["patch_size"], self.patch_size)
 
         reconstructed_layer = ImageToPatchesLayer.from_config(config)
-        assert reconstructed_layer.patch_size == self.patch_size
+        self.assertEqual(reconstructed_layer.patch_size, self.patch_size)
 
     def test_model_integration(self):
         inputs = layers.Input(shape=(self.height, self.width, self.channels))
@@ -147,4 +142,4 @@ class TestImageToPatchesLayer(TestCase):
             self.num_patches,
             self.channels,
         )
-        assert output.shape == expected_shape
+        self.assertEqual(output.shape, expected_shape)

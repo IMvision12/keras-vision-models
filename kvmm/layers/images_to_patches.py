@@ -73,9 +73,6 @@ class ImageToPatchesLayer(layers.Layer):
     def call(self, inputs):
         x = inputs
 
-        if self.data_format == "channels_first":
-            x = ops.transpose(x, [0, 2, 3, 1])
-
         h, w, c = x.shape[-3], x.shape[-2], x.shape[-1]
 
         new_h = math.ceil(h / self.patch_size) * self.patch_size

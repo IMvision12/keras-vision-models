@@ -109,9 +109,6 @@ class PatchesToImageLayer(layers.Layer):
         if resize:
             x = ops.image.resize(x, size=(self.h, self.w), data_format="channels_last")
 
-        if self.data_format == "channels_first":
-            x = ops.transpose(x, [0, 3, 1, 2])
-
         return x
 
     def get_config(self):

@@ -113,3 +113,12 @@ class PatchesToImageLayer(layers.Layer):
             x = ops.image.resize(x, size=(self.h, self.w), data_format=self.data_format)
 
         return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+            }
+        )
+        return config

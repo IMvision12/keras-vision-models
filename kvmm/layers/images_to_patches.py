@@ -85,3 +85,12 @@ class ImageToPatchesLayer(layers.Layer):
             x = ops.reshape(x, [-1, c, self.patch_size * self.patch_size, num_patches])
 
         return x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "patch_size": self.patch_size,
+            }
+        )
+        return config

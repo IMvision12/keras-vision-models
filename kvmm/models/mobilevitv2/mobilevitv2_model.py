@@ -433,7 +433,6 @@ class MobileViTV2(keras.Model):
             else inputs
         )
 
-        # Stem
         x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
         x = layers.Conv2D(
             int(32 * multiplier),

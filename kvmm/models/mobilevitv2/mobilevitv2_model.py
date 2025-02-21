@@ -34,6 +34,7 @@ def make_divisible(v, divisor=8, min_value=None, round_limit=0.9):
         new_v += divisor
     return new_v
 
+
 def inverted_residual_block(
     inputs,
     filters,
@@ -128,12 +129,9 @@ def inverted_residual_block(
 
     return x
 
+
 def linear_self_attention(
-    inputs,
-    dim,
-    data_format,
-    use_bias=True,
-    name="linear_self_attention"
+    inputs, dim, data_format, use_bias=True, name="linear_self_attention"
 ):
     """Creates a linear self-attention block.
 
@@ -153,36 +151,33 @@ def linear_self_attention(
     """
     num_patch_axis = -2 if data_format == "channels_last" else -1
 
-    x = layers.Conv2D(
-        1 + (2 * dim),
-        1,
-        use_bias=use_bias,
-        name=f"{name}_attn_conv_1"
-    )(inputs)
+    x = layers.Conv2D(1 + (2 * dim), 1, use_bias=use_bias, name=f"{name}_attn_conv_1")(
+        inputs
+    )
 
     if data_format == "channels_last":
         query = x[..., :1]
-        key = x[..., 1:dim+1]
-        value = x[..., dim+1:]
+        key = x[..., 1 : dim + 1]
+        value = x[..., dim + 1 :]
     else:
         query = x[:, :1]
-        key = x[:, 1:dim+1]
-        value = x[:, dim+1:]
+        key = x[:, 1 : dim + 1]
+        value = x[:, dim + 1 :]
 
-    context_scores = layers.Softmax(axis=num_patch_axis, name=f"{name}_attn_softmax")(query)
-    context_vector = layers.Multiply(name=f"{name}_attn_multiply_1")([key, context_scores])
+    context_scores = layers.Softmax(axis=num_patch_axis, name=f"{name}_attn_softmax")(
+        query
+    )
+    context_vector = layers.Multiply(name=f"{name}_attn_multiply_1")(
+        [key, context_scores]
+    )
     context_vector = keras.ops.sum(context_vector, axis=num_patch_axis, keepdims=True)
 
     out = layers.ReLU(name=f"{name}_attn_relu")(value)
     out = layers.Multiply(name=f"{name}_attn_multiply_2")([out, context_vector])
-    out = layers.Conv2D(
-        dim,
-        1,
-        use_bias=use_bias,
-        name=f"{name}_attn_conv_2"
-    )(out)
+    out = layers.Conv2D(dim, 1, use_bias=use_bias, name=f"{name}_attn_conv_2")(out)
 
     return out
+
 
 def mobilevitv2_block(
     inputs,
@@ -220,7 +215,9 @@ def mobilevitv2_block(
     Returns:
         Output tensor after applying the MobileViTv2 block operations.
     """
-    transformer_dim = transformer_dim or make_divisible(inputs.shape[channels_axis] * expansion_ratio)
+    transformer_dim = transformer_dim or make_divisible(
+        inputs.shape[channels_axis] * expansion_ratio
+    )
 
     x = layers.DepthwiseConv2D(
         kernel_size,
@@ -324,6 +321,7 @@ def mobilevitv2_block(
 
     return x
 
+
 @keras.saving.register_keras_serializable(package="kvmm")
 class MobileViTV2(keras.Model):
     """Instantiates the MobileViTV2 architecture.
@@ -376,6 +374,7 @@ class MobileViTV2(keras.Model):
     - Lightweight architecture suitable for mobile and edge devices
     - Patching mechanism to process feature maps with transformers
     """
+
     def __init__(
         self,
         multiplier=1.0,
@@ -463,7 +462,7 @@ class MobileViTV2(keras.Model):
                 data_format,
                 strides=stride,
                 expansion_ratio=2.0,
-                name=f"stages_{stage}_0"
+                name=f"stages_{stage}_0",
             )
 
             if stage <= 1:
@@ -475,7 +474,7 @@ class MobileViTV2(keras.Model):
                         data_format,
                         strides=1,
                         expansion_ratio=2.0,
-                        name=f"stages_{stage}_1"
+                        name=f"stages_{stage}_1",
                     )
             else:
                 x = mobilevitv2_block(
@@ -485,15 +484,17 @@ class MobileViTV2(keras.Model):
                     data_format,
                     kernel_size=3,
                     expansion_ratio=0.5,
-                    transformer_depth=[2, 4, 3][stage-2],
+                    transformer_depth=[2, 4, 3][stage - 2],
                     patch_size=2,
-                    name=f"stages_{stage}_1"
+                    name=f"stages_{stage}_1",
                 )
 
             features.append(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(x)
+            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
+                x
+            )
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -548,7 +549,7 @@ class MobileViTV2(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
+
 
 @register_model
 def MobileViTV2M050(
@@ -591,6 +592,7 @@ def MobileViTV2M050(
 
     return model
 
+
 @register_model
 def MobileViTV2M075(
     include_top=True,
@@ -631,6 +633,7 @@ def MobileViTV2M075(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def MobileViTV2M100(
@@ -673,6 +676,7 @@ def MobileViTV2M100(
 
     return model
 
+
 @register_model
 def MobileViTV2M125(
     include_top=True,
@@ -713,6 +717,7 @@ def MobileViTV2M125(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def MobileViTV2M150(
@@ -755,6 +760,7 @@ def MobileViTV2M150(
 
     return model
 
+
 @register_model
 def MobileViTV2M175(
     include_top=True,
@@ -795,6 +801,7 @@ def MobileViTV2M175(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def MobileViTV2M200(

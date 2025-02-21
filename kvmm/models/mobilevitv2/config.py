@@ -45,4 +45,3 @@ MOBILEVITV2_WEIGHTS_CONFIG = {
         "cvnets_in1k": {"url": ""},
     },
 }
-

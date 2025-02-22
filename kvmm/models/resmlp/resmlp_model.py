@@ -186,9 +186,24 @@ class ResMLP(keras.Model):
             name="stem_conv",
         )(x)
 
-        height, width = input_shape[:2]
+        if data_format == "channels_first":
+            if len(input_shape) == 3:
+                _, height, width = input_shape
+            else:
+                height, width = input_shape[1:]
+        else:
+            if len(input_shape) == 3:
+                height, width, _ = input_shape
+            else:
+                height, width = input_shape[:2]
+
         num_patches = (height // patch_size) * (width // patch_size)
-        x = layers.Reshape((num_patches, embed_dim))(x)
+
+        if data_format == "channels_first":
+            x = layers.Permute((2, 3, 1))(x)
+            x = layers.Reshape((num_patches, embed_dim))(x)
+        else:
+            x = layers.Reshape((num_patches, embed_dim))(x)
 
         features.append(x)
 

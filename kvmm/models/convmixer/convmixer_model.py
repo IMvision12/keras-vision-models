@@ -264,7 +264,7 @@ class ConvMixer(keras.Model):
 
 
 @register_model
-def ConvMixer_1536_20(
+def ConvMixer1536D20(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
@@ -275,11 +275,11 @@ def ConvMixer_1536_20(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="ConvMixer_1536_20",
+    name="ConvMixer1536D20",
     **kwargs,
 ):
     model = ConvMixer(
-        **CONVMIXER_MODEL_CONFIG["ConvMixer_1536_20"],
+        **CONVMIXER_MODEL_CONFIG["ConvMixer1536D20"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -296,7 +296,7 @@ def ConvMixer_1536_20(
 
     if weights in get_all_weight_names(CONVMIXER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "ConvMixer_1536_20", weights, model, CONVMIXER_WEIGHTS_CONFIG
+            "ConvMixer1536D20", weights, model, CONVMIXER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -307,7 +307,7 @@ def ConvMixer_1536_20(
 
 
 @register_model
-def ConvMixer_768_32(
+def ConvMixer768D32(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
@@ -318,11 +318,11 @@ def ConvMixer_768_32(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="ConvMixer_768_32",
+    name="ConvMixer768D32",
     **kwargs,
 ):
     model = ConvMixer(
-        **CONVMIXER_MODEL_CONFIG["ConvMixer_768_32"],
+        **CONVMIXER_MODEL_CONFIG["ConvMixer768D32"],
         activation="relu",
         include_top=include_top,
         as_backbone=as_backbone,
@@ -339,7 +339,7 @@ def ConvMixer_768_32(
     )
     if weights in get_all_weight_names(CONVMIXER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "ConvMixer_768_32", weights, model, CONVMIXER_WEIGHTS_CONFIG
+            "ConvMixer768D32", weights, model, CONVMIXER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -350,7 +350,7 @@ def ConvMixer_768_32(
 
 
 @register_model
-def ConvMixer_1024_20(
+def ConvMixer1024D20(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
@@ -361,11 +361,11 @@ def ConvMixer_1024_20(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="ConvMixer_1024_20",
+    name="ConvMixer1024D20",
     **kwargs,
 ):
     model = ConvMixer(
-        **CONVMIXER_MODEL_CONFIG["ConvMixer_1024_20"],
+        **CONVMIXER_MODEL_CONFIG["ConvMixer1024D20"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -382,7 +382,7 @@ def ConvMixer_1024_20(
 
     if weights in get_all_weight_names(CONVMIXER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "ConvMixer_1024_20", weights, model, CONVMIXER_WEIGHTS_CONFIG
+            "ConvMixer1024D20", weights, model, CONVMIXER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)

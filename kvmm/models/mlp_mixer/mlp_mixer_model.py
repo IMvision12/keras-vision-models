@@ -312,7 +312,7 @@ class MLPMixer(keras.Model):
 
 
 @register_model
-def MLPMixer_B16(
+def MLPMixerB16(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
@@ -323,11 +323,11 @@ def MLPMixer_B16(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="MLPMixer_B16",
+    name="MLPMixerB16",
     **kwargs,
 ):
     model = MLPMixer(
-        **MLPMIXER_MODEL_CONFIG["MLPMixer_B16"],
+        **MLPMIXER_MODEL_CONFIG["MLPMixerB16"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -343,9 +343,7 @@ def MLPMixer_B16(
     )
 
     if weights in get_all_weight_names(MLPMIXER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "MLPMixer_B16", weights, model, MLPMIXER_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("MLPMixerB16", weights, model, MLPMIXER_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -355,7 +353,7 @@ def MLPMixer_B16(
 
 
 @register_model
-def MLPMixer_L16(
+def MLPMixerL16(
     include_top=True,
     as_backbone=False,
     include_normalization=True,
@@ -366,11 +364,11 @@ def MLPMixer_L16(
     pooling=None,
     num_classes=1000,
     classifier_activation="softmax",
-    name="MLPMixer_L16",
+    name="MLPMixerL16",
     **kwargs,
 ):
     model = MLPMixer(
-        **MLPMIXER_MODEL_CONFIG["MLPMixer_L16"],
+        **MLPMIXER_MODEL_CONFIG["MLPMixerL16"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -386,9 +384,7 @@ def MLPMixer_L16(
     )
 
     if weights in get_all_weight_names(MLPMIXER_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "MLPMixer_L16", weights, model, MLPMIXER_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("MLPMixerL16", weights, model, MLPMIXER_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

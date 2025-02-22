@@ -9,3 +9,4 @@ from .patches_to_images import PatchesToImageLayer
 from .pos_embedding import AddPositionEmbs
 from .std_conv2d import StdConv2D
 from .stochastic_depth import StochasticDepth
+from .affine import Affine

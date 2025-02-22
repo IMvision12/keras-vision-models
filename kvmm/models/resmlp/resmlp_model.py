@@ -16,6 +16,22 @@ def resmlp_block(
     drop_rate=0.0,
     block_idx=None,
 ):
+    """A building block for the ResMLP architecture.
+
+    Args:
+        x: input tensor.
+        dim: int, dimension of the input features.
+        seq_len: int, length of the input sequence for cross-patch mixing.
+        mlp_ratio: float, ratio of the hidden dimension in the MLP to the input
+            dimension (default: 4).
+        init_values: float, initial value for layer scale parameters
+            (default: 1e-4).
+        drop_rate: float, dropout rate to apply after dense layers (default: 0.0).
+        block_idx: int or None, index of the block for naming layers (default: None).
+
+    Returns:
+        Output tensor for the block.
+    """
     inputs = x
 
     x = Affine(name=f"blocks_{block_idx}_affine_1")(inputs)
@@ -57,7 +73,52 @@ def resmlp_block(
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class ResMLP(keras.Model):
+    """Instantiates the ResMLP architecture.
 
+    Reference:
+    - [ResMLP: Feedforward networks for image classification with data-efficient training](
+        https://arxiv.org/abs/2105.03404) (CVPR 2021)
+
+    Args:
+        patch_size: Integer or tuple, size of patches to be extracted from the input image.
+        embed_dim: Integer, the embedding dimension for the token mixing and channel mixing MLPs.
+        depth: Integer, the number of ResMLP blocks to stack.
+        mlp_ratio: Float, scaling factor for the MLP hidden dimension relative to embed_dim.
+            Defaults to 4.0.
+        init_values: Float, initial value for the layer scale parameters. 
+            Defaults to 1e-4.
+        drop_rate: Float, dropout rate for the MLPs. Defaults to 0.0.
+        drop_path_rate: Float, stochastic depth rate for the blocks. Defaults to 0.0.
+        include_top: Boolean, whether to include the classification head at the top
+            of the network. Defaults to `True`.
+        as_backbone: Boolean, whether to output intermediate features for use as a
+            backbone network. When True, returns a list of feature maps at different
+            stages. Defaults to `False`.
+        include_normalization: Boolean, whether to include normalization layers at the start
+            of the network. When True, input images should be in uint8 format with values
+            in [0, 255]. Defaults to `True`.
+        normalization_mode: String, specifying the normalization mode to use. Must be one of:
+            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
+            'minus_one_to_one'. Only used when include_normalization=True.
+        weights: String, specifying the path to pretrained weights or one of the
+            available options in keras-vision.
+        input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
+            the model's input. If not provided, a new input tensor is created based
+            on input_shape.
+        input_shape: Optional tuple specifying the shape of the input data.
+        pooling: Optional pooling mode for feature extraction when include_top=False:
+            - None (default): the output is the 4D tensor from the last ResMLP block.
+            - "avg": global average pooling is applied, and the output is a 2D tensor.
+            - "max": global max pooling is applied, and the output is a 2D tensor.
+        num_classes: Integer, the number of output classes for classification.
+            Defaults to 1000.
+        classifier_activation: String or callable, activation function for the top
+            layer. Set to None to return logits. Defaults to "softmax".
+        name: String, the name of the model. Defaults to "ResMLP".
+
+    Returns:
+        A Keras Model instance.
+    """
     def __init__(
         self,
         patch_size,
@@ -86,6 +147,14 @@ class ResMLP(keras.Model):
                 f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
 
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+
+        data_format = keras.config.image_data_format()
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
@@ -113,6 +182,7 @@ class ResMLP(keras.Model):
             embed_dim,
             kernel_size=patch_size,
             strides=patch_size,
+            data_format=data_format,
             name="stem_conv",
         )(x)
 
@@ -143,6 +213,7 @@ class ResMLP(keras.Model):
                 features.append(x)
 
         x = Affine(name="Final_affine")(x)
+
         if include_top:
             x = layers.GlobalAveragePooling1D(name="avg_pool")(x)
             x = layers.Dense(

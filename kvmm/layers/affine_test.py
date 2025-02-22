@@ -30,11 +30,11 @@ class TestAffine(TestCase):
         assert layer.dim == self.projection_dim
         assert hasattr(layer, "alpha")
         assert hasattr(layer, "beta")
-        
+
         expected_shape = (1, 1, self.projection_dim)
         assert layer.alpha.shape == expected_shape
         assert layer.beta.shape == expected_shape
-        
+
         assert np.allclose(layer.alpha.numpy(), np.ones(expected_shape))
         assert np.allclose(layer.beta.numpy(), np.zeros(expected_shape))
 
@@ -42,12 +42,12 @@ class TestAffine(TestCase):
         layer = Affine()
         outputs = layer(self.test_inputs)
         output_shape = ops.shape(outputs)
-        
+
         assert len(output_shape) == len(self.input_shape)
         assert all(
             output_shape[i] == self.input_shape[i] for i in range(len(self.input_shape))
         )
-        
+
         expected_output = self.test_inputs * layer.alpha + layer.beta
         assert np.allclose(outputs.numpy(), expected_output.numpy())
 
@@ -106,14 +106,14 @@ class TestAffine(TestCase):
     def test_trainable_parameters(self):
         layer = Affine()
         layer.build(self.input_shape)
-        
+
         assert layer.alpha.trainable
         initial_alpha = layer.alpha.numpy().copy()
         new_alpha_values = initial_alpha + 0.5
         layer.alpha.assign(new_alpha_values)
         assert np.allclose(layer.alpha.numpy(), new_alpha_values)
         assert not np.allclose(layer.alpha.numpy(), initial_alpha)
-        
+
         assert layer.beta.trainable
         initial_beta = layer.beta.numpy().copy()
         new_beta_values = initial_beta + 0.3
@@ -127,7 +127,7 @@ class TestAffine(TestCase):
         layer.build((self.batch_size, self.projection_dim))
         output_2d = layer(input_2d)
         assert ops.shape(output_2d) == (self.batch_size, self.projection_dim)
-        
+
         input_4d = ops.ones((self.batch_size, 32, 32, self.projection_dim))
         layer = Affine()
         layer.build((self.batch_size, 32, 32, self.projection_dim))

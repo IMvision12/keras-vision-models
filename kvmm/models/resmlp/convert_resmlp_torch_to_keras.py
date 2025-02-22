@@ -1,5 +1,5 @@
-from typing import Dict, List, Union
 import re
+from typing import Dict, List, Union
 
 import keras
 import timm
@@ -17,17 +17,17 @@ from kvmm.utils.weight_transfer_torch_to_keras import (
 
 weight_name_mapping = {
     "_": ".",
-    "stem.conv":"stem.proj",
-    "affine.1.alpha":"norm1.alpha",
-    "affine.1.beta":"norm1.beta",
-    "affine.2.alpha":"norm2.alpha",
-    "affine.2.beta":"norm2.beta",
-    "dense.1":"linear_tokens",
-    "dense.2":"mlp_channels.fc1",
-    "dense.3":"mlp_channels.fc2",
+    "stem.conv": "stem.proj",
+    "affine.1.alpha": "norm1.alpha",
+    "affine.1.beta": "norm1.beta",
+    "affine.2.alpha": "norm2.alpha",
+    "affine.2.beta": "norm2.beta",
+    "dense.1": "linear_tokens",
+    "dense.2": "mlp_channels.fc1",
+    "dense.3": "mlp_channels.fc2",
     "kernel": "weight",
     "gamma": "weight",
-    "Final.affine":"norm",
+    "Final.affine": "norm",
     "predictions": "head",
 }
 
@@ -68,7 +68,9 @@ for keras_weight, keras_weight_name in tqdm(
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
 
-    torch_weight_name = re.sub(r"scale\.(\d+)\.variable(?:\.\d+)?", r"ls\1", torch_weight_name)
+    torch_weight_name = re.sub(
+        r"scale\.(\d+)\.variable(?:\.\d+)?", r"ls\1", torch_weight_name
+    )
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,
@@ -76,7 +78,9 @@ for keras_weight, keras_weight_name in tqdm(
     }
 
     torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-    if "affine" in keras_weight_name and ("alpha" in keras_weight_name or "beta" in keras_weight_name):
+    if "affine" in keras_weight_name and (
+        "alpha" in keras_weight_name or "beta" in keras_weight_name
+    ):
         reshaped_weight = torch_weight.reshape(1, 1, -1).numpy()
         keras_weight.assign(reshaped_weight)
         continue

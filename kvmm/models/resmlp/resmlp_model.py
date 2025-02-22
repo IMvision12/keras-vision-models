@@ -2,10 +2,11 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kvmm.layers import ImageNormalizationLayer, Affine, LayerScale
+from kvmm.layers import Affine, ImageNormalizationLayer, LayerScale
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHTS_CONFIG
+
 
 def resmlp_block(
     x,
@@ -44,10 +45,7 @@ def resmlp_block(
     x_t = layers.Permute((2, 1), name=f"blocks_{block_idx}_permute_2")(x_t)
     if drop_rate > 0:
         x_t = layers.Dropout(drop_rate, name=f"blocks_{block_idx}_dropout_1")(x_t)
-    x_t = LayerScale(
-        init_values,
-        name=f"blocks_{block_idx}_scale_1"
-    )(x_t)
+    x_t = LayerScale(init_values, name=f"blocks_{block_idx}_scale_1")(x_t)
     x = layers.Add(name=f"blocks_{block_idx}_add_1")([inputs, x_t])
 
     inputs = x
@@ -63,13 +61,11 @@ def resmlp_block(
     )(x)
     if drop_rate > 0:
         x = layers.Dropout(drop_rate, name=f"blocks_{block_idx}_dropout_2")(x)
-    x = LayerScale(
-        init_values,
-        name=f"blocks_{block_idx}_scale_2"
-    )(x)
+    x = LayerScale(init_values, name=f"blocks_{block_idx}_scale_2")(x)
     x = layers.Add(name=f"blocks_{block_idx}_add_2")([inputs, x])
 
     return x
+
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class ResMLP(keras.Model):
@@ -85,7 +81,7 @@ class ResMLP(keras.Model):
         depth: Integer, the number of ResMLP blocks to stack.
         mlp_ratio: Float, scaling factor for the MLP hidden dimension relative to embed_dim.
             Defaults to 4.0.
-        init_values: Float, initial value for the layer scale parameters. 
+        init_values: Float, initial value for the layer scale parameters.
             Defaults to 1e-4.
         drop_rate: Float, dropout rate for the MLPs. Defaults to 0.0.
         drop_path_rate: Float, stochastic depth rate for the blocks. Defaults to 0.0.
@@ -119,6 +115,7 @@ class ResMLP(keras.Model):
     Returns:
         A Keras Model instance.
     """
+
     def __init__(
         self,
         patch_size,
@@ -245,27 +242,30 @@ class ResMLP(keras.Model):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "patch_size": self.patch_size,
-            "embed_dim": self.embed_dim,
-            "depth": self.depth,
-            "mlp_ratio": self.mlp_ratio,
-            "init_values": self.init_values,
-            "drop_rate": self.drop_rate,
-            "drop_path_rate": self.drop_path_rate,
-            "include_top": self.include_top,
-            "as_backbone": self.as_backbone,
-            "include_normalization": self.include_normalization,
-            "normalization_mode": self.normalization_mode,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self.input_tensor,
-            "pooling": self.pooling,
-            "num_classes": self.num_classes,
-            "classifier_activation": self.classifier_activation,
-            "name": self.name,
-            "trainable": self.trainable,
-        })
+        config.update(
+            {
+                "patch_size": self.patch_size,
+                "embed_dim": self.embed_dim,
+                "depth": self.depth,
+                "mlp_ratio": self.mlp_ratio,
+                "init_values": self.init_values,
+                "drop_rate": self.drop_rate,
+                "drop_path_rate": self.drop_path_rate,
+                "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
+                "include_normalization": self.include_normalization,
+                "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self.input_tensor,
+                "pooling": self.pooling,
+                "num_classes": self.num_classes,
+                "classifier_activation": self.classifier_activation,
+                "name": self.name,
+                "trainable": self.trainable,
+            }
+        )
         return config
+
 
 @register_model
 def ResMLP12(
@@ -299,15 +299,14 @@ def ResMLP12(
     )
 
     if weights in get_all_weight_names(RESMLP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResMLP12", weights, model, RESMLP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ResMLP12", weights, model, RESMLP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def ResMLP24(
@@ -341,15 +340,14 @@ def ResMLP24(
     )
 
     if weights in get_all_weight_names(RESMLP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResMLP24", weights, model, RESMLP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ResMLP24", weights, model, RESMLP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def ResMLP36(
@@ -383,15 +381,14 @@ def ResMLP36(
     )
 
     if weights in get_all_weight_names(RESMLP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResMLP36", weights, model, RESMLP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ResMLP36", weights, model, RESMLP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def ResMLPBig24(
@@ -425,9 +422,7 @@ def ResMLPBig24(
     )
 
     if weights in get_all_weight_names(RESMLP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ResMLPBig24", weights, model, RESMLP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ResMLPBig24", weights, model, RESMLP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

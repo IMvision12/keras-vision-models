@@ -172,10 +172,13 @@ class ResMLP(keras.Model):
             else:
                 img_input = input_tensor
 
+        inputs = img_input
+        features = []
+
         x = (
-            ImageNormalizationLayer(mode=normalization_mode)(img_input)
+            ImageNormalizationLayer(mode=normalization_mode)(inputs)
             if include_normalization
-            else img_input
+            else inputs
         )
 
         x = layers.Conv2D(
@@ -190,13 +193,7 @@ class ResMLP(keras.Model):
         num_patches = (height // patch_size) * (width // patch_size)
         x = layers.Reshape((num_patches, embed_dim))(x)
 
-        features = [x]
-        features_at = [
-            depth // 4,
-            depth // 2,
-            3 * depth // 4,
-            depth - 1,
-        ]
+        features.append(x)
 
         for i in range(depth):
             drop_path = drop_path_rate * (i / depth)
@@ -209,8 +206,7 @@ class ResMLP(keras.Model):
                 drop_path,
                 block_idx=i,
             )
-            if i in features_at:
-                features.append(x)
+            features.append(x)
 
         x = Affine(name="Final_affine")(x)
 

@@ -277,6 +277,12 @@ class Res2Net(keras.Model):
                 f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
 
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
+            )
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 

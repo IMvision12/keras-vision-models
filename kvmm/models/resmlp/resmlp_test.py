@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.convmixer import ConvMixer768D32
+from kvmm.models.resmlp import ResMLP12
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
-class TestConvMixer(BaseVisionTest):
+class TestResMLP(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=ConvMixer768D32, input_shape=(224, 224, 3))
+        return ModelConfig(model_cls=ResMLP12, input_shape=(224, 224, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List, Union
 
 import keras
@@ -5,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.convmixer import ConvMixer768D32
+from kvmm.models.resmlp import ResMLP12
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -14,27 +15,25 @@ from kvmm.utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-weight_name_mapping: Dict[str, str] = {
+weight_name_mapping = {
     "_": ".",
-    "stem.conv2d": "stem.0",
-    "stem.batchnorm": "stem.2",
-    "mixer.block.": "blocks.",
-    ".depthwise": ".0.fn.0",
-    ".batchnorm.1": ".0.fn.2",
-    ".add": ".0",
-    ".conv2d": ".1",
-    ".batchnorm.2": ".3",
+    "stem.conv": "stem.proj",
+    "affine.1.alpha": "norm1.alpha",
+    "affine.1.beta": "norm1.beta",
+    "affine.2.alpha": "norm2.alpha",
+    "affine.2.beta": "norm2.beta",
+    "dense.1": "linear_tokens",
+    "dense.2": "mlp_channels.fc1",
+    "dense.3": "mlp_channels.fc2",
     "kernel": "weight",
     "gamma": "weight",
-    "beta": "bias",
-    "moving.mean": "running_mean",
-    "moving.variance": "running_var",
+    "Final.affine": "norm",
     "predictions": "head",
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ConvMixer768D32,
-    "torch_model_name": "convmixer_768_32.in1k",
+    "keras_model_cls": ResMLP12,
+    "torch_model_name": "resmlp_12_224.fb_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
@@ -69,10 +68,22 @@ for keras_weight, keras_weight_name in tqdm(
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
 
+    torch_weight_name = re.sub(
+        r"scale\.(\d+)\.variable(?:\.\d+)?", r"ls\1", torch_weight_name
+    )
+
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,
         **non_trainable_torch_weights,
     }
+
+    torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
+    if "affine" in keras_weight_name and (
+        "alpha" in keras_weight_name or "beta" in keras_weight_name
+    ):
+        reshaped_weight = torch_weight.reshape(1, 1, -1).numpy()
+        keras_weight.assign(reshaped_weight)
+        continue
 
     if torch_weight_name not in torch_weights_dict:
         raise WeightMappingError(keras_weight_name, torch_weight_name)

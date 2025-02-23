@@ -1,3 +1,4 @@
+from .affine import Affine
 from .class_dist_token import ClassDistToken
 from .efficient_multi_head_self_attention import EfficientMultiheadSelfAttention
 from .global_response_norm import GlobalResponseNorm

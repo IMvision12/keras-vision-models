@@ -27,14 +27,14 @@ class TestBiasLayer(TestCase):
 
     def test_init(self):
         layer = BiasLayer()
-        assert layer.trainable_bias == True
+        assert layer.trainable_bias
         assert not layer.built
         assert isinstance(layer.initializer, keras.initializers.Zeros)
 
         custom_layer = BiasLayer(
             trainable=False, initializer="ones", data_format="channels_first"
         )
-        assert custom_layer.trainable_bias == False
+        assert not custom_layer.trainable_bias
         assert isinstance(custom_layer.initializer, keras.initializers.Ones)
         assert custom_layer.data_format == "channels_first"
 
@@ -86,7 +86,7 @@ class TestBiasLayer(TestCase):
         assert "trainable" in config
         assert "initializer" in config
         assert "data_format" in config
-        assert config["trainable"] == False
+        assert not config["trainable"]
         assert config["data_format"] == "channels_first"
 
         reconstructed_layer = BiasLayer.from_config(config)

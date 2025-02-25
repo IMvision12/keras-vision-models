@@ -1,6 +1,9 @@
 from .affine import Affine
+from .bias_layer import BiasLayer
+from .class_attention import ClassAttention
 from .class_dist_token import ClassDistToken
 from .efficient_multi_head_self_attention import EfficientMultiheadSelfAttention
+from .exp_logit_scale import ExpLogitScale
 from .global_response_norm import GlobalResponseNorm
 from .image_normalization import ImageNormalizationLayer
 from .images_to_patches import ImageToPatchesLayer
@@ -10,3 +13,4 @@ from .patches_to_images import PatchesToImageLayer
 from .pos_embedding import AddPositionEmbs
 from .std_conv2d import StdConv2D
 from .stochastic_depth import StochasticDepth
+from .talking_head_attention import TalkingHeadAttention

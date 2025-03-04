@@ -519,7 +519,7 @@ class SwinTransformer(keras.Model):
                 f"When using 'ms_in22k' weights, num_classes must be 21841. "
                 f"Received num_classes: {num_classes}"
             )
-        
+
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 

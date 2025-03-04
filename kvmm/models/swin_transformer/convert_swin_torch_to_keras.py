@@ -12,29 +12,27 @@ from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
 from kvmm.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
+    transfer_attention_weights,
     transfer_weights,
-    transfer_attention_weights
 )
 
-
-
 weight_name_mapping = {
-    "_":".",
-    "stem.conv":"patch_embed.proj",
-    "stem.norm":"patch_embed.norm",
-    "layernorm.1":"norm1",
-    "layernorm.2":"norm2",
-    "dense.1":"fc1",
-    "dense.2":"fc2",
-    "pm.layernorm":"norm",
-    "pm.dense":"reduction",
-    "final.norm":"norm",
+    "_": ".",
+    "stem.conv": "patch_embed.proj",
+    "stem.norm": "patch_embed.norm",
+    "layernorm.1": "norm1",
+    "layernorm.2": "norm2",
+    "dense.1": "fc1",
+    "dense.2": "fc2",
+    "pm.layernorm": "norm",
+    "pm.dense": "reduction",
+    "final.norm": "norm",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "moving.mean": "running_mean",
     "moving.variance": "running_var",
-    "predictions":"head.fc",
+    "predictions": "head.fc",
 }
 
 
@@ -83,7 +81,9 @@ for keras_weight, keras_weight_name in tqdm(
 
     if "relative.position.bias.table" in torch_weight_name:
         layer_name = keras_weight.path.split("/")[-1]
-        layer_name = layer_name.replace("_",".").replace("relative.position.bias.table","relative_position_bias_table")
+        layer_name = layer_name.replace("_", ".").replace(
+            "relative.position.bias.table", "relative_position_bias_table"
+        )
         relative_weight = torch_weights_dict[layer_name]
         keras_weight.assign(relative_weight)
         continue

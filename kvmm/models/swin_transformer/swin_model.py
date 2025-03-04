@@ -1,12 +1,13 @@
 import keras
-from keras import layers, utils, ops
-from keras.src.applications import imagenet_utils
 import numpy as np
+from keras import layers, ops, utils
+from keras.src.applications import imagenet_utils
+
 from kvmm.layers import (
+    ImageNormalizationLayer,
     StochasticDepth,
     WindowAttention,
     WindowPartition,
-    ImageNormalizationLayer,
 )
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
@@ -23,7 +24,7 @@ class RollLayer(layers.Layer):
     Args:
         shift: int or tuple of ints
             Number of positions to shift. If positive, shift to the right/down.
-            If negative, shift to the left/up. If tuple, shifts by the specified 
+            If negative, shift to the left/up. If tuple, shifts by the specified
             amount for each corresponding axis.
         axis: int or tuple of ints
             Axis or axes along which to shift. If tuple, must have same length as shift.
@@ -47,6 +48,7 @@ class RollLayer(layers.Layer):
     Output Shape:
         Same as input shape.
     """
+
     def __init__(self, shift, axis, **kwargs):
         super().__init__(**kwargs)
         self.shift = shift
@@ -60,15 +62,27 @@ class RollLayer(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "shift": self.shift,
-            "axis": self.axis,
-        })
+        config.update(
+            {
+                "shift": self.shift,
+                "axis": self.axis,
+            }
+        )
         return config
-    
-def swin_block(inputs, shift_size, window_size, relative_index, attention_mask, num_heads, channels_axis,
-               dropout_rate=0.,
-               drop_path_rate=0., name='swin_block'):
+
+
+def swin_block(
+    inputs,
+    shift_size,
+    window_size,
+    relative_index,
+    attention_mask,
+    num_heads,
+    channels_axis,
+    dropout_rate=0.0,
+    drop_path_rate=0.0,
+    name="swin_block",
+):
     """
     Implements a Swin Transformer block with shifted window-based self-attention.
 
@@ -104,15 +118,18 @@ def swin_block(inputs, shift_size, window_size, relative_index, attention_mask, 
     img_height, img_width = ops.shape(inputs)[1], ops.shape(inputs)[2]
     x = layers.LayerNormalization(
         epsilon=1.001e-5,
-        gamma_initializer='ones',
+        gamma_initializer="ones",
         axis=channels_axis,
-        name=f'{name}_layernorm_1'
+        name=f"{name}_layernorm_1",
     )(inputs)
 
     height_padding = (window_size - img_height % window_size) % window_size
     width_padding = (window_size - img_width % window_size) % window_size
     if height_padding > 0 or width_padding > 0:
-        x = layers.ZeroPadding2D(padding=((0, height_padding), (0, width_padding)),  data_format=keras.config.image_data_format())(x)
+        x = layers.ZeroPadding2D(
+            padding=((0, height_padding), (0, width_padding)),
+            data_format=keras.config.image_data_format(),
+        )(x)
     padded_x = x
 
     orig_height, orig_width = ops.shape(inputs)[1], ops.shape(inputs)[2]
@@ -123,10 +140,12 @@ def swin_block(inputs, shift_size, window_size, relative_index, attention_mask, 
         num_heads=num_heads,
         window_size=window_size,
         proj_drop=dropout_rate,
-        block_prefix=name
+        block_prefix=name,
     )
 
-    attended_x = attention_layer([shifted_x, window_size, relative_index, attention_mask])
+    attended_x = attention_layer(
+        [shifted_x, window_size, relative_index, attention_mask]
+    )
     unshifted_x = RollLayer(shift=[shift_size, shift_size], axis=[1, 2])(attended_x)
     trimmed_x = unshifted_x[:, :orig_height, :orig_width]
 
@@ -135,18 +154,18 @@ def swin_block(inputs, shift_size, window_size, relative_index, attention_mask, 
 
     norm_layer2 = layers.LayerNormalization(
         epsilon=1.001e-5,
-        gamma_initializer='ones',
+        gamma_initializer="ones",
         axis=channels_axis,
-        name=f'{name}_layernorm_2'
+        name=f"{name}_layernorm_2",
     )
     normalized_x = norm_layer2(skip_x1)
-    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f'{name}.mlp')
+    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f"{name}.mlp")
     skip_x2 = skip_x1 + dropout_layer(mlp_x)
 
     return skip_x2
 
 
-def mlp_block(inputs, dropout=0., name='mlp'):
+def mlp_block(inputs, dropout=0.0, name="mlp"):
     """
     Implements a Multi-Layer Perceptron (MLP) block with GELU activation and dropout.
 
@@ -169,17 +188,17 @@ def mlp_block(inputs, dropout=0., name='mlp'):
     """
     channels = inputs.shape[-1]
 
-    x = layers.Dense(int(channels * 4.), name=f'{name}_dense_1')(inputs)
+    x = layers.Dense(int(channels * 4.0), name=f"{name}_dense_1")(inputs)
     x = layers.Activation("gelu")(x)
-    x = layers.Dropout(dropout, name=f'{name}_dropout_1')(x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout_1")(x)
 
-    x = layers.Dense(channels, name=f'{name}_dense_2')(x)
-    x = layers.Dropout(dropout, name=f'{name}_dropout_2')(x)
+    x = layers.Dense(channels, name=f"{name}_dense_2")(x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout_2")(x)
 
     return x
 
 
-def patch_merging(inputs, channels_axis, name='patch_merging'):
+def patch_merging(inputs, channels_axis, name="patch_merging"):
     """
     Implements a patch merging layer to reduce spatial dimensions and increase channels.
 
@@ -231,25 +250,28 @@ def patch_merging(inputs, channels_axis, name='patch_merging'):
     x = ops.reshape(x, (-1, h, w, 4 * channels))
 
     x = layers.LayerNormalization(
-            epsilon=1.001e-5,
-            name=f'{name}_pm_layernorm',
-            dtype=inputs.dtype,
-            axis=channels_axis
-        )(x)
+        epsilon=1.001e-5,
+        name=f"{name}_pm_layernorm",
+        dtype=inputs.dtype,
+        axis=channels_axis,
+    )(x)
     x = layers.Dense(
-            channels * 2,
-            use_bias=False,
-            name=f'{name}_pm_dense',
-            dtype=inputs.dtype
-        )(x)
-
+        channels * 2, use_bias=False, name=f"{name}_pm_dense", dtype=inputs.dtype
+    )(x)
 
     return x
 
 
-def swin_stage(inputs, depth, num_heads, window_size, channels_axis,
-               dropout_rate=0., drop_path_rate=0.,
-               name='swin_stage'):
+def swin_stage(
+    inputs,
+    depth,
+    num_heads,
+    window_size,
+    channels_axis,
+    dropout_rate=0.0,
+    drop_path_rate=0.0,
+    name="swin_stage",
+):
     """
     Implements a stage in the Swin Transformer architecture consisting of multiple Swin blocks.
 
@@ -296,19 +318,21 @@ def swin_stage(inputs, depth, num_heads, window_size, channels_axis,
     pad_w = ((w - 1) // win_size + 1) * win_size
 
     coords = ops.arange(win_size)
-    gx, gy = ops.meshgrid(coords, coords, indexing='ij')
+    gx, gy = ops.meshgrid(coords, coords, indexing="ij")
     flat_gx = ops.reshape(gx, [-1])
     flat_gy = ops.reshape(gy, [-1])
 
     rel_pos_x = flat_gx[:, None] - flat_gx[None, :]
     rel_pos_y = flat_gy[:, None] - flat_gy[None, :]
 
-    relative_index = (ops.reshape(rel_pos_x, [-1]) + win_size - 1) * (2 * win_size - 1) + (ops.reshape(rel_pos_y, [-1]) + win_size - 1)
+    relative_index = (ops.reshape(rel_pos_x, [-1]) + win_size - 1) * (
+        2 * win_size - 1
+    ) + (ops.reshape(rel_pos_y, [-1]) + win_size - 1)
 
     dtype = keras.backend.floatx()
     partitioner = WindowPartition(window_size=win_size, fused=False)
 
-    ones = ops.ones((1, h, w, 1), dtype='int32')
+    ones = ops.ones((1, h, w, 1), dtype="int32")
     pad_mask = ops.pad(ones, [[0, 0], [0, pad_h - h], [0, pad_w - w], [0, 0]])
 
     mask_wins = ops.squeeze(partitioner(pad_mask, height=pad_h, width=pad_w), axis=-1)
@@ -317,24 +341,28 @@ def swin_stage(inputs, depth, num_heads, window_size, channels_axis,
     id_mask = ops.where(
         win_diffs == 0,
         ops.zeros_like(win_diffs, dtype=dtype),
-        ops.full_like(win_diffs, -100., dtype=dtype)
+        ops.full_like(win_diffs, -100.0, dtype=dtype),
     )[None, :, None]
 
     if shift_sz > 0:
-        pattern = ops.convert_to_tensor([[0, 1, 2], [3, 4, 5], [6, 7, 8]], dtype='int32')
+        pattern = ops.convert_to_tensor(
+            [[0, 1, 2], [3, 4, 5], [6, 7, 8]], dtype="int32"
+        )
 
         rep_h = [pad_h - win_size, win_size - shift_sz, shift_sz]
         rep_w = [pad_w - win_size, win_size - shift_sz, shift_sz]
 
         shift_base = ops.repeat(pattern, rep_h, axis=0)
         shift_base = ops.repeat(shift_base, rep_w, axis=1)
-        shift_wins = ops.squeeze(partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w), axis=-1)
+        shift_wins = ops.squeeze(
+            partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w), axis=-1
+        )
 
         shift_diffs = shift_wins[:, None] - shift_wins[:, :, None]
         shift_mask = ops.where(
             (shift_diffs == 0) & (win_diffs == 0),
             ops.zeros_like(win_diffs, dtype=dtype),
-            ops.full_like(win_diffs, -100., dtype=dtype)
+            ops.full_like(win_diffs, -100.0, dtype=dtype),
         )[None, :, None]
     else:
         shift_mask = id_mask
@@ -360,10 +388,11 @@ def swin_stage(inputs, depth, num_heads, window_size, channels_axis,
             channels_axis=channels_axis,
             dropout_rate=dropout_rate,
             drop_path_rate=drop_rates[i],
-            name=f'{name}_blocks_{i}'
+            name=f"{name}_blocks_{i}",
         )
 
     return x
+
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class SwinTransformer(keras.Model):
@@ -445,6 +474,7 @@ class SwinTransformer(keras.Model):
         )
         ```
     """
+
     def __init__(
         self,
         pretrain_size,
@@ -452,7 +482,7 @@ class SwinTransformer(keras.Model):
         embed_dim,
         depths,
         num_heads,
-        dropout_rate=0.,
+        dropout_rate=0.0,
         drop_path_rate=0.1,
         include_top=True,
         as_backbone=False,
@@ -465,7 +495,7 @@ class SwinTransformer(keras.Model):
         num_classes=1000,
         classifier_activation="softmax",
         name="SwinTransformer",
-        **kwargs
+        **kwargs,
     ):
         if include_top and as_backbone:
             raise ValueError(
@@ -512,31 +542,45 @@ class SwinTransformer(keras.Model):
             embed_dim,
             kernel_size=4,
             strides=4,
-            padding='same',
+            padding="same",
             data_format=data_format,
-            name=f'stem_conv')(x)
-        x = layers.LayerNormalization(epsilon=1.001e-5, axis=channels_axis, name=f'stem_norm')(x)
-        x = layers.Dropout(dropout_rate, name='stem_dropout')(x)
+            name=f"stem_conv",
+        )(x)
+        x = layers.LayerNormalization(
+            epsilon=1.001e-5, axis=channels_axis, name=f"stem_norm"
+        )(x)
+        x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
         features.append(x)
 
         path_drops = keras.ops.convert_to_numpy(
-                keras.ops.linspace(0., drop_path_rate, sum(depths))
-            )
+            keras.ops.linspace(0.0, drop_path_rate, sum(depths))
+        )
 
         for i in range(len(depths)):
             start_idx = sum(depths[:i])
-            end_idx = sum(depths[:i + 1])
+            end_idx = sum(depths[: i + 1])
             path_drop_values = path_drops[start_idx:end_idx].tolist()
             not_last = i != len(depths) - 1
 
-            x = swin_stage(x, depth=depths[i], num_heads=num_heads[i], window_size=window_size, channels_axis=channels_axis,
-                        dropout_rate=dropout_rate, drop_path_rate=path_drop_values,
-                        name=f'layers_{i}')
+            x = swin_stage(
+                x,
+                depth=depths[i],
+                num_heads=num_heads[i],
+                window_size=window_size,
+                channels_axis=channels_axis,
+                dropout_rate=dropout_rate,
+                drop_path_rate=path_drop_values,
+                name=f"layers_{i}",
+            )
             if not_last:
-                x = patch_merging(x, channels_axis=channels_axis, name=f'layers.{i+1}_downsample')
+                x = patch_merging(
+                    x, channels_axis=channels_axis, name=f"layers.{i + 1}_downsample"
+                )
             features.append(x)
 
-        x = layers.LayerNormalization(epsilon=1.001e-5, axis=channels_axis, name='final_norm')(x)
+        x = layers.LayerNormalization(
+            epsilon=1.001e-5, axis=channels_axis, name="final_norm"
+        )(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -723,6 +767,7 @@ def SwinBaseP4W7(
     else:
         print("No weights loaded.")
     return model
+
 
 @register_model
 def SwinBaseP4W12(

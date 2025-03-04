@@ -544,10 +544,10 @@ class SwinTransformer(keras.Model):
             strides=4,
             padding="same",
             data_format=data_format,
-            name=f"stem_conv",
+            name="stem_conv",
         )(x)
         x = layers.LayerNormalization(
-            epsilon=1.001e-5, axis=channels_axis, name=f"stem_norm"
+            epsilon=1.001e-5, axis=channels_axis, name="stem_norm"
         )(x)
         x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
         features.append(x)

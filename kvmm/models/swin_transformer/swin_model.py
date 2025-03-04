@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils, ops
 from keras.src.applications import imagenet_utils
-
+import numpy as np
 from kvmm.layers import (
     StochasticDepth,
     WindowAttention,
@@ -219,12 +219,12 @@ def patch_merging(inputs, channels_axis, name='patch_merging'):
     x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
     x = ops.reshape(x, (-1, h, w, 4 * channels))
 
-    perm = ops.arange(channels * 4).reshape((4, -1))
+    perm = np.arange(channels * 4).reshape((4, -1))
     perm[[1, 2]] = perm[[2, 1]]
     perm = perm.ravel()
 
     x_reshaped = ops.reshape(x, (-1, 4 * channels))
-    perm_matrix = ops.zeros((4 * channels, 4 * channels), dtype="float32")
+    perm_matrix = np.zeros((4 * channels, 4 * channels), dtype=np.float32)
     for i, j in enumerate(perm):
         perm_matrix[i, j] = 1
     x = ops.matmul(x_reshaped, ops.convert_to_tensor(perm_matrix))
@@ -519,9 +519,14 @@ class SwinTransformer(keras.Model):
         x = layers.Dropout(dropout_rate, name='stem_dropout')(x)
         features.append(x)
 
-        path_drops = ops.linspace(0., drop_path_rate, sum(depths))
+        path_drops = keras.ops.convert_to_numpy(
+                keras.ops.linspace(0., drop_path_rate, sum(depths))
+            )
+
         for i in range(len(depths)):
-            path_drop_values = path_drops[sum(depths[:i]):sum(depths[:i + 1])].tolist()
+            start_idx = sum(depths[:i])
+            end_idx = sum(depths[:i + 1])
+            path_drop_values = path_drops[start_idx:end_idx].tolist()
             not_last = i != len(depths) - 1
 
             x = swin_stage(x, depth=depths[i], num_heads=num_heads[i], window_size=window_size, channels_axis=channels_axis,

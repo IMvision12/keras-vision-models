@@ -1,4 +1,4 @@
-from kvmm.models.vision_transformer.vit_model import ViT
+from kvmm.models.vision_transformer.vit_model import VisionTransformer
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHTS_CONFIG
@@ -19,7 +19,7 @@ def DEiTTiny16(
     name="DEiTTiny16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiTTiny16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -59,7 +59,7 @@ def DEiTSmall16(
     name="DEiTSmall16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiTSmall16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -99,7 +99,7 @@ def DEiTBase16(
     name="DEiTBase16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiTBase16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -139,7 +139,7 @@ def DEiTTinyDistilled16(
     name="DEiTTinyDistilled16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiTTinyDistilled16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -181,7 +181,7 @@ def DEiTSmallDistilled16(
     name="DEiTSmallDistilled16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiTSmallDistilled16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -223,7 +223,7 @@ def DEiTBaseDistilled16(
     name="DEiTBaseDistilled16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiTBaseDistilled16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -265,7 +265,7 @@ def DEiT3Small16(
     name="DEiT3Small16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiT3Small16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -305,7 +305,7 @@ def DEiT3Medium16(
     name="DEiT3Medium16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiT3Medium16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -345,7 +345,7 @@ def DEiT3Base16(
     name="DEiT3Base16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiT3Base16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -385,7 +385,7 @@ def DEiT3Large16(
     name="DEiT3Large16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiT3Large16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -425,7 +425,7 @@ def DEiT3Huge14(
     name="DEiT3Huge14",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **DEIT_MODEL_CONFIG["DEiT3Huge14"],
         include_top=include_top,
         as_backbone=as_backbone,

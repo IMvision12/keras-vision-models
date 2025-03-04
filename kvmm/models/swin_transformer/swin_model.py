@@ -488,7 +488,7 @@ class SwinTransformer(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="ink1",
+        weights="ms_in22k_ft_in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,
@@ -509,6 +509,17 @@ class SwinTransformer(keras.Model):
                 f"Received: pooling={pooling}"
             )
 
+        if (
+            include_top
+            and weights is not None
+            and weights == "ms_in22k"
+            and num_classes != 21841
+        ):
+            raise ValueError(
+                f"When using 'ms_in22k' weights, num_classes must be 21841. "
+                f"Received num_classes: {num_classes}"
+            )
+        
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
@@ -658,7 +669,7 @@ def SwinTinyP4W7(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="imagenet",
+    weights="ms_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -697,7 +708,7 @@ def SwinSmallP4W7(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="imagenet",
+    weights="ms_in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -736,7 +747,7 @@ def SwinBaseP4W7(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="imagenet",
+    weights="ms_in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -775,7 +786,7 @@ def SwinBaseP4W12(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="imagenet",
+    weights="ms_in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -814,7 +825,7 @@ def SwinLargeP4W7(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="imagenet",
+    weights="ms_in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -853,7 +864,7 @@ def SwinLargeP4W12(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="imagenet",
+    weights="ms_in22k_ft_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,

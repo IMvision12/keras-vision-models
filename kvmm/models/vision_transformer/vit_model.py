@@ -130,7 +130,7 @@ def transformer_block(
 
 
 @keras.saving.register_keras_serializable(package="kvmm")
-class ViT(keras.Model):
+class VisionTransformer(keras.Model):
     """Instantiates the Vision Transformer (ViT) architecture with optional FlexiViT support.
 
     This implementation supports both the original ViT architecture and FlexiViT modifications,
@@ -492,7 +492,7 @@ def ViTTiny16(
     name="ViTTiny16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_tiny_patch16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -532,7 +532,7 @@ def ViTSmall16(
     name="ViTSmall16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_small_patch16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -572,7 +572,7 @@ def ViTSmall32(
     name="ViTSmall32",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_small_patch32"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -612,7 +612,7 @@ def ViTBase16(
     name="ViTBase16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_base_patch16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -652,7 +652,7 @@ def ViTBase32(
     name="ViTBase32",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_base_patch32"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -692,7 +692,7 @@ def ViTLarge16(
     name="ViTLarge16",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_large_patch16"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -732,7 +732,7 @@ def ViTLarge32(
     name="ViTLarge32",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **VIT_MODEL_CONFIG["vit_large_patch32"],
         include_top=include_top,
         as_backbone=as_backbone,

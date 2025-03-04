@@ -1,4 +1,4 @@
-from kvmm.models.vision_transformer.vit_model import ViT
+from kvmm.models.vision_transformer.vit_model import VisionTransformer
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import FLEXIVIT_MODEL_CONFIG, FLEXIVIT_WEIGHTS_CONFIG
@@ -19,7 +19,7 @@ def FlexiViTSmall(
     name="FlexiViTSmall",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTSmall"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -62,7 +62,7 @@ def FlexiViTBase(
     name="FlexiViTBase",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTBase"],
         include_top=include_top,
         as_backbone=as_backbone,
@@ -105,7 +105,7 @@ def FlexiViTLarge(
     name="FlexiViTLarge",
     **kwargs,
 ):
-    model = ViT(
+    model = VisionTransformer(
         **FLEXIVIT_MODEL_CONFIG["FlexiViTLarge"],
         include_top=include_top,
         as_backbone=as_backbone,

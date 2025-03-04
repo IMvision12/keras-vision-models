@@ -552,8 +552,8 @@ class SwinTransformer(keras.Model):
         x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
         features.append(x)
 
-        path_drops = keras.ops.convert_to_numpy(
-            keras.ops.linspace(0.0, drop_path_rate, sum(depths))
+        path_drops = ops.convert_to_numpy(
+            ops.linspace(0.0, drop_path_rate, sum(depths))
         )
 
         for i in range(len(depths)):

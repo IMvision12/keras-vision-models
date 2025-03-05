@@ -57,12 +57,18 @@ CONVNEXTV2_WEIGHTS_CONFIG = {
         "fcmae_ft_in22k_in1k": {
             "url": "",
         },
+        "fcmae_ft_in22k_in1k_384": {
+            "url": "",
+        },
     },
     "ConvNeXtV2Tiny": {
         "fcmae_ft_in1k": {
             "url": "",
         },
         "fcmae_ft_in22k_in1k": {
+            "url": "",
+        },
+        "fcmae_ft_in22k_in1k_384": {
             "url": "",
         },
     },
@@ -73,6 +79,9 @@ CONVNEXTV2_WEIGHTS_CONFIG = {
         "fcmae_ft_in22k_in1k": {
             "url": "",
         },
+        "fcmae_ft_in22k_in1k_384": {
+            "url": "",
+        },
     },
     "ConvNeXtV2Large": {
         "fcmae_ft_in1k": {
@@ -81,12 +90,18 @@ CONVNEXTV2_WEIGHTS_CONFIG = {
         "fcmae_ft_in22k_in1k": {
             "url": "",
         },
+        "fcmae_ft_in22k_in1k_384": {
+            "url": "",
+        },
     },
     "ConvNeXtV2Huge": {
         "fcmae_ft_in1k": {
             "url": "",
         },
-        "fcmae_ft_in22k_in1k": {
+        "fcmae_ft_in22k_in1k_384": {
+            "url": "",
+        },
+        "fcmae_ft_in22k_in1k_512": {
             "url": "",
         },
     },

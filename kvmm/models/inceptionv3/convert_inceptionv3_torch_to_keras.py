@@ -41,7 +41,7 @@ weight_name_mapping: Dict[str, str] = {
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": InceptionV3,
     "torch_model_name": "inception_v3.tf_adv_in1k",
-    "input_shape": [224, 224, 3],
+    "input_shape": [299, 299, 3],
     "num_classes": 1000,
     "include_top": True,
     "include_normalization": False,
@@ -101,7 +101,7 @@ for keras_weight, keras_weight_name in tqdm(
 results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,
-    input_shape=(224, 224, 3),
+    input_shape=(299, 299, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
 )

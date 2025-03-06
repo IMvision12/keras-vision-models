@@ -40,7 +40,7 @@ weight_name_mapping: Dict[str, str] = {
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": ConvNeXtAtto,
     "torch_model_name": "convnext_atto.d2_in1k",
-    "input_shape": [224, 224, 3],
+    "input_shape": [224, 224, 3],  # for 384 variants [384, 384, 3]
     "num_classes": 1000,
     "include_top": True,
     "include_normalization": False,

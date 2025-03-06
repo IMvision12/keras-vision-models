@@ -73,6 +73,9 @@ CONVNEXT_WEIGHTS_CONFIG = {
         "fb_in22k_ft_in1k": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_tiny_fb_in22k_ft_in1k.keras",
         },
+        "fb_in22k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_tiny_fb_in22k_ft_in1k_384.keras",
+        },
     },
     "ConvNeXtSmall": {
         "fb_in1k": {
@@ -83,6 +86,9 @@ CONVNEXT_WEIGHTS_CONFIG = {
         },
         "fb_in22k_ft_in1k": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_small_fb_in22k_ft_in1k.keras",
+        },
+        "fb_in22k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_small_fb_in22k_ft_in1k_384.keras",
         },
     },
     "ConvNeXtBase": {
@@ -95,6 +101,9 @@ CONVNEXT_WEIGHTS_CONFIG = {
         "fb_in22k_ft_in1k": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_base_fb_in22k_ft_in1k.keras",
         },
+        "fb_in22k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_base_fb_in22k_ft_in1k_384.keras",
+        },
     },
     "ConvNeXtLarge": {
         "fb_in1k": {
@@ -106,6 +115,9 @@ CONVNEXT_WEIGHTS_CONFIG = {
         "fb_in22k_ft_in1k": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_large_fb_in22k_ft_in1k.keras",
         },
+        "fb_in22k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_large_fb_in22k_ft_in1k_384.keras",
+        },
     },
     "ConvNeXtXLarge": {
         "fb_in22k": {
@@ -113,6 +125,9 @@ CONVNEXT_WEIGHTS_CONFIG = {
         },
         "fb_in22k_ft_in1k": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_xlarge_fb_in22k_ft_in1k.keras",
+        },
+        "fb_in22k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnext_xlarge_fb_in22k_ft_in1k_384.keras",
         },
     },
 }

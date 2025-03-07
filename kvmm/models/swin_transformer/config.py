@@ -36,7 +36,7 @@ SWIN_MODEL_CONFIG = {
     },
     "SwinLargeP4W12": {
         "pretrain_size": 384,
-        "window_size": 7,
+        "window_size": 12,
         "embed_dim": 192,
         "depths": (2, 2, 18, 2),
         "num_heads": (6, 12, 24, 48),

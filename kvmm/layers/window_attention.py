@@ -61,6 +61,7 @@ class WindowAttention(layers.Layer):
         dim: int,
         num_heads: int,
         window_size: int,
+        bias_table_window_size: int,
         qkv_bias: bool = True,
         qk_scale: float = None,
         attn_drop: float = 0.0,
@@ -75,6 +76,7 @@ class WindowAttention(layers.Layer):
         self.dim = dim
         self.num_heads = num_heads
         self.window_size = int(window_size)
+        self.bias_table_window_size = int(bias_table_window_size)
         self.head_dim = dim // num_heads
         self.scale = qk_scale or self.head_dim**-0.5
         self.qkv_bias = qkv_bias
@@ -133,7 +135,7 @@ class WindowAttention(layers.Layer):
         prefix = f"{self.block_prefix}_"
         self.relative_bias = self.add_weight(
             name=prefix + "attn_relative_position_bias_table",
-            shape=[(2 * self.window_size - 1) ** 2, self.num_heads],
+            shape=[(2 * self.bias_table_window_size - 1) ** 2, self.num_heads],
             trainable=True,
             dtype=self.dtype,
         )

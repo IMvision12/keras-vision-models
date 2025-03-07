@@ -78,6 +78,7 @@ def swin_block(
     relative_index,
     attention_mask,
     num_heads,
+    bias_table_window_size,
     channels_axis,
     dropout_rate=0.0,
     drop_path_rate=0.0,
@@ -123,8 +124,8 @@ def swin_block(
         name=f"{name}_layernorm_1",
     )(inputs)
 
-    height_padding = (window_size - img_height % window_size) % window_size
-    width_padding = (window_size - img_width % window_size) % window_size
+    height_padding = int((window_size - img_height % window_size) % window_size)
+    width_padding = int((window_size - img_width % window_size) % window_size)
     if height_padding > 0 or width_padding > 0:
         x = layers.ZeroPadding2D(
             padding=((0, height_padding), (0, width_padding)),
@@ -139,6 +140,7 @@ def swin_block(
         dim=feature_dim,
         num_heads=num_heads,
         window_size=window_size,
+        bias_table_window_size=bias_table_window_size,
         proj_drop=dropout_rate,
         block_prefix=name,
     )
@@ -267,6 +269,7 @@ def swin_stage(
     depth,
     num_heads,
     window_size,
+    bias_table_window_size,
     channels_axis,
     dropout_rate=0.0,
     drop_path_rate=0.0,
@@ -385,6 +388,7 @@ def swin_stage(
             relative_index,
             masks[is_odd],
             num_heads=num_heads,
+            bias_table_window_size=bias_table_window_size,
             channels_axis=channels_axis,
             dropout_rate=dropout_rate,
             drop_path_rate=drop_rates[i],
@@ -566,7 +570,9 @@ class SwinTransformer(keras.Model):
         path_drops = ops.convert_to_numpy(
             ops.linspace(0.0, drop_path_rate, sum(depths))
         )
-
+        scale_factors = 2 ** ops.arange(2, 6)  # [4, 8, 16, 32]
+        pretrain_windows = pretrain_size // scale_factors
+        bias_table_window_size = ops.minimum(window_size, pretrain_windows)
         for i in range(len(depths)):
             start_idx = sum(depths[:i])
             end_idx = sum(depths[: i + 1])
@@ -578,6 +584,7 @@ class SwinTransformer(keras.Model):
                 depth=depths[i],
                 num_heads=num_heads[i],
                 window_size=window_size,
+                bias_table_window_size=bias_table_window_size[i],
                 channels_axis=channels_axis,
                 dropout_rate=dropout_rate,
                 drop_path_rate=path_drop_values,

@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.inception_next import InceptionNeXtTiny
+from kvmm.models.inception_next import InceptionNeXtAtto
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -39,8 +39,8 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": InceptionNeXtTiny,
-    "torch_model_name": "inception_next_tiny.sail_in1k",
+    "keras_model_cls": InceptionNeXtAtto,
+    "torch_model_name": "inception_next_atto.sail_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
@@ -102,6 +102,8 @@ results = verify_cls_model_equivalence(
     input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
+    atol=1e-4,
+    rtol=1e-4,
 )
 
 

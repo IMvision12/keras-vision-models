@@ -104,6 +104,9 @@ def swin_block(
         attention_mask: Mask tensor for window-based attention to handle padding
             and shifted windows.
         num_heads: Number of attention heads in the multi-head attention mechanism.
+        bias_table_window_size: Size of the relative position bias table for window-based
+            attention. Determines the range of relative positions that can be represented
+            in the bias table.
         channels_axis: int, axis along which the channels are defined (-1 for
             'channels_last', 1 for 'channels_first').
         dropout_rate: Dropout rate for the attention and MLP layers. Default is 0.
@@ -293,6 +296,9 @@ def swin_stage(
         num_heads: Number of attention heads in each Swin block.
         window_size: Size of the local window for computing self-attention.
             Will be automatically adjusted if larger than input dimensions.
+        bias_table_window_size: Size of the relative position bias table for window-based
+            attention. Determines the range of relative positions that can be represented
+            in the bias table.
         channels_axis: int, axis along which the channels are defined (-1 for
             'channels_last', 1 for 'channels_first').
         dropout_rate: Dropout rate for attention and MLP layers in Swin blocks.

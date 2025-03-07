@@ -28,6 +28,9 @@ class WindowAttention(layers.Layer):
         num_heads (int): Number of parallel attention heads. Each head operates
             on dim/num_heads features
         window_size (int): Size of the window for windowed attention (W x W)
+        bias_table_window_size (int): Size of the relative position bias table for window-based
+            attention. Determines the range of relative positions that can be represented
+            in the bias table.
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
             and value projections. Defaults to True
         qk_scale (float, optional): Scaling factor for the query-key dot product.

@@ -40,8 +40,8 @@ model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": EfficientNetLite0,
     "torch_model_name": "tf_efficientnet_lite0",
     "input_shape": [
-        380,
-        380,
+        224,
+        224,
         3,
     ],  # Change as per the default given for different models
     "num_classes": 1000,
@@ -102,7 +102,7 @@ for keras_weight, keras_weight_name in tqdm(
 results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,
-    input_shape=(380, 380, 3),
+    input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
 )

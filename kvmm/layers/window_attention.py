@@ -195,6 +195,7 @@ class WindowAttention(layers.Layer):
                 "dim": self.dim,
                 "num_heads": self.num_heads,
                 "window_size": self.window_size,
+                "bias_table_window_size": self.bias_table_window_size,
                 "qkv_bias": self.qkv_bias,
                 "qk_scale": self.scale if self.scale != self.head_dim**-0.5 else None,
                 "attn_drop": self.attn_drop_rate,

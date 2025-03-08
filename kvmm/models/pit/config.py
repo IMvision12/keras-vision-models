@@ -76,27 +76,43 @@ PIT_MODEL_CONFIG = {
 
 PIT_WEIGHTS_CONFIG = {
     "PiT_XS": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_xs_224_in1k.keras"
+        },
     },
     "PiT_XS_Distilled": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_xs_distilled_224_in1k.keras"
+        },
     },
     "PiT_Ti": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_ti_224_in1k.keras"
+        },
     },
     "PiT_Ti_Distilled": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_ti_distilled_224_in1k.keras"
+        },
     },
     "PiT_S": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_s_224_in1k.keras"
+        },
     },
     "PiT_S_Distilled": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_s_distilled_224_in1k.keras"
+        },
     },
     "PiT_B": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_b_224_in1k.keras"
+        },
     },
     "PiT_B_Distilled": {
-        "in1k": {"url": ""},
+        "in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/pit_b_distilled_224_in1k.keras"
+        },
     },
 }

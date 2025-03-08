@@ -14,6 +14,7 @@ class TestWindowAttention(TestCase):
         self.dim = 64
         self.num_heads = 8
         self.window_size = 4
+        self.bias_table_window_size = 8
         self.head_dim = self.dim // self.num_heads
         self.input_shape = (self.batch_size, self.height, self.width, self.dim)
         self.test_inputs = ops.ones(self.input_shape)
@@ -37,11 +38,15 @@ class TestWindowAttention(TestCase):
 
     def test_init_default(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         self.assertEqual(layer.dim, self.dim)
         self.assertEqual(layer.num_heads, self.num_heads)
         self.assertEqual(layer.window_size, self.window_size)
+        self.assertEqual(layer.bias_table_window_size, self.bias_table_window_size)
         self.assertEqual(layer.head_dim, self.dim // self.num_heads)
         self.assertAlmostEqual(layer.scale, (self.dim // self.num_heads) ** -0.5)
         self.assertTrue(layer.qkv_bias)
@@ -54,6 +59,7 @@ class TestWindowAttention(TestCase):
             dim=self.dim,
             num_heads=4,
             window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
             qkv_bias=False,
             qk_scale=custom_qk_scale,
             attn_drop=0.1,
@@ -63,6 +69,7 @@ class TestWindowAttention(TestCase):
         self.assertEqual(layer.dim, self.dim)
         self.assertEqual(layer.num_heads, 4)
         self.assertEqual(layer.window_size, self.window_size)
+        self.assertEqual(layer.bias_table_window_size, self.bias_table_window_size)
         self.assertEqual(layer.head_dim, self.dim // 4)
         self.assertEqual(layer.scale, custom_qk_scale)
         self.assertFalse(layer.qkv_bias)
@@ -70,11 +77,19 @@ class TestWindowAttention(TestCase):
 
     def test_invalid_dim(self):
         with self.assertRaises(AssertionError):
-            WindowAttention(dim=65, num_heads=8, window_size=self.window_size)
+            WindowAttention(
+                dim=65,
+                num_heads=8,
+                window_size=self.window_size,
+                bias_table_window_size=self.bias_table_window_size,
+            )
 
     def test_build(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         layer.build([self.input_shape, (), self.relative_position_index.shape, None])
         self.assertTrue(hasattr(layer, "qkv"))
@@ -83,12 +98,16 @@ class TestWindowAttention(TestCase):
         self.assertEqual(layer.qkv.kernel.shape, (self.dim, self.dim * 3))
         self.assertEqual(layer.proj.kernel.shape, (self.dim, self.dim))
         self.assertEqual(
-            layer.relative_bias.shape, [(2 * self.window_size - 1) ** 2, self.num_heads]
+            layer.relative_bias.shape,
+            [(2 * self.bias_table_window_size - 1) ** 2, self.num_heads],
         )
 
     def test_invalid_input_dims(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         invalid_shape = (self.batch_size, self.height, self.width, self.dim + 1)
         with self.assertRaises(ValueError):
@@ -96,7 +115,10 @@ class TestWindowAttention(TestCase):
 
     def test_call_basic(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         window_size_tensor = ops.convert_to_tensor(self.window_size)
         layer.build([self.input_shape, (), self.relative_position_index.shape, None])
@@ -110,7 +132,10 @@ class TestWindowAttention(TestCase):
 
     def test_call_with_mask(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         window_size_tensor = ops.convert_to_tensor(self.window_size)
 
@@ -142,6 +167,7 @@ class TestWindowAttention(TestCase):
             dim=self.dim,
             num_heads=self.num_heads,
             window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
             attn_drop=0.5,
             proj_drop=0.5,
         )
@@ -166,6 +192,7 @@ class TestWindowAttention(TestCase):
             dim=self.dim,
             num_heads=4,
             window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
             qkv_bias=False,
             qk_scale=custom_qk_scale,
             attn_drop=0.1,
@@ -176,6 +203,7 @@ class TestWindowAttention(TestCase):
         self.assertIn("dim", config)
         self.assertIn("num_heads", config)
         self.assertIn("window_size", config)
+        self.assertIn("bias_table_window_size", config)
         self.assertIn("qkv_bias", config)
         self.assertIn("qk_scale", config)
         self.assertIn("attn_drop", config)
@@ -185,6 +213,7 @@ class TestWindowAttention(TestCase):
         self.assertEqual(config["dim"], self.dim)
         self.assertEqual(config["num_heads"], 4)
         self.assertEqual(config["window_size"], self.window_size)
+        self.assertEqual(config["bias_table_window_size"], self.bias_table_window_size)
         self.assertEqual(config["qkv_bias"], False)
         self.assertEqual(config["qk_scale"], custom_qk_scale)
         self.assertEqual(config["attn_drop"], 0.1)
@@ -195,13 +224,19 @@ class TestWindowAttention(TestCase):
         self.assertEqual(reconstructed_layer.dim, layer.dim)
         self.assertEqual(reconstructed_layer.num_heads, layer.num_heads)
         self.assertEqual(reconstructed_layer.window_size, layer.window_size)
+        self.assertEqual(
+            reconstructed_layer.bias_table_window_size, layer.bias_table_window_size
+        )
         self.assertEqual(reconstructed_layer.qkv_bias, layer.qkv_bias)
         self.assertEqual(reconstructed_layer.scale, layer.scale)
         self.assertEqual(reconstructed_layer.block_prefix, layer.block_prefix)
 
     def test_different_batch_sizes(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         layer.build([self.input_shape, (), self.relative_position_index.shape, None])
         window_size_tensor = ops.convert_to_tensor(self.window_size)
@@ -223,7 +258,10 @@ class TestWindowAttention(TestCase):
         for h, w in test_sizes:
             if h % self.window_size == 0 and w % self.window_size == 0:
                 layer = WindowAttention(
-                    dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+                    dim=self.dim,
+                    num_heads=self.num_heads,
+                    window_size=self.window_size,
+                    bias_table_window_size=self.bias_table_window_size,
                 )
                 window_size_tensor = ops.convert_to_tensor(self.window_size)
 
@@ -242,7 +280,10 @@ class TestWindowAttention(TestCase):
 
     def test_numerical_stability(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         window_size_tensor = ops.convert_to_tensor(self.window_size)
         layer.build([self.input_shape, (), self.relative_position_index.shape, None])
@@ -263,7 +304,10 @@ class TestWindowAttention(TestCase):
 
     def test_attention_computation(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         window_size_tensor = ops.convert_to_tensor(self.window_size)
         layer.build([self.input_shape, (), self.relative_position_index.shape, None])
@@ -277,7 +321,10 @@ class TestWindowAttention(TestCase):
 
     def test_mask_application(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         window_size_tensor = ops.convert_to_tensor(self.window_size)
 
@@ -330,7 +377,10 @@ class TestWindowAttention(TestCase):
 
     def test_compute_output_shape(self):
         layer = WindowAttention(
-            dim=self.dim, num_heads=self.num_heads, window_size=self.window_size
+            dim=self.dim,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
         )
         output_shape = layer.compute_output_shape([self.input_shape, None, None, None])
         self.assertEqual(output_shape, self.input_shape)
@@ -340,6 +390,7 @@ class TestWindowAttention(TestCase):
             dim=self.dim,
             num_heads=self.num_heads,
             window_size=self.window_size,
+            bias_table_window_size=self.bias_table_window_size,
             qk_scale=1.0,
         )
         layer.build([self.input_shape, (), self.relative_position_index.shape, None])

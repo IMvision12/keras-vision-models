@@ -16,21 +16,21 @@ MLPMIXER_MODEL_CONFIG = {
 MLPMIXER_WEIGHTS_CONFIG = {
     "MLPMixerB16": {
         "goog_in21k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/mixer_b16_224_goog_in21k_ft_in1k.keras",
         },
         "goog_in21k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/mixer_b16_224_goog_in21k.keras",
         },
         "miil_in21k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/mixer_b16_224_miil_in21k_ft_in1k.keras",
         },
     },
     "MLPMixerL16": {
         "goog_in21k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/mixer_l16_224_goog_in21k_ft_in1k.keras",
         },
         "goog_in21k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/mixer_l16_224_goog_in21k.keras",
         },
     },
 }

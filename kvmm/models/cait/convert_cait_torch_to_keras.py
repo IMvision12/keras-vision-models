@@ -12,32 +12,32 @@ from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
 from kvmm.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
-    transfer_weights,
     transfer_attention_weights,
+    transfer_weights,
 )
 
 weight_name_mapping = {
-    "_":".",
-    "stem.conv":"patch_embed.proj",
-    "cls.token.cls.token":"cls_token",
-    "pos.embed.pos.embed":"pos_embed",
-    "layernorm.":"norm",
-    "dense.1":"fc1",
-    "dense.2":"fc2",
-    "blocks.token.only":"blocks_token_only",
+    "_": ".",
+    "stem.conv": "patch_embed.proj",
+    "cls.token.cls.token": "cls_token",
+    "pos.embed.pos.embed": "pos_embed",
+    "layernorm.": "norm",
+    "dense.1": "fc1",
+    "dense.2": "fc2",
+    "blocks.token.only": "blocks_token_only",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "moving_mean": "running_mean",
     "moving_variance": "running_var",
-    "final.norm":"norm.",
+    "final.norm": "norm.",
     "predictions": "head",
 }
 
 attn_weight_replacement = {
-    "proj.l":"proj_l",
-    "proj.w":"proj_w",
-    "blocks.token.only":"blocks_token_only",
+    "proj.l": "proj_l",
+    "proj.w": "proj_w",
+    "blocks.token.only": "blocks_token_only",
 }
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": CaiTXXS24,
@@ -76,7 +76,9 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-    torch_weight_name = re.sub(r"layerscale\.(\d+)\.variable(?:\.\d+)?", r"gamma_\1", torch_weight_name)
+    torch_weight_name = re.sub(
+        r"layerscale\.(\d+)\.variable(?:\.\d+)?", r"gamma_\1", torch_weight_name
+    )
 
     torch_weights_dict: Dict[str, torch.Tensor] = {
         **trainable_torch_weights,
@@ -84,7 +86,9 @@ for keras_weight, keras_weight_name in tqdm(
     }
 
     if "attention" in torch_weight_name:
-        transfer_attention_weights(keras_weight_name, keras_weight, torch_weights_dict, attn_weight_replacement)
+        transfer_attention_weights(
+            keras_weight_name, keras_weight, torch_weights_dict, attn_weight_replacement
+        )
         continue
 
     if torch_weight_name not in torch_weights_dict:
@@ -109,7 +113,8 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-test_keras_with_weights = model_config["keras_model_cls"](weights=None,
+test_keras_with_weights = model_config["keras_model_cls"](
+    weights=None,
     num_classes=model_config["num_classes"],
     include_top=model_config["include_top"],
     include_normalization=True,

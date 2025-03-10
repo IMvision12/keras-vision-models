@@ -16,7 +16,7 @@ class TestCaiT(BaseVisionTest):
             "classifier_activation": "softmax",
             "weights": None,
         }
-        
+
     def test_backbone_features(self, model_config):
         model = self.create_model(model_config, include_top=False, as_backbone=True)
         input_data = self.get_input_data(model_config)
@@ -52,13 +52,13 @@ class TestCaiT(BaseVisionTest):
                     prev_map = features[i - 1]
                     prev_seq_len = prev_map.shape[1]
 
-                    # Special case for CaiT models: 
+                    # Special case for CaiT models:
                     # The last feature map in CaiT may have the class token added
                     # which increases sequence length from 196 to 197
                     if i == len(features) - 1 and seq_len == prev_seq_len + 1:
                         # This is expected for CaiT's final feature map with class token
                         continue
-                    
+
                     assert seq_len <= prev_seq_len, (
                         f"Feature map {i} has larger sequence length than previous feature map. "
                         f"Got {seq_len}, previous was {prev_seq_len}"

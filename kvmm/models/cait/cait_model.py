@@ -1,8 +1,16 @@
 import keras
-from keras import layers, utils, ops
+from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kvmm.layers import ImageNormalizationLayer, ClassAttention, TalkingHeadAttention, AddPositionEmbs, ClassDistToken, LayerScale, StochasticDepth
+from kvmm.layers import (
+    AddPositionEmbs,
+    ClassAttention,
+    ClassDistToken,
+    ImageNormalizationLayer,
+    LayerScale,
+    StochasticDepth,
+    TalkingHeadAttention,
+)
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHTS_CONFIG
@@ -26,22 +34,29 @@ def mlp_block(x, hidden_dim, out_dim, drop_rate=0.0, block_prefix=None):
     x = layers.Dense(
         hidden_dim,
         activation="gelu",
-        name=f"{block_prefix}_dense_1" if block_prefix else None
+        name=f"{block_prefix}_dense_1" if block_prefix else None,
     )(x)
     x = layers.Dropout(drop_rate)(x)
-    x = layers.Dense(
-        out_dim,
-        name=f"{block_prefix}_dense_2" if block_prefix else None
-    )(x)
+    x = layers.Dense(out_dim, name=f"{block_prefix}_dense_2" if block_prefix else None)(
+        x
+    )
     x = layers.Dropout(drop_rate)(x)
     return x
 
 
-def LayerScaleBlockTalkingHeadAttn(x, embed_dim, num_heads, mlp_ratio=4.0, drop_rate=0.0, init_values=1e-5, block_prefix="block"):
+def LayerScaleBlockTalkingHeadAttn(
+    x,
+    embed_dim,
+    num_heads,
+    mlp_ratio=4.0,
+    drop_rate=0.0,
+    init_values=1e-5,
+    block_prefix="block",
+):
     """A transformer block with layer scaling and talking head attention.
 
-    This block implements a transformer architecture with layer normalization, 
-    talking head attention, MLP, layer scaling, and residual connections with 
+    This block implements a transformer architecture with layer normalization,
+    talking head attention, MLP, layer scaling, and residual connections with
     optional stochastic depth for regularization.
 
     Args:
@@ -60,41 +75,35 @@ def LayerScaleBlockTalkingHeadAttn(x, embed_dim, num_heads, mlp_ratio=4.0, drop_
     Returns:
         Output tensor for the block.
     """
-    y = layers.LayerNormalization(
-        epsilon=1e-6,
-        name=f"{block_prefix}_layernorm_1"
-    )(x)
+    y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_1")(x)
 
     attn_output = TalkingHeadAttention(
         dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
-        block_prefix=f"{block_prefix}_attn"
+        block_prefix=f"{block_prefix}_attn",
     )(y)
 
     attn_output = LayerScale(
-        init_values=init_values,
-        name=f"{block_prefix}_layerscale_1"
+        init_values=init_values, name=f"{block_prefix}_layerscale_1"
     )(attn_output)
 
-    attn_output = StochasticDepth(drop_rate)(attn_output) if drop_rate > 0 else attn_output
+    attn_output = (
+        StochasticDepth(drop_rate)(attn_output) if drop_rate > 0 else attn_output
+    )
     x = layers.Add(name=f"{block_prefix}_add_1")([x, attn_output])
 
-    y = layers.LayerNormalization(
-        epsilon=1e-6,
-        name=f"{block_prefix}_layernorm_2"
-    )(x)
+    y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_2")(x)
 
     mlp_output = mlp_block(
         y,
         hidden_dim=int(embed_dim * mlp_ratio),
         out_dim=embed_dim,
-        block_prefix=f"{block_prefix}_mlp"
+        block_prefix=f"{block_prefix}_mlp",
     )
 
     mlp_output = LayerScale(
-        init_values=init_values,
-        name=f"{block_prefix}_layerscale_2"
+        init_values=init_values, name=f"{block_prefix}_layerscale_2"
     )(mlp_output)
 
     mlp_output = StochasticDepth(drop_rate)(mlp_output) if drop_rate > 0 else mlp_output
@@ -102,12 +111,21 @@ def LayerScaleBlockTalkingHeadAttn(x, embed_dim, num_heads, mlp_ratio=4.0, drop_
 
     return x
 
-def LayerScaleBlockClassAttn(cls_token, x, embed_dim, num_heads, mlp_ratio=4.0, init_values=1e-5, block_prefix="block_token_only"):
+
+def LayerScaleBlockClassAttn(
+    cls_token,
+    x,
+    embed_dim,
+    num_heads,
+    mlp_ratio=4.0,
+    init_values=1e-5,
+    block_prefix="block_token_only",
+):
     """A transformer block with layer scaling and class attention for the CLS token.
-    
-    This block implements a transformer architecture specifically designed for 
-    class token processing, with layer normalization, class attention, MLP, 
-    layer scaling, and residual connections. It processes the class token while 
+
+    This block implements a transformer architecture specifically designed for
+    class token processing, with layer normalization, class attention, MLP,
+    layer scaling, and residual connections. It processes the class token while
     attending to all tokens (class token + patch tokens).
 
     Args:
@@ -126,40 +144,36 @@ def LayerScaleBlockClassAttn(cls_token, x, embed_dim, num_heads, mlp_ratio=4.0, 
         Updated class token tensor after processing through the block.
     """
     concat_features = layers.Concatenate(axis=1)([cls_token, x])
-    y = layers.LayerNormalization(
-        epsilon=1e-6,
-        name=f"{block_prefix}_layernorm_1"
-    )(concat_features)
+    y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_1")(
+        concat_features
+    )
 
     cls_output = ClassAttention(
         dim=embed_dim,
         num_heads=num_heads,
         qkv_bias=True,
-        block_prefix=f"{block_prefix}_attn"
+        block_prefix=f"{block_prefix}_attn",
     )(y)
 
     cls_output = LayerScale(
-        init_values=init_values,
-        name=f"{block_prefix}_layerscale_1"
+        init_values=init_values, name=f"{block_prefix}_layerscale_1"
     )(cls_output)
 
     cls_token = layers.Add(name=f"{block_prefix}_add_1")([cls_token, cls_output])
 
-    y = layers.LayerNormalization(
-        epsilon=1e-6,
-        name=f"{block_prefix}_layernorm_2"
-    )(cls_token)
+    y = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm_2")(
+        cls_token
+    )
 
     mlp_output = mlp_block(
         y,
         hidden_dim=int(embed_dim * mlp_ratio),
         out_dim=embed_dim,
-        block_prefix=f"{block_prefix}_mlp"
+        block_prefix=f"{block_prefix}_mlp",
     )
 
     mlp_output = LayerScale(
-        init_values=init_values,
-        name=f"{block_prefix}_layerscale_2"
+        init_values=init_values, name=f"{block_prefix}_layerscale_2"
     )(mlp_output)
 
     cls_token = layers.Add(name=f"{block_prefix}_add_2")([cls_token, mlp_output])
@@ -214,6 +228,7 @@ class CaiT(keras.Model):
     Returns:
         A Keras `Model` instance.
     """
+
     def __init__(
         self,
         patch_size=16,
@@ -232,7 +247,7 @@ class CaiT(keras.Model):
         num_classes=1000,
         classifier_activation="softmax",
         name="CaiT",
-        **kwargs
+        **kwargs,
     ):
         if include_top and as_backbone:
             raise ValueError(
@@ -245,7 +260,7 @@ class CaiT(keras.Model):
                 "The `pooling` argument should be one of 'avg', 'max', or None. "
                 f"Received: pooling={pooling}"
             )
-        
+
         data_format = keras.config.image_data_format()
 
         default_input_shape = (
@@ -274,7 +289,7 @@ class CaiT(keras.Model):
                 img_input = input_tensor
 
         depth_token_only = 2
-        
+
         inputs = img_input
         features = []
 
@@ -299,14 +314,11 @@ class CaiT(keras.Model):
         x = layers.Reshape((-1, embed_dim))(x)
 
         x = AddPositionEmbs(
-            grid_h=grid_h,
-            grid_w=grid_w,
-            no_embed_class=True,
-            name="pos_embed"
+            grid_h=grid_h, grid_w=grid_w, no_embed_class=True, name="pos_embed"
         )(x)
         features.append(x)
 
-        dpr = [x for x in ops.linspace(0., drop_path_rate, depth)]
+        dpr = [x for x in ops.linspace(0.0, drop_path_rate, depth)]
 
         for i in range(depth):
             x = LayerScaleBlockTalkingHeadAttn(
@@ -315,13 +327,13 @@ class CaiT(keras.Model):
                 num_heads=num_heads,
                 drop_rate=dpr[i],
                 init_values=1e-5,
-                block_prefix=f"blocks_{i}"
+                block_prefix=f"blocks_{i}",
             )
             if (i + 1) % 4 == 0 or i == depth - 1:
                 features.append(x)
 
         cls_token = ClassDistToken(name="cls_token")(x)
-            
+
         for i in range(depth_token_only):
             cls_token = LayerScaleBlockClassAttn(
                 cls_token,
@@ -329,7 +341,7 @@ class CaiT(keras.Model):
                 embed_dim=embed_dim,
                 num_heads=num_heads,
                 init_values=1e-5,
-                block_prefix=f"blocks_token_only_{i}"
+                block_prefix=f"blocks_token_only_{i}",
             )
             if i == depth_token_only - 1:
                 features.append(cls_token)
@@ -338,24 +350,21 @@ class CaiT(keras.Model):
 
         if include_top:
             x = layers.Dense(
-                num_classes,
-                activation=classifier_activation,
-                name="predictions"
+                num_classes, activation=classifier_activation, name="predictions"
             )(x[:, 0])
         elif as_backbone:
             x = features
         else:
             if pooling == "avg":
-                x = layers.GlobalAveragePooling1D(data_format=data_format, name="avg_pool")(x)
+                x = layers.GlobalAveragePooling1D(
+                    data_format=data_format, name="avg_pool"
+                )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling1D(data_format=data_format, name="max_pool")(x)
+                x = layers.GlobalMaxPooling1D(data_format=data_format, name="max_pool")(
+                    x
+                )
 
-        super().__init__(
-            inputs=img_input,
-            outputs=x,
-            name=name,
-            **kwargs
-        )
+        super().__init__(inputs=img_input, outputs=x, name=name, **kwargs)
 
         self.patch_size = patch_size
         self.embed_dim = embed_dim
@@ -398,7 +407,7 @@ class CaiT(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
+
 
 @register_model
 def CaiTXXS24(
@@ -432,15 +441,14 @@ def CaiTXXS24(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTXXS24", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTXXS24", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def CaiTXXS36(
@@ -474,9 +482,7 @@ def CaiTXXS36(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTXXS36", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTXXS36", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -517,9 +523,7 @@ def CaiTXS24(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTXS24", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTXS24", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -560,9 +564,7 @@ def CaiTS24(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTS24", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTS24", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -603,9 +605,7 @@ def CaiTS36(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTS36", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTS36", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -646,16 +646,13 @@ def CaiTM36(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTM36", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTM36", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
 
     return model
-
 
 
 @register_model
@@ -690,9 +687,7 @@ def CaiTM48(
     )
 
     if weights in get_all_weight_names(CAIT_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "CaiTM48", weights, model, CAIT_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("CaiTM48", weights, model, CAIT_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

@@ -318,7 +318,7 @@ class CaiT(keras.Model):
         )(x)
         features.append(x)
 
-        dpr = [x for x in ops.linspace(0.0, drop_path_rate, depth)]
+        dpr = list(ops.linspace(0.0, drop_path_rate, depth))
 
         for i in range(depth):
             x = LayerScaleBlockTalkingHeadAttn(

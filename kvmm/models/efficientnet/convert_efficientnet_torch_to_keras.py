@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.efficientnet import EfficientNetL2_475
+from kvmm.models.efficientnet import EfficientNetB0
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -43,11 +43,11 @@ base_mappings = {
 weight_name_mapping = {**base_mappings, **block_mappings}
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": EfficientNetL2_475,
-    "torch_model_name": "tf_efficientnet_l2.ns_jft_in1k_475",
+    "keras_model_cls": EfficientNetB0,
+    "torch_model_name": "tf_efficientnet_b0.ns_jft_in1k",
     "input_shape": [
-        475,
-        475,
+        224,
+        224,
         3,
     ],  # Change as per the default given for different models
     "num_classes": 1000,
@@ -113,7 +113,7 @@ for keras_weight, keras_weight_name in tqdm(
 results = verify_cls_model_equivalence(
     model_a=torch_model,
     model_b=keras_model,
-    input_shape=(475, 475, 3),
+    input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
 )

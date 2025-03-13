@@ -341,7 +341,7 @@ class ResNetV2(keras.Model):
             default_size = 448
         elif weights and "480" in weights:
             default_size = 480
-        else:    
+        else:
             default_size = 224
 
         input_shape = imagenet_utils.obtain_input_shape(

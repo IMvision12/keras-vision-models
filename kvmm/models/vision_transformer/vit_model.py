@@ -290,13 +290,13 @@ class VisionTransformer(keras.Model):
             default_size = 224
 
         input_shape = imagenet_utils.obtain_input_shape(
-                input_shape,
-                default_size=default_size,
-                min_size=32,
-                data_format=data_format,
-                require_flatten=include_top,
-                weights=weights,
-            )
+            input_shape,
+            default_size=default_size,
+            min_size=32,
+            data_format=data_format,
+            require_flatten=include_top,
+            weights=weights,
+        )
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)

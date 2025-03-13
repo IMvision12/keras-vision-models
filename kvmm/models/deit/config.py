@@ -85,72 +85,96 @@ DEIT_MODEL_CONFIG = {
 
 DEIT_WEIGHTS_CONFIG = {
     "DEiTTiny16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
     },
     "DEiTSmall16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
     },
     "DEiTBase16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
+            "url": "",
+        },
+        "fb_in1k_384": {
             "url": "",
         },
     },
     "DEiTTinyDistilled16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
     },
     "DEiTSmallDistilled16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
     },
     "DEiTBaseDistilled16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
+            "url": "",
+        },
+        "fb_in1k_384": {
             "url": "",
         },
     },
     "DEiT3Small16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
-        "fb_in22k_ft_in1k": {
+        "fb_in1k_384": {
+            "url": "",
+        },
+        "fb_in22k_ft_in1k_224": {
+            "url": "",
+        },
+        "fb_in22k_ft_in1k_384": {
             "url": "",
         },
     },
     "DEiT3Medium16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
-        "fb_in22k_ft_in1k": {
+        "fb_in22k_ft_in1k_224": {
             "url": "",
         },
     },
     "DEiT3Base16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
-        "fb_in22k_ft_in1k": {
+        "fb_in1k_384": {
+            "url": "",
+        },
+        "fb_in22k_ft_in1k_224": {
+            "url": "",
+        },
+        "fb_in22k_ft_in1k_384": {
             "url": "",
         },
     },
     "DEiT3Large16": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
-        "fb_in22k_ft_in1k": {
+        "fb_in1k_384": {
+            "url": "",
+        },
+        "fb_in22k_ft_in1k_224": {
+            "url": "",
+        },
+        "fb_in22k_ft_in1k_384": {
             "url": "",
         },
     },
     "DEiT3Huge14": {
-        "fb_in1k": {
+        "fb_in1k_224": {
             "url": "",
         },
-        "fb_in22k_ft_in1k": {
+        "fb_in22k_ft_in1k_224": {
             "url": "",
         },
     },

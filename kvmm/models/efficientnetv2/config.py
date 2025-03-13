@@ -361,42 +361,42 @@ EFFICIENTNETV2_MODEL_CONFIG = {
     "EfficientNetV2S": {
         "width_coefficient": 1.0,
         "depth_coefficient": 1.0,
-        "default_size": 384,
+        "default_size": 300,
     },
     "EfficientNetV2M": {
         "width_coefficient": 1.0,
         "depth_coefficient": 1.0,
-        "default_size": 480,
+        "default_size": 384,
     },
     "EfficientNetV2L": {
         "width_coefficient": 1.0,
         "depth_coefficient": 1.0,
-        "default_size": 480,
+        "default_size": 384,
     },
     "EfficientNetV2B0": {
         "width_coefficient": 1.0,
         "depth_coefficient": 1.0,
-        "default_size": 224,
+        "default_size": 192,
     },
     "EfficientNetV2B1": {
         "width_coefficient": 1.0,
         "depth_coefficient": 1.1,
-        "default_size": 240,
+        "default_size": 192,
     },
     "EfficientNetV2B2": {
         "width_coefficient": 1.1,
         "depth_coefficient": 1.2,
-        "default_size": 260,
+        "default_size": 208,
     },
     "EfficientNetV2B3": {
         "width_coefficient": 1.2,
         "depth_coefficient": 1.4,
-        "default_size": 300,
+        "default_size": 240,
     },
     "EfficientNetV2XL": {  # only for 21k pretraining
         "width_coefficient": 1.0,
         "depth_coefficient": 1.0,
-        "default_size": 512,
+        "default_size": 384,
     },
 }
 

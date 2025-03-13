@@ -191,11 +191,11 @@ class ConvNeXt(keras.Model):
         channels_axis = -1 if data_format == "channels_last" else 1
 
         default_input_shape = (
-            (384, 384, 3)
+            384
             if weights and "384" in weights
-            else (512, 512, 3)
+            else 512
             if weights and "512" in weights
-            else (224, 224, 3)
+            else 224
         )
 
         input_shape = imagenet_utils.obtain_input_shape(

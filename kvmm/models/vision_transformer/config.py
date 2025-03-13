@@ -80,67 +80,97 @@ VIT_MODEL_CONFIG = {
 
 VIT_WEIGHTS_CONFIG = {
     "ViTTiny16": {
-        "augreg_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_224": {
             "url": "",
         },
-        "augreg_in21k": {
+        "augreg_in21k_ft_in1k_384": {
+            "url": "",
+        },
+        "augreg_in21k_224": {
             "url": "",
         },
     },
     "ViTSmall16": {
-        "augreg_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_224": {
             "url": "",
         },
-        "augreg_in1k": {
+        "augreg_in21k_ft_in1k_384": {
             "url": "",
         },
-        "augreg_in21k": {
+        "augreg_in1k_224": {
+            "url": "",
+        },
+        "augreg_in1k_384": {
+            "url": "",
+        },
+        "augreg_in21k_224": {
             "url": "",
         },
     },
     "ViTSmall32": {
-        "augreg_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_224": {
             "url": "",
         },
-        "augreg_in21k": {
+        "augreg_in21k_ft_in1k_384": {
+            "url": "",
+        },
+        "augreg_in21k_224": {
             "url": "",
         },
     },
     "ViTBase16": {
-        "augreg_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_224": {
             "url": "",
         },
-        "orig_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_384": {
             "url": "",
         },
-        "augreg_in1k": {
+        "orig_in21k_ft_in1k_224": {
             "url": "",
         },
-        "augreg_in21k": {
+        "orig_in21k_ft_in1k_384": {
+            "url": "",
+        },
+        "augreg_in1k_224": {
+            "url": "",
+        },
+        "augreg_in1k_384": {
+            "url": "",
+        },
+        "augreg_in21k_224": {
             "url": "",
         },
     },
     "ViTBase32": {
-        "augreg_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_224": {
             "url": "",
         },
-        "augreg_in1k": {
+        "augreg_in21k_ft_in1k_384": {
             "url": "",
         },
-        "augreg_in21k": {
+        "augreg_in1k_224": {
+            "url": "",
+        },
+        "augreg_in1k_384": {
+            "url": "",
+        },
+        "augreg_in21k_224": {
             "url": "",
         },
     },
     "ViTLarge16": {
-        "augreg_in21k_ft_in1k": {
+        "augreg_in21k_ft_in1k_224": {
             "url": "",
         },
-        "augreg_in21k": {
+        "augreg_in21k_ft_in1k_384": {
+            "url": "",
+        },
+        "augreg_in21k_224": {
             "url": "",
         },
     },
     "ViTLarge32": {
-        "orig_in21k_ft_in1k": {
+        "orig_in21k_ft_in1k_384": {
             "url": "",
         },
     },

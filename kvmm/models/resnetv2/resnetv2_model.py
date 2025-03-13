@@ -337,9 +337,16 @@ class ResNetV2(keras.Model):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
+        if weights and "448" in weights:
+            default_size = 448
+        elif weights and "480" in weights:
+            default_size = 480
+        else:
+            default_size = 224
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=224,
+            default_size=default_size,
             min_size=32,
             data_format=data_format,
             require_flatten=include_top,

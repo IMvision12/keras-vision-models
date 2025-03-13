@@ -273,7 +273,7 @@ class EfficientNet(keras.Model):
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=default_size,
+            default_size=475 if "475" in weights else default_size,
             min_size=32,
             data_format=data_format,
             require_flatten=include_top,

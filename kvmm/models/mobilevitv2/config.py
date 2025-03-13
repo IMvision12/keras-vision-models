@@ -24,24 +24,30 @@ MOBILEVITV2_MODEL_CONFIG = {
 
 MOBILEVITV2_WEIGHTS_CONFIG = {
     "MobileViTV2M050": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
     },
     "MobileViTV2M075": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
     },
     "MobileViTV2M100": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
     },
     "MobileViTV2M125": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
     },
     "MobileViTV2M150": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
+        "cvnets_in22k_ft_in1k_256": {"url": ""},
+        "cvnets_in22k_ft_in1k_384": {"url": ""},
     },
     "MobileViTV2M175": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
+        "cvnets_in22k_ft_in1k_256": {"url": ""},
+        "cvnets_in22k_ft_in1k_384": {"url": ""},
     },
     "MobileViTV2M200": {
-        "cvnets_in1k": {"url": ""},
+        "cvnets_in1k_256": {"url": ""},
+        "cvnets_in22k_ft_in1k_256": {"url": ""},
+        "cvnets_in22k_ft_in1k_384": {"url": ""},
     },
 }

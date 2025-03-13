@@ -284,20 +284,14 @@ class VisionTransformer(keras.Model):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
-        if no_embed_class:
-            input_shape = imagenet_utils.obtain_input_shape(
-                input_shape,
-                default_size=240,
-                min_size=32,
-                data_format=data_format,
-                require_flatten=include_top,
-                weights=weights,
-            )
-
+        if weights and "384" in weights:
+            default_size = 384
         else:
-            input_shape = imagenet_utils.obtain_input_shape(
+            default_size = 224
+
+        input_shape = imagenet_utils.obtain_input_shape(
                 input_shape,
-                default_size=224,
+                default_size=default_size,
                 min_size=32,
                 data_format=data_format,
                 require_flatten=include_top,

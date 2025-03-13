@@ -51,60 +51,60 @@ RESNETV2_MODEL_CONFIG = {
 
 RESNETV2_WEIGHTS_CONFIG = {
     "ResNetV2_50": {
-        "a1h_in1k": {
+        "a1h_in1k_224": {
             "url": "",
         },
     },
     "ResNetV2_50x1": {
-        "goog_in21k_ft_in1k": {
+        "goog_in21k_ft_in1k_448": {
             "url": "",
         },
-        "goog_in21k": {
+        "goog_in21k_224": {
             "url": "",
         },
     },
     "ResNetV2_50x3": {
-        "goog_in21k_ft_in1k": {
+        "goog_in21k_ft_in1k_448": {
             "url": "",
         },
-        "goog_in21k": {
+        "goog_in21k_224": {
             "url": "",
         },
     },
     "ResNetV2_101": {
-        "a1h_in1k": {
+        "a1h_in1k_224": {
             "url": "",
         },
     },
     "ResNetV2_101x1": {
-        "goog_in21k_ft_in1k": {
+        "goog_in21k_ft_in1k_448": {
             "url": "",
         },
-        "goog_in21k": {
+        "goog_in21k_224": {
             "url": "",
         },
     },
     "ResNetV2_101x3": {
-        "goog_in21k_ft_in1k": {
+        "goog_in21k_ft_in1k_448": {
             "url": "",
         },
-        "goog_in21k": {
+        "goog_in21k_224": {
             "url": "",
         },
     },
     "ResNetV2_152x2": {
-        "goog_in21k_ft_in1k": {
+        "goog_in21k_ft_in1k_448": {
             "url": "",
         },
-        "goog_in21k": {
+        "goog_in21k_224": {
             "url": "",
         },
     },
     "ResNetV2_152x4": {
-        "goog_in21k_ft_in1k": {
+        "goog_in21k_ft_in1k_480": {
             "url": "",
         },
-        "goog_in21k": {
+        "goog_in21k_224": {
             "url": "",
         },
     },

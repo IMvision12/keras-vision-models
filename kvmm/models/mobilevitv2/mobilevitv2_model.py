@@ -408,7 +408,7 @@ class MobileViTV2(keras.Model):
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=256,
+            default_size=384 if weights and "384" in weights else 256,
             min_size=32,
             data_format=data_format,
             require_flatten=include_top,

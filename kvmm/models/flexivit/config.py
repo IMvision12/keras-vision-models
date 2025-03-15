@@ -40,41 +40,41 @@ FLEXIVIT_MODEL_CONFIG = {
 FLEXIVIT_WEIGHTS_CONFIG = {
     "FlexiViTSmall": {
         "1200ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_small_1200ep_in1k.keras",
         },
         "600ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_small_600ep_in1k.keras",
         },
         "300ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_small_300ep_in1k.keras",
         },
     },
     "FlexiViTBase": {
         "1200ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_base_1200ep_in1k.keras",
         },
         "600ep_in1k": {
             "url": "",
         },
         "300ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_base_300ep_in1k.keras",
         },
         "1000ep_in21k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_base_1000ep_in21k.keras",
         },
         "300ep_in21k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_base_300ep_in21k.keras",
         },
     },
     "FlexiViTLarge": {
         "1200ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_large_1200ep_in1k.keras",
         },
         "600ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_large_600ep_in1k.keras",
         },
         "300ep_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/flexivit_large_300ep_in1k.keras",
         },
     },
 }

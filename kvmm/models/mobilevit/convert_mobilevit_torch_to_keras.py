@@ -48,7 +48,7 @@ weight_name_mapping = {
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": MobileViTXXS,
-    "torch_model_name": "mobilevit_xxs",
+    "torch_model_name": "mobilevit_xxs.cvnets_in1k",
     "input_shape": [256, 256, 3],
     "num_classes": 1000,
     "include_top": True,

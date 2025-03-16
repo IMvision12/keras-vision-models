@@ -11,6 +11,7 @@ model_config = {
     "include_normalization": False,
     "include_preprocessing": False,
     "classifier_activation": "linear",
+    "model_cls": MobileNetV3Small075,
 }
 
 original_model = keras.applications.MobileNetV3Small(
@@ -23,7 +24,7 @@ original_model = keras.applications.MobileNetV3Small(
     include_preprocessing=model_config["include_preprocessing"],
 )
 
-custom_model = MobileNetV3Small075(
+custom_model = model_config["model_cls"](
     weights=None,
     input_shape=model_config["input_shape"],
     include_top=model_config["include_top"],
@@ -48,10 +49,7 @@ if not results["standard_input"]:
         "Model equivalence test failed - model outputs do not match for standard input"
     )
 
-if "minimal" in custom_model.name:
-    model_filename: str = f"keras_org_mobilenetv3_{model_config['alpha']}_minimal.keras"
-else:
-    model_filename: str = f"keras_org_mobilenetv3_{model_config['alpha']}.keras"
 
+model_filename: str = f"keras_org_{model_config['model_cls'].__name__.lower()}.keras"
 custom_model.save(model_filename)
 print(f"Model saved successfully as {model_filename}")

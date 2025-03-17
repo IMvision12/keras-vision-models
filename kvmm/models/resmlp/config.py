@@ -31,20 +31,38 @@ RESMLP_MODEL_CONFIG = {
 
 RESMLP_WEIGHTS_CONFIG = {
     "ResMLP12": {
-        "fb_in1k": {"url": ""},
-        "fb_dist_in1k": {"url": ""},
+        "fb_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_12_224_fb_in1k.keras"
+        },
+        "fb_dist_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_12_224_fb_distilled_in1k.keras"
+        },
     },
     "ResMLP24": {
-        "fb_in1k": {"url": ""},
-        "fb_dist_in1k": {"url": ""},
+        "fb_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_24_224_fb_in1k.keras"
+        },
+        "fb_dist_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_24_224_fb_distilled_in1k.keras"
+        },
     },
     "ResMLP36": {
-        "fb_in1k": {"url": ""},
-        "fb_dist_in1k": {"url": ""},
+        "fb_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_36_224_fb_in1k.keras"
+        },
+        "fb_dist_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_36_224_fb_distilled_in1k.keras"
+        },
     },
     "ResMLPBig24": {
-        "fb_in1k": {"url": ""},
-        "fb_dist_in1k": {"url": ""},
-        "fb_in22k_ft_in1k": {"url": ""},
+        "fb_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_big_24_224_fb_in1k.keras"
+        },
+        "fb_dist_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_big_24_224_fb_distilled_in1k.keras"
+        },
+        "fb_in22k_ft_in1k": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resmlp_big_24_224_fb_in22k_ft_in1k.keras"
+        },
     },
 }

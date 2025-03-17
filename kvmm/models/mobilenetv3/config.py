@@ -40,21 +40,33 @@ MOBILENETV3_MODEL_CONFIG = {
 
 MOBILENETV3_WEIGHTS_CONFIG = {
     "MobileNetV3Small075": {
-        "imagenet": {"url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3small075.keras"},
+        "imagenet": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3small075.keras"
+        },
     },
     "MobileNetV3Small100": {
-        "imagenet": {"url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3small100.keras"},
+        "imagenet": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3small100.keras"
+        },
     },
     "MobileNetV3SmallMinimal100": {
-        "imagenet": {"url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3smallminimal100.keras"},
+        "imagenet": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3smallminimal100.keras"
+        },
     },
     "MobileNetV3Large075": {
-        "imagenet": {"url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3large075.keras"},
+        "imagenet": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3large075.keras"
+        },
     },
     "MobileNetV3Large100": {
-        "imagenet": {"url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3large100.keras"},
+        "imagenet": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3large100.keras"
+        },
     },
     "MobileNetV3LargeMinimal100": {
-        "imagenet": {"url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3largeminimal100.keras"},
+        "imagenet": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/keras_org_mobilenetv3largeminimal100.keras"
+        },
     },
 }

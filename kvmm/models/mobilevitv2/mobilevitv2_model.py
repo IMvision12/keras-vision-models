@@ -406,9 +406,14 @@ class MobileViTV2(keras.Model):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else -3
 
+        if weights and "384" in weights:
+            default_img_size = 384
+        else:
+            default_img_size = 256
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
-            default_size=384 if weights and "384" in weights else 256,
+            default_size=default_img_size,
             min_size=32,
             data_format=data_format,
             require_flatten=include_top,

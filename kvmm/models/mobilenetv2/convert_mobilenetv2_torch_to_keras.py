@@ -39,7 +39,7 @@ weight_name_mapping = {
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": MobileNetV2WM50,
-    "torch_model_name": "mobilenetv2_050",
+    "torch_model_name": "mobilenetv2_050.lamb_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,

@@ -59,12 +59,6 @@ EFFICIENTNET_MODEL_CONFIG = {
         "default_size": 800,
         "dropout_rate": 0.5,
     },
-    "EfficientNetL2_475": {
-        "width_coefficient": 4.3,
-        "depth_coefficient": 5.3,
-        "default_size": 475,
-        "dropout_rate": 0.5,
-    },
 }
 
 
@@ -273,10 +267,10 @@ EFFICIENTNET_WEIGHTS_CONFIG = {
     },
     "EfficientNetL2": {
         "ns_jft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_l2_ns_jft_in1k.keras",
         },
         "ns_jft_in1k_475": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_l2_ns_jft_in1k_475.keras",
         },
     },
 }

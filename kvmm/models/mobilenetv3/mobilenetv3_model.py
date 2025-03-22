@@ -454,6 +454,7 @@ class MobileNetV3(keras.Model):
                 "as_backbone": self.as_backbone,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
+                "input_shape": self.input_shape[1:],
                 "input_tensor": self.input_tensor,
                 "pooling": self.pooling,
                 "num_classes": self.num_classes,

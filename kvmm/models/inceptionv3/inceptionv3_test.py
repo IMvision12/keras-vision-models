@@ -7,7 +7,7 @@ from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 class TestInceptionV3(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=InceptionV3, input_shape=(299, 299, 3))
+        return ModelConfig(model_cls=InceptionV3, input_shape=(75, 75, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

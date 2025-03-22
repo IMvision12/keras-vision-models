@@ -7,7 +7,7 @@ from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 class TestMobileViT(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=MobileViTXXS, input_shape=(224, 224, 3))
+        return ModelConfig(model_cls=MobileViTXXS, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

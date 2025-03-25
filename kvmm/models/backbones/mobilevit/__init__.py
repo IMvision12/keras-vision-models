@@ -1,1 +1,1 @@
-from .mobilevit_model import *
+from kvmm.models.backbones.mobilevit.mobilevit_model import MobileViTXXS, MobileViTXS, MobileViTS

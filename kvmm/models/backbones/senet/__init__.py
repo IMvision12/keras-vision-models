@@ -1,1 +1,1 @@
-from .senet_model import *
+from kvmm.models.backbones.senet.senet_model import SEResNet50, SEResNeXt101_32x4d, SEResNeXt101_32x8d, SEResNeXt50_32x4d

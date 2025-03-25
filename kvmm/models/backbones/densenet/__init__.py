@@ -1,1 +1,1 @@
-from .densenet_model import *
+from kvmm.models.backbones.densenet.densenet_model import DenseNet121, DenseNet169, DenseNet201, DenseNet161

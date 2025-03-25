@@ -1,1 +1,1 @@
-from .convnextv2_model import *
+from kvmm.models.backbones.convnextv2.convnextv2_model import ConvNeXtV2Pico, ConvNeXtV2Atto, ConvNeXtV2Base, ConvNeXtV2Femto, ConvNeXtV2Huge, ConvNeXtV2Large, ConvNeXtV2Nano, ConvNeXtV2Tiny

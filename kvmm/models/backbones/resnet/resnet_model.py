@@ -468,11 +468,11 @@ class ResNet(keras.Model):
             block_fn_name = config["block_fn"]["config"]
             module_path = config["block_fn"]["module"]
 
-            if module_path == "kvmm.models.resnet.resnet_model":
+            if module_path == "kvmm.models.backbones.resnet.resnet_model":
                 if block_fn_name == "bottleneck_block":
                     config["block_fn"] = bottleneck_block
             elif module_path == "kvmm.models.resnext.resnext_model":
-                from kvmm.models.resnext.resnext_model import resnext_block
+                from kvmm.models.backbones.resnext.resnext_model import resnext_block
 
                 if block_fn_name == "resnext_block":
                     config["block_fn"] = resnext_block

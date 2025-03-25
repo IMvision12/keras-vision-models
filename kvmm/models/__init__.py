@@ -13,7 +13,7 @@ from kvmm.models.backbones import (
     inception_resnetv2,
     inceptionv3,
     inceptionv4,
-    mix_transformer,
+    mit,
     mlp_mixer,
     mobilenetv2,
     mobilenetv3,
@@ -29,7 +29,7 @@ from kvmm.models.backbones import (
     senet,
     swin,
     vgg,
-    vision_transformer,
+    vit,
     xception,
 )
 from kvmm.models.segmentation import segformer

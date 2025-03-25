@@ -1,14 +1,13 @@
-import re
 from typing import Dict, List, Union
 
 import keras
-import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models import vision_transformer
+from kvmm.models import mit
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
+from kvmm.utils.model_weights_util import download_weights
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
 from kvmm.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
@@ -18,32 +17,31 @@ from kvmm.utils.weight_transfer_torch_to_keras import (
 
 weight_name_mapping = {
     "_": ".",
-    "conv1": "patch_embed.proj",
-    "pos.embed.pos.embed": "pos_embed",
-    "cls.token.cls.token": "cls_token",
-    "dense.1": "mlp.fc1",
-    "dense.2": "mlp.fc2",
-    "layernorm.1": "norm1",
-    "layernorm.2": "norm2",
-    "final.layernorm": "norm",
-    "kernel": "weight",
-    "gamma": "weight",
-    "beta": "bias",
-    "moving.mean": "running_mean",
-    "moving.variance": "running_var",
+    "dense.1": "fc1",
+    "dense.2": "fc2",
+    "layernorm": "norm",
+    ".conv": ".proj",
+    "dwconv": "dwconv.dwconv",
+    "overlap.patch.embed": "patch_embed",
+    "kernel": "weight",  # conv2d
+    "gamma": "weight",  # batchnorm weight
+    "beta": "bias",  # batchnorm bias
+    "bias": "bias",
     "predictions": "head",
 }
 
-
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": vision_transformer.ViTTiny16,
-    "torch_model_name": "vit_tiny_patch16_384.augreg_in21k_ft_in1k",
-    "input_shape": [384, 384, 3],
+    "keras_model_cls": mit.MiT_B0,
+    "torch_model_name": "mit_b0",
+    "input_shape": [224, 224, 3],
     "num_classes": 1000,
     "include_top": True,
     "include_normalization": False,
     "classifier_activation": "linear",
 }
+
+# For Github Actions to run
+torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/resolve/main/mit_b0.pth"  # TODO: change once repo is open sourced
 
 
 keras_model: keras.Model = model_config["keras_model_cls"](
@@ -54,14 +52,9 @@ keras_model: keras.Model = model_config["keras_model_cls"](
     include_normalization=model_config["include_normalization"],
     weights=None,
 )
+temp_path = download_weights(torch_model_path_mit_b0)
+torch_model: torch.nn.Module = torch.load(temp_path, map_location="cpu")
 
-torch_model: torch.nn.Module = timm.create_model(
-    model_config["torch_model_name"], pretrained=True
-).eval()
-
-trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-    torch_model
-)
 trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
 
 for keras_weight, keras_weight_name in tqdm(
@@ -72,17 +65,8 @@ for keras_weight, keras_weight_name in tqdm(
     torch_weight_name: str = keras_weight_name
     for keras_name_part, torch_name_part in weight_name_mapping.items():
         torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-    torch_weight_name = re.sub(
-        r"pos_embed_variable_\d+$", "pos_embed", torch_weight_name
-    )
-    torch_weight_name = re.sub(
-        r"cls_token_variable_\d+$", "cls_token", torch_weight_name
-    )
 
-    torch_weights_dict: Dict[str, torch.Tensor] = {
-        **trainable_torch_weights,
-        **non_trainable_torch_weights,
-    }
+    torch_weights_dict: Dict[str, torch.Tensor] = torch_model
 
     if "attention" in torch_weight_name:
         transfer_attention_weights(keras_weight_name, keras_weight, torch_weights_dict)
@@ -93,16 +77,6 @@ for keras_weight, keras_weight_name in tqdm(
 
     torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
 
-    if torch_weight_name == "cls_token":
-        keras_weight.assign(torch_weight)
-        continue
-
-    if torch_weight_name == "pos_embed":
-        if torch_weight.shape[1] == keras_weight.shape[1] + 1:
-            torch_weight = torch_weight[:, 1:, :]
-        keras_weight.assign(torch_weight)
-        continue
-
     if not compare_keras_torch_names(
         keras_weight_name, keras_weight, torch_weight_name, torch_weight
     ):
@@ -112,15 +86,27 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
+test_keras_with_weights = mit.MiT_B0(
+    weights=None,
+    num_classes=model_config["num_classes"],
+    include_top=model_config["include_top"],
+    include_normalization=True,
+    input_shape=model_config["input_shape"],
+    classifier_activation="softmax",
+)
+test_keras_with_weights.set_weights(keras_model.get_weights())
+
 results = verify_cls_model_equivalence(
-    model_a=torch_model,
-    model_b=keras_model,
-    input_shape=(384, 384, 3),
+    model_a=None,
+    model_b=test_keras_with_weights,
+    input_shape=(224, 224, 3),
     output_specs={"num_classes": 1000},
     run_performance=False,
+    test_imagenet_image=True,
+    prediction_threshold=0.68,
 )
 
-if not results["standard_input"]:
+if not results["imagenet_test"]["all_passed"]:
     raise ValueError(
         "Model equivalence test failed - model outputs do not match for standard input"
     )

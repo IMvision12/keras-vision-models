@@ -487,7 +487,7 @@ def ViTTiny16(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_tiny_patch16"],
+        **VIT_MODEL_CONFIG["ViTTiny16"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -527,7 +527,7 @@ def ViTSmall16(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_small_patch16"],
+        **VIT_MODEL_CONFIG["ViTSmall16"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -567,7 +567,7 @@ def ViTSmall32(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_small_patch32"],
+        **VIT_MODEL_CONFIG["ViTSmall32"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -607,7 +607,7 @@ def ViTBase16(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_base_patch16"],
+        **VIT_MODEL_CONFIG["ViTBase16"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -647,7 +647,7 @@ def ViTBase32(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_base_patch32"],
+        **VIT_MODEL_CONFIG["ViTBase32"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -687,7 +687,7 @@ def ViTLarge16(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_large_patch16"],
+        **VIT_MODEL_CONFIG["ViTLarge16"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,
@@ -727,7 +727,7 @@ def ViTLarge32(
     **kwargs,
 ):
     model = VisionTransformer(
-        **VIT_MODEL_CONFIG["vit_large_patch32"],
+        **VIT_MODEL_CONFIG["ViTLarge32"],
         include_top=include_top,
         as_backbone=as_backbone,
         include_normalization=include_normalization,

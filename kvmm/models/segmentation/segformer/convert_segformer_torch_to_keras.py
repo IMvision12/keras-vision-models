@@ -99,44 +99,44 @@ for keras_weight, keras_weight_name in tqdm(
 pytorch_state_dict = torch_model["state_dict"]
 
 # Linear C1 projection
-keras_model.get_layer("SegFormer_B0_head_linear_c1").weights[0].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c1").weights[0].assign(
     pytorch_state_dict["decode_head.linear_c1.proj.weight"].cpu().numpy().T
 )
-keras_model.get_layer("SegFormer_B0_head_linear_c1").weights[1].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c1").weights[1].assign(
     pytorch_state_dict["decode_head.linear_c1.proj.bias"].cpu().numpy()
 )
 
 # Linear C2 projection
-keras_model.get_layer("SegFormer_B0_head_linear_c2").weights[0].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c2").weights[0].assign(
     pytorch_state_dict["decode_head.linear_c2.proj.weight"].cpu().numpy().T
 )
-keras_model.get_layer("SegFormer_B0_head_linear_c2").weights[1].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c2").weights[1].assign(
     pytorch_state_dict["decode_head.linear_c2.proj.bias"].cpu().numpy()
 )
 
 # Linear C3 projection
-keras_model.get_layer("SegFormer_B0_head_linear_c3").weights[0].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c3").weights[0].assign(
     pytorch_state_dict["decode_head.linear_c3.proj.weight"].cpu().numpy().T
 )
-keras_model.get_layer("SegFormer_B0_head_linear_c3").weights[1].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c3").weights[1].assign(
     pytorch_state_dict["decode_head.linear_c3.proj.bias"].cpu().numpy()
 )
 
 # Linear C4 projection
-keras_model.get_layer("SegFormer_B0_head_linear_c4").weights[0].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c4").weights[0].assign(
     pytorch_state_dict["decode_head.linear_c4.proj.weight"].cpu().numpy().T
 )
-keras_model.get_layer("SegFormer_B0_head_linear_c4").weights[1].assign(
+keras_model.get_layer("SegFormerB0_head_linear_c4").weights[1].assign(
     pytorch_state_dict["decode_head.linear_c4.proj.bias"].cpu().numpy()
 )
 
 # Conv2D (linear fuse conv)
 conv_weight = pytorch_state_dict["decode_head.linear_fuse.conv.weight"].cpu().numpy()
 conv_weight = np.transpose(conv_weight, (2, 3, 1, 0))
-keras_model.get_layer("SegFormer_B0_head_fusion_conv").weights[0].assign(conv_weight)
+keras_model.get_layer("SegFormerB0_head_fusion_conv").weights[0].assign(conv_weight)
 
 # Batch Normalization
-bn_layer = keras_model.get_layer("SegFormer_B0_head_fusion_bn")
+bn_layer = keras_model.get_layer("SegFormerB0_head_fusion_bn")
 bn_layer.weights[0].assign(
     pytorch_state_dict["decode_head.linear_fuse.bn.weight"].cpu().numpy()
 )
@@ -153,10 +153,10 @@ bn_layer.weights[3].assign(
 # Final Conv Layer
 final_conv_weight = pytorch_state_dict["decode_head.linear_pred.weight"].cpu().numpy()
 final_conv_weight = np.transpose(final_conv_weight, (2, 3, 1, 0))
-keras_model.get_layer("SegFormer_B0_head_classifier").weights[0].assign(
+keras_model.get_layer("SegFormerB0_head_classifier").weights[0].assign(
     final_conv_weight
 )
-keras_model.get_layer("SegFormer_B0_head_classifier").weights[1].assign(
+keras_model.get_layer("SegFormerB0_head_classifier").weights[1].assign(
     pytorch_state_dict["decode_head.linear_pred.bias"].cpu().numpy()
 )
 

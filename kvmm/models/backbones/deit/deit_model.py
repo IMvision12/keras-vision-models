@@ -1,4 +1,4 @@
-from kvmm.models.backbones.vision_transformer.vit_model import VisionTransformer
+from kvmm.models.backbones.vit.vit_model import VisionTransformer
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import DEIT_MODEL_CONFIG, DEIT_WEIGHTS_CONFIG

@@ -1,5 +1,5 @@
 VIT_MODEL_CONFIG = {
-    "vit_tiny_patch16": {
+    "ViTTiny16": {
         "patch_size": 16,
         "dim": 192,
         "depth": 12,
@@ -10,7 +10,7 @@ VIT_MODEL_CONFIG = {
         "drop_rate": 0.1,
         "attn_drop_rate": 0.0,
     },
-    "vit_small_patch16": {
+    "ViTSmall16": {
         "patch_size": 16,
         "dim": 384,
         "depth": 12,
@@ -21,7 +21,7 @@ VIT_MODEL_CONFIG = {
         "drop_rate": 0.1,
         "attn_drop_rate": 0.0,
     },
-    "vit_small_patch32": {
+    "ViTSmall32": {
         "patch_size": 32,
         "dim": 384,
         "depth": 12,
@@ -32,7 +32,7 @@ VIT_MODEL_CONFIG = {
         "drop_rate": 0.1,
         "attn_drop_rate": 0.0,
     },
-    "vit_base_patch16": {
+    "ViTBase16": {
         "patch_size": 16,
         "dim": 768,
         "depth": 12,
@@ -43,7 +43,7 @@ VIT_MODEL_CONFIG = {
         "drop_rate": 0.1,
         "attn_drop_rate": 0.0,
     },
-    "vit_base_patch32": {
+    "ViTBase32": {
         "patch_size": 32,
         "dim": 768,
         "depth": 12,
@@ -54,7 +54,7 @@ VIT_MODEL_CONFIG = {
         "drop_rate": 0.1,
         "attn_drop_rate": 0.0,
     },
-    "vit_large_patch16": {
+    "ViTLarge16": {
         "patch_size": 16,
         "dim": 1024,
         "depth": 24,
@@ -65,7 +65,7 @@ VIT_MODEL_CONFIG = {
         "drop_rate": 0.1,
         "attn_drop_rate": 0.0,
     },
-    "vit_large_patch32": {
+    "ViTLarge32": {
         "patch_size": 32,
         "dim": 1024,
         "depth": 24,

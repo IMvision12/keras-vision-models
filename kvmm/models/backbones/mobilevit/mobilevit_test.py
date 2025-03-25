@@ -1,10 +1,10 @@
 import pytest
 
 from kvmm.models import mobilevit
-from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
 
 
-class TestMobileViT(BaseVisionTest):
+class TestMobileViT(BackboneTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
         return ModelConfig(model_cls=mobilevit.MobileViTXXS, input_shape=(32, 32, 3))

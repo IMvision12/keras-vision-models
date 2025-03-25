@@ -1,10 +1,10 @@
 import pytest
 
 from kvmm.models import convnextv2
-from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
 
 
-class TestConvNeXtV2(BaseVisionTest):
+class TestConvNeXtV2(BackboneTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
         return ModelConfig(model_cls=convnextv2.ConvNeXtV2Atto, input_shape=(32, 32, 3))

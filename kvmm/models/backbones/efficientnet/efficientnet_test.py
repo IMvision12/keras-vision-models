@@ -1,10 +1,10 @@
 import pytest
 
 from kvmm.models import efficientnet
-from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
 
 
-class TestEfficientNet(BaseVisionTest):
+class TestEfficientNet(BackboneTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
         return ModelConfig(

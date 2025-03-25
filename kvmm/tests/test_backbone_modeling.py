@@ -23,7 +23,7 @@ class ModelConfig:
         self.num_classes = num_classes
 
 
-class BaseVisionTest:
+class BackboneTest:
     def get_default_kwargs(self) -> Dict[str, Any]:
         return {}
 

@@ -1,10 +1,10 @@
 import pytest
 
 from kvmm.models import inceptionv4
-from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
+from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
 
 
-class TestInceptionV4(BaseVisionTest):
+class TestInceptionV4(BackboneTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
         return ModelConfig(model_cls=inceptionv4.InceptionV4, input_shape=(75, 75, 3))

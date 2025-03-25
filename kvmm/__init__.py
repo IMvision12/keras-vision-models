@@ -1,4 +1,1 @@
-from .layers import *
-from .models import *
-from .tests import *
-from .utils import *
+from kvmm import layers, models, tests, utils

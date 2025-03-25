@@ -471,7 +471,7 @@ class ResNet(keras.Model):
             if module_path == "kvmm.models.backbones.resnet.resnet_model":
                 if block_fn_name == "bottleneck_block":
                     config["block_fn"] = bottleneck_block
-            elif module_path == "kvmm.models.resnext.resnext_model":
+            elif module_path == "kvmm.models.backbones.resnext.resnext_model":
                 from kvmm.models.backbones.resnext.resnext_model import resnext_block
 
                 if block_fn_name == "resnext_block":

@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.resnetv2 import ResNetV2_50x1
+from kvmm.models import resnetv2
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -36,7 +36,7 @@ weight_name_mapping = {
     "predictions": "head.fc",
 }
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ResNetV2_50x1,
+    "keras_model_cls": resnetv2.ResNetV2_50x1,
     "torch_model_name": "resnetv2_50x1_bitm",
     "input_shape": [448, 448, 3],  # resnetv2_152x4 => 480
     "num_classes": 1000,

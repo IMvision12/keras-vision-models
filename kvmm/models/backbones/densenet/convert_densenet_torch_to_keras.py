@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.densenet import DenseNet121
+from kvmm.models import densenet
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -37,7 +37,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": DenseNet121,
+    "keras_model_cls": densenet.DenseNet121,
     "torch_model_name": "densenet121.tv_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

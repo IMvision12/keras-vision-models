@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.cait import CaiTXXS24
+from kvmm.models import cait
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -40,7 +40,7 @@ attn_weight_replacement = {
     "blocks.token.only": "blocks_token_only",
 }
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": CaiTXXS24,
+    "keras_model_cls": cait.CaiTXXS24,
     "torch_model_name": "cait_xxs24_224.fb_dist_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

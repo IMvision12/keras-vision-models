@@ -1,7 +1,7 @@
 import keras
 from keras import layers, utils
 
-from kvmm.models.mix_transformer import MiT_B0, MiT_B1, MiT_B2, MiT_B3, MiT_B4, MiT_B5
+from kvmm.models import mix_transformer
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import SEGFORMER_MODEL_CONFIG, SEGFORMER_WEIGHTS_CONFIG
@@ -167,7 +167,7 @@ def SegFormerB0(
         else:
             backbone_weights = None
 
-        backbone = MiT_B0(
+        backbone = mix_transformer.MiT_B0(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
@@ -234,7 +234,7 @@ def SegFormerB1(
         else:
             backbone_weights = None
 
-        backbone = MiT_B1(
+        backbone = mix_transformer.MiT_B1(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
@@ -301,7 +301,7 @@ def SegFormerB2(
         else:
             backbone_weights = None
 
-        backbone = MiT_B2(
+        backbone = mix_transformer.MiT_B2(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
@@ -368,7 +368,7 @@ def SegFormerB3(
         else:
             backbone_weights = None
 
-        backbone = MiT_B3(
+        backbone = mix_transformer.MiT_B3(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
@@ -435,7 +435,7 @@ def SegFormerB4(
         else:
             backbone_weights = None
 
-        backbone = MiT_B4(
+        backbone = mix_transformer.MiT_B4(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
@@ -502,7 +502,7 @@ def SegFormerB5(
         else:
             backbone_weights = None
 
-        backbone = MiT_B5(
+        backbone = mix_transformer.MiT_B5(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,

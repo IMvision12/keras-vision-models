@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.mobilevit import MobileViTXXS
+from kvmm.models import mobilevit
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestMobileViT(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=MobileViTXXS, input_shape=(32, 32, 3))
+        return ModelConfig(model_cls=mobilevit.MobileViTXXS, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

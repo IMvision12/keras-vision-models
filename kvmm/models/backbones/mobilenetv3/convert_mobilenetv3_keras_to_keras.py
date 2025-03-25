@@ -1,6 +1,6 @@
 import keras
 
-from kvmm.models.mobilenetv3 import MobileNetV3Small075
+from kvmm.models import mobilenetv3
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 
 model_config = {
@@ -11,7 +11,7 @@ model_config = {
     "include_normalization": False,
     "include_preprocessing": False,
     "classifier_activation": "linear",
-    "model_cls": MobileNetV3Small075,
+    "model_cls": mobilenetv3.MobileNetV3Small075,
 }
 
 original_model = keras.applications.MobileNetV3Small(

@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.convnextv2 import ConvNeXtV2Atto
+from kvmm.models import convnextv2
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestConvNeXtV2(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=ConvNeXtV2Atto, input_shape=(32, 32, 3))
+        return ModelConfig(model_cls=convnextv2.ConvNeXtV2Atto, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.vgg import VGG16
+from kvmm.models import vgg
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -29,7 +29,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": VGG16,
+    "keras_model_cls": vgg.VGG16,
     "torch_model_name": "vgg16.tv_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

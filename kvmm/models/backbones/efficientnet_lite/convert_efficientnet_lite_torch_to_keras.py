@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.efficientnet_lite import EfficientNetLite0
+from kvmm.models import efficientnet_lite
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -37,7 +37,7 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": EfficientNetLite0,
+    "keras_model_cls": efficientnet_lite.EfficientNetLite0,
     "torch_model_name": "tf_efficientnet_lite0",
     "input_shape": [
         224,

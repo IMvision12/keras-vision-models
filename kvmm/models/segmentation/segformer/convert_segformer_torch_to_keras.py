@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from kvmm.models.segformer import SegFormerB0
+from kvmm.models import segformer
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_weights_util import download_weights
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -34,7 +34,7 @@ weight_name_mapping = {
 
 torch_model_path_mit_b0 = "https://huggingface.co/IMvision12/Test/resolve/main/segformer.b0.512x512.ade.160k.pth"  # TODO: change once repo is open sourced
 
-keras_model: keras.Model = SegFormerB0(
+keras_model: keras.Model = segformer.SegFormerB0(
     weights=None, num_classes=150, input_shape=(512, 512, 3)
 )
 temp_path = download_weights(torch_model_path_mit_b0)

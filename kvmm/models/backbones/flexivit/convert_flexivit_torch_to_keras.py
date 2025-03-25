@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.flexivit import FlexiViTSmall
+from kvmm.models import flexivit
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -36,7 +36,7 @@ weight_name_mapping = {
 
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": FlexiViTSmall,
+    "keras_model_cls": flexivit.FlexiViTSmall,
     "torch_model_name": "flexivit_small.600ep_in1k",
     "input_shape": [240, 240, 3],
     "num_classes": 1000,

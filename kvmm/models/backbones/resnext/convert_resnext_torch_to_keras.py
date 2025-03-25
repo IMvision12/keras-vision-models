@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.resnext import ResNeXt50_32x4d
+from kvmm.models import resnext
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -33,7 +33,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ResNeXt50_32x4d,
+    "keras_model_cls": resnext.ResNeXt50_32x4d,
     "torch_model_name": "resnext50_32x4d.a1_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

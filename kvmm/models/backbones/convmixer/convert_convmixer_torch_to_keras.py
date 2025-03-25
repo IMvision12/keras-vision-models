@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.convmixer import ConvMixer768D32
+from kvmm.models import convmixer
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -33,7 +33,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ConvMixer768D32,
+    "keras_model_cls": convmixer.ConvMixer768D32,
     "torch_model_name": "convmixer_768_32.in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

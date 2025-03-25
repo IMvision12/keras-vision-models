@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.inceptionv4 import InceptionV4
+from kvmm.models import inceptionv4
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -29,7 +29,7 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": InceptionV4,
+    "keras_model_cls": inceptionv4.InceptionV4,
     "torch_model_name": "inception_v4",
     "input_shape": [299, 299, 3],
     "num_classes": 1000,

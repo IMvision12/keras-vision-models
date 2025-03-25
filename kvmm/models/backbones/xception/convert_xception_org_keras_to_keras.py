@@ -1,6 +1,6 @@
 import keras
 
-from kvmm.models.xception import Xception
+from kvmm.models import xception
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 
 model_config = {
@@ -17,7 +17,7 @@ original_model = keras.applications.Xception(
     include_top=model_config["include_top"],
 )
 
-custom_model = Xception(
+custom_model = xception.Xception(
     weights=None,
     input_shape=model_config["input_shape"],
     include_top=model_config["include_top"],

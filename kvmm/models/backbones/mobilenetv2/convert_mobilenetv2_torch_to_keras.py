@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.mobilenetv2 import MobileNetV2WM50
+from kvmm.models import mobilenetv2
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -38,7 +38,7 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": MobileNetV2WM50,
+    "keras_model_cls": mobilenetv2.MobileNetV2WM50,
     "torch_model_name": "mobilenetv2_050.lamb_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

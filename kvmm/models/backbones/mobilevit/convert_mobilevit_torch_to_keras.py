@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.mobilevit import MobileViTXXS
+from kvmm.models import mobilevit
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -47,7 +47,7 @@ weight_name_mapping = {
 
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": MobileViTXXS,
+    "keras_model_cls": mobilevit.MobileViTXXS,
     "torch_model_name": "mobilevit_xxs.cvnets_in1k",
     "input_shape": [256, 256, 3],
     "num_classes": 1000,

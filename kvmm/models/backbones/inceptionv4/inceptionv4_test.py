@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.inceptionv4 import InceptionV4
+from kvmm.models import inceptionv4
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestInceptionV4(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=InceptionV4, input_shape=(75, 75, 3))
+        return ModelConfig(model_cls=inceptionv4.InceptionV4, input_shape=(75, 75, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

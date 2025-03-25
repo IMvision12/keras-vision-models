@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.inception_resnetv2 import InceptionResNetV2
+from kvmm.models import inception_resnetv2
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -73,7 +73,7 @@ def generate_repeat_mappings():
 weight_name_mapping.update(generate_repeat_mappings())
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": InceptionResNetV2,
+    "keras_model_cls": inception_resnetv2.InceptionResNetV2,
     "torch_model_name": "inception_resnet_v2.tf_ens_adv_in1k",
     "input_shape": [299, 299, 3],
     "num_classes": 1000,

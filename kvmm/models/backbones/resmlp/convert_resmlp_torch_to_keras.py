@@ -6,7 +6,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.resmlp import ResMLP12
+from kvmm.models import resmlp
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -32,7 +32,7 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": ResMLP12,
+    "keras_model_cls": resmlp.ResMLP12,
     "torch_model_name": "resmlp_12_224.fb_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

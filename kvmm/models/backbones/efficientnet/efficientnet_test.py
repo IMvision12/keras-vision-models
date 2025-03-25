@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.efficientnet import EfficientNetB0
+from kvmm.models import efficientnet
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestEfficientNet(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=EfficientNetB0, input_shape=(32, 32, 3))
+        return ModelConfig(model_cls=efficientnet.EfficientNetB0, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

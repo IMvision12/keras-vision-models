@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.res2net import Res2Net50_26w_4s
+from kvmm.models import res2net
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -32,7 +32,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": Res2Net50_26w_4s,
+    "keras_model_cls": res2net.Res2Net50_26w_4s,
     "torch_model_name": "res2net50_26w_4s",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

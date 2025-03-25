@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.mobilevitv2 import MobileViTV2M050
+from kvmm.models import mobilevitv2
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -44,7 +44,7 @@ weight_name_mapping: Dict[str, str] = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": MobileViTV2M050,
+    "keras_model_cls": mobilevitv2.MobileViTV2M050,
     "torch_model_name": "mobilevitv2_050.cvnets_in1k",
     "input_shape": [256, 256, 3],
     "num_classes": 1000,

@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.res2net import Res2Net50_26w_4s
+from kvmm.models import res2net
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestRes2Net(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=Res2Net50_26w_4s, input_shape=(32, 32, 3))
+        return ModelConfig(model_cls=res2net.Res2Net50_26w_4s, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

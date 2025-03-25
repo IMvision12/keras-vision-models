@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models.mlp_mixer import MLPMixerB16
+from kvmm.models import mlp_mixer
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -32,7 +32,7 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": MLPMixerB16,
+    "keras_model_cls": mlp_mixer.MLPMixerB16,
     "torch_model_name": "mixer_b16_224.goog_in21k_ft_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

@@ -1,13 +1,13 @@
 import pytest
 
-from kvmm.models.efficientnetv2 import EfficientNetV2S
+from kvmm.models import efficientnetv2
 from kvmm.tests.test_modeling import BaseVisionTest, ModelConfig
 
 
 class TestEfficientNetV2(BaseVisionTest):
     @pytest.fixture
     def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=EfficientNetV2S, input_shape=(32, 32, 3))
+        return ModelConfig(model_cls=efficientnetv2.EfficientNetV2S, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {

@@ -4,7 +4,7 @@ import keras
 import torch
 from tqdm import tqdm
 
-from kvmm.models.mix_transformer import MiT_B0
+from kvmm.models import mix_transformer
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.model_weights_util import download_weights
@@ -31,7 +31,7 @@ weight_name_mapping = {
 }
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": MiT_B0,
+    "keras_model_cls": mix_transformer.MiT_B0,
     "torch_model_name": "mit_b0",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,
@@ -86,7 +86,7 @@ for keras_weight, keras_weight_name in tqdm(
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-test_keras_with_weights = MiT_B0(
+test_keras_with_weights = mix_transformer.MiT_B0(
     weights=None,
     num_classes=model_config["num_classes"],
     include_top=model_config["include_top"],

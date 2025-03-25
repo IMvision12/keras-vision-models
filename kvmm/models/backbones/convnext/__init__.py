@@ -1,1 +1,11 @@
-from kvmm.models.backbones.convnext.convnext_model import ConvNeXtAtto, ConvNeXtBase, ConvNeXtFemto, ConvNeXtLarge, ConvNeXtNano, ConvNeXtSmall, ConvNeXtTiny, ConvNeXtPico,ConvNeXtXLarge
+from kvmm.models.backbones.convnext.convnext_model import (
+    ConvNeXtAtto,
+    ConvNeXtBase,
+    ConvNeXtFemto,
+    ConvNeXtLarge,
+    ConvNeXtNano,
+    ConvNeXtPico,
+    ConvNeXtSmall,
+    ConvNeXtTiny,
+    ConvNeXtXLarge,
+)

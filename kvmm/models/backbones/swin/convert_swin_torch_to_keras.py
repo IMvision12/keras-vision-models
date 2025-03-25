@@ -5,7 +5,7 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kvmm.models import swin_transformer
+from kvmm.models import swin
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
@@ -36,7 +36,7 @@ weight_name_mapping = {
 
 
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": swin_transformer.SwinTinyP4W7,
+    "keras_model_cls": swin.SwinTinyP4W7,
     "torch_model_name": "swin_tiny_patch4_window7_224.ms_in1k",
     "input_shape": [224, 224, 3],
     "num_classes": 1000,

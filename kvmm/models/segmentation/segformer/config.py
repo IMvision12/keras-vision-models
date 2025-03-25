@@ -1,14 +1,14 @@
 SEGFORMER_MODEL_CONFIG = {
-    "SegFormer_B0": {"embed_dim": 256, "dropout_rate": 0.1},
-    "SegFormer_B1": {"embed_dim": 256, "dropout_rate": 0.1},
-    "SegFormer_B2": {"embed_dim": 768, "dropout_rate": 0.1},
-    "SegFormer_B3": {"embed_dim": 768, "dropout_rate": 0.1},
-    "SegFormer_B4": {"embed_dim": 768, "dropout_rate": 0.1},
-    "SegFormer_B5": {"embed_dim": 768, "dropout_rate": 0.1},
+    "SegFormerB0": {"embed_dim": 256, "dropout_rate": 0.1},
+    "SegFormerB1": {"embed_dim": 256, "dropout_rate": 0.1},
+    "SegFormerB2": {"embed_dim": 768, "dropout_rate": 0.1},
+    "SegFormerB3": {"embed_dim": 768, "dropout_rate": 0.1},
+    "SegFormerB4": {"embed_dim": 768, "dropout_rate": 0.1},
+    "SegFormerB5": {"embed_dim": 768, "dropout_rate": 0.1},
 }
 
 SEGFORMER_WEIGHTS_CONFIG = {
-    "SegFormer_B0": {
+    "SegFormerB0": {
         "cityscapes": {
             "url": "",
         },
@@ -16,7 +16,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "",
         },
     },
-    "SegFormer_B1": {
+    "SegFormerB1": {
         "cityscapes": {
             "url": "",
         },
@@ -24,7 +24,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "",
         },
     },
-    "SegFormer_B2": {
+    "SegFormerB2": {
         "cityscapes": {
             "url": "",
         },
@@ -32,7 +32,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "",
         },
     },
-    "SegFormer_B3": {
+    "SegFormerB3": {
         "cityscapes": {
             "url": "",
         },
@@ -40,7 +40,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "",
         },
     },
-    "SegFormer_B4": {
+    "SegFormerB4": {
         "cityscapes": {
             "url": "",
         },
@@ -48,7 +48,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "",
         },
     },
-    "SegFormer_B5": {
+    "SegFormerB5": {
         "cityscapes": {
             "url": "",
         },

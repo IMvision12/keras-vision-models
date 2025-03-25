@@ -1,4 +1,4 @@
-from kvmm.models.backbones.swin_transformer.swin_model import (
+from kvmm.models.backbones.swin.swin_model import (
     SwinBaseP4W7,
     SwinBaseP4W12,
     SwinLargeP4W7,

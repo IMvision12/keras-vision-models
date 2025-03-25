@@ -176,18 +176,18 @@ def SegFormerB0(
         )
 
     model = SegFormer(
-        **SEGFORMER_MODEL_CONFIG["SegFormer_B0"],
+        **SEGFORMER_MODEL_CONFIG["SegFormerB0"],
         backbone=backbone,
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        name="SegFormer_B0",
+        name="SegFormerB0",
         **kwargs,
     )
 
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "SegFormer_B0", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            "SegFormerB0", weights, model, SEGFORMER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -243,18 +243,18 @@ def SegFormerB1(
         )
 
     model = SegFormer(
-        **SEGFORMER_MODEL_CONFIG["SegFormer_B1"],
+        **SEGFORMER_MODEL_CONFIG["SegFormerB1"],
         backbone=backbone,
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        name="SegFormer_B1",
+        name="SegFormerB1",
         **kwargs,
     )
 
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "SegFormer_B1", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            "SegFormerB1", weights, model, SEGFORMER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -310,18 +310,18 @@ def SegFormerB2(
         )
 
     model = SegFormer(
-        **SEGFORMER_MODEL_CONFIG["SegFormer_B2"],
+        **SEGFORMER_MODEL_CONFIG["SegFormerB2"],
         backbone=backbone,
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        name="SegFormer_B2",
+        name="SegFormerB2",
         **kwargs,
     )
 
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "SegFormer_B2", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            "SegFormerB2", weights, model, SEGFORMER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -377,18 +377,18 @@ def SegFormerB3(
         )
 
     model = SegFormer(
-        **SEGFORMER_MODEL_CONFIG["SegFormer_B3"],
+        **SEGFORMER_MODEL_CONFIG["SegFormerB3"],
         backbone=backbone,
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        name="SegFormer_B3",
+        name="SegFormerB3",
         **kwargs,
     )
 
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "SegFormer_B3", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            "SegFormerB3", weights, model, SEGFORMER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -444,18 +444,18 @@ def SegFormerB4(
         )
 
     model = SegFormer(
-        **SEGFORMER_MODEL_CONFIG["SegFormer_B4"],
+        **SEGFORMER_MODEL_CONFIG["SegFormerB4"],
         backbone=backbone,
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        name="SegFormer_B4",
+        name="SegFormerB4",
         **kwargs,
     )
 
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "SegFormer_B4", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            "SegFormerB4", weights, model, SEGFORMER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -511,18 +511,18 @@ def SegFormerB5(
         )
 
     model = SegFormer(
-        **SEGFORMER_MODEL_CONFIG["SegFormer_B5"],
+        **SEGFORMER_MODEL_CONFIG["SegFormerB5"],
         backbone=backbone,
         num_classes=num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
-        name="SegFormer_B5",
+        name="SegFormerB5",
         **kwargs,
     )
 
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         load_weights_from_config(
-            "SegFormer_B5", weights, model, SEGFORMER_WEIGHTS_CONFIG
+            "SegFormerB5", weights, model, SEGFORMER_WEIGHTS_CONFIG
         )
     elif weights is not None:
         model.load_weights(weights)

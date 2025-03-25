@@ -27,7 +27,7 @@ from kvmm.models.backbones import (
     resnetv2,
     resnext,
     senet,
-    swin_transformer,
+    swin,
     vgg,
     vision_transformer,
     xception,

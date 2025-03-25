@@ -30,3 +30,5 @@ from kvmm.models.backbones import swin_transformer
 from kvmm.models.backbones import vgg
 from kvmm.models.backbones import vision_transformer
 from kvmm.models.backbones import xception
+
+from kvmm.models.segmentation import segformer

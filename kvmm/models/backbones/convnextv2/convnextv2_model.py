@@ -1,4 +1,4 @@
-from kvmm.models.convnext.convnext_model import ConvNeXt
+from kvmm.models.backbones.convnext.convnext_model import ConvNeXt
 from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
 
 from .config import CONVNEXTV2_MODEL_CONFIG, CONVNEXTV2_WEIGHTS_CONFIG

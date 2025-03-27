@@ -1,5 +1,5 @@
 [project]
-name = "kv"
+name = "kvmm"
 authors = [{ name = "Gitesh Chawda", email = "gitesh.ch.0912@gmail.com" }]
 description = "Pretrained keras 3 vision models"
 readme = "README.md"

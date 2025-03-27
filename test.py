@@ -1,3 +1,0 @@
-from kvmm.utils.weight_split_torch_and_keras import split_model_weights
-
-print(split_model_weights)

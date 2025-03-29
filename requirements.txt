@@ -6,3 +6,4 @@ torch>=2.1.0
 jax[cpu]
 
 keras>=3.6.0
+pillow

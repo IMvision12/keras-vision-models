@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "kvmm"
 authors = [{ name = "Gitesh Chawda", email = "gitesh.ch.0912@gmail.com" }]
@@ -47,7 +51,10 @@ dependencies = ["keras"]
 [project.urls]
 homepage = "https://github.com/IMvision12/keras-vision-models"
 documentation = "https://github.com/IMvision12/keras-vision-models"
-repository = "https://github.com/IMvision12/keras-vision-models"
+repository = "https://github.com/IMvision12/keras-vision-models.git"
+
+[tool.setuptools.packages]
+find = { include = ["kvmm*"] }
 
 [tool.ruff.lint]
 ignore = ["C901", "E501", "E741", "F402", "F823"]

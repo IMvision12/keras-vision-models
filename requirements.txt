@@ -1,5 +1,9 @@
-keras
-torch
-tensorflow
-ruff
-timm
+tensorflow-cpu>=2.18.0
+
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.1.0
+
+jax[cpu]
+
+keras>=3.6.0
+pillow

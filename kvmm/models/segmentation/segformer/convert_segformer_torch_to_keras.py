@@ -161,4 +161,4 @@ keras_model.get_layer("SegFormerB0_head_classifier").weights[1].assign(
 )
 
 # Save the model
-keras_model.save("SegFormer_B0_ADE.keras")
+keras_model.save("SegFormer_B0_ade.keras")

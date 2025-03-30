@@ -99,9 +99,7 @@ class SegFormer(keras.Model):
             name=f"{name}_final_upsampling",
         )(x)
 
-        outputs = layers.Activation("softmax", name=f"{name}_output_activation")(x)
-
-        super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
+        super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 
         self.backbone = backbone
         self.num_classes = num_classes
@@ -111,22 +109,20 @@ class SegFormer(keras.Model):
 
     def get_config(self):
         config = super().get_config()
-        config.update(
-            {
-                "backbone": self.backbone,
-                "num_classes": self.num_classes,
-                "embed_dim": self.embed_dim,
-                "dropout_rate": self.dropout_rate,
-                "input_shape": self.input_shape[1:],
-                "input_tensor": self.input_tensor,
-                "name": self.name,
-                "trainable": self.trainable,
-            }
-        )
+        backbone_config = keras.saving.serialize_keras_object(self.backbone)
+        config.update({
+            "backbone": backbone_config,
+            "num_classes": self.num_classes,
+            "embed_dim": self.embed_dim,
+            "dropout_rate": self.dropout_rate,
+            "input_shape": self.input_shape[1:],
+        })
         return config
 
     @classmethod
     def from_config(cls, config):
+        if isinstance(config["backbone"], dict):
+            config["backbone"] = keras.saving.deserialize_keras_object(config["backbone"])
         return cls(**config)
 
 
@@ -506,6 +502,7 @@ def SegFormerB5(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
+
             weights=backbone_weights,
             include_normalization=False,
         )

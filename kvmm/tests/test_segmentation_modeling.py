@@ -1,7 +1,7 @@
 import json
 import os
 import tempfile
-from typing import Any, Dict, Tuple, Type, Optional
+from typing import Any, Dict, Optional, Tuple, Type
 
 import keras
 import numpy as np
@@ -61,12 +61,12 @@ class SegmentationTest:
         model = self.create_model(model_config)
         input_data = self.get_input_data(model_config)
         output = model(input_data)
-        
+
         if isinstance(output, list):
             main_output = output[-1]
         else:
             main_output = output
-        
+
         if keras.config.image_data_format() == "channels_last":
             expected_shape = (
                 model_config.batch_size,
@@ -81,7 +81,7 @@ class SegmentationTest:
                 model_config.input_shape[0],
                 model_config.input_shape[1],
             )
-        
+
         assert main_output.shape == expected_shape, (
             f"Output shape mismatch. Expected {expected_shape}, got {main_output.shape}"
         )
@@ -94,10 +94,10 @@ class SegmentationTest:
             keras.config.set_image_data_format("channels_last")
             model_last = self.create_model(model_config)
             output_last = model_last(input_data)
-            
+
             if isinstance(output_last, list):
                 output_last = output_last[-1]
-            
+
             expected_shape_last = (
                 model_config.batch_size,
                 model_config.input_shape[0],
@@ -122,10 +122,10 @@ class SegmentationTest:
                 model_first.set_weights(model_last.get_weights())
 
                 output_first = model_first(current_data)
-                
+
                 if isinstance(output_first, list):
                     output_first = output_first[-1]
-                
+
                 expected_shape_first = (
                     model_config.batch_size,
                     model_config.num_classes,
@@ -136,9 +136,12 @@ class SegmentationTest:
 
                 if len(output_first.shape) == 4:
                     output_first_converted = tf.transpose(output_first, [0, 2, 3, 1])
-                    
+
                     np.testing.assert_allclose(
-                        output_first_converted.numpy(), output_last.numpy(), rtol=1e-5, atol=1e-5
+                        output_first_converted.numpy(),
+                        output_last.numpy(),
+                        rtol=1e-5,
+                        atol=1e-5,
                     )
         finally:
             keras.config.set_image_data_format(original_data_format)
@@ -159,17 +162,20 @@ class SegmentationTest:
             )
 
             loaded_output = loaded_model(input_data)
-            
+
             # Handle multi-output models
             if isinstance(original_output, list) and isinstance(loaded_output, list):
                 assert len(original_output) == len(loaded_output), (
                     "Number of outputs doesn't match after loading model"
                 )
-                
+
                 for i, (orig, loaded) in enumerate(zip(original_output, loaded_output)):
                     np.testing.assert_allclose(
-                        orig.numpy(), loaded.numpy(), rtol=1e-5, atol=1e-5,
-                        err_msg=f"Output {i} mismatch after loading model"
+                        orig.numpy(),
+                        loaded.numpy(),
+                        rtol=1e-5,
+                        atol=1e-5,
+                        err_msg=f"Output {i} mismatch after loading model",
                     )
             else:
                 np.testing.assert_allclose(
@@ -232,8 +238,10 @@ class SegmentationTest:
             assert len(training_output) == len(inference_output), (
                 "Number of outputs doesn't match between training and inference modes"
             )
-            
-            for i, (train_out, infer_out) in enumerate(zip(training_output, inference_output)):
+
+            for i, (train_out, infer_out) in enumerate(
+                zip(training_output, inference_output)
+            ):
                 assert train_out.shape == infer_out.shape, (
                     f"Output {i} shape mismatch between training and inference modes"
                 )
@@ -245,12 +253,12 @@ class SegmentationTest:
         model = self.create_model(model_config)
         input_data = self.get_input_data(model_config)
         outputs = model(input_data)
-        
+
         if isinstance(outputs, list):
             assert len(outputs) > 1, "Expected multiple outputs but got only one"
-            
+
             main_output = outputs[-1]
-            
+
             if keras.config.image_data_format() == "channels_last":
                 expected_shape = (
                     model_config.batch_size,
@@ -265,41 +273,42 @@ class SegmentationTest:
                     model_config.input_shape[0],
                     model_config.input_shape[1],
                 )
-            
+
             assert main_output.shape == expected_shape, (
                 f"Main output shape mismatch. Expected {expected_shape}, got {main_output.shape}"
             )
-            
+
             for i, aux_output in enumerate(outputs[:-1]):
                 assert len(aux_output.shape) == 4, (
                     f"Auxiliary output {i} should be a 4D tensor, "
                     f"got shape {aux_output.shape}"
                 )
-                
+
                 assert aux_output.shape[0] == model_config.batch_size, (
                     f"Auxiliary output {i} has incorrect batch size. "
                     f"Expected {model_config.batch_size}, got {aux_output.shape[0]}"
                 )
 
-    
     def test_different_input_sizes(self, model_config):
         larger_shape = (
             model_config.input_shape[0] + 64,
             model_config.input_shape[1] + 64,
             model_config.input_shape[2],
         )
-        
+
         kwargs = {"input_shape": larger_shape}
         larger_model = self.create_model(model_config, **kwargs)
-        
-        larger_input = np.random.random((model_config.batch_size,) + larger_shape).astype(np.float32)
+
+        larger_input = np.random.random(
+            (model_config.batch_size,) + larger_shape
+        ).astype(np.float32)
         larger_output = larger_model(larger_input)
-        
+
         if isinstance(larger_output, list):
             main_output = larger_output[-1]
         else:
             main_output = larger_output
-        
+
         if keras.config.image_data_format() == "channels_last":
             assert main_output.shape[1:3] == larger_shape[0:2], (
                 f"Output spatial dimensions don't match input. "

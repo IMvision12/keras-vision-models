@@ -110,19 +110,23 @@ class SegFormer(keras.Model):
     def get_config(self):
         config = super().get_config()
         backbone_config = keras.saving.serialize_keras_object(self.backbone)
-        config.update({
-            "backbone": backbone_config,
-            "num_classes": self.num_classes,
-            "embed_dim": self.embed_dim,
-            "dropout_rate": self.dropout_rate,
-            "input_shape": self.input_shape[1:],
-        })
+        config.update(
+            {
+                "backbone": backbone_config,
+                "num_classes": self.num_classes,
+                "embed_dim": self.embed_dim,
+                "dropout_rate": self.dropout_rate,
+                "input_shape": self.input_shape[1:],
+            }
+        )
         return config
 
     @classmethod
     def from_config(cls, config):
         if isinstance(config["backbone"], dict):
-            config["backbone"] = keras.saving.deserialize_keras_object(config["backbone"])
+            config["backbone"] = keras.saving.deserialize_keras_object(
+                config["backbone"]
+            )
         return cls(**config)
 
 
@@ -502,7 +506,6 @@ def SegFormerB5(
             include_top=False,
             as_backbone=True,
             input_shape=input_shape,
-
             weights=backbone_weights,
             include_normalization=False,
         )

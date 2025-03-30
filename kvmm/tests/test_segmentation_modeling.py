@@ -1,7 +1,7 @@
 import json
 import os
 import tempfile
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Tuple, Type
 
 import keras
 import numpy as np

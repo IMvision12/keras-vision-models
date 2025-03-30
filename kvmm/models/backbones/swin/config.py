@@ -46,59 +46,59 @@ SWIN_MODEL_CONFIG = {
 SWIN_WEIGHTS_CONFIG = {
     "SwinTinyP4W7": {
         "ms_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_tiny_patch4_window7_224_ms_in1k.keras",
         },
         "ms_in22k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_tiny_patch4_window7_224_ms_in22k.keras",
         },
     },
     "SwinSmallP4W7": {
         "ms_in22k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_small_patch4_window7_224_ms_in22k_ft_in1k.keras",
         },
         "ms_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_small_patch4_window7_224_ms_in1k.keras",
         },
         "ms_in22k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_small_patch4_window7_224_ms_in22k.keras",
         },
     },
     "SwinBaseP4W7": {
         "ms_in22k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_base_patch4_window7_224_ms_in22k_ft_in1k.keras",
         },
         "ms_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_base_patch4_window7_224_ms_in1k.keras",
         },
         "ms_in22k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_base_patch4_window7_224_ms_in22k.keras",
         },
     },
     "SwinBaseP4W12": {
         "ms_in22k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_base_patch4_window12_384_ms_in22k_ft_in1k.keras",
         },
         "ms_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_base_patch4_window12_384_ms_in1k.keras",
         },
         "ms_in22k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_base_patch4_window12_384_ms_in22k.keras",
         },
     },
     "SwinLargeP4W7": {
         "ms_in22k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_large_patch4_window7_224_ms_in22k_ft_in1k.keras",
         },
         "ms_in22k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_large_patch4_window7_224_ms_in22k.keras",
         },
     },
     "SwinLargeP4W12": {
         "ms_in22k_ft_in1k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_large_patch4_window12_384_ms_in22k_ft_in1k.keras",
         },
         "ms_in22k": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/swin_large_patch4_window12_384_ms_in22k.keras",
         },
     },
 }

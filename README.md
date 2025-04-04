@@ -167,4 +167,29 @@ This project is based on [timm](https://github.com/huggingface/pytorch-image-mod
 - The [pytorch-image-models (timm)](https://github.com/huggingface/pytorch-image-models) project for pioneering many computer vision model implementations
 - All contributors to the original papers and architectures implemented in this library
 
-🚀 Happy Coding! 🎨📊🔍
+## Citing
+
+### BibTeX
+
+```bash
+@misc{rw2019timm,
+  author = {Ross Wightman},
+  title = {PyTorch Image Models},
+  year = {2019},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  doi = {10.5281/zenodo.4414861},
+  howpublished = {\url{https://github.com/rwightman/pytorch-image-models}}
+}
+```
+
+```bash
+@misc{gc2025kvmm,
+  author = {Gitesh Chawda},
+  title = {Keras Vision Models},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/IMvision12/keras-vision-models}}
+}
+```

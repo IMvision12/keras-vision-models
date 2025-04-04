@@ -145,7 +145,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     | mit | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `timm` |
     | mlp_mixer | [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601) | `timm` |
     | mobilenetv2 | [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381) | `timm` |
-    | mobilenetv3 | [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244) | `timm` |
+    | mobilenetv3 | [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244) | `keras` |
     | mobilevit | [MobileViT: Light-weight, General-purpose, and Mobile-friendly Vision Transformer](https://arxiv.org/abs/2110.02178) | `timm` |
     | mobilevitv2 | [Separable Self-attention for Mobile Vision Transformers](https://arxiv.org/abs/2206.02680) | `timm` |
     | pit | [Rethinking Spatial Dimensions of Vision Transformers](https://arxiv.org/abs/2103.16302) | `timm` |
@@ -159,7 +159,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     | swin | [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030) | `timm` |
     | vgg | [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556) | `timm` |
     | vit | [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929) | `timm` |
-    | xception | [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357) | `timm` |
+    | xception | [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357) | `keras` |
 
 <br>
 
@@ -171,13 +171,14 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 📜 License
 
-This project is based on [timm](https://github.com/huggingface/pytorch-image-models#licenses), so please review its license for details.
+This project **uses** [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license). These libraries were only used for transferring weights from PyTorch to Keras.
 
-- 🔖 kvmm Code : The code in this repository is available under the Apache 2.0 license.
+- 🔖 **kvmm Code**: The code in this repository is available under the **Apache 2.0 license**.
 
 ## 🌟 Credits
 
 - The [Keras](https://github.com/keras-team/keras) team for their powerful and user-friendly deep learning framework
+- The [Transformers](https://github.com/huggingface/transformers) library for its robust tools for loading and adapting pretrained models  
 - The [pytorch-image-models (timm)](https://github.com/huggingface/pytorch-image-models) project for pioneering many computer vision model implementations
 - All contributors to the original papers and architectures implemented in this library
 

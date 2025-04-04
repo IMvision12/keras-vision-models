@@ -15,7 +15,7 @@
 
 ## 📖 Introduction
 
-Keras Vision Models (KVMM) is a collection of vision models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including segmentation, object detection, vision-language modeling (VLMs), and classification. KVMM includes custom layers and backbone support, providing flexibility and efficiency across various vision applications.
+Keras Vision Models (KVMM) is a collection of vision models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including segmentation, object detection, vision-language modeling (VLMs), and classification. KVMM includes custom layers and backbone support, providing flexibility and efficiency across various vision applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡Installation 
 

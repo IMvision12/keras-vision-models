@@ -71,7 +71,21 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     """
     ```
 
-- 🏗️ BackBone Usage (Classification)
+- ⚙️ Layers : KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
+
+    ```python
+    import kvmm
+
+    # Example 1
+    layer = kvmm.layers.StochasticDepth(drop_path_rate=0.1)
+    output = layer(input_tensor, training=True)
+
+    # Example 2
+    window_partition = WindowPartition(window_size=7)
+    windowed_features = window_partition(features, height=28, width=28)
+    ```
+
+- 🏗️ Backbone Usage (Classification)
 
     ```python
     import kvmm

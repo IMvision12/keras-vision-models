@@ -1,14 +1,14 @@
 """
-Model Equivalence Verification Utility for PyTorch and Keras Models
+Model Equivalence Verification Utility for PyTorch, Keras, and HuggingFace Models
 
 This module provides functionality to verify the equivalence of neural network models
-between PyTorch and Keras frameworks, as well as between different Keras models.
-It performs comprehensive testing of model outputs, optional performance benchmarking,
-and ImageNet prediction verification.
+between PyTorch, Keras, and HuggingFace frameworks. It performs comprehensive testing
+of model outputs, optional performance benchmarking, and ImageNet prediction verification.
 
 Key Features:
 - Supports comparison between PyTorch and Keras models
 - Supports comparison between different Keras models
+- Supports comparison between HuggingFace and Keras models
 - Validates model outputs across different batch sizes
 - Performs optional performance benchmarking
 - Provides detailed test results and diagnostics
@@ -22,6 +22,7 @@ Dependencies:
 - tensorflow
 - torch
 - keras
+- transformers (optional, for HuggingFace comparisons)
 - typing
 - time
 - os
@@ -36,6 +37,16 @@ Example Usage:
         comparison_type="torch_to_keras",
         batch_sizes=[1, 4, 8],
         run_performance=True
+    )
+
+    # For HuggingFace to Keras comparison
+    results = verify_cls_model_equivalence(
+        model_a=hf_model,              # HuggingFace model
+        model_b=keras_model,           # Keras model
+        input_shape=(224, 224, 3),     # Input shape without batch dimension
+        output_specs={"num_classes": 1000, "hf_output_shape": [1000]},
+        comparison_type="hf_to_keras",
+        hf_model_config={"input_key": "pixel_values", "use_dict_input": True}
     )
 
     # For ImageNet prediction testing only
@@ -78,19 +89,21 @@ Return Value:
 
 Notes:
 - Input shapes should be specified without the batch dimension
-- The function handles necessary tensor transpositions for PyTorch inputs
+- The function handles necessary tensor transpositions for PyTorch and HuggingFace inputs
 - Performance testing runs multiple inferences to get average timing
 - Different random seeds are used for reproducibility
 - Custom tolerance levels can be set for numerical comparison
 - ImageNet testing includes predefined test cases with expected classes
 - For ImageNet testing only, model_a can be None
-- keras model should have preprocessing=True for ImageNet Testing
+- Keras model should have preprocessing=True for ImageNet Testing
+- For HuggingFace model comparisons, additional configuration can be provided via hf_model_config
+- The transformers library is required for HuggingFace model comparisons
 - Detailed error reporting includes maximum and mean differences when tests fail
 """
 
 import os
 from time import time
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import keras
 import numpy as np
@@ -99,9 +112,16 @@ import torch
 from keras import ops, utils
 from keras.src.applications.imagenet_utils import decode_predictions
 
+try:
+    import transformers
+
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+
 
 def verify_cls_model_equivalence(
-    model_a: Union[keras.Model, torch.nn.Module, None],
+    model_a: Union[keras.Model, torch.nn.Module, "transformers.PreTrainedModel", None],
     model_b: keras.Model,
     input_shape: Union[Tuple[int, ...], List[int]],
     output_specs: Dict[str, Any],
@@ -114,17 +134,18 @@ def verify_cls_model_equivalence(
     rtol: float = 1e-5,
     test_imagenet_image: bool = False,
     prediction_threshold: float = 0.80,
+    hf_model_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Verify equivalence between two models, with optional ImageNet testing.
     For ImageNet testing only, model_a can be None.
 
     Args:
-        model_a: Source model (PyTorch or Keras) or None if only testing ImageNet
+        model_a: Source model (PyTorch, Keras, or HuggingFace) or None if only testing ImageNet
         model_b: Target Keras model
         input_shape: Shape of input tensor (excluding batch dimension)
         output_specs: Dictionary containing output specifications
-        comparison_type: Type of comparison ('torch_to_keras' or 'keras_to_keras')
+        comparison_type: Type of comparison ('torch_to_keras', 'keras_to_keras', or 'hf_to_keras')
         batch_sizes: List of batch sizes to test
         run_performance: Whether to run performance comparison
         num_performance_runs: Number of runs for performance testing
@@ -133,17 +154,22 @@ def verify_cls_model_equivalence(
         rtol: Relative tolerance for numerical comparisons
         test_imagenet_image: Whether to run ImageNet testing only
         prediction_threshold: Confidence threshold for ImageNet predictions
+        hf_model_config: Configuration for HuggingFace model (vision model params)
 
     Returns:
         Dictionary containing test results
     """
     results = {}
 
-    # Skip model type validation if only running ImageNet tests
+    if comparison_type == "hf_to_keras" and not TRANSFORMERS_AVAILABLE:
+        raise ImportError(
+            "transformers library not found. Please install with 'pip install transformers'"
+        )
+
     if not test_imagenet_image:
-        if comparison_type not in ["torch_to_keras", "keras_to_keras"]:
+        if comparison_type not in ["torch_to_keras", "keras_to_keras", "hf_to_keras"]:
             raise ValueError(
-                "comparison_type must be either 'torch_to_keras' or 'keras_to_keras'"
+                "comparison_type must be either 'torch_to_keras', 'keras_to_keras', or 'hf_to_keras'"
             )
 
         if model_a is None:
@@ -161,6 +187,19 @@ def verify_cls_model_equivalence(
             raise ValueError(
                 "model_a must be a Keras model when comparison_type is 'keras_to_keras'"
             )
+        elif comparison_type == "hf_to_keras":
+            if not TRANSFORMERS_AVAILABLE or not isinstance(
+                model_a, transformers.PreTrainedModel
+            ):
+                raise ValueError(
+                    "model_a must be a HuggingFace transformers model when comparison_type is 'hf_to_keras'"
+                )
+
+            if hf_model_config is None:
+                hf_model_config = {}
+                print(
+                    "Warning: No HuggingFace config provided. Using default settings."
+                )
 
     if "num_classes" not in output_specs:
         raise ValueError("output_specs must contain 'num_classes' key")
@@ -259,7 +298,6 @@ def verify_cls_model_equivalence(
                     "error": str(e),
                 }
 
-        # Overall success requires all tests to pass
         imagenet_results["all_passed"] = all(
             result.get("success", False)
             for name, result in imagenet_results.items()
@@ -271,7 +309,11 @@ def verify_cls_model_equivalence(
     def get_expected_output_shape(batch_size: int) -> Tuple[int, ...]:
         if comparison_type == "torch_to_keras":
             return (batch_size, output_specs["num_classes"])
-        else:
+        elif comparison_type == "hf_to_keras":
+            if "hf_output_shape" in output_specs:
+                return (batch_size, *output_specs["hf_output_shape"])
+            return (batch_size, output_specs["num_classes"])
+        else:  # keras_to_keras
             sample_input = np.zeros([1] + list(input_shape), dtype="float32")
             output_shape = model_a(sample_input).shape[1:]
             return (batch_size, *output_shape)
@@ -288,6 +330,21 @@ def verify_cls_model_equivalence(
             ).astype("float32")
             torch_input = torch.from_numpy(np.transpose(keras_input, [0, 3, 1, 2]))
             return keras_input, torch_input
+        elif comparison_type == "hf_to_keras":
+            keras_input = np.random.uniform(
+                size=[batch_size, *input_shape_list]
+            ).astype("float32")
+
+            if len(input_shape_list) == 3:
+                hf_input = torch.from_numpy(np.transpose(keras_input, [0, 3, 1, 2]))
+            else:
+                hf_input = torch.from_numpy(keras_input)
+
+            input_key = hf_model_config.get("input_key", "pixel_values")
+            if hf_model_config.get("use_dict_input", True):
+                return keras_input, {input_key: hf_input}
+            else:
+                return keras_input, hf_input
         else:
             test_input = np.random.uniform(size=[batch_size] + input_shape_list).astype(
                 "float32"
@@ -295,14 +352,31 @@ def verify_cls_model_equivalence(
             return test_input, test_input
 
     def get_model_output(
-        model: Union[keras.Model, torch.nn.Module],
-        input_data: Union[np.ndarray, torch.Tensor],
+        model: Union[keras.Model, torch.nn.Module, "transformers.PreTrainedModel"],
+        input_data: Union[np.ndarray, torch.Tensor, Dict[str, torch.Tensor]],
         expected_shape: Tuple[int, ...],
+        is_hf_model: bool = False,
     ) -> np.ndarray:
         if isinstance(model, torch.nn.Module):
             model.eval()
             with torch.no_grad():
-                output = model(input_data)
+                if is_hf_model:
+                    if isinstance(input_data, dict):
+                        output = model(**input_data)
+                    else:
+                        output = model(input_data)
+
+                    if hasattr(output, "logits"):
+                        output = output.logits
+                    elif hasattr(output, "last_hidden_state"):
+                        output = output.last_hidden_state
+                    else:
+                        output = (
+                            output[0] if isinstance(output, (tuple, list)) else output
+                        )
+                else:
+                    output = model(input_data)
+
                 output = output.detach().cpu().numpy()
         else:
             output = keras.ops.convert_to_numpy(model(input_data, training=False))
@@ -322,7 +396,10 @@ def verify_cls_model_equivalence(
     def test_standard_input() -> bool:
         print("\n=== Testing Standard Input Shape ===")
         np.random.seed(seed)
-        torch.manual_seed(seed) if comparison_type == "torch_to_keras" else None
+        torch.manual_seed(seed) if comparison_type in [
+            "torch_to_keras",
+            "hf_to_keras",
+        ] else None
         tf.random.set_seed(seed)
         keras.utils.set_random_seed(seed)
 
@@ -330,10 +407,14 @@ def verify_cls_model_equivalence(
         expected_shape = get_expected_output_shape(batch_size=1)
 
         try:
+            is_hf_model = comparison_type == "hf_to_keras"
             output_a = get_model_output(
                 model_a,
-                input_b if comparison_type == "torch_to_keras" else input_a,
+                input_b
+                if comparison_type in ["torch_to_keras", "hf_to_keras"]
+                else input_a,
                 expected_shape,
+                is_hf_model=is_hf_model,
             )
             output_b = get_model_output(model_b, input_a, expected_shape)
 
@@ -366,7 +447,10 @@ def verify_cls_model_equivalence(
 
             print(f"\nTesting batch size: {batch_size}")
             np.random.seed(seed)
-            torch.manual_seed(seed) if comparison_type == "torch_to_keras" else None
+            torch.manual_seed(seed) if comparison_type in [
+                "torch_to_keras",
+                "hf_to_keras",
+            ] else None
             tf.random.set_seed(seed)
             keras.utils.set_random_seed(seed)
 
@@ -374,10 +458,14 @@ def verify_cls_model_equivalence(
             expected_shape = get_expected_output_shape(batch_size)
 
             try:
+                is_hf_model = comparison_type == "hf_to_keras"
                 output_a = get_model_output(
                     model_a,
-                    input_b if comparison_type == "torch_to_keras" else input_a,
+                    input_b
+                    if comparison_type in ["torch_to_keras", "hf_to_keras"]
+                    else input_a,
                     expected_shape,
+                    is_hf_model=is_hf_model,
                 )
                 output_b = get_model_output(model_b, input_a, expected_shape)
 
@@ -405,16 +493,26 @@ def verify_cls_model_equivalence(
         print("\n=== Testing Performance ===")
         input_a, input_b = prepare_input(batch_sizes[0])
 
-        def run_inference(model, input_data, is_torch: bool = False):
+        def run_inference(
+            model, input_data, is_torch: bool = False, is_hf: bool = False
+        ):
             if is_torch:
                 model.eval()
                 with torch.no_grad():
-                    _ = model(input_data)
-                    times = []
-                    for _ in range(num_performance_runs):
-                        start = time()
+                    if is_hf and isinstance(input_data, dict):
+                        _ = model(**input_data)
+                        times = []
+                        for _ in range(num_performance_runs):
+                            start = time()
+                            _ = model(**input_data)
+                            times.append(time() - start)
+                    else:
                         _ = model(input_data)
-                        times.append(time() - start)
+                        times = []
+                        for _ in range(num_performance_runs):
+                            start = time()
+                            _ = model(input_data)
+                            times.append(time() - start)
             else:
                 _ = model(input_data, training=False)
                 times = []
@@ -425,10 +523,14 @@ def verify_cls_model_equivalence(
 
             return np.mean(times)
 
+        is_hf = comparison_type == "hf_to_keras"
         time_a = run_inference(
             model_a,
-            input_b if comparison_type == "torch_to_keras" else input_a,
-            is_torch=(comparison_type == "torch_to_keras"),
+            input_b
+            if comparison_type in ["torch_to_keras", "hf_to_keras"]
+            else input_a,
+            is_torch=comparison_type in ["torch_to_keras", "hf_to_keras"],
+            is_hf=is_hf,
         )
         time_b = run_inference(model_b, input_a, is_torch=False)
 

@@ -14,25 +14,38 @@ from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
 
 
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
-    """Creates a MLP block with spatial mixing using depthwise convolution.
-
-    Args:
-        x: Input tensor of shape (batch_size, H*W, channels)
-        H: Height of the feature map for spatial operations
-        W: Width of the feature map for spatial operations
-        channels: Number of output channels
-        mid_channels: Number of channels in the expanded intermediate representation
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        name_prefix: String prefix used for naming the layers
-
-    Returns:
-        Tensor of shape (batch_size, H*W, channels) containing the processed features
-
     """
-    x = layers.Dense(mid_channels, name=f"{name_prefix}_dense_1")(x)
+    Implements an MLP block with a spatial depth-wise convolution in between.
+    
+    This function creates a block that processes the input tensor through a dense layer,
+    reshapes it to apply a depth-wise convolution to capture spatial information,
+    applies GELU activation, and projects it back through another dense layer.
+    
+    Args:
+        x: Input tensor of shape [batch_size, H*W, input_channels]
+        H: Height of the feature map
+        W: Width of the feature map
+        channels: Number of output channels for the final projection
+        mid_channels: Number of channels for the intermediate dense layer
+        data_format: Data format for the convolution ('channels_last' or 'channels_first')
+        name_prefix: Prefix string for naming the layers
+        
+    Returns:
+        Processed tensor of shape [batch_size, H*W, channels]
+        
+    Note:
+        The function assumes input in a sequence format (H*W, C) and internally
+        converts to spatial format (H, W, C) for the depth-wise convolution.
+    """
+
+    x = layers.Dense(
+        mid_channels,
+        name=f"{name_prefix}_dense_1"
+    )(x)
+
     input_shape = ops.shape(x)
     x = layers.Reshape((H, W, input_shape[-1]))(x)
+
     x = layers.DepthwiseConv2D(
         kernel_size=3,
         strides=1,
@@ -40,11 +53,16 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
         data_format=data_format,
         name=f"{name_prefix}_dwconv",
     )(x)
+
     x = layers.Reshape((H * W, input_shape[-1]))(x)
     x = layers.Activation("gelu")(x)
-    x = layers.Dense(channels, name=f"{name_prefix}_dense_2")(x)
-    return x
 
+    x = layers.Dense(
+        channels,
+        name=f"{name_prefix}_dense_2"
+    )(x)
+
+    return x
 
 def overlap_patch_embedding_block(
     x,
@@ -55,26 +73,36 @@ def overlap_patch_embedding_block(
     stride=4,
     stage_idx=1,
 ):
-    """Creates overlapping patches from the input and embeds them into a lower-dimensional space.
-
-    Args:
-        x: Input tensor of shape (batch_size, height, width, channels)
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        out_channels: Number of output channels for the embedding
-        patch_size: Size of the patch window for extracting overlapping patches
-        stride: Stride length between patches
-        stage_idx: Index used for naming the layers in multi-stage architectures
-
-    Returns:
-        Tuple containing:
-        - Embedded patches tensor of shape (batch_size, H*W, out_channels)
-        - H: Height of the feature map after patching
-        - W: Width of the feature map after patching
-
     """
+    Creates an overlapping patch embedding block for vision transformers/MLP-mixers.
+    
+    This function implements the initial patch embedding stage commonly used in vision
+    transformer architectures. It extracts overlapping patches from the input image,
+    projects them to the desired dimension, and reshapes the output for subsequent
+    transformer/MLP blocks.
+    
+    Args:
+        x: Input tensor, typically an image with shape [batch_size, H, W, C]
+        channels_axis: Axis index for the channels dimension for normalization
+        data_format: Data format for the convolution ('channels_last' or 'channels_first')
+        out_channels: Number of output channels for the projection (default: 32)
+        patch_size: Size of the patch for convolution kernel (default: 7)
+        stride: Stride of the convolution (default: 4)
+        stage_idx: Index of the stage in the network, used for naming (default: 1)
+        
+    Returns:
+        tuple: (
+            reshaped tensor of shape [batch_size, H*W, out_channels],
+            output feature map height H,
+            output feature map width W
+        )
+        
+    Note:
+        The function uses PyTorch-style 0-indexed naming convention internally
+        while maintaining a 1-indexed interface.
+    """
+    pytorch_stage_idx = stage_idx - 1
+
     x = keras.layers.ZeroPadding2D(padding=(patch_size // 2, patch_size // 2))(x)
     x = layers.Conv2D(
         filters=out_channels,
@@ -82,7 +110,7 @@ def overlap_patch_embedding_block(
         strides=stride,
         padding="valid",
         data_format=data_format,
-        name=f"overlap_patch_embed{stage_idx}_conv",
+        name=f"patch_embed_{pytorch_stage_idx}_conv_proj",
     )(x)
     shape = ops.shape(x)
     H, W = shape[1], shape[2]
@@ -90,9 +118,10 @@ def overlap_patch_embedding_block(
     x = layers.LayerNormalization(
         axis=channels_axis,
         epsilon=1e-5,
-        name=f"overlap_patch_embed{stage_idx}_layernorm",
+        name=f"patch_embed_{pytorch_stage_idx}_layernorm",
     )(x)
     return x, H, W
+
 
 
 def hierarchical_transformer_encoder_block(
@@ -109,45 +138,62 @@ def hierarchical_transformer_encoder_block(
     sr_ratio=1,
     drop_prob=0.0,
 ):
-    """Creates a Hierarchical Transformer Encoder block with efficient self-attention and MLP layers.
-
-    Args:
-        x: Input tensor of shape (batch_size, H*W, project_dim)
-        H: Height of the feature map for spatial operations
-        W: Width of the feature map for spatial operations
-        project_dim: Dimension of the projection space for attention and output
-        num_heads: Number of attention heads
-        stage_idx: Index of the current stage in the network
-        block_idx: Index of the current block within the stage
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        data_format: string, either 'channels_last' or 'channels_first',
-            specifies the input data format.
-        qkv_bias: Boolean indicating whether to use bias in query, key, value projections
-        sr_ratio: Spatial reduction ratio for efficient attention
-        drop_prob: Probability for stochastic depth dropout
-
-    Returns:
-        Tensor of shape (batch_size, H*W, project_dim) containing the processed features
-        after self-attention and MLP operations with residual connections
     """
-    block_prefix = f"block{stage_idx}_{block_idx}"
-
-    attn_layer = EfficientMultiheadSelfAttention(
-        project_dim, sr_ratio, block_prefix, qkv_bias, num_heads
-    )
+    Implements a hierarchical transformer encoder block with efficient self-attention.
+    
+    This function creates a transformer encoder block that combines multi-head self-attention
+    with an MLP block containing spatial depth-wise convolution. It follows the typical
+    transformer architecture with residual connections, normalization, and optional
+    stochastic depth for regularization.
+    
+    Args:
+        x: Input tensor of shape [batch_size, H*W, project_dim]
+        H: Height of the feature map
+        W: Width of the feature map
+        project_dim: Dimension of the token embeddings
+        num_heads: Number of attention heads
+        stage_idx: Index of the hierarchical stage (1-indexed)
+        block_idx: Index of the block within the stage
+        channels_axis: Axis index for the channels dimension for normalization
+        data_format: Data format for the convolution operations ('channels_last' or 'channels_first')
+        qkv_bias: Whether to include bias in query, key, value projections (default: False)
+        sr_ratio: Spatial reduction ratio for efficient attention (default: 1)
+        drop_prob: Drop path probability for stochastic depth regularization (default: 0.0)
+        
+    Returns:
+        Processed tensor of shape [batch_size, H*W, project_dim]
+        
+    Note:
+        The function uses PyTorch-style 0-indexed naming convention internally
+        while maintaining a 1-indexed interface for stage_idx.
+    """
+    pytorch_stage_idx = stage_idx - 1
     drop_path_layer = StochasticDepth(drop_prob)
 
     norm1 = layers.LayerNormalization(
-        axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm1"
+        axis=channels_axis,
+        epsilon=1e-6,
+        name=f"block_{pytorch_stage_idx}.{block_idx}_layernorm_1"
     )(x)
+
+    attn_layer = EfficientMultiheadSelfAttention(
+        project_dim,
+        sr_ratio,
+        block_prefix=f"block_{pytorch_stage_idx}_{block_idx}",
+        qkv_bias=qkv_bias,
+        num_heads=num_heads
+    )
+
     attn_out = attn_layer(norm1)
     attn_out = drop_path_layer(attn_out)
     add1 = layers.Add()([x, attn_out])
 
     norm2 = layers.LayerNormalization(
-        axis=channels_axis, epsilon=1e-6, name=f"{block_prefix}_layernorm2"
+        axis=channels_axis,
+        epsilon=1e-6,
+        name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_2"
     )(add1)
+
     mlp_out = mlp_block(
         norm2,
         H,
@@ -155,8 +201,9 @@ def hierarchical_transformer_encoder_block(
         channels=project_dim,
         mid_channels=int(project_dim * 4),
         data_format=data_format,
-        name_prefix=f"{block_prefix}_mlp",
+        name_prefix=f"block_{pytorch_stage_idx}_{block_idx}_mlp",
     )
+
     mlp_out = drop_path_layer(mlp_out)
     out = layers.Add()([add1, mlp_out])
 
@@ -337,7 +384,7 @@ class MixTransformer(keras.Model):
                 cur_block += 1
 
             x = layers.LayerNormalization(
-                name=f"layernorm{i + 1}", axis=channels_axis, epsilon=1e-5
+                name=f"final_layernorm_{i}", axis=channels_axis, epsilon=1e-5
             )(x)
             x = layers.Reshape((H, W, embed_dims[i]))(x)
             features.append(x)

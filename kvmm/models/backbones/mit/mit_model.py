@@ -330,13 +330,13 @@ class MixTransformer(keras.Model):
             else:
                 img_input = input_tensor
 
-        self.drop_path_rate = 0.1
-        self.num_stages = 4
-        self.blockwise_num_heads = [1, 2, 5, 8]
-        self.blockwise_sr_ratios = [8, 4, 2, 1]
+        drop_path_rate = 0.1
+        num_stages = 4
+        blockwise_num_heads = [1, 2, 5, 8]
+        blockwise_sr_ratios = [8, 4, 2, 1]
 
         total_blocks = sum(depths)
-        dpr = [x.item() for x in np.linspace(0.0, self.drop_path_rate, total_blocks)]
+        dpr = [x.item() for x in np.linspace(0.0, drop_path_rate, total_blocks)]
 
         x = img_input
         features = []
@@ -349,7 +349,7 @@ class MixTransformer(keras.Model):
             else x
         )
 
-        for i in range(self.num_stages):
+        for i in range(num_stages):
             x, H, W = overlap_patch_embedding_block(
                 x,
                 out_channels=embed_dims[i],
@@ -366,10 +366,10 @@ class MixTransformer(keras.Model):
                     H,
                     W,
                     project_dim=embed_dims[i],
-                    num_heads=self.blockwise_num_heads[i],
+                    num_heads=blockwise_num_heads[i],
                     stage_idx=i + 1,
                     block_idx=j,
-                    sr_ratio=self.blockwise_sr_ratios[i],
+                    sr_ratio=blockwise_sr_ratios[i],
                     drop_prob=dpr[cur_block],
                     qkv_bias=True,
                     channels_axis=channels_axis,

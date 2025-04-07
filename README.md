@@ -171,7 +171,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 📜 License
 
-This project **uses** [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license). These libraries were only used for transferring weights from PyTorch to Keras.
+This project **uses** [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license). These libraries were used for porting weights from PyTorch to Keras.
 
 - 🔖 **kvmm Code**: The code in this repository is available under the **Apache 2.0 license**.
 

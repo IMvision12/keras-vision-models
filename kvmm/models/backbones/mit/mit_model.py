@@ -167,7 +167,7 @@ def hierarchical_transformer_encoder_block(
     norm1 = layers.LayerNormalization(
         axis=channels_axis,
         epsilon=1e-6,
-        name=f"block_{pytorch_stage_idx}.{block_idx}_layernorm_1",
+        name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_1",
     )(x)
 
     attn_layer = EfficientMultiheadSelfAttention(

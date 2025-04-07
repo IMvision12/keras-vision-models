@@ -33,7 +33,10 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 🛠️ Usage
 
-- 🔎 List All Models : Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
+<details>
+  <summary>🔎 List All Models</summary>
+
+Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
 
     ```python
     import kvmm
@@ -53,8 +56,9 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     ...
     """
     ```
-
-- 🔎 List Specific Model Variant:
+</details>
+<details>
+  <summary>🔎 List Specific Model Variant</summary>
 
     ```python
     import kvmm
@@ -71,7 +75,11 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     """
     ```
 
-- ⚙️ Layers : KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
+</details>
+<details>
+  <summary>⚙️ Layers</summary>
+
+KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
 
     ```python
     import kvmm
@@ -85,7 +93,9 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     windowed_features = window_partition(features, height=28, width=28)
     ```
 
-- 🏗️ Backbone Usage (Classification)
+</details>
+<details>
+  <summary>🏗️ Backbone Usage (Classification)</summary>
 
     ```python
     import kvmm
@@ -118,7 +128,9 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     """    
     ```
 
-- Segmentation
+</details>
+<details>
+  <summary>Segmentation</summary>
 
     ### 🛠️ Usage
     ```python
@@ -148,8 +160,15 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
     ```
 
-- Object Detection 🚧
-- VLMS 🚧
+</details>
+<details>
+  <summary>Object Detection 🚧</summary>
+Work in progress.
+</details>
+<details>
+  <summary>VLMS 🚧</summary>
+Work in progress.
+</details>
 
 ## 📑 Models
 

@@ -142,7 +142,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     | inception_resnetv2 | [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) | `timm` |
     | inceptionv3 | [Rethinking the Inception Architecture for Computer Vision](https://arxiv.org/abs/1512.00567) | `timm` |
     | inceptionv4 | [Inception-v4, Inception-ResNet and the Impact of Residual Connections on Learning](https://arxiv.org/abs/1602.07261) | `timm` |
-    | mit | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `timm` |
+    | mit | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers` |
     | mlp_mixer | [MLP-Mixer: An all-MLP Architecture for Vision](https://arxiv.org/abs/2105.01601) | `timm` |
     | mobilenetv2 | [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381) | `timm` |
     | mobilenetv3 | [Searching for MobileNetV3](https://arxiv.org/abs/1905.02244) | `keras` |
@@ -171,7 +171,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 📜 License
 
-This project **uses** [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license). These libraries were only used for transferring weights from PyTorch to Keras.
+This project **uses** [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license). These libraries were used for porting weights from PyTorch to Keras.
 
 - 🔖 **kvmm Code**: The code in this repository is available under the **Apache 2.0 license**.
 

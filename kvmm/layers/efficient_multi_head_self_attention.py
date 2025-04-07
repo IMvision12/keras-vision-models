@@ -13,7 +13,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
 
     Key Features:
         - Spatial reduction using Conv2D to reduce key/value sequence length
-        - Combined key-value projection to reduce parameters
+        - Multi-head attention for learning different feature relationships
         - Adaptive to different input resolutions
         - Computationally efficient for dense vision tasks
 
@@ -22,14 +22,15 @@ class EfficientMultiheadSelfAttention(layers.Layer):
             network stages for hierarchical feature learning
         sr_ratio (int): Spatial reduction ratio for keys and values. Lower values
             preserve more spatial detail while higher values improve efficiency
-        block_prefix (str): Prefix for naming layer components
+        block_prefix (str, optional): Prefix for naming layer components. Defaults to
+            "segformer.encoder.block.0.0"
         qkv_bias (bool, optional): If True, adds learnable bias terms to the query, key,
             and value projections. Defaults to False
         num_heads (int, optional): Number of attention heads. Defaults to 8
-        proj_drop (float, optional): Dropout rate applied to the output projection.
-            Provides additional regularization. Defaults to 0.0
         attn_drop (float, optional): Dropout rate applied to attention weights. Helps
-            prevent overfitting. Defaults to 0.0
+            prevent overfitting. Defaults to 0.1
+        proj_drop (float, optional): Dropout rate applied to the output projection.
+            Provides additional regularization. Defaults to 0.1
         epsilon (float, optional): Small constant used in normalization operations for
             numerical stability. A higher value reduces precision but increases stability.
             Defaults to 1e-6
@@ -37,8 +38,6 @@ class EfficientMultiheadSelfAttention(layers.Layer):
 
     Input shape:
         - x: (batch_size, H*W, channels) - Sequence of flattened image features
-        - H: Original feature map height
-        - W: Original feature map width
 
     Output shape:
         - (batch_size, H*W, project_dim)
@@ -72,32 +71,35 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.num_heads = num_heads
         self.scale = (project_dim // num_heads) ** -0.5
         self.sr_ratio = sr_ratio
-        self.block_prefix = (
-            block_prefix if block_prefix is not None else "efficient_mhsa"
-        )
+        self.block_prefix = block_prefix if block_prefix is not None else "block"
         self.epsilon = epsilon
         self.data_format = keras.config.image_data_format()
         self.channels_axis = -1 if self.data_format == "channels_last" else 1
-        prefix = f"{self.block_prefix}_"
 
         self.q = layers.Dense(
             project_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
-            name=prefix + "attn_q",
+            name=f"{self.block_prefix}_attn_q",
         )
-        self.kv = layers.Dense(
-            project_dim * 2,
+        self.k = layers.Dense(
+            project_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
-            name=prefix + "attn_kv",
+            name=f"{self.block_prefix}_attn_k",
+        )
+        self.v = layers.Dense(
+            project_dim,
+            use_bias=qkv_bias,
+            dtype=self.dtype_policy,
+            name=f"{self.block_prefix}_attn_v",
         )
         self.attn_drop = layers.Dropout(attn_drop, dtype=self.dtype_policy)
         self.proj = layers.Dense(
             project_dim,
             use_bias=qkv_bias,
             dtype=self.dtype_policy,
-            name=prefix + "attn_proj",
+            name=f"{self.block_prefix}_attn_proj",
         )
         self.proj_drop = layers.Dropout(proj_drop, dtype=self.dtype_policy)
 
@@ -109,13 +111,13 @@ class EfficientMultiheadSelfAttention(layers.Layer):
                 padding="same",
                 data_format=self.data_format,
                 dtype=self.dtype_policy,
-                name=prefix + "attn_sr",
+                name=f"{self.block_prefix}_attn_sr",
             )
             self.norm = layers.LayerNormalization(
                 axis=self.channels_axis,
                 epsilon=self.epsilon,
                 dtype=self.dtype_policy,
-                name=prefix + "attn_norm",
+                name=f"{self.block_prefix}_attn_norm",
             )
 
     def build(self, input_shape):
@@ -136,7 +138,8 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         seq_length = input_shape[1]
 
         self.q.build(input_shape)
-        self.kv.build(input_shape)
+        self.k.build(input_shape)
+        self.v.build(input_shape)
         self.proj.build(input_shape)
         self.proj_drop.build(input_shape)
 
@@ -171,13 +174,16 @@ class EfficientMultiheadSelfAttention(layers.Layer):
             x_ = ops.reshape(ops.transpose(x_, (0, 3, 1, 2)), (B, C, -1))
             x_ = ops.transpose(x_, (0, 2, 1))
             x_ = self.norm(x_)
-            kv = self.kv(x_)
+            k = self.k(x_)
+            v = self.v(x_)
         else:
-            kv = self.kv(x)
+            k = self.k(x)
+            v = self.v(x)
 
-        kv = ops.reshape(kv, (B, -1, 2, self.num_heads, C // self.num_heads))
-        kv = ops.transpose(kv, (2, 0, 3, 1, 4))
-        k, v = kv[0], kv[1]
+        k = ops.reshape(k, (B, -1, self.num_heads, C // self.num_heads))
+        v = ops.reshape(v, (B, -1, self.num_heads, C // self.num_heads))
+        k = ops.transpose(k, (0, 2, 1, 3))
+        v = ops.transpose(v, (0, 2, 1, 3))
 
         attn = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
         attn = ops.softmax(attn, axis=-1)

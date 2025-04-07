@@ -33,124 +33,142 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 🛠️ Usage
 
-- 🔎 List All Models
+<details>
+<summary><b>🔎 Listing Available Models</b></summary>
+
 Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
+    
+```python
+import kvmm
+print(kvmm.utils.list_models())
 
-    ```python
-    import kvmm
-    print(kvmm.utils.list_models())
+## Output:
+"""
+CaiTM36 : fb_dist_in1k_384
+CaiTM48 : fb_dist_in1k_448
+CaiTS24 : fb_dist_in1k_224, fb_dist_in1k_384
+...
+ConvMixer1024D20 : in1k
+ConvMixer1536D20 : in1k
+...
+ConvNeXtAtto : d2_in1k
+ConvNeXtBase : fb_in1k, fb_in22k, fb_in22k_ft_in1k, fb_in22k_ft_in1k_384
+...
+"""
+```
+</details>
 
-    ## Output:
-    """
-    CaiTM36 : fb_dist_in1k_384
-    CaiTM48 : fb_dist_in1k_448
-    CaiTS24 : fb_dist_in1k_224, fb_dist_in1k_384
-    ...
-    ConvMixer1024D20 : in1k
-    ConvMixer1536D20 : in1k
-    ...
-    ConvNeXtAtto : d2_in1k
-    ConvNeXtBase : fb_in1k, fb_in22k, fb_in22k_ft_in1k, fb_in22k_ft_in1k_384
-    ...
-    """
-    ```
+<details>
+<summary><b>🔎 List Specific Model Variant</b></summary>
 
-- 🔎 List Specific Model Variant:
+```python
+import kvmm
+print(kvmm.utils.list_models("swin"))
 
-    ```python
-    import kvmm
-    print(kvmm.utils.list_models("swin"))
+# Output:
+"""
+SwinBaseP4W12 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
+SwinBaseP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
+SwinLargeP4W12 : ms_in22k, ms_in22k_ft_in1k
+SwinLargeP4W7 : ms_in22k, ms_in22k_ft_in1k
+SwinSmallP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
+SwinTinyP4W7 : ms_in1k, ms_in22k
+"""
+```
+</details>
 
-    # Output:
-    """
-    SwinBaseP4W12 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
-    SwinBaseP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
-    SwinLargeP4W12 : ms_in22k, ms_in22k_ft_in1k
-    SwinLargeP4W7 : ms_in22k, ms_in22k_ft_in1k
-    SwinSmallP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
-    SwinTinyP4W7 : ms_in1k, ms_in22k
-    """
-    ```
+<details>
+<summary><b>⚙️ Layers </b></summary>
+KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
 
-- ⚙️ Layers : KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
+```python
+import kvmm
 
-    ```python
-    import kvmm
+# Example 1
+layer = kvmm.layers.StochasticDepth(drop_path_rate=0.1)
+output = layer(input_tensor, training=True)
 
-    # Example 1
-    layer = kvmm.layers.StochasticDepth(drop_path_rate=0.1)
-    output = layer(input_tensor, training=True)
+# Example 2
+window_partition = WindowPartition(window_size=7)
+windowed_features = window_partition(features, height=28, width=28)
+```
 
-    # Example 2
-    window_partition = WindowPartition(window_size=7)
-    windowed_features = window_partition(features, height=28, width=28)
-    ```
+</details>
 
-- 🏗️ Backbone Usage (Classification)
+<details>
+<summary><b>🏗️ Backbone Usage (Classification) </b></summary>
 
-    ```python
-    import kvmm
-    import numpy as np
+```python
+import kvmm
+import numpy as np
 
-    # default configuration
-    model = kvmm.models.vit.ViTTiny16()
+# default configuration
+model = kvmm.models.vit.ViTTiny16()
 
-    # For Fine-Tuning (default weight)
-    model = kvmm.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3))
-    # Custom Weight
-    model = kvmm.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3), weights="augreg_in21k_224")
+# For Fine-Tuning (default weight)
+model = kvmm.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3))
+# Custom Weight
+model = kvmm.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3), weights="augreg_in21k_224")
 
-    # Backbone Support
-    model = kvmm.models.vit.ViTTiny16(include_top=False, as_backbone=True, input_shape=(224,224,3), weights="augreg_in21k_224")
-    random_input = np.random.rand(1, 224, 224, 3).astype(np.float32)
-    features = model(random_input)
-    print(f"Number of feature maps: {len(features)}")
-    for i, feature in enumerate(features):
-        print(f"Feature {i} shape: {feature.shape}")
+# Backbone Support
+model = kvmm.models.vit.ViTTiny16(include_top=False, as_backbone=True, input_shape=(224,224,3), weights="augreg_in21k_224")
+random_input = np.random.rand(1, 224, 224, 3).astype(np.float32)
+features = model(random_input)
+print(f"Number of feature maps: {len(features)}")
+for i, feature in enumerate(features):
+    print(f"Feature {i} shape: {feature.shape}")
 
-    """
-    Output:
+"""
+Output:
 
-    Number of feature maps: 13
-    Feature 0 shape: (1, 197, 192)
-    Feature 1 shape: (1, 197, 192)
-    Feature 2 shape: (1, 197, 192)
-    ...
-    """    
-    ```
+Number of feature maps: 13
+Feature 0 shape: (1, 197, 192)
+Feature 1 shape: (1, 197, 192)
+Feature 2 shape: (1, 197, 192)
+...
+"""    
+```
 
-- Segmentation
+</details>
 
-    ### 🛠️ Usage
-    ```python
-    import kvmm
+<details>
+<summary><b>🧩 Segmentation </b></summary>
 
-    # Pre-Trained weights (cityscapes or ade20kor mit(in1k))
-    # ade20k and cityscapes can be used for fine-tuning by giving custom `num_classes`
-    # If `num_classes` is not specified by default for ade20k it will be 150 and for cityscapes it will be 19
-    model = kvmm.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
-    model = kvmm.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
+#### 🛠️ Basic Usage
+ 
+```python
+import kvmm
 
-    # Fine-Tune using `MiT` backbone (This will load `in1k` weights)
-    model = kvmm.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
-    ```
+# Pre-Trained weights (cityscapes or ade20kor mit(in1k))
+# ade20k and cityscapes can be used for fine-tuning by giving custom `num_classes`
+# If `num_classes` is not specified by default for ade20k it will be 150 and for cityscapes it will be 19
+model = kvmm.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
+model = kvmm.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
 
-    ### 🚀 Custom Backbone Suppport 
-    ```python
-    import kvmm
+# Fine-Tune using `MiT` backbone (This will load `in1k` weights)
+model = kvmm.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
+```
 
-    # With no backbone weights
-    backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
-    segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+#### 🚀 Custom Backbone Support
 
-    # With backbone weights
-    import kvmm
-    backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
-    segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
-    ```
+```python
+import kvmm
 
-- Object Detection 🚧
-- VLMS 🚧
+# With no backbone weights
+backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
+segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+
+# With backbone weights
+import kvmm
+backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
+segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+```
+</details>
+
+<details>
+<summary><b> Object Detection 🚧 </b></summary></details>
+<details>
+<summary><b>VLMS 🚧 </b></summary></details>
 
 ## 📑 Models
 

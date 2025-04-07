@@ -72,7 +72,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.scale = (project_dim // num_heads) ** -0.5
         self.sr_ratio = sr_ratio
         self.block_prefix = (
-            block_prefix if block_prefix is not None else "segformer.encoder.block.0.0"
+            block_prefix if block_prefix is not None else "block"
         )
         self.epsilon = epsilon
         self.data_format = keras.config.image_data_format()

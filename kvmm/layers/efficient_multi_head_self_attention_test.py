@@ -51,7 +51,8 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         assert layer.attn_drop.rate == 0.1
         assert layer.proj_drop.rate == 0.1
         assert layer.q.use_bias
-        assert layer.kv.use_bias
+        assert layer.k.use_bias
+        assert layer.v.use_bias
 
     def test_invalid_project_dim(self):
         with self.assertRaises(AssertionError):
@@ -68,13 +69,16 @@ class TestEfficientMultiheadSelfAttention(TestCase):
         )
         layer.build(self.input_shape)
         assert hasattr(layer, "q")
-        assert hasattr(layer, "kv")
+        assert hasattr(layer, "k")
+        assert hasattr(layer, "v")
         assert hasattr(layer, "proj")
         assert layer.q.kernel.shape == (self.project_dim, self.project_dim)
-        assert layer.kv.kernel.shape == (self.project_dim, self.project_dim * 2)
+        assert layer.k.kernel.shape == (self.project_dim, self.project_dim)
+        assert layer.v.kernel.shape == (self.project_dim, self.project_dim)
         assert layer.proj.kernel.shape == (self.project_dim, self.project_dim)
         assert layer.q.bias is not None
-        assert layer.kv.bias is not None
+        assert layer.k.bias is not None
+        assert layer.v.bias is not None
 
     def test_call_no_reduction(self):
         layer = EfficientMultiheadSelfAttention(
@@ -171,13 +175,16 @@ class TestEfficientMultiheadSelfAttention(TestCase):
             assert ops.shape(outputs) == self.input_shape
 
             assert layer.q.use_bias == use_bias
-            assert layer.kv.use_bias == use_bias
+            assert layer.k.use_bias == use_bias
+            assert layer.v.use_bias == use_bias
             if use_bias:
                 assert layer.q.bias is not None
-                assert layer.kv.bias is not None
+                assert layer.k.bias is not None
+                assert layer.v.bias is not None
             else:
                 assert layer.q.bias is None
-                assert layer.kv.bias is None
+                assert layer.k.bias is None
+                assert layer.v.bias is None
 
     def test_attention_dropout(self):
         for attn_drop_rate in [0.0, 0.3, 0.7]:

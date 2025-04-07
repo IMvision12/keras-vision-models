@@ -58,48 +58,48 @@ def segformer_head(
 class SegFormer(keras.Model):
     """
     SegFormer model for semantic segmentation tasks.
-    
+
     SegFormer is a semantic segmentation architecture that combines a hierarchical
     Transformer-based encoder (MiT) with a lightweight all-MLP decoder. This class
     implements the complete SegFormer model as described in the paper:
     "SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers"
     (Xie et al., 2021).
-    
+
     The model consists of:
     1. A backbone network (typically MiT) that extracts multi-scale features
     2. A lightweight all-MLP decoder that aggregates the multi-scale features
     3. A segmentation head that produces the final pixel-wise class predictions
-    
+
     Args:
         backbone (keras.Model): A backbone model that outputs a list of feature maps
             at different scales. The backbone must be initialized with `as_backbone=True`.
-        
+
         num_classes (int): Number of output classes for segmentation.
-        
+
         embed_dim (int, optional): Embedding dimension for the MLP decoder.
             Default: 256
-        
+
         dropout_rate (float, optional): Dropout rate applied before the final
             classification layer. Must be between 0 and 1.
             Default: 0.1
-        
+
         input_shape (tuple, optional): The input shape in the format (height, width, channels).
             Only used if `input_tensor` is not provided.
             Default: None
-        
+
         input_tensor (Tensor, optional): Optional input tensor to use instead of creating
-            a new input layer. This is useful when connecting this model as part of a 
+            a new input layer. This is useful when connecting this model as part of a
             larger model.
             Default: None
-        
+
         name (str, optional): Name for the model.
             Default: "SegFormer"
-        
+
         **kwargs: Additional keyword arguments passed to the keras.Model parent class.
-    
+
     Returns:
         A Keras model instance with the SegFormer architecture.
-    
+
     Example:
         ```python
         # Create a MiT backbone
@@ -108,7 +108,7 @@ class SegFormer(keras.Model):
             input_shape=(512, 512, 3),
             as_backbone=True,
         )
-        
+
         # Create a SegFormer model with the backbone
         model = SegFormer(
             backbone=backbone,
@@ -116,13 +116,14 @@ class SegFormer(keras.Model):
             embed_dim=256,
         )
         ```
-    
+
     Note:
         The backbone is expected to return a list of feature tensors at different
         scales. The SegFormer architecture is specifically designed to work well
         with the Mix Transformer (MiT) backbone, but can be used with other
         backbones that return similar multi-scale features.
     """
+
     def __init__(
         self,
         backbone,
@@ -208,31 +209,31 @@ def _create_segformer_model(
 ):
     """
     Creates a SegFormer model with the specified variant and configuration.
-    
+
     This helper function handles the creation of SegFormer semantic segmentation models,
     including proper backbone initialization and weight loading.
-    
+
     Args:
         variant (str): The SegFormer variant to use (e.g., "SegFormerB0", "SegFormerB5").
             This determines the architecture configuration.
-        
+
         backbone (keras.Model, optional): A pre-configured backbone model to use.
             If provided, must be initialized with `as_backbone=True`.
             If None, a MiT backbone corresponding to the variant will be created.
             Default: None
-        
+
         num_classes (int, optional): Number of output classes for segmentation.
             Required unless using dataset-specific weights ("cityscapes" or "ade20k").
             Default: None (will be set based on weights if using dataset-specific weights)
-        
+
         input_shape (tuple, optional): Input shape in format (height, width, channels).
             Only used when creating a new backbone.
             Default: (512, 512, 3)
-        
+
         input_tensor (Tensor, optional): Optional input tensor to use instead of creating
             a new input layer. Useful for connecting this model to other models.
             Default: None
-        
+
         weights (str or None, optional): Pre-trained weights to use. Options:
             - "mit": Use ImageNet pre-trained MiT backbone weights only
             - "cityscapes": Use weights pre-trained on Cityscapes dataset (19 classes)
@@ -240,33 +241,33 @@ def _create_segformer_model(
             - None: No pre-trained weights
             - Path to a weights file: Load weights from specified file
             Default: "mit"
-        
+
         **kwargs: Additional keyword arguments passed to the SegFormer constructor.
-    
+
     Returns:
         keras.Model: Configured SegFormer model with requested architecture and weights.
-    
+
     Raises:
         ValueError: If invalid weights are specified, if num_classes is not provided when
                     needed, or if an invalid backbone is provided.
-    
+
     Examples:
         # Create SegFormerB0 with ImageNet pre-trained backbone for 10 classes
         model = _create_segformer_model("SegFormerB0", num_classes=10)
-        
+
         # Create SegFormerB3 pre-trained on Cityscapes
         model = _create_segformer_model("SegFormerB3", weights="cityscapes")
-        
+
         # Create SegFormerB5 with custom input shape and no pre-trained weights
-        model = _create_segformer_model("SegFormerB5", num_classes=5, 
+        model = _create_segformer_model("SegFormerB5", num_classes=5,
                                         input_shape=(1024, 1024, 3), weights=None)
     """
-    
+
     DATASET_DEFAULT_CLASSES = {
         "ade20k": 150,
         "cityscapes": 19,
     }
-    
+
     valid_weights = [None, "cityscapes", "ade20k", "mit"]
     if weights not in valid_weights and not isinstance(weights, str):
         raise ValueError(
@@ -274,7 +275,7 @@ def _create_segformer_model(
             f"Supported weights are {', '.join([str(w) for w in valid_weights])}, "
             "a path to a weights file, or None."
         )
-    
+
     if num_classes is None:
         if weights in DATASET_DEFAULT_CLASSES:
             num_classes = DATASET_DEFAULT_CLASSES[weights]
@@ -283,19 +284,22 @@ def _create_segformer_model(
             raise ValueError(
                 "num_classes must be specified when not using dataset-specific weights."
             )
-    
-    if weights in DATASET_DEFAULT_CLASSES and num_classes != DATASET_DEFAULT_CLASSES[weights]:
+
+    if (
+        weights in DATASET_DEFAULT_CLASSES
+        and num_classes != DATASET_DEFAULT_CLASSES[weights]
+    ):
         print(
             f"Warning: Using {weights} weights with {num_classes} classes instead of "
             f"the default {DATASET_DEFAULT_CLASSES[weights]} classes. "
             f"This may require fine-tuning to achieve good results."
         )
-    
+
     mit_variant = variant.replace("SegFormer", "MiT_")
-    
+
     if backbone is None:
         backbone_function = getattr(mit, mit_variant)
-        
+
         if weights == "mit":
             backbone_weights = "in1k"
             print(
@@ -314,7 +318,7 @@ def _create_segformer_model(
                     f"Using {mit_variant} backbone with no pre-trained weights since "
                     f"{weights} segmentation weights will be loaded."
                 )
-                
+
         backbone = backbone_function(
             include_top=False,
             as_backbone=True,
@@ -328,7 +332,7 @@ def _create_segformer_model(
                 "The provided backbone must be initialized with as_backbone=True"
             )
         print(f"Using custom backbone provided by user for {variant}.")
-    
+
     model = SegFormer(
         **SEGFORMER_MODEL_CONFIG[variant],
         backbone=backbone,
@@ -338,19 +342,18 @@ def _create_segformer_model(
         name=variant,
         **kwargs,
     )
-    
+
     if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
         print(f"Loading {weights} weights for {variant}.")
-        load_weights_from_config(
-            variant, weights, model, SEGFORMER_WEIGHTS_CONFIG
-        )
+        load_weights_from_config(variant, weights, model, SEGFORMER_WEIGHTS_CONFIG)
     elif weights is not None and weights != "mit":
         print(f"Loading weights from file: {weights}")
         model.load_weights(weights)
     else:
         print("No segmentation model weights loaded.")
-    
+
     return model
+
 
 @register_model
 def SegFormerB0(

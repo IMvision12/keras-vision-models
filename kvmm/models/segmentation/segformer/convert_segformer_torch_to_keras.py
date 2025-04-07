@@ -4,6 +4,7 @@ import keras
 import numpy as np
 import torch
 from tqdm import tqdm
+from transformers import SegformerForSemanticSegmentation
 
 from kvmm.models import segformer
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
@@ -13,47 +14,48 @@ from kvmm.utils.weight_transfer_torch_to_keras import (
     transfer_attention_weights,
     transfer_weights,
 )
-from transformers import SegformerForSemanticSegmentation
-
 
 weight_name_mapping = {
-    "_":".",
-    "block":"segformer.encoder.block",
+    "_": ".",
+    "block": "segformer.encoder.block",
     "patch.embed": "segformer.encoder.patch_embeddings",
-    "layernorm":"layer_norm",
-    "layer_norm.1":"layer_norm_1",
-    "layer_norm.2":"layer_norm_2",
-    "conv.proj":"proj",
-    "dense.1":"dense1",
-    "dense.2":"dense2",
-    "dwconv":"dwconv.dwconv",
-    "final":"segformer.encoder",
-    "segformer.encoder.layer_norm_1":"segformer.encoder.layer_norm.1",
-    "segformer.encoder.layer_norm_2":"segformer.encoder.layer_norm.2",
-    "segformer.encoder.layer_norm_3":"segformer.encoder.layer_norm.3",
+    "layernorm": "layer_norm",
+    "layer_norm.1": "layer_norm_1",
+    "layer_norm.2": "layer_norm_2",
+    "conv.proj": "proj",
+    "dense.1": "dense1",
+    "dense.2": "dense2",
+    "dwconv": "dwconv.dwconv",
+    "final": "segformer.encoder",
+    "segformer.encoder.layer_norm_1": "segformer.encoder.layer_norm.1",
+    "segformer.encoder.layer_norm_2": "segformer.encoder.layer_norm.2",
+    "segformer.encoder.layer_norm_3": "segformer.encoder.layer_norm.3",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "bias": "bias",
-    "predictions":"classifier",
+    "predictions": "classifier",
 }
 
 attn_name_replace = {
-    "block":"segformer.encoder.block",
-    "attn.q":"attention.self.query",
-    "attn.k":"attention.self.key",
-    "attn.v":"attention.self.value",
-    "attn.proj":"attention.output.dense",
-    "attn.sr":"attention.self.sr",
-    "attn.norm":"attention.self.layer_norm"
-
-
+    "block": "segformer.encoder.block",
+    "attn.q": "attention.self.query",
+    "attn.k": "attention.self.key",
+    "attn.v": "attention.self.value",
+    "attn.proj": "attention.output.dense",
+    "attn.sr": "attention.self.sr",
+    "attn.norm": "attention.self.layer_norm",
 }
 
 keras_model: keras.Model = segformer.SegFormerB0(
-    weights=None, num_classes=150, input_shape=(512, 512, 3), backbone=None,
+    weights=None,
+    num_classes=150,
+    input_shape=(512, 512, 3),
+    backbone=None,
 )
-torch_model: torch.nn.Module = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512").eval()
+torch_model: torch.nn.Module = SegformerForSemanticSegmentation.from_pretrained(
+    "nvidia/segformer-b0-finetuned-ade-512-512"
+).eval()
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
     torch_model
 )
@@ -76,7 +78,9 @@ for keras_weight, keras_weight_name in tqdm(
     }
 
     if "attention" in torch_weight_name:
-        transfer_attention_weights(keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace)
+        transfer_attention_weights(
+            keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace
+        )
         continue
 
     if torch_weight_name not in torch_weights_dict:

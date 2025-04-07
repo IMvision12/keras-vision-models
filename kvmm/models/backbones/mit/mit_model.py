@@ -16,11 +16,11 @@ from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
 def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
     """
     Implements an MLP block with a spatial depth-wise convolution in between.
-    
+
     This function creates a block that processes the input tensor through a dense layer,
     reshapes it to apply a depth-wise convolution to capture spatial information,
     applies GELU activation, and projects it back through another dense layer.
-    
+
     Args:
         x: Input tensor of shape [batch_size, H*W, input_channels]
         H: Height of the feature map
@@ -29,19 +29,16 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
         mid_channels: Number of channels for the intermediate dense layer
         data_format: Data format for the convolution ('channels_last' or 'channels_first')
         name_prefix: Prefix string for naming the layers
-        
+
     Returns:
         Processed tensor of shape [batch_size, H*W, channels]
-        
+
     Note:
         The function assumes input in a sequence format (H*W, C) and internally
         converts to spatial format (H, W, C) for the depth-wise convolution.
     """
 
-    x = layers.Dense(
-        mid_channels,
-        name=f"{name_prefix}_dense_1"
-    )(x)
+    x = layers.Dense(mid_channels, name=f"{name_prefix}_dense_1")(x)
 
     input_shape = ops.shape(x)
     x = layers.Reshape((H, W, input_shape[-1]))(x)
@@ -57,12 +54,10 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
     x = layers.Reshape((H * W, input_shape[-1]))(x)
     x = layers.Activation("gelu")(x)
 
-    x = layers.Dense(
-        channels,
-        name=f"{name_prefix}_dense_2"
-    )(x)
+    x = layers.Dense(channels, name=f"{name_prefix}_dense_2")(x)
 
     return x
+
 
 def overlap_patch_embedding_block(
     x,
@@ -75,12 +70,12 @@ def overlap_patch_embedding_block(
 ):
     """
     Creates an overlapping patch embedding block for vision transformers/MLP-mixers.
-    
+
     This function implements the initial patch embedding stage commonly used in vision
     transformer architectures. It extracts overlapping patches from the input image,
     projects them to the desired dimension, and reshapes the output for subsequent
     transformer/MLP blocks.
-    
+
     Args:
         x: Input tensor, typically an image with shape [batch_size, H, W, C]
         channels_axis: Axis index for the channels dimension for normalization
@@ -89,14 +84,14 @@ def overlap_patch_embedding_block(
         patch_size: Size of the patch for convolution kernel (default: 7)
         stride: Stride of the convolution (default: 4)
         stage_idx: Index of the stage in the network, used for naming (default: 1)
-        
+
     Returns:
         tuple: (
             reshaped tensor of shape [batch_size, H*W, out_channels],
             output feature map height H,
             output feature map width W
         )
-        
+
     Note:
         The function uses PyTorch-style 0-indexed naming convention internally
         while maintaining a 1-indexed interface.
@@ -123,7 +118,6 @@ def overlap_patch_embedding_block(
     return x, H, W
 
 
-
 def hierarchical_transformer_encoder_block(
     x,
     H,
@@ -140,12 +134,12 @@ def hierarchical_transformer_encoder_block(
 ):
     """
     Implements a hierarchical transformer encoder block with efficient self-attention.
-    
+
     This function creates a transformer encoder block that combines multi-head self-attention
     with an MLP block containing spatial depth-wise convolution. It follows the typical
     transformer architecture with residual connections, normalization, and optional
     stochastic depth for regularization.
-    
+
     Args:
         x: Input tensor of shape [batch_size, H*W, project_dim]
         H: Height of the feature map
@@ -159,10 +153,10 @@ def hierarchical_transformer_encoder_block(
         qkv_bias: Whether to include bias in query, key, value projections (default: False)
         sr_ratio: Spatial reduction ratio for efficient attention (default: 1)
         drop_prob: Drop path probability for stochastic depth regularization (default: 0.0)
-        
+
     Returns:
         Processed tensor of shape [batch_size, H*W, project_dim]
-        
+
     Note:
         The function uses PyTorch-style 0-indexed naming convention internally
         while maintaining a 1-indexed interface for stage_idx.
@@ -173,7 +167,7 @@ def hierarchical_transformer_encoder_block(
     norm1 = layers.LayerNormalization(
         axis=channels_axis,
         epsilon=1e-6,
-        name=f"block_{pytorch_stage_idx}.{block_idx}_layernorm_1"
+        name=f"block_{pytorch_stage_idx}.{block_idx}_layernorm_1",
     )(x)
 
     attn_layer = EfficientMultiheadSelfAttention(
@@ -181,7 +175,7 @@ def hierarchical_transformer_encoder_block(
         sr_ratio,
         block_prefix=f"block_{pytorch_stage_idx}_{block_idx}",
         qkv_bias=qkv_bias,
-        num_heads=num_heads
+        num_heads=num_heads,
     )
 
     attn_out = attn_layer(norm1)
@@ -191,7 +185,7 @@ def hierarchical_transformer_encoder_block(
     norm2 = layers.LayerNormalization(
         axis=channels_axis,
         epsilon=1e-6,
-        name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_2"
+        name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_2",
     )(add1)
 
     mlp_out = mlp_block(

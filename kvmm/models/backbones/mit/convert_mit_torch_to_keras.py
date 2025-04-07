@@ -3,8 +3,8 @@ from typing import Dict, List, Union
 import keras
 import torch
 from tqdm import tqdm
-
 from transformers import SegformerForImageClassification
+
 from kvmm.models import mit
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
@@ -16,37 +16,35 @@ from kvmm.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping = {
-    "_":".",
-    "block":"segformer.encoder.block",
+    "_": ".",
+    "block": "segformer.encoder.block",
     "patch.embed": "segformer.encoder.patch_embeddings",
-    "layernorm":"layer_norm",
-    "layer_norm.1":"layer_norm_1",
-    "layer_norm.2":"layer_norm_2",
-    "conv.proj":"proj",
-    "dense.1":"dense1",
-    "dense.2":"dense2",
-    "dwconv":"dwconv.dwconv",
-    "final":"segformer.encoder",
-    "segformer.encoder.layer_norm_1":"segformer.encoder.layer_norm.1",
-    "segformer.encoder.layer_norm_2":"segformer.encoder.layer_norm.2",
-    "segformer.encoder.layer_norm_3":"segformer.encoder.layer_norm.3",
+    "layernorm": "layer_norm",
+    "layer_norm.1": "layer_norm_1",
+    "layer_norm.2": "layer_norm_2",
+    "conv.proj": "proj",
+    "dense.1": "dense1",
+    "dense.2": "dense2",
+    "dwconv": "dwconv.dwconv",
+    "final": "segformer.encoder",
+    "segformer.encoder.layer_norm_1": "segformer.encoder.layer_norm.1",
+    "segformer.encoder.layer_norm_2": "segformer.encoder.layer_norm.2",
+    "segformer.encoder.layer_norm_3": "segformer.encoder.layer_norm.3",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "bias": "bias",
-    "predictions":"classifier",
+    "predictions": "classifier",
 }
 
 attn_name_replace = {
-    "block":"segformer.encoder.block",
-    "attn.q":"attention.self.query",
-    "attn.k":"attention.self.key",
-    "attn.v":"attention.self.value",
-    "attn.proj":"attention.output.dense",
-    "attn.sr":"attention.self.sr",
-    "attn.norm":"attention.self.layer_norm"
-
-
+    "block": "segformer.encoder.block",
+    "attn.q": "attention.self.query",
+    "attn.k": "attention.self.key",
+    "attn.v": "attention.self.value",
+    "attn.proj": "attention.output.dense",
+    "attn.sr": "attention.self.sr",
+    "attn.norm": "attention.self.layer_norm",
 }
 model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
     "keras_model_cls": mit.MiT_B0,
@@ -89,7 +87,9 @@ for keras_weight, keras_weight_name in tqdm(
     }
 
     if "attention" in torch_weight_name:
-        transfer_attention_weights(keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace)
+        transfer_attention_weights(
+            keras_weight_name, keras_weight, torch_weights_dict, attn_name_replace
+        )
         continue
 
     if torch_weight_name not in torch_weights_dict:
@@ -114,7 +114,7 @@ results = verify_cls_model_equivalence(
     output_specs={"num_classes": 1000},
     run_performance=False,
     atol=1e-3,
-    rtol=1e-3
+    rtol=1e-3,
 )
 
 if not results["standard_input"]:

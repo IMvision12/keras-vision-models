@@ -49,6 +49,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         - Suitable for hierarchical vision transformer architectures where different
           stages require different levels of spatial detail
     """
+
     def __init__(
         self,
         project_dim,
@@ -70,7 +71,9 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         self.num_heads = num_heads
         self.scale = (project_dim // num_heads) ** -0.5
         self.sr_ratio = sr_ratio
-        self.block_prefix = block_prefix if block_prefix is not None else "segformer.encoder.block.0.0"
+        self.block_prefix = (
+            block_prefix if block_prefix is not None else "segformer.encoder.block.0.0"
+        )
         self.epsilon = epsilon
         self.data_format = keras.config.image_data_format()
         self.channels_axis = -1 if self.data_format == "channels_last" else 1

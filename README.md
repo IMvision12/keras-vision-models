@@ -33,9 +33,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 🛠️ Usage
 
-<details>
-  <summary>🔎 List All Models</summary>
-
+- 🔎 List All Models
 Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
 
     ```python
@@ -56,9 +54,8 @@ Shows all available models, including backbones, segmentation models, object det
     ...
     """
     ```
-</details>
-<details>
-  <summary>🔎 List Specific Model Variant</summary>
+
+- 🔎 List Specific Model Variant:
 
     ```python
     import kvmm
@@ -75,11 +72,7 @@ Shows all available models, including backbones, segmentation models, object det
     """
     ```
 
-</details>
-<details>
-  <summary>⚙️ Layers</summary>
-
-KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
+- ⚙️ Layers : KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
 
     ```python
     import kvmm
@@ -93,9 +86,7 @@ KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientM
     windowed_features = window_partition(features, height=28, width=28)
     ```
 
-</details>
-<details>
-  <summary>🏗️ Backbone Usage (Classification)</summary>
+- 🏗️ Backbone Usage (Classification)
 
     ```python
     import kvmm
@@ -128,9 +119,7 @@ KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientM
     """    
     ```
 
-</details>
-<details>
-  <summary>Segmentation</summary>
+- Segmentation
 
     ### 🛠️ Usage
     ```python
@@ -160,15 +149,8 @@ KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientM
     segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
     ```
 
-</details>
-<details>
-  <summary>Object Detection 🚧</summary>
-Work in progress.
-</details>
-<details>
-  <summary>VLMS 🚧</summary>
-Work in progress.
-</details>
+- Object Detection 🚧
+- VLMS 🚧
 
 ## 📑 Models
 

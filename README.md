@@ -118,7 +118,36 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
     """    
     ```
 
-- Segmentation 🚧
+- Segmentation
+
+    ### 🛠️ Usage
+    ```python
+    import kvmm
+
+    # Pre-Trained weights (cityscapes or ade20kor mit(in1k))
+    # ade20k and cityscapes can be used for fine-tuning by giving custom `num_classes`
+    # If `num_classes` is not specified by default for ade20k it will be 150 and for cityscapes it will be 19
+    model = kvmm.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
+    model = kvmm.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
+
+    # Fine-Tune using `MiT` backbone (This will load `in1k` weights)
+    model = kvmm.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
+    ```
+
+    ### 🚀 Custom Backbone Suppport 
+    ```python
+    import kvmm
+
+    # With no backbone weights
+    backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
+    segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+
+    # With backbone weights
+    import kvmm
+    backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
+    segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+    ```
+
 - Object Detection 🚧
 - VLMS 🚧
 

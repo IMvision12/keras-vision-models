@@ -348,7 +348,6 @@ class ResNetV2(keras.Model):
                 block_idx += 1
             features.append(x)
 
-        # Final activation after all blocks
         x = layers.GroupNormalization(axis=channels_axis, name="groupnorm")(x)
         x = layers.Activation("relu", name="relu")(x)
 
@@ -419,44 +418,6 @@ class ResNetV2(keras.Model):
 
 
 @register_model
-def ResNetV2_50(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="a1h_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNetV2_50",
-):
-    model = ResNetV2(
-        **RESNETV2_MODEL_CONFIG[name],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-    )
-    if weights in get_all_weight_names(RESNETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, RESNETV2_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
 def ResNetV2_50x1(
     include_top=True,
     as_backbone=False,
@@ -507,44 +468,6 @@ def ResNetV2_50x3(
     num_classes=1000,
     classifier_activation="softmax",
     name="ResNetV2_50x3",
-):
-    model = ResNetV2(
-        **RESNETV2_MODEL_CONFIG[name],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-    )
-    if weights in get_all_weight_names(RESNETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, RESNETV2_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNetV2_101(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="a1h_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNetV2_101",
 ):
     model = ResNetV2(
         **RESNETV2_MODEL_CONFIG[name],

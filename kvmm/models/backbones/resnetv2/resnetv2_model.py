@@ -76,14 +76,14 @@ def conv_block(
         padding = "valid"
 
     x = StdConv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding=padding,
-            use_bias=use_bias,
-            data_format=data_format,
-            name=name,
-        )(x)
+        filters=filters,
+        kernel_size=kernel_size,
+        strides=strides,
+        padding=padding,
+        use_bias=use_bias,
+        data_format=data_format,
+        name=name,
+    )(x)
 
     return x
 
@@ -127,8 +127,8 @@ def preact_bottleneck(
     mid_channels = make_divisible(filters * bottleneck_ratio)
 
     preact = layers.GroupNormalization(
-            axis=channels_axis, name=f"{block_prefix}_groupnorm_1"
-        )(x)
+        axis=channels_axis, name=f"{block_prefix}_groupnorm_1"
+    )(x)
     preact = layers.Activation("relu", name=f"{block_prefix}_relu_1")(preact)
 
     if downsample:
@@ -151,8 +151,8 @@ def preact_bottleneck(
         name=f"{block_prefix}_conv_1",
     )
     x = layers.GroupNormalization(
-            axis=channels_axis, name=f"{block_prefix}_groupnorm_2"
-        )(x)
+        axis=channels_axis, name=f"{block_prefix}_groupnorm_2"
+    )(x)
     x = layers.Activation("relu", name=f"{block_prefix}_relu_2")(x)
 
     x = conv_block(
@@ -165,8 +165,8 @@ def preact_bottleneck(
         name=f"{block_prefix}_conv_2",
     )
     x = layers.GroupNormalization(
-            axis=channels_axis, name=f"{block_prefix}_groupnorm_3"
-        )(x)
+        axis=channels_axis, name=f"{block_prefix}_groupnorm_3"
+    )(x)
     x = layers.Activation("relu", name=f"{block_prefix}_relu_3")(x)
 
     x = conv_block(

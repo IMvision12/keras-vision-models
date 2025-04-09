@@ -47,10 +47,9 @@ def conv_block(
     strides=1,
     padding="same",
     use_bias=False,
-    use_conv=False,
     name=None,
 ):
-    """Applies a convolution block with option to use standard or custom convolution.
+    """Applies a convolution block with option to use standard convolution.
 
     Args:
         x: Input Keras layer.
@@ -62,8 +61,6 @@ def conv_block(
         padding: Type of padding to use, either 'same' or 'valid' (default='same').
             Note: When strides > 1, padding is automatically handled with ZeroPadding2D.
         use_bias: Boolean, whether to use bias in the convolution (default=False).
-        use_conv: Boolean, whether to use standard Conv2D (True) or StdConv2D (False).
-            StdConv2D is a custom convolution layer (default=False).
         name: Optional name for the convolution layer.
 
     Returns:
@@ -72,34 +69,21 @@ def conv_block(
     Notes:
         - When strides > 1, the function automatically applies zero padding of
           kernel_size // 2 and switches to 'valid' padding for the convolution.
-        - The function can use either standard Conv2D or a custom StdConv2D layer
-          based on the use_conv parameter.
     """
     if strides > 1:
         pad_h = pad_w = kernel_size // 2
         x = layers.ZeroPadding2D(padding=(pad_h, pad_w))(x)
         padding = "valid"
 
-    if use_conv:
-        x = layers.Conv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding=padding,
-            use_bias=use_bias,
-            data_format=data_format,
-            name=name,
-        )(x)
-    else:
-        x = StdConv2D(
-            filters=filters,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding=padding,
-            use_bias=use_bias,
-            data_format=data_format,
-            name=name,
-        )(x)
+    x = StdConv2D(
+        filters=filters,
+        kernel_size=kernel_size,
+        strides=strides,
+        padding=padding,
+        use_bias=use_bias,
+        data_format=data_format,
+        name=name,
+    )(x)
 
     return x
 
@@ -114,9 +98,6 @@ def preact_bottleneck(
     drop_path_rate=0.0,
     block_prefix=None,
     bottleneck_ratio=0.25,
-    use_batchnorm=False,
-    use_conv=False,
-    preact_inputs=True,
 ):
     """Pre-activation Bottleneck ResNet block with optional BatchNorm/GroupNorm.
 
@@ -132,10 +113,6 @@ def preact_bottleneck(
         drop_path_rate: float, default 0.0. Drop path rate for stochastic depth.
         block_prefix: Optional string prefix for naming layers in the block.
         bottleneck_ratio: float, default 0.25. Ratio to determine middle channel dimensions.
-        use_batchnorm: bool, default False. Whether to use BatchNormalization instead of
-            GroupNormalization.
-        use_conv: bool, default False. Whether to use custom convolution implementation.
-        preact_inputs: bool, whether to apply pre-activation to inputs.
 
     Returns:
         Output tensor for the pre-activation bottleneck block.
@@ -149,39 +126,21 @@ def preact_bottleneck(
     shortcut = x
     mid_channels = make_divisible(filters * bottleneck_ratio)
 
-    if use_batchnorm:
-        preact = layers.BatchNormalization(
-            axis=channels_axis, epsilon=1.001e-5, name=f"{block_prefix}_batchnorm_1"
-        )(x)
-    else:
-        preact = layers.GroupNormalization(
-            axis=channels_axis, name=f"{block_prefix}_groupnorm_1"
-        )(x)
+    preact = layers.GroupNormalization(
+        axis=channels_axis, name=f"{block_prefix}_groupnorm_1"
+    )(x)
     preact = layers.Activation("relu", name=f"{block_prefix}_relu_1")(preact)
 
     if downsample:
         shortcut = conv_block(
-            preact if preact_inputs else x,
+            preact,
             filters=filters,
             kernel_size=1,
             data_format=data_format,
             strides=strides,
             use_bias=False,
-            use_conv=use_conv,
             name=f"{block_prefix}_downsample_conv",
         )
-
-        if not preact_inputs:
-            if use_batchnorm:
-                shortcut = layers.BatchNormalization(
-                    axis=channels_axis,
-                    epsilon=1.001e-5,
-                    name=f"{block_prefix}_downsample_batchnorm",
-                )(shortcut)
-            else:
-                shortcut = layers.GroupNormalization(
-                    axis=channels_axis, name=f"{block_prefix}_downsample_groupnorm"
-                )(shortcut)
 
     x = conv_block(
         preact,
@@ -189,17 +148,11 @@ def preact_bottleneck(
         kernel_size=1,
         data_format=data_format,
         use_bias=False,
-        use_conv=use_conv,
         name=f"{block_prefix}_conv_1",
     )
-    if use_batchnorm:
-        x = layers.BatchNormalization(
-            axis=channels_axis, epsilon=1.001e-5, name=f"{block_prefix}_batchnorm_2"
-        )(x)
-    else:
-        x = layers.GroupNormalization(
-            axis=channels_axis, name=f"{block_prefix}_groupnorm_2"
-        )(x)
+    x = layers.GroupNormalization(
+        axis=channels_axis, name=f"{block_prefix}_groupnorm_2"
+    )(x)
     x = layers.Activation("relu", name=f"{block_prefix}_relu_2")(x)
 
     x = conv_block(
@@ -209,17 +162,11 @@ def preact_bottleneck(
         data_format=data_format,
         strides=strides,
         use_bias=False,
-        use_conv=use_conv,
         name=f"{block_prefix}_conv_2",
     )
-    if use_batchnorm:
-        x = layers.BatchNormalization(
-            axis=channels_axis, epsilon=1.001e-5, name=f"{block_prefix}_batchnorm_3"
-        )(x)
-    else:
-        x = layers.GroupNormalization(
-            axis=channels_axis, name=f"{block_prefix}_groupnorm_3"
-        )(x)
+    x = layers.GroupNormalization(
+        axis=channels_axis, name=f"{block_prefix}_groupnorm_3"
+    )(x)
     x = layers.Activation("relu", name=f"{block_prefix}_relu_3")(x)
 
     x = conv_block(
@@ -228,7 +175,6 @@ def preact_bottleneck(
         kernel_size=1,
         data_format=data_format,
         use_bias=False,
-        use_conv=use_conv,
         name=f"{block_prefix}_conv_3",
     )
 
@@ -253,18 +199,12 @@ class ResNetV2(keras.Model):
             Defaults to (256, 512, 1024, 2048).
         width_factor: Integer, scaling factor for the width of the network.
             Defaults to 1.
-        preact: Boolean, whether to use pre-activation blocks where batch normalization
-            and activation precede convolutions. Defaults to True.
         stem_width: Integer, number of filters in the initial stem convolution.
             Defaults to 64.
         drop_rate: Float between 0 and 1, dropout rate for the final classifier layer.
             Defaults to 0.0.
         drop_path_rate: Float between 0 and 1, stochastic depth rate for randomly
             dropping residual connections. Defaults to 0.0.
-        use_conv: Boolean, whether to use convolution layers instead of dense layers
-            for the classifier. Defaults to False.
-        use_batchnorm: Boolean, whether to use batch normalization in the network.
-            Defaults to False.
         include_top: Boolean, whether to include the fully-connected classification
             layer at the top. Defaults to True.
         as_backbone: Boolean, whether to output intermediate features for use as a
@@ -303,12 +243,9 @@ class ResNetV2(keras.Model):
         block_repeats=(2, 2, 2, 2),
         filters=(256, 512, 1024, 2048),
         width_factor=1,
-        preact=True,
         stem_width=64,
         drop_rate=0.0,
         drop_path_rate=0.0,
-        use_conv=False,
-        use_batchnorm=False,
         include_top=True,
         as_backbone=False,
         include_normalization=True,
@@ -378,20 +315,8 @@ class ResNetV2(keras.Model):
             data_format=data_format,
             strides=2,
             use_bias=False,
-            use_conv=use_conv,
             name="stem_conv",
         )
-
-        if not preact:
-            if use_batchnorm:
-                x = layers.BatchNormalization(
-                    axis=channels_axis, epsilon=1.001e-5, name="stem_batchnorm"
-                )(x)
-            else:
-                x = layers.GroupNormalization(
-                    axis=channels_axis, name="stem_groupnorm"
-                )(x)
-            x = layers.Activation("relu", name="stem_relu")(x)
 
         x = layers.ZeroPadding2D(data_format=data_format, padding=(1, 1))(x)
         x = layers.MaxPooling2D(
@@ -419,21 +344,12 @@ class ResNetV2(keras.Model):
                     downsample=block_idx_in_stage == 0,
                     drop_path_rate=dpr[block_idx],
                     block_prefix=block_prefix,
-                    use_batchnorm=use_batchnorm,
-                    use_conv=use_conv,
-                    preact_inputs=preact,
                 )
                 block_idx += 1
             features.append(x)
 
-        if preact:
-            if use_batchnorm:
-                x = layers.BatchNormalization(
-                    axis=channels_axis, epsilon=1.001e-5, name="batchnorm"
-                )(x)
-            else:
-                x = layers.GroupNormalization(axis=channels_axis, name="groupnorm")(x)
-            x = layers.Activation("relu", name="relu")(x)
+        x = layers.GroupNormalization(axis=channels_axis, name="groupnorm")(x)
+        x = layers.Activation("relu", name="relu")(x)
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
@@ -461,10 +377,7 @@ class ResNetV2(keras.Model):
         self.block_repeats = block_repeats
         self.filters = filters
         self.width_factor = width_factor
-        self.preact = preact
         self.stem_width = stem_width
-        self.use_conv = use_conv
-        self.use_batchnorm = use_batchnorm
         self.drop_rate = drop_rate
         self.drop_path_rate = drop_path_rate
         self.include_top = include_top
@@ -483,10 +396,7 @@ class ResNetV2(keras.Model):
                 "block_repeats": self.block_repeats,
                 "filters": self.filters,
                 "width_factor": self.width_factor,
-                "preact": self.preact,
                 "stem_width": self.stem_width,
-                "use_conv": self.use_conv,
-                "use_batchnorm": self.use_batchnorm,
                 "drop_rate": self.drop_rate,
                 "drop_path_rate": self.drop_path_rate,
                 "include_top": self.include_top,
@@ -505,44 +415,6 @@ class ResNetV2(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-@register_model
-def ResNetV2_50(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="a1h_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNetV2_50",
-):
-    model = ResNetV2(
-        **RESNETV2_MODEL_CONFIG[name],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-    )
-    if weights in get_all_weight_names(RESNETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, RESNETV2_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
 
 
 @register_model
@@ -596,44 +468,6 @@ def ResNetV2_50x3(
     num_classes=1000,
     classifier_activation="softmax",
     name="ResNetV2_50x3",
-):
-    model = ResNetV2(
-        **RESNETV2_MODEL_CONFIG[name],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=weights,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-    )
-    if weights in get_all_weight_names(RESNETV2_WEIGHTS_CONFIG):
-        load_weights_from_config(name, weights, model, RESNETV2_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
-def ResNetV2_101(
-    include_top=True,
-    as_backbone=False,
-    include_normalization=True,
-    normalization_mode="imagenet",
-    weights="a1h_in1k",
-    input_tensor=None,
-    input_shape=None,
-    pooling=None,
-    num_classes=1000,
-    classifier_activation="softmax",
-    name="ResNetV2_101",
 ):
     model = ResNetV2(
         **RESNETV2_MODEL_CONFIG[name],

@@ -249,6 +249,12 @@ class CaiT(keras.Model):
         name="CaiT",
         **kwargs,
     ):
+        if weights is not None:
+            print(
+                "NOTICE: The current pretrained weights are provisional and subject to change. "
+                "They are experimental and will be updated in future releases."
+            )
+
         if include_top and as_backbone:
             raise ValueError(
                 "Cannot use `as_backbone=True` with `include_top=True`. "

@@ -9,51 +9,54 @@ SEGFORMER_MODEL_CONFIG = {
 
 SEGFORMER_WEIGHTS_CONFIG = {
     "SegFormerB0": {
-        "cityscapes": {
-            "url": "",
+        "cityscapes_1024": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B0_city_1024.keras",
         },
-        "ade20k": {
-            "url": "",
+        "cityscapes_768": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B0_city_768.keras",
+        },
+        "ade20k_512": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B0_ade_512.keras",
         },
     },
     "SegFormerB1": {
-        "cityscapes": {
-            "url": "",
+        "cityscapes_1024": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B1_city_1024.keras",
         },
-        "ade20k": {
-            "url": "",
+        "ade20k_512": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B1_ade_512.keras",
         },
     },
     "SegFormerB2": {
-        "cityscapes": {
-            "url": "",
+        "cityscapes_1024": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B2_city_1024.keras",
         },
-        "ade20k": {
-            "url": "",
+        "ade20k_512": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B2_ade_512.keras",
         },
     },
     "SegFormerB3": {
-        "cityscapes": {
-            "url": "",
+        "cityscapes_1024": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B3_city_1024.keras",
         },
-        "ade20k": {
-            "url": "",
+        "ade20k_512": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B3_ade_512.keras",
         },
     },
     "SegFormerB4": {
-        "cityscapes": {
-            "url": "",
+        "cityscapes_1024": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B4_city_1024.keras",
         },
-        "ade20k": {
-            "url": "",
+        "ade20k_512": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B4_ade_512.keras",
         },
     },
     "SegFormerB5": {
-        "cityscapes": {
-            "url": "",
+        "cityscapes_1024": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B5_city_1024.keras",
         },
-        "ade20k": {
-            "url": "",
+        "ade20k_512": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/SegFormer_B5_ade_640.keras",
         },
     },
 }

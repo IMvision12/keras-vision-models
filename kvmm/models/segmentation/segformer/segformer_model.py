@@ -2,7 +2,7 @@ import keras
 from keras import layers, utils
 
 from kvmm.models import mit
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import load_weights_from_config, register_model
 
 from .config import SEGFORMER_MODEL_CONFIG, SEGFORMER_WEIGHTS_CONFIG
 
@@ -202,7 +202,7 @@ def _create_segformer_model(
     variant,
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,
@@ -227,8 +227,8 @@ def _create_segformer_model(
             Default: None (will be set based on weights if using dataset-specific weights)
 
         input_shape (tuple, optional): Input shape in format (height, width, channels).
-            Only used when creating a new backbone.
-            Default: (512, 512, 3)
+            If None, the size will be determined based on the weights.
+            Default: None
 
         input_tensor (Tensor, optional): Optional input tensor to use instead of creating
             a new input layer. Useful for connecting this model to other models.
@@ -236,8 +236,10 @@ def _create_segformer_model(
 
         weights (str or None, optional): Pre-trained weights to use. Options:
             - "mit": Use ImageNet pre-trained MiT backbone weights only
-            - "cityscapes": Use weights pre-trained on Cityscapes dataset (19 classes)
-            - "ade20k": Use weights pre-trained on ADE20K dataset (150 classes)
+            - "cityscapes_1024": Use weights pre-trained on Cityscapes dataset with 1024px resolution
+            - "cityscapes_768": Use weights pre-trained on Cityscapes dataset with 768px resolution
+            - "ade20k_512": Use weights pre-trained on ADE20K dataset with 512px resolution
+            - "ade20k_640": Use weights pre-trained on ADE20K dataset with 640px resolution
             - None: No pre-trained weights
             - Path to a weights file: Load weights from specified file
             Default: "mit"
@@ -250,17 +252,6 @@ def _create_segformer_model(
     Raises:
         ValueError: If invalid weights are specified, if num_classes is not provided when
                     needed, or if an invalid backbone is provided.
-
-    Examples:
-        # Create SegFormerB0 with ImageNet pre-trained backbone for 10 classes
-        model = _create_segformer_model("SegFormerB0", num_classes=10)
-
-        # Create SegFormerB3 pre-trained on Cityscapes
-        model = _create_segformer_model("SegFormerB3", weights="cityscapes")
-
-        # Create SegFormerB5 with custom input shape and no pre-trained weights
-        model = _create_segformer_model("SegFormerB5", num_classes=5,
-                                        input_shape=(1024, 1024, 3), weights=None)
     """
 
     DATASET_DEFAULT_CLASSES = {
@@ -268,32 +259,74 @@ def _create_segformer_model(
         "cityscapes": 19,
     }
 
-    valid_weights = [None, "cityscapes", "ade20k", "mit"]
+    valid_model_weights = []
+    if variant in SEGFORMER_WEIGHTS_CONFIG:
+        valid_model_weights = list(SEGFORMER_WEIGHTS_CONFIG[variant].keys())
+
+    valid_weights = [None, "mit"] + valid_model_weights
+
     if weights not in valid_weights and not isinstance(weights, str):
         raise ValueError(
             f"Invalid weights: {weights}. "
-            f"Supported weights are {', '.join([str(w) for w in valid_weights])}, "
+            f"Supported weights for {variant} are {', '.join([str(w) for w in valid_weights])}, "
             "a path to a weights file, or None."
         )
 
     if num_classes is None:
-        if weights in DATASET_DEFAULT_CLASSES:
-            num_classes = DATASET_DEFAULT_CLASSES[weights]
-            print(f"Setting num_classes to {num_classes} based on {weights} dataset.")
+        if isinstance(weights, str):
+            if "cityscapes" in weights:
+                num_classes = DATASET_DEFAULT_CLASSES["cityscapes"]
+                print(
+                    f"Setting num_classes to {num_classes} based on 'cityscapes' dataset."
+                )
+            elif "ade20k" in weights:
+                num_classes = DATASET_DEFAULT_CLASSES["ade20k"]
+                print(
+                    f"Setting num_classes to {num_classes} based on 'ade20k' dataset."
+                )
+            else:
+                raise ValueError(
+                    "num_classes must be specified when not using dataset-specific weights."
+                )
         else:
             raise ValueError(
                 "num_classes must be specified when not using dataset-specific weights."
             )
 
-    if (
-        weights in DATASET_DEFAULT_CLASSES
-        and num_classes != DATASET_DEFAULT_CLASSES[weights]
-    ):
+    if input_shape is None:
+        default_height, default_width = 512, 512
+
+        if isinstance(weights, str):
+            if "1024" in weights:
+                default_height, default_width = 1024, 1024
+            elif "768" in weights:
+                default_height, default_width = 768, 768
+            elif "640" in weights:
+                default_height, default_width = 640, 640
+            elif "512" in weights:
+                default_height, default_width = 512, 512
+
+        input_shape = (default_height, default_width, 3)
         print(
-            f"Warning: Using {weights} weights with {num_classes} classes instead of "
-            f"the default {DATASET_DEFAULT_CLASSES[weights]} classes. "
-            f"This may require fine-tuning to achieve good results."
+            f"Using default input shape {input_shape} based on weights configuration."
         )
+
+    if isinstance(weights, str):
+        if (
+            "cityscapes" in weights
+            and num_classes != DATASET_DEFAULT_CLASSES["cityscapes"]
+        ):
+            print(
+                f"Warning: Using cityscapes weights with {num_classes} classes instead of "
+                f"the default {DATASET_DEFAULT_CLASSES['cityscapes']} classes. "
+                f"This may require fine-tuning to achieve good results."
+            )
+        elif "ade20k" in weights and num_classes != DATASET_DEFAULT_CLASSES["ade20k"]:
+            print(
+                f"Warning: Using ade20k weights with {num_classes} classes instead of "
+                f"the default {DATASET_DEFAULT_CLASSES['ade20k']} classes. "
+                f"This may require fine-tuning to achieve good results."
+            )
 
     mit_variant = variant.replace("SegFormer", "MiT_")
 
@@ -343,10 +376,15 @@ def _create_segformer_model(
         **kwargs,
     )
 
-    if weights in get_all_weight_names(SEGFORMER_WEIGHTS_CONFIG):
+    if weights in valid_model_weights:
         print(f"Loading {weights} weights for {variant}.")
         load_weights_from_config(variant, weights, model, SEGFORMER_WEIGHTS_CONFIG)
-    elif weights is not None and weights != "mit":
+    elif (
+        weights is not None
+        and weights != "mit"
+        and isinstance(weights, str)
+        and not weights.startswith(("cityscapes", "ade20k"))
+    ):
         print(f"Loading weights from file: {weights}")
         model.load_weights(weights)
     else:
@@ -359,7 +397,7 @@ def _create_segformer_model(
 def SegFormerB0(
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,
@@ -379,7 +417,7 @@ def SegFormerB0(
 def SegFormerB1(
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,
@@ -399,7 +437,7 @@ def SegFormerB1(
 def SegFormerB2(
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,
@@ -419,7 +457,7 @@ def SegFormerB2(
 def SegFormerB3(
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,
@@ -439,7 +477,7 @@ def SegFormerB3(
 def SegFormerB4(
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,
@@ -459,7 +497,7 @@ def SegFormerB4(
 def SegFormerB5(
     backbone=None,
     num_classes=None,
-    input_shape=(512, 512, 3),
+    input_shape=None,
     input_tensor=None,
     weights="mit",
     **kwargs,

@@ -52,27 +52,47 @@ CAIT_MODEL_CONFIG = {
 
 CAIT_WEIGHTS_CONFIG = {
     "CaiTXXS24": {
-        "fb_dist_in1k_224": {"url": ""},
-        "fb_dist_in1k_384": {"url": ""},
+        "fb_dist_in1k_224": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_xxs24_224_fb_dist_in1k.keras"
+        },
+        "fb_dist_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_xxs24_384_fb_dist_in1k.keras"
+        },
     },
     "CaiTXXS36": {
-        "fb_dist_in1k_224": {"url": ""},
-        "fb_dist_in1k_384": {"url": ""},
+        "fb_dist_in1k_224": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_xxs36_224_fb_dist_in1k.keras"
+        },
+        "fb_dist_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_xxs36_384_fb_dist_in1k.keras"
+        },
     },
     "CaiTXS24": {
-        "fb_dist_in1k_384": {"url": ""},
+        "fb_dist_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_xs24_384_fb_dist_in1k.keras"
+        },
     },
     "CaiTS24": {
-        "fb_dist_in1k_224": {"url": ""},
-        "fb_dist_in1k_384": {"url": ""},
+        "fb_dist_in1k_224": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_s24_224_fb_dist_in1k.keras"
+        },
+        "fb_dist_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_s24_384_fb_dist_in1k.keras"
+        },
     },
     "CaiTS36": {
-        "fb_dist_in1k_384": {"url": ""},
+        "fb_dist_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_s36_384_fb_dist_in1k.keras"
+        },
     },
     "CaiTM36": {
-        "fb_dist_in1k_384": {"url": ""},
+        "fb_dist_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_m36_384_fb_dist_in1k.keras"
+        },
     },
     "CaiTM48": {
-        "fb_dist_in1k_448": {"url": ""},
+        "fb_dist_in1k_448": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/cait_m48_448_fb_dist_in1k.keras"
+        },
     },
 }

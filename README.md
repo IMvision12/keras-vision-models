@@ -33,8 +33,7 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 
 ## 🛠️ Usage
 
-<details>
-<summary><b>🔎 Listing Available Models</b></summary>
+<h3><b>🔎 Listing Available Models</b></h3>
 
 Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
     
@@ -56,10 +55,7 @@ ConvNeXtBase : fb_in1k, fb_in22k, fb_in22k_ft_in1k, fb_in22k_ft_in1k_384
 ...
 """
 ```
-</details>
-
-<details>
-<summary><b>🔎 List Specific Model Variant</b></summary>
+<h3><b>🔎 List Specific Model Variant</b></h3>
 
 ```python
 import kvmm
@@ -75,10 +71,8 @@ SwinSmallP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
 SwinTinyP4W7 : ms_in1k, ms_in22k
 """
 ```
-</details>
 
-<details>
-<summary><b>⚙️ Layers </b></summary>
+<h3><b>⚙️ Layers </b></h3>
 KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
 
 ```python
@@ -93,10 +87,7 @@ window_partition = WindowPartition(window_size=7)
 windowed_features = window_partition(features, height=28, width=28)
 ```
 
-</details>
-
-<details>
-<summary><b>🏗️ Backbone Usage (Classification) </b></summary>
+<h3><b>🏗️ Backbone Usage (Classification) </b></h3>
 
 #### 🛠️ Basic Usage
 ```python
@@ -151,10 +142,8 @@ print("Predicted:", decode_predictions(preds, top=3)[0])
 #output:
 Predicted: [('n01537544', 'indigo_bunting', np.float32(0.9135666)), ('n01806143', 'peacock', np.float32(0.0003379386)), ('n02017213', 'European_gallinule', np.float32(0.00027174334))]
 ```
-</details>
 
-<details>
-<summary><b>🧩 Segmentation </b></summary>
+<h3><b>🧩 Segmentation </b></h3>
 
 #### 🛠️ Basic Usage
  
@@ -207,12 +196,9 @@ visualize_segmentation(outs, image)
 ```
 ![output](images/seg_output.png)
 
-</details>
 
-<details>
-<summary><b> Object Detection 🚧 </b></summary></details>
-<details>
-<summary><b>VLMS 🚧 </b></summary></details>
+<h3><b> Object Detection 🚧 </b></h3>
+<h3><b>VLMS 🚧 </b></h3>
 
 ## 📑 Models
 

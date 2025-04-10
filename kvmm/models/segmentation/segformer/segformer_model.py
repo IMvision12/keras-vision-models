@@ -262,9 +262,9 @@ def _create_segformer_model(
     valid_model_weights = []
     if variant in SEGFORMER_WEIGHTS_CONFIG:
         valid_model_weights = list(SEGFORMER_WEIGHTS_CONFIG[variant].keys())
-    
+
     valid_weights = [None, "mit"] + valid_model_weights
-    
+
     if weights not in valid_weights and not isinstance(weights, str):
         raise ValueError(
             f"Invalid weights: {weights}. "
@@ -276,10 +276,14 @@ def _create_segformer_model(
         if isinstance(weights, str):
             if "cityscapes" in weights:
                 num_classes = DATASET_DEFAULT_CLASSES["cityscapes"]
-                print(f"Setting num_classes to {num_classes} based on 'cityscapes' dataset.")
+                print(
+                    f"Setting num_classes to {num_classes} based on 'cityscapes' dataset."
+                )
             elif "ade20k" in weights:
                 num_classes = DATASET_DEFAULT_CLASSES["ade20k"]
-                print(f"Setting num_classes to {num_classes} based on 'ade20k' dataset.")
+                print(
+                    f"Setting num_classes to {num_classes} based on 'ade20k' dataset."
+                )
             else:
                 raise ValueError(
                     "num_classes must be specified when not using dataset-specific weights."
@@ -291,7 +295,7 @@ def _create_segformer_model(
 
     if input_shape is None:
         default_height, default_width = 512, 512
-        
+
         if isinstance(weights, str):
             if "1024" in weights:
                 default_height, default_width = 1024, 1024
@@ -301,12 +305,17 @@ def _create_segformer_model(
                 default_height, default_width = 640, 640
             elif "512" in weights:
                 default_height, default_width = 512, 512
-        
+
         input_shape = (default_height, default_width, 3)
-        print(f"Using default input shape {input_shape} based on weights configuration.")
+        print(
+            f"Using default input shape {input_shape} based on weights configuration."
+        )
 
     if isinstance(weights, str):
-        if "cityscapes" in weights and num_classes != DATASET_DEFAULT_CLASSES["cityscapes"]:
+        if (
+            "cityscapes" in weights
+            and num_classes != DATASET_DEFAULT_CLASSES["cityscapes"]
+        ):
             print(
                 f"Warning: Using cityscapes weights with {num_classes} classes instead of "
                 f"the default {DATASET_DEFAULT_CLASSES['cityscapes']} classes. "
@@ -370,13 +379,19 @@ def _create_segformer_model(
     if weights in valid_model_weights:
         print(f"Loading {weights} weights for {variant}.")
         load_weights_from_config(variant, weights, model, SEGFORMER_WEIGHTS_CONFIG)
-    elif weights is not None and weights != "mit" and isinstance(weights, str) and not weights.startswith(("cityscapes", "ade20k")):
+    elif (
+        weights is not None
+        and weights != "mit"
+        and isinstance(weights, str)
+        and not weights.startswith(("cityscapes", "ade20k"))
+    ):
         print(f"Loading weights from file: {weights}")
         model.load_weights(weights)
     else:
         print("No segmentation model weights loaded.")
 
     return model
+
 
 @register_model
 def SegFormerB0(

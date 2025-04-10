@@ -98,6 +98,7 @@ windowed_features = window_partition(features, height=28, width=28)
 <details>
 <summary><b>🏗️ Backbone Usage (Classification) </b></summary>
 
+#### 🛠️ Basic Usage
 ```python
 import kvmm
 import numpy as np
@@ -129,6 +130,27 @@ Feature 2 shape: (1, 197, 192)
 """    
 ```
 
+#### Example Inference
+
+```python
+from keras import ops
+from keras.applications.imagenet_utils import decode_predictions
+import kvmm
+from PIL import Image
+
+model = kvmm.models.swin.SwinTinyP4W7(input_shape=[224, 224, 3])
+
+image = Image.open("bird.png").resize((224, 224))
+x = ops.convert_to_tensor(image)
+x = ops.expand_dims(x, axis=0)
+
+# Predict
+preds = model.predict(x)
+print("Predicted:", decode_predictions(preds, top=3)[0])
+
+#output:
+Predicted: [('n01537544', 'indigo_bunting', np.float32(0.9135666)), ('n01806143', 'peacock', np.float32(0.0003379386)), ('n02017213', 'European_gallinule', np.float32(0.00027174334))]
+```
 </details>
 
 <details>
@@ -163,6 +185,28 @@ import kvmm
 backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
 segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
 ```
+
+#### 🚀 Example Inference
+
+```python
+import kvmm
+from PIL import Image
+import numpy as np
+
+model = kvmm.models.segformer.SegFormerB0(weights="ade20k_512")
+
+image = Image.open("ADE_train_00000586.jpg")
+processed_img = kvmm.models.segformer.SegFormerImageProcessor(image=image,
+    do_resize=True,
+    size={"height": 512, "width": 512},
+    do_rescale=True,
+    do_normalize=True)
+outs = model.predict(processed_img)
+outs = np.argmax(outs[0], axis=-1)
+visualize_segmentation(outs, image)
+```
+![output](images/seg_output.png)
+
 </details>
 
 <details>

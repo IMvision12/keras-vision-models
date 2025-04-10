@@ -272,26 +272,32 @@ def _create_segformer_model(
             "a path to a weights file, or None."
         )
 
-    if num_classes is None:
-        if isinstance(weights, str):
-            if "cityscapes" in weights:
-                num_classes = DATASET_DEFAULT_CLASSES["cityscapes"]
-                print(
-                    f"Setting num_classes to {num_classes} based on 'cityscapes' dataset."
-                )
-            elif "ade20k" in weights:
-                num_classes = DATASET_DEFAULT_CLASSES["ade20k"]
-                print(
-                    f"Setting num_classes to {num_classes} based on 'ade20k' dataset."
-                )
-            else:
-                raise ValueError(
-                    "num_classes must be specified when not using dataset-specific weights."
-                )
-        else:
-            raise ValueError(
-                "num_classes must be specified when not using dataset-specific weights."
-            )
+    weight_dataset = None
+    original_num_classes = None
+    if isinstance(weights, str):
+        if "cityscapes" in weights:
+            weight_dataset = "cityscapes"
+            original_num_classes = DATASET_DEFAULT_CLASSES["cityscapes"]
+        elif "ade20k" in weights:
+            weight_dataset = "ade20k"
+            original_num_classes = DATASET_DEFAULT_CLASSES["ade20k"]
+
+    if num_classes is None and original_num_classes is not None:
+        num_classes = original_num_classes
+        print(
+            f"No num_classes specified. Using {num_classes} classes from the {weight_dataset} dataset."
+        )
+    elif num_classes is None:
+        raise ValueError(
+            "num_classes must be specified when not using dataset-specific weights."
+        )
+
+    use_original_classes = (
+        (weights in valid_model_weights)
+        and (num_classes != original_num_classes)
+        and (original_num_classes is not None)
+    )
+    model_num_classes = original_num_classes if use_original_classes else num_classes
 
     if input_shape is None:
         default_height, default_width = 512, 512
@@ -311,22 +317,15 @@ def _create_segformer_model(
             f"Using default input shape {input_shape} based on weights configuration."
         )
 
-    if isinstance(weights, str):
-        if (
-            "cityscapes" in weights
-            and num_classes != DATASET_DEFAULT_CLASSES["cityscapes"]
-        ):
-            print(
-                f"Warning: Using cityscapes weights with {num_classes} classes instead of "
-                f"the default {DATASET_DEFAULT_CLASSES['cityscapes']} classes. "
-                f"This may require fine-tuning to achieve good results."
-            )
-        elif "ade20k" in weights and num_classes != DATASET_DEFAULT_CLASSES["ade20k"]:
-            print(
-                f"Warning: Using ade20k weights with {num_classes} classes instead of "
-                f"the default {DATASET_DEFAULT_CLASSES['ade20k']} classes. "
-                f"This may require fine-tuning to achieve good results."
-            )
+    if (
+        isinstance(weights, str)
+        and weight_dataset
+        and num_classes != DATASET_DEFAULT_CLASSES[weight_dataset]
+    ):
+        print(
+            f"Using {weight_dataset} weights ({DATASET_DEFAULT_CLASSES[weight_dataset]} classes) "
+            f"for fine-tuning to {num_classes} classes."
+        )
 
     mit_variant = variant.replace("SegFormer", "MiT_")
 
@@ -369,7 +368,7 @@ def _create_segformer_model(
     model = SegFormer(
         **SEGFORMER_MODEL_CONFIG[variant],
         backbone=backbone,
-        num_classes=num_classes,
+        num_classes=model_num_classes,
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=variant,
@@ -387,8 +386,49 @@ def _create_segformer_model(
     ):
         print(f"Loading weights from file: {weights}")
         model.load_weights(weights)
+    elif weights == "mit":
+        pass
     else:
-        print("No segmentation model weights loaded.")
+        print("No weights loaded for the segmentation model.")
+
+    if use_original_classes and num_classes != original_num_classes:
+        print(
+            f"Modifying classifier head from {original_num_classes} to {num_classes} classes."
+        )
+
+        new_model = SegFormer(
+            **SEGFORMER_MODEL_CONFIG[variant],
+            backbone=backbone,
+            num_classes=num_classes,
+            input_shape=input_shape,
+            input_tensor=input_tensor,
+            name=variant,
+            **kwargs,
+        )
+
+        backbone_trained = model.backbone
+
+        new_model.backbone.set_weights(backbone_trained.get_weights())
+
+        head_prefix = f"{variant}_head"
+        head_layers_old = [
+            layer
+            for layer in model.layers
+            if layer.name.startswith(head_prefix)
+            and not layer.name.endswith("classifier")
+        ]
+        head_layers_new = [
+            layer
+            for layer in new_model.layers
+            if layer.name.startswith(head_prefix)
+            and not layer.name.endswith("classifier")
+        ]
+
+        for layer_old, layer_new in zip(head_layers_old, head_layers_new):
+            if layer_old.name == layer_new.name:
+                layer_new.set_weights(layer_old.get_weights())
+
+        return new_model
 
     return model
 

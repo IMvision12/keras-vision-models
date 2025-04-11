@@ -56,6 +56,9 @@ repository = "https://github.com/IMvision12/keras-vision-models.git"
 [tool.setuptools.packages]
 find = { include = ["kvmm*"] }
 
+[tool.setuptools.dynamic]
+version = { attr = "kvmm.__version__" }
+
 [tool.ruff.lint]
 ignore = ["C901", "E501", "E741", "F402", "F823"]
 select = ["C", "E", "F", "I", "W"]

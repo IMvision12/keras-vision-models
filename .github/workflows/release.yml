@@ -1,0 +1,79 @@
+name: Release
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'kvmm/version.py'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      created: ${{ steps.create_release.outputs.created }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get version
+        id: get_version
+        run: |
+          VERSION=$(grep -o '"[0-9]*\.[0-9]*\.[0-9]*"' kvmm/version.py | tr -d '"')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Create release
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="v${{ steps.get_version.outputs.version }}"
+          # Check if the release already exists
+          if ! gh release view $RELEASE_TAG &>/dev/null; then
+            gh release create $RELEASE_TAG \
+              --title "Release $RELEASE_TAG" \
+              --notes "Auto-generated release for version ${{ steps.get_version.outputs.version }}"
+            echo "created=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release $RELEASE_TAG already exists, skipping creation"
+            echo "created=false" >> $GITHUB_OUTPUT
+          fi
+
+  pypi-publish:
+    needs: create-release
+    if: needs.create-release.outputs.created == 'true'
+    strategy:
+      fail-fast: false
+    name: Build wheel file and upload release to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          python -m pip install --upgrade pip setuptools
+          echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt --progress-bar off --upgrade
+          pip install -e ".[tests]" --progress-bar off --upgrade
+      - name: Build wheels
+        shell: bash
+        run: |
+          pip install --upgrade pip setuptools wheel twine build
+          python -m build
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true

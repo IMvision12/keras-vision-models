@@ -275,28 +275,3 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
   howpublished = {\url{https://github.com/IMvision12/keras-vision-models}}
 }
 ```
-
-```bash
-@misc{rw2019timm,
-  author = {Ross Wightman},
-  title = {PyTorch Image Models},
-  year = {2019},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  doi = {10.5281/zenodo.4414861},
-  howpublished = {\url{https://github.com/rwightman/pytorch-image-models}}
-}
-```
-
-```bash
-@inproceedings{wolf-etal-2020-transformers,
-    title = "Transformers: State-of-the-Art Natural Language Processing",
-    author = "Thomas Wolf and Lysandre Debut and Victor Sanh and Julien Chaumond and Clement Delangue and Anthony Moi and Pierric Cistac and Tim Rault and Rémi Louf and Morgan Funtowicz and Joe Davison and Sam Shleifer and Patrick von Platen and Clara Ma and Yacine Jernite and Julien Plu and Canwen Xu and Teven Le Scao and Sylvain Gugger and Mariama Drame and Quentin Lhoest and Alexander Rush",
-    booktitle = "Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
-    month = oct,
-    year = "2020",
-    publisher = "Association for Computational Linguistics",
-    url = "https://aclanthology.org/2020.emnlp-demos.6",
-    pages = "38--45"
-}
-```

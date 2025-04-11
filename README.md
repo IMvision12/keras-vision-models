@@ -249,9 +249,10 @@ visualize_segmentation(outs, image)
 
 ## 📜 License
 
-This project **uses** [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license). These libraries were used for porting weights from PyTorch to Keras.
+This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
 
-- 🔖 **kvmm Code**: The code in this repository is available under the **Apache 2.0 license**.
+- 🔖 **kvmm Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
+
 
 ## 🌟 Credits
 
@@ -263,6 +264,17 @@ This project **uses** [timm](https://github.com/huggingface/pytorch-image-models
 ## Citing
 
 ### BibTeX
+
+```bash
+@misc{gc2025kvmm,
+  author = {Gitesh Chawda},
+  title = {Keras Vision Models},
+  year = {2025},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/IMvision12/keras-vision-models}}
+}
+```
 
 ```bash
 @misc{rw2019timm,
@@ -277,12 +289,14 @@ This project **uses** [timm](https://github.com/huggingface/pytorch-image-models
 ```
 
 ```bash
-@misc{gc2025kvmm,
-  author = {Gitesh Chawda},
-  title = {Keras Vision Models},
-  year = {2025},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/IMvision12/keras-vision-models}}
+@inproceedings{wolf-etal-2020-transformers,
+    title = "Transformers: State-of-the-Art Natural Language Processing",
+    author = "Thomas Wolf and Lysandre Debut and Victor Sanh and Julien Chaumond and Clement Delangue and Anthony Moi and Pierric Cistac and Tim Rault and Rémi Louf and Morgan Funtowicz and Joe Davison and Sam Shleifer and Patrick von Platen and Clara Ma and Yacine Jernite and Julien Plu and Canwen Xu and Teven Le Scao and Sylvain Gugger and Mariama Drame and Quentin Lhoest and Alexander Rush",
+    booktitle = "Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations",
+    month = oct,
+    year = "2020",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2020.emnlp-demos.6",
+    pages = "38--45"
 }
 ```

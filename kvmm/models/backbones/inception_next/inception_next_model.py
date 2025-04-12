@@ -3,7 +3,8 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kvmm.layers import ImageNormalizationLayer, LayerScale
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
+from kvmm.model_registry import register_model
 
 from .config import INCEPTION_NEXT_MODEL_CONFIG, INCEPTION_NEXT_WEIGHTS_CONFIG
 

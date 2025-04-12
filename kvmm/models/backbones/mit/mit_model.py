@@ -8,7 +8,8 @@ from kvmm.layers import (
     ImageNormalizationLayer,
     StochasticDepth,
 )
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
+from kvmm.model_registry import register_model
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
 

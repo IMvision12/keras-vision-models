@@ -4,7 +4,8 @@ from keras.src.applications import imagenet_utils
 from keras.src.utils.argument_validation import standardize_tuple
 
 from kvmm.layers import ImageNormalizationLayer
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
+from kvmm.model_registry import register_model
 
 from .config import INCEPTIONV4_WEIGHTS_CONFIG
 

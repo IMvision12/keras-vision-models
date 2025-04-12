@@ -1,9 +1,9 @@
 import keras
 from keras import layers, utils
 
+from kvmm.model_registry import register_model
 from kvmm.models import mit
 from kvmm.utils import load_weights_from_config
-from kvmm.model_registry import register_model
 
 from .config import SEGFORMER_MODEL_CONFIG, SEGFORMER_WEIGHTS_CONFIG
 

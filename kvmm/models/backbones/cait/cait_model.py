@@ -11,8 +11,8 @@ from kvmm.layers import (
     StochasticDepth,
     TalkingHeadAttention,
 )
-from kvmm.utils import get_all_weight_names, load_weights_from_config
 from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHTS_CONFIG
 

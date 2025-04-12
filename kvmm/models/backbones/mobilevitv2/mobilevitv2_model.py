@@ -7,8 +7,8 @@ from kvmm.layers import (
     ImageToPatchesLayer,
     PatchesToImageLayer,
 )
-from kvmm.utils import get_all_weight_names, load_weights_from_config
 from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHTS_CONFIG
 

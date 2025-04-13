@@ -7,7 +7,8 @@ from kvmm.layers import ImageNormalizationLayer
 from kvmm.layers.global_response_norm import GlobalResponseNorm
 from kvmm.layers.layer_scale import LayerScale
 from kvmm.layers.stochastic_depth import StochasticDepth
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_CONFIG
 

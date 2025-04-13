@@ -4,7 +4,8 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kvmm.layers import ImageNormalizationLayer, StdConv2D, StochasticDepth
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHTS_CONFIG
 

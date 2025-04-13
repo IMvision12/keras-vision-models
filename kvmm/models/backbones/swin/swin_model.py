@@ -9,7 +9,8 @@ from kvmm.layers import (
     WindowAttention,
     WindowPartition,
 )
-from kvmm.utils import get_all_weight_names, load_weights_from_config, register_model
+from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_CONFIG
 

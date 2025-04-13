@@ -1,6 +1,5 @@
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
-from kvmm.utils.model_registry import list_models, register_model
 from kvmm.utils.model_weights_util import (
     download_weights,
     get_all_weight_names,

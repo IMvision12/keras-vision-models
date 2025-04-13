@@ -39,7 +39,7 @@ Shows all available models, including backbones, segmentation models, object det
     
 ```python
 import kvmm
-print(kvmm.utils.list_models())
+print(kvmm.list_models())
 
 ## Output:
 """
@@ -59,7 +59,7 @@ ConvNeXtBase : fb_in1k, fb_in22k, fb_in22k_ft_in1k, fb_in22k_ft_in1k_384
 
 ```python
 import kvmm
-print(kvmm.utils.list_models("swin"))
+print(kvmm.list_models("swin"))
 
 # Output:
 """

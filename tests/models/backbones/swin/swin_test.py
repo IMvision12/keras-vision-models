@@ -1,7 +1,7 @@
 import pytest
 
 from kvmm.models import swin
-from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTest, ModelConfig
 
 
 class TestSwin(BackboneTest):

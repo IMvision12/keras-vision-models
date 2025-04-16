@@ -1,7 +1,7 @@
 import pytest
 
 from kvmm.models import inception_resnetv2
-from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTest, ModelConfig
 
 
 class TestInceptionResNetV2(BackboneTest):

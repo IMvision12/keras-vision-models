@@ -1,7 +1,7 @@
 import pytest
 
 from kvmm.models import efficientnet_lite
-from kvmm.tests.test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTest, ModelConfig
 
 
 class TestEfficientNetLite(BackboneTest):

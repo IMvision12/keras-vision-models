@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .affine import Affine
+from kvmm.layers import Affine
 
 
 class TestAffine(TestCase):

@@ -5,7 +5,7 @@ import numpy as np
 from keras import layers, ops
 from keras.src.testing import TestCase
 
-from .images_to_patches import ImageToPatchesLayer
+from kvmm.layers import ImageToPatchesLayer
 
 
 class TestImageToPatchesLayer(TestCase):

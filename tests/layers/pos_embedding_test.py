@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .pos_embedding import AddPositionEmbs
+from kvmm.layers import AddPositionEmbs
 
 
 class TestAddPositionEmbs(TestCase):

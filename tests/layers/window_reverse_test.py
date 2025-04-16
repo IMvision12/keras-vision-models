@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .window_reverse import WindowReverse
+from kvmm.layers import WindowReverse
 
 
 class TestWindowReverse(TestCase):

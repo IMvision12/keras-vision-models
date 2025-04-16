@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .class_attention import ClassAttention
+from kvmm.layers import ClassAttention
 
 
 class TestClassAttention(TestCase):

@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .global_response_norm import GlobalResponseNorm
+from kvmm.layers import GlobalResponseNorm
 
 
 class TestGlobalResponseNorm(TestCase):

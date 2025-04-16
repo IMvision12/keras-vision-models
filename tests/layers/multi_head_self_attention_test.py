@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .multi_head_self_attention import MultiHeadSelfAttention
+from kvmm.layers import MultiHeadSelfAttention
 
 
 class TestMultiHeadSelfAttention(TestCase):

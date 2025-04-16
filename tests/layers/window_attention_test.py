@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .window_attention import WindowAttention
+from kvmm.layers import WindowAttention
 
 
 class TestWindowAttention(TestCase):

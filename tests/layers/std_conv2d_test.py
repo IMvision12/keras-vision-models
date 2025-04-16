@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .std_conv2d import StdConv2D
+from kvmm.layers import StdConv2D
 
 
 class TestStdConv2D(TestCase):

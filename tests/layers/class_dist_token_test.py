@@ -2,7 +2,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .class_dist_token import ClassDistToken
+from kvmm.layers import ClassDistToken
 
 
 class TestClassDistToken(TestCase):

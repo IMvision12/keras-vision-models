@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .talking_head_attention import TalkingHeadAttention
+from kvmm.layers import TalkingHeadAttention
 
 
 class TestTalkingHeadAttention(TestCase):

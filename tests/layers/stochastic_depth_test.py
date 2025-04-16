@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
-from .stochastic_depth import StochasticDepth
+from kvmm.layers import StochasticDepth
 
 
 class TestStochasticDepth(TestCase):

@@ -1,6 +1,7 @@
 import pytest
 
 from kvmm.models import convmixer
+
 from ....test_backbone_modeling import BackboneTest, ModelConfig
 
 

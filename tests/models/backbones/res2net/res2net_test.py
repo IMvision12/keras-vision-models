@@ -1,6 +1,7 @@
 import pytest
 
 from kvmm.models import res2net
+
 from ....test_backbone_modeling import BackboneTest, ModelConfig
 
 

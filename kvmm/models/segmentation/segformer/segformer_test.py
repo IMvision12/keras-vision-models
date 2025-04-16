@@ -1,7 +1,7 @@
 import pytest
 
 from kvmm.models import segformer
-from kvmm.tests.test_segmentation_modeling import (
+from tests.test_segmentation_modeling import (
     SegmentationModelConfig,
     SegmentationTest,
 )

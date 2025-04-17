@@ -1,4 +1,4 @@
-from kvmm import layers, models, tests, utils
+from kvmm import layers, models, utils
 from kvmm.model_registry import list_models, register_model
 from kvmm.version import version
 

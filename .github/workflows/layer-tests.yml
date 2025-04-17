@@ -27,7 +27,7 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest kvmm/layers/*_test.py -v
+        pytest tests/layers/*_test.py -v
 
     - name: Upload test results
       if: always()

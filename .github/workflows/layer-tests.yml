@@ -1,40 +1,99 @@
 name: Layer Tests
-
 on:
-  pull_request:
+  push:
     branches: [ main ]
-
+  pull_request:
+  release:
+    types: [created]
 jobs:
   test:
-    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10"]
-
+        backend: [tensorflow, jax, torch, numpy]
+    name: Run layer tests on ${{ matrix.backend }}
+    runs-on: ubuntu-latest
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest
-    
-    - name: Run tests
-      run: |
-        pytest tests/layers/*_test.py -v
-
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results-${{ matrix.python-version }}
-        path: |
-          .pytest_cache
-          test-results/
-        retention-days: 2
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          python -m pip install --upgrade pip setuptools
+          echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+          
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: ${{ runner.os }}-pip-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('requirements.txt') }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          
+          # Install backend-specific dependencies
+          if [ "${{ matrix.backend }}" == "tensorflow" ]; then
+            pip install tensorflow keras
+          elif [ "${{ matrix.backend }}" == "jax" ]; then
+            pip install jax jaxlib keras
+          elif [ "${{ matrix.backend }}" == "torch" ]; then
+            pip install torch keras
+          elif [ "${{ matrix.backend }}" == "numpy" ]; then
+            pip install numpy keras
+          fi
+          
+          # Install additional dependencies
+          pip install pytest pytest-cov timm
+          pip install -r requirements.txt
+          pip install -e .
+          
+      - name: Run layer tests
+        run: |
+          echo "Running layer tests with Keras backend: $KERAS_BACKEND"
+          pytest tests/layers/*_test.py -v --cov=./ --cov-append
+          
+          # Generate coverage report
+          coverage xml -o coverage.xml
+      
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: keras-${{ matrix.backend }}-layers
+          fail_ci_if_error: false
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer-test-results-${{ matrix.backend }}
+          path: |
+            .pytest_cache
+            test-results/
+            coverage.xml
+          retention-days: 2
+      
+      - name: Cleanup workspace
+        if: always()
+        run: |
+          echo "🧹 Performing cleanup..."
+          # Clean up Python cache files
+          find . -name "__pycache__" -type f -exec rm -rf {} +
+          find . -name "*.pyc" -type f -delete
+          find . -name ".pytest_cache" -type f -exec rm -rf {} +
+          
+          # Clean up model files
+          find . -name "*.keras" -type f -delete
+          
+          # Clean up any temporary files
+          find . -name "temp_*" -type f -delete
+          find . -name "*_temp" -type f -delete
+          find . -name "*.log" -type f -delete

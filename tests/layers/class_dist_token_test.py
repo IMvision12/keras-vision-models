@@ -1,9 +1,7 @@
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
 from kvmm.layers import ClassDistToken
-
 
 class TestClassDistToken(TestCase):
     def setUp(self):
@@ -137,18 +135,29 @@ class TestClassDistToken(TestCase):
         layer = ClassDistToken(use_distillation=False)
         outputs = layer(self.test_inputs)
         cls_tokens = outputs[:, 0:1, :]
-        assert np.allclose(cls_tokens[0], cls_tokens[1])
+        # Convert to NumPy arrays first
+        cls_tokens_0 = ops.convert_to_numpy(cls_tokens[0])
+        cls_tokens_1 = ops.convert_to_numpy(cls_tokens[1])
+        self.assertAllClose(cls_tokens_0, cls_tokens_1)
 
     def test_token_broadcasting_deit(self):
         layer = ClassDistToken(use_distillation=True)
         outputs = layer(self.test_inputs)
         cls_tokens = outputs[:, 0:1, :]
         dist_tokens = outputs[:, 1:2, :]
-        assert np.allclose(cls_tokens[0], cls_tokens[1])
-        assert np.allclose(dist_tokens[0], dist_tokens[1])
+        # Convert to NumPy arrays first
+        cls_tokens_0 = ops.convert_to_numpy(cls_tokens[0])
+        cls_tokens_1 = ops.convert_to_numpy(cls_tokens[1])
+        dist_tokens_0 = ops.convert_to_numpy(dist_tokens[0])
+        dist_tokens_1 = ops.convert_to_numpy(dist_tokens[1])
+        self.assertAllClose(cls_tokens_0, cls_tokens_1)
+        self.assertAllClose(dist_tokens_0, dist_tokens_1)
 
     def test_token_broadcasting_pit(self):
         layer = ClassDistToken(use_distillation=True, combine_tokens=True)
         outputs = layer(self.test_inputs)
         cls_dist_tokens = outputs[:, 0:2, :]
-        assert np.allclose(cls_dist_tokens[0], cls_dist_tokens[1])
+        # Convert to NumPy arrays first
+        cls_dist_tokens_0 = ops.convert_to_numpy(cls_dist_tokens[0])
+        cls_dist_tokens_1 = ops.convert_to_numpy(cls_dist_tokens[1])
+        self.assertAllClose(cls_dist_tokens_0, cls_dist_tokens_1)

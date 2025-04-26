@@ -1,4 +1,4 @@
-import numpy as np
+import keras
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -110,21 +110,26 @@ class TestEfficientMultiheadSelfAttention(TestCase):
             proj_drop=0.9,
             attn_drop=0.9,
         )
-
-        for _ in range(5):
-            train_output = layer(self.test_inputs, training=True)
-            infer_output = layer(self.test_inputs, training=False)
-
+        
+        test_inputs = keras.random.uniform(
+            shape=self.input_shape, 
+            minval=-1.0, 
+            maxval=1.0
+        )
+        keras.utils.set_random_seed(42)
+        
+        for _ in range(2):
+            train_output = layer(test_inputs, training=True)
+            infer_output = layer(test_inputs, training=False)
+            
             assert ops.shape(train_output) == ops.shape(infer_output)
-
+            
             try:
-                assert not np.allclose(
-                    train_output.numpy(), infer_output.numpy(), rtol=1e-3
-                )
+                assert not ops.all(ops.abs(train_output - infer_output) < 1e-5)
                 return
             except AssertionError:
                 continue
-
+                
         raise AssertionError("Dropout does not appear to be working during training")
 
     def test_get_config(self):

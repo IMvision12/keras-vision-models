@@ -3,6 +3,7 @@ from keras.src.testing import TestCase
 
 from kvmm.layers import Affine
 
+
 class TestAffine(TestCase):
     def setUp(self):
         super().setUp()

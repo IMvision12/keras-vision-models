@@ -3,6 +3,7 @@ from keras.src.testing import TestCase
 
 from kvmm.layers import ClassDistToken
 
+
 class TestClassDistToken(TestCase):
     def setUp(self):
         super().setUp()

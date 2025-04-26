@@ -3,7 +3,8 @@ from keras import ops
 from keras.src.testing import TestCase
 
 from kvmm.layers import ClassAttention
-        
+
+
 class TestClassAttention(TestCase):
     def setUp(self):
         super().setUp()
@@ -117,7 +118,7 @@ class TestClassAttention(TestCase):
         train_output_cl = layer_cl(self.test_inputs_channels_last, training=True)
         infer_output_cl = layer_cl(self.test_inputs_channels_last, training=False)
         assert ops.shape(train_output_cl) == ops.shape(infer_output_cl)
-        
+
         diff_cl = ops.sum(ops.abs(train_output_cl - infer_output_cl))
         assert diff_cl > 0, "Training and inference outputs should be different"
 
@@ -131,7 +132,7 @@ class TestClassAttention(TestCase):
         train_output_cf = layer_cf(self.test_inputs_channels_first, training=True)
         infer_output_cf = layer_cf(self.test_inputs_channels_first, training=False)
         assert ops.shape(train_output_cf) == ops.shape(infer_output_cf)
-        
+
         diff_cf = ops.sum(ops.abs(train_output_cf - infer_output_cf))
         assert diff_cf > 0, "Training and inference outputs should be different"
 
@@ -266,7 +267,7 @@ class TestClassAttention(TestCase):
         inputs_cl = ops.zeros(self.input_shape_channels_last)
         temp_ones = ops.ones((self.batch_size, 1, self.dim))
         if inputs_cl.shape[1] > 1:
-            zeros_part = ops.zeros((self.batch_size, inputs_cl.shape[1]-1, self.dim))
+            zeros_part = ops.zeros((self.batch_size, inputs_cl.shape[1] - 1, self.dim))
             inputs_cl = ops.concatenate([temp_ones, zeros_part], axis=1)
         else:
             inputs_cl = temp_ones
@@ -277,7 +278,9 @@ class TestClassAttention(TestCase):
 
         temp_zeros = ops.zeros((self.batch_size, 1, self.dim))
         if self.input_shape_channels_last[1] > 1:
-            ones_part = ops.ones((self.batch_size, self.input_shape_channels_last[1]-1, self.dim))
+            ones_part = ops.ones(
+                (self.batch_size, self.input_shape_channels_last[1] - 1, self.dim)
+            )
             inputs_cl = ops.concatenate([temp_zeros, ones_part], axis=1)
         else:
             inputs_cl = temp_zeros
@@ -291,7 +294,9 @@ class TestClassAttention(TestCase):
 
         temp_ones = ops.ones((self.batch_size, self.dim, 1))
         if self.input_shape_channels_first[2] > 1:
-            zeros_part = ops.zeros((self.batch_size, self.dim, self.input_shape_channels_first[2]-1))
+            zeros_part = ops.zeros(
+                (self.batch_size, self.dim, self.input_shape_channels_first[2] - 1)
+            )
             inputs_cf = ops.concatenate([temp_ones, zeros_part], axis=2)
         else:
             inputs_cf = temp_ones
@@ -302,7 +307,9 @@ class TestClassAttention(TestCase):
 
         temp_zeros = ops.zeros((self.batch_size, self.dim, 1))
         if self.input_shape_channels_first[2] > 1:
-            ones_part = ops.ones((self.batch_size, self.dim, self.input_shape_channels_first[2]-1))
+            ones_part = ops.ones(
+                (self.batch_size, self.dim, self.input_shape_channels_first[2] - 1)
+            )
             inputs_cf = ops.concatenate([temp_zeros, ones_part], axis=2)
         else:
             inputs_cf = temp_zeros

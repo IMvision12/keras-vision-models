@@ -100,25 +100,20 @@ class TestImageToPatchesLayer(TestCase):
         patch_size = 2
         channels = 1
 
-        # Create input tensor using keras.ops
         input_data = keras.ops.arange(16, dtype="float32")
         input_data = keras.ops.reshape(input_data, (1, height, width, channels))
         inputs = keras.ops.convert_to_tensor(input_data)
 
-        # Define and apply the layer
         layer = ImageToPatchesLayer(patch_size=patch_size)
         outputs = layer(inputs)
 
-        # Create expected patches using keras.ops
         expected_patches = keras.ops.convert_to_tensor(
             [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]],
             dtype="float32",
         )
 
-        # Check each patch using Keras ops for comparison
         for i in range(4):
             patch = outputs[0, :, i, 0]
-            # Use all_equal to compare tensors directly
             is_equal = keras.ops.all(keras.ops.equal(patch, expected_patches[i]))
             self.assertTrue(keras.ops.convert_to_numpy(is_equal).item())
 

@@ -1,3 +1,4 @@
+import keras
 import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
@@ -183,7 +184,7 @@ class TestWindowAttention(TestCase):
         )
         self.assertEqual(ops.shape(train_output), ops.shape(infer_output))
         self.assertNotEqual(
-            np.mean(train_output.numpy()), np.mean(infer_output.numpy())
+            ops.mean(train_output), ops.mean(infer_output)
         )
 
     def test_get_config(self):
@@ -292,15 +293,15 @@ class TestWindowAttention(TestCase):
         small_outputs = layer(
             [small_inputs, window_size_tensor, self.relative_position_index, None]
         )
-        self.assertFalse(np.any(np.isnan(small_outputs.numpy())))
-        self.assertFalse(np.any(np.isinf(small_outputs.numpy())))
+        self.assertFalse(ops.any(ops.isnan(small_outputs)))
+        self.assertFalse(ops.any(ops.isinf(small_outputs)))
 
         large_inputs = self.test_inputs * 1000
         large_outputs = layer(
             [large_inputs, window_size_tensor, self.relative_position_index, None]
         )
-        self.assertFalse(np.any(np.isnan(large_outputs.numpy())))
-        self.assertFalse(np.any(np.isinf(large_outputs.numpy())))
+        self.assertFalse(ops.any(ops.isnan(large_outputs)))
+        self.assertFalse(ops.any(ops.isinf(large_outputs)))
 
     def test_attention_computation(self):
         layer = WindowAttention(
@@ -333,8 +334,8 @@ class TestWindowAttention(TestCase):
         )
         B = self.batch_size
 
-        random_inputs = ops.convert_to_tensor(
-            np.random.normal(0, 1, self.input_shape).astype(np.float32)
+        random_inputs = keras.ops.convert_to_tensor(
+            keras.random.normal(shape=self.input_shape, mean=0, stddev=1, dtype="float32")
         )
 
         zero_mask = ops.zeros(

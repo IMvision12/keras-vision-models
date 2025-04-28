@@ -1,4 +1,3 @@
-import keras
 from keras import ops
 from keras.src.testing import TestCase
 

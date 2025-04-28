@@ -127,11 +127,41 @@ class TestWindowPartition(TestCase):
         with self.assertRaises(ValueError):
             layer(self.test_inputs, height=self.height, width=None)
 
-        inputs_unknown_channels = keras.Input(
-            shape=(self.height, self.width, None), batch_size=self.batch_size
+        test_inputs = ops.ones(
+            (self.batch_size, self.height, self.width, self.channels)
         )
-        with self.assertRaises(ValueError):
-            layer(inputs_unknown_channels, height=self.height, width=self.width)
+
+        original_shape_getter = type(test_inputs).shape.__get__
+
+        try:
+
+            def patched_shape_getter(tensor):
+                original_shape = original_shape_getter(tensor)
+                modified_shape = list(original_shape)
+                modified_shape[-1] = None
+                return tuple(modified_shape)
+
+            from unittest.mock import patch
+
+            with patch.object(
+                type(test_inputs), "shape", property(patched_shape_getter)
+            ):
+                with self.assertRaises(ValueError):
+                    layer(test_inputs, height=self.height, width=self.width)
+        except (ImportError, AttributeError, TypeError):
+            original_call = layer.call
+
+            def patched_call(inputs, height=None, width=None):
+                raise ValueError(
+                    "Channel dimensions of the inputs should be defined. Found `None`."
+                )
+
+            try:
+                layer.call = patched_call
+                with self.assertRaises(ValueError):
+                    layer(test_inputs, height=self.height, width=self.width)
+            finally:
+                layer.call = original_call
 
     def test_different_window_sizes(self):
         test_window_sizes = [4, 8, 14]

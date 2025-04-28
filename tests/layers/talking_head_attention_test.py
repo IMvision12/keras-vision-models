@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -123,7 +122,7 @@ class TestTalkingHeadAttention(TestCase):
 
         assert ops.shape(train_output) == ops.shape(infer_output)
 
-        assert not np.allclose(train_output.numpy(), infer_output.numpy())
+        self.assertNotAllClose(train_output, infer_output)
 
     def test_training_vs_inference_channels_first(self):
         layer = TalkingHeadAttention(
@@ -138,7 +137,7 @@ class TestTalkingHeadAttention(TestCase):
 
         assert ops.shape(train_output) == ops.shape(infer_output)
 
-        assert not np.allclose(train_output.numpy(), infer_output.numpy())
+        self.assertNotAllClose(train_output, infer_output)
 
     def test_get_config(self):
         layer = TalkingHeadAttention(
@@ -236,13 +235,13 @@ class TestTalkingHeadAttention(TestCase):
         layer = TalkingHeadAttention(dim=self.dim, num_heads=self.num_heads)
         small_inputs = self.test_inputs_channels_last * 1e-10
         small_outputs = layer(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
 
         large_inputs = self.test_inputs_channels_last * 1e10
         large_outputs = layer(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))
 
     def test_numerical_stability_channels_first(self):
         layer = TalkingHeadAttention(
@@ -250,13 +249,13 @@ class TestTalkingHeadAttention(TestCase):
         )
         small_inputs = self.test_inputs_channels_first * 1e-10
         small_outputs = layer(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
 
         large_inputs = self.test_inputs_channels_first * 1e10
         large_outputs = layer(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))
 
     def test_attention_computation_channels_last(self):
         layer = TalkingHeadAttention(dim=self.dim, num_heads=self.num_heads)
@@ -341,8 +340,8 @@ class TestTalkingHeadAttention(TestCase):
             output_channels_first, (0, 2, 1)
         )
 
-        assert np.allclose(
-            output_channels_last.numpy(),
-            output_channels_first_converted.numpy(),
+        self.assertAllClose(
+            output_channels_last,
+            output_channels_first_converted,
             atol=1e-5,
         )

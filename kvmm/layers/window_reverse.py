@@ -56,7 +56,7 @@ class WindowReverse(layers.Layer):
         windows_width = width // self.window_size
 
         if not self.fused:
-            if inputs.shape.rank != 3:
+            if len(inputs.shape) != 3:
                 raise ValueError("Expecting inputs rank to be 3.")
 
             channels = inputs.shape[-1]
@@ -80,7 +80,7 @@ class WindowReverse(layers.Layer):
             outputs = ops.reshape(outputs, [-1, height, width, channels])
 
         else:
-            if inputs.shape.rank != 4:
+            if len(inputs.shape) != 4:
                 raise ValueError("Expecting inputs rank to be 4.")
 
             head_channels = inputs.shape[-1]

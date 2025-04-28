@@ -1,4 +1,3 @@
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -25,8 +24,8 @@ class TestLayerScale(TestCase):
         layer.build(self.input_shape)
         assert hasattr(layer, "gamma")
         assert layer.gamma.shape == (self.projection_dim,)
-        expected_values = np.full((self.projection_dim,), self.init_values)
-        assert np.allclose(layer.gamma.numpy(), expected_values)
+        expected_values = ops.full((self.projection_dim,), self.init_values)
+        self.assertAllClose(layer.gamma, expected_values)
 
     def test_call(self):
         layer = LayerScale(init_values=self.init_values)
@@ -37,7 +36,7 @@ class TestLayerScale(TestCase):
             output_shape[i] == self.input_shape[i] for i in range(len(self.input_shape))
         )
         expected_output = self.test_inputs * layer.gamma
-        assert np.allclose(outputs.numpy(), expected_output.numpy())
+        self.assertAllClose(outputs, expected_output)
 
     def test_get_config(self):
         layer = LayerScale(init_values=self.init_values)
@@ -88,15 +87,15 @@ class TestLayerScale(TestCase):
         for init_value in test_init_values:
             layer = LayerScale(init_values=init_value)
             layer.build((self.batch_size, self.seq_length, self.projection_dim))
-            expected_values = np.full((self.projection_dim,), init_value)
-            assert np.allclose(layer.gamma.numpy(), expected_values)
+            expected_values = ops.full((self.projection_dim,), init_value)
+            self.assertAllClose(layer.gamma, expected_values)
 
     def test_trainable_gamma(self):
         layer = LayerScale(init_values=self.init_values)
         layer.build(self.input_shape)
         assert layer.gamma.trainable
-        initial_gamma = layer.gamma.numpy().copy()
-        new_values = initial_gamma + 0.01
+        initial_gamma = layer.gamma * 1.0
+        new_values = layer.gamma + 0.01
         layer.gamma.assign(new_values)
-        assert np.allclose(layer.gamma.numpy(), new_values)
-        assert not np.allclose(layer.gamma.numpy(), initial_gamma)
+        self.assertAllClose(layer.gamma, new_values)
+        self.assertNotAllClose(layer.gamma, initial_gamma)

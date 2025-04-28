@@ -49,7 +49,7 @@ class WindowPartition(layers.Layer):
             raise ValueError("num_heads must be set when fused=True")
 
     def call(self, inputs, height=None, width=None):
-        if inputs.shape.rank != 4:
+        if len(inputs.shape) != 4:
             raise ValueError("Expecting inputs rank to be 4.")
 
         if height is None or width is None:

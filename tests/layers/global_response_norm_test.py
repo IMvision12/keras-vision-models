@@ -1,4 +1,3 @@
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -26,8 +25,8 @@ class TestGlobalResponseNorm(TestCase):
         assert hasattr(layer, "bias")
         assert layer.weight.shape == (1, 1, 1, self.dim)
         assert layer.bias.shape == (1, 1, 1, self.dim)
-        assert np.allclose(layer.weight.numpy(), np.zeros((1, 1, 1, self.dim)))
-        assert np.allclose(layer.bias.numpy(), np.zeros((1, 1, 1, self.dim)))
+        self.assertAllClose(layer.weight, ops.zeros((1, 1, 1, self.dim)))
+        self.assertAllClose(layer.bias, ops.zeros((1, 1, 1, self.dim)))
 
     def test_call(self):
         layer = GlobalResponseNorm()
@@ -48,7 +47,7 @@ class TestGlobalResponseNorm(TestCase):
             + layer.bias
             + self.test_inputs
         )
-        assert np.allclose(outputs.numpy(), expected_output.numpy(), rtol=1e-5)
+        self.assertAllClose(outputs, expected_output, rtol=1e-5)
 
     def test_different_batch_sizes(self):
         layer = GlobalResponseNorm()
@@ -90,9 +89,9 @@ class TestGlobalResponseNorm(TestCase):
         layer = GlobalResponseNorm()
         small_inputs = self.test_inputs * 1e-10
         small_outputs = layer(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
         large_inputs = self.test_inputs * 1e10
         large_outputs = layer(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))

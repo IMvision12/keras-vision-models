@@ -1,7 +1,4 @@
-import math
-
 import keras
-import numpy as np
 from keras import layers, ops
 from keras.src.testing import TestCase
 
@@ -68,8 +65,9 @@ class TestImageToPatchesLayer(TestCase):
         layer = ImageToPatchesLayer(patch_size=self.patch_size)
         outputs = layer(inputs)
 
-        expected_height = math.ceil(uneven_height / self.patch_size)
-        expected_width = math.ceil(uneven_width / self.patch_size)
+        # Convert tensor values to integers
+        expected_height = int(ops.ceil(uneven_height / self.patch_size))
+        expected_width = int(ops.ceil(uneven_width / self.patch_size))
         expected_patches = expected_height * expected_width
 
         expected_shape = (
@@ -101,20 +99,23 @@ class TestImageToPatchesLayer(TestCase):
         height = width = 4
         patch_size = 2
         channels = 1
-        input_data = np.arange(16).reshape(1, height, width, channels)
-        inputs = ops.convert_to_tensor(input_data)
+
+        input_data = keras.ops.arange(16, dtype="float32")
+        input_data = keras.ops.reshape(input_data, (1, height, width, channels))
+        inputs = keras.ops.convert_to_tensor(input_data)
 
         layer = ImageToPatchesLayer(patch_size=patch_size)
         outputs = layer(inputs)
 
-        expected_patches = np.array(
-            [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]]
+        expected_patches = keras.ops.convert_to_tensor(
+            [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]],
+            dtype="float32",
         )
 
-        outputs_np = outputs.numpy()
         for i in range(4):
-            patch = outputs_np[0, :, i, 0]
-            self.assertTrue(np.array_equal(patch, expected_patches[i]))
+            patch = outputs[0, :, i, 0]
+            is_equal = keras.ops.all(keras.ops.equal(patch, expected_patches[i]))
+            self.assertTrue(keras.ops.convert_to_numpy(is_equal).item())
 
     def test_get_config(self):
         layer = ImageToPatchesLayer(patch_size=self.patch_size)

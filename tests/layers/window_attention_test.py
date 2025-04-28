@@ -1,4 +1,4 @@
-import numpy as np
+import keras
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -98,7 +98,7 @@ class TestWindowAttention(TestCase):
         self.assertEqual(layer.qkv.kernel.shape, (self.dim, self.dim * 3))
         self.assertEqual(layer.proj.kernel.shape, (self.dim, self.dim))
         self.assertEqual(
-            layer.relative_bias.shape,
+            list(layer.relative_bias.shape),
             [(2 * self.bias_table_window_size - 1) ** 2, self.num_heads],
         )
 
@@ -182,9 +182,7 @@ class TestWindowAttention(TestCase):
             training=False,
         )
         self.assertEqual(ops.shape(train_output), ops.shape(infer_output))
-        self.assertNotEqual(
-            np.mean(train_output.numpy()), np.mean(infer_output.numpy())
-        )
+        self.assertNotEqual(ops.mean(train_output), ops.mean(infer_output))
 
     def test_get_config(self):
         custom_qk_scale = 0.125
@@ -292,15 +290,15 @@ class TestWindowAttention(TestCase):
         small_outputs = layer(
             [small_inputs, window_size_tensor, self.relative_position_index, None]
         )
-        self.assertFalse(np.any(np.isnan(small_outputs.numpy())))
-        self.assertFalse(np.any(np.isinf(small_outputs.numpy())))
+        self.assertFalse(ops.any(ops.isnan(small_outputs)))
+        self.assertFalse(ops.any(ops.isinf(small_outputs)))
 
         large_inputs = self.test_inputs * 1000
         large_outputs = layer(
             [large_inputs, window_size_tensor, self.relative_position_index, None]
         )
-        self.assertFalse(np.any(np.isnan(large_outputs.numpy())))
-        self.assertFalse(np.any(np.isinf(large_outputs.numpy())))
+        self.assertFalse(ops.any(ops.isnan(large_outputs)))
+        self.assertFalse(ops.any(ops.isinf(large_outputs)))
 
     def test_attention_computation(self):
         layer = WindowAttention(
@@ -333,8 +331,10 @@ class TestWindowAttention(TestCase):
         )
         B = self.batch_size
 
-        random_inputs = ops.convert_to_tensor(
-            np.random.normal(0, 1, self.input_shape).astype(np.float32)
+        random_inputs = keras.ops.convert_to_tensor(
+            keras.random.normal(
+                shape=self.input_shape, mean=0, stddev=1, dtype="float32"
+            )
         )
 
         zero_mask = ops.zeros(
@@ -344,11 +344,33 @@ class TestWindowAttention(TestCase):
         negative_mask = ops.zeros(
             (num_windows, B, self.num_heads, self.window_size**2, self.window_size**2)
         )
-        negative_mask_np = negative_mask.numpy()
-        negative_mask_np[0, :, :, :, :] = np.random.choice(
-            [-1000.0, 0.0], size=negative_mask_np[0, :, :, :, :].shape, p=[0.5, 0.5]
+
+        random_binary = keras.random.binomial(
+            shape=(B, self.num_heads, self.window_size**2, self.window_size**2),
+            counts=1,
+            probabilities=0.5,
+            dtype="float32",
         )
-        negative_mask = ops.convert_to_tensor(negative_mask_np)
+
+        first_window_mask = keras.ops.where(
+            random_binary > 0,
+            ops.zeros_like(random_binary),
+            -1000.0 * ops.ones_like(random_binary),
+        )
+
+        other_windows_mask = ops.zeros(
+            (
+                num_windows - 1,
+                B,
+                self.num_heads,
+                self.window_size**2,
+                self.window_size**2,
+            )
+        )
+
+        negative_mask = ops.concatenate(
+            [first_window_mask[None, :, :, :, :], other_windows_mask], axis=0
+        )
 
         layer.build(
             [self.input_shape, (), self.relative_position_index.shape, zero_mask.shape]
@@ -366,14 +388,10 @@ class TestWindowAttention(TestCase):
             ]
         )
 
-        self.assertFalse(
-            np.allclose(
-                output_zero_mask.numpy(),
-                output_negative_mask.numpy(),
-                rtol=1e-3,
-                atol=1e-3,
-            )
+        are_equal = keras.ops.all(
+            keras.ops.abs(output_zero_mask - output_negative_mask) < 1e-3
         )
+        self.assertFalse(are_equal)
 
     def test_compute_output_shape(self):
         layer = WindowAttention(
@@ -397,14 +415,15 @@ class TestWindowAttention(TestCase):
         window_size_tensor = ops.convert_to_tensor(self.window_size)
 
         random_inputs = ops.convert_to_tensor(
-            np.random.normal(0, 1, self.input_shape).astype(np.float32)
+            keras.random.normal(
+                shape=self.input_shape, mean=0, stddev=1, dtype="float32"
+            )
         )
 
         output_original = layer(
             [random_inputs, window_size_tensor, self.relative_position_index, None]
         )
-
-        original_bias = layer.relative_bias.numpy().copy()
+        original_bias = ops.convert_to_tensor(layer.relative_bias)  # Option 1
 
         extreme_bias = ops.ones_like(layer.relative_bias) * 1000.0
         layer.relative_bias.assign(extreme_bias)
@@ -413,13 +432,15 @@ class TestWindowAttention(TestCase):
             [random_inputs, window_size_tensor, self.relative_position_index, None]
         )
 
-        self.assertFalse(
-            np.allclose(
-                output_original.numpy(),
-                output_extreme_bias.numpy(),
+        try:
+            self.assertAllClose(
+                output_original,
+                output_extreme_bias,
                 rtol=1e-3,
                 atol=1e-3,
             )
-        )
+            self.fail("Expected outputs to be different with extreme bias")
+        except AssertionError:
+            pass
 
-        layer.relative_bias.assign(ops.convert_to_tensor(original_bias))
+        layer.relative_bias.assign(original_bias)

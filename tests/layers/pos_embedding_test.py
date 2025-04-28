@@ -1,4 +1,3 @@
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -79,7 +78,7 @@ class TestAddPositionEmbs(TestCase):
         layer = AddPositionEmbs(grid_h=self.grid_h, grid_w=self.grid_w)
         outputs = layer(self.test_inputs)
         assert outputs.shape == self.input_shape
-        assert not np.allclose(outputs.numpy(), self.test_inputs.numpy())
+        self.assertNotAllClose(outputs, self.test_inputs)
 
     def test_call_flexivit_mode_patches_only(self):
         layer = AddPositionEmbs(
@@ -91,7 +90,7 @@ class TestAddPositionEmbs(TestCase):
         layer.build((self.batch_size, self.num_patches, self.hidden_size))
         outputs = layer(patches_only_inputs)
         assert outputs.shape == patches_only_inputs.shape
-        assert not np.allclose(outputs.numpy(), patches_only_inputs.numpy())
+        self.assertNotAllClose(outputs, patches_only_inputs)
 
     def test_call_flexivit_mode_with_class(self):
         layer = AddPositionEmbs(
@@ -100,12 +99,8 @@ class TestAddPositionEmbs(TestCase):
         with_class_inputs = self.test_inputs
         outputs = layer(with_class_inputs)
         assert outputs.shape == with_class_inputs.shape
-        assert np.allclose(
-            outputs[:, 0:1, :].numpy(), with_class_inputs[:, 0:1, :].numpy()
-        )
-        assert not np.allclose(
-            outputs[:, 1:, :].numpy(), with_class_inputs[:, 1:, :].numpy()
-        )
+        self.assertAllClose(outputs[:, 0:1, :], with_class_inputs[:, 0:1, :])
+        self.assertNotAllClose(outputs[:, 1:, :], with_class_inputs[:, 1:, :])
 
     def test_call_deit_mode(self):
         deit_sequence_length = self.num_patches + 2

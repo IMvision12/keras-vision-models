@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops
 from keras.src.testing import TestCase
 
@@ -104,23 +103,25 @@ class TestPatchesToImageLayer(TestCase):
         self.assertEqual(outputs.shape, expected_shape)
 
     def test_patch_content(self):
-        patch_size = 2
         height = width = 4
+        patch_size = 2
         channels = 1
-
-        patches_data = np.array(
-            [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]]
+        expected_patches = keras.ops.convert_to_tensor(
+            [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]],
+            dtype="float32",
         )
-        inputs_data = patches_data.T.reshape(1, patch_size * patch_size, 4, channels)
-        inputs = ops.convert_to_tensor(inputs_data)
-
+        inputs_data = keras.ops.reshape(
+            keras.ops.transpose(expected_patches),
+            (1, patch_size * patch_size, 4, channels),
+        )
+        inputs = keras.ops.convert_to_tensor(inputs_data)
         layer = PatchesToImageLayer(patch_size=patch_size)
         outputs = layer(inputs)
-
-        expected_output = np.arange(16).reshape(1, height, width, channels)
-        outputs_np = outputs.numpy()
-
-        self.assertTrue(np.array_equal(outputs_np, expected_output))
+        expected_output = keras.ops.reshape(
+            keras.ops.arange(16, dtype="float32"), (1, height, width, channels)
+        )
+        is_equal = keras.ops.all(keras.ops.equal(outputs, expected_output))
+        self.assertTrue(keras.ops.convert_to_numpy(is_equal).item())
 
     def test_get_config(self):
         layer = PatchesToImageLayer(patch_size=self.patch_size)

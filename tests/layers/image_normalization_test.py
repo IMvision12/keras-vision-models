@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -50,67 +49,91 @@ class TestImageNormalizationLayer(TestCase):
 
     def test_imagenet_preprocessing(self):
         layer = ImageNormalizationLayer(mode="imagenet")
-        output = layer(self.test_inputs)
-        self.assertEqual(output.shape, self.input_shape)
-        output_np = output.numpy()
-        inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
-        expected = (inputs_float - np.array(IMAGENET_DEFAULT_MEAN)) / np.array(
-            IMAGENET_DEFAULT_STD
-        )
-        self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        output_np = layer(self.test_inputs)
+        self.assertEqual(output_np.shape, self.input_shape)
+        inputs_float = ops.cast(self.test_inputs, dtype="float32") / 255.0
+
+        # Create properly shaped mean and std according to data format
+        if keras.config.image_data_format() == "channels_last":
+            mean = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_MEAN), (1, 1, -1))
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_STD), (1, 1, -1))
+        else:
+            mean = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_MEAN), (-1, 1, 1))
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_STD), (-1, 1, 1))
+
+        expected = (inputs_float - mean) / std
+        self.assertAllClose(output_np, expected, rtol=1e-5, atol=1e-5)
 
     def test_inception_preprocessing(self):
         layer = ImageNormalizationLayer(mode="inception")
         output = layer(self.test_inputs)
-        output_np = output.numpy()
-        inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
-        expected = (inputs_float - np.array(IMAGENET_INCEPTION_MEAN)) / np.array(
-            IMAGENET_INCEPTION_STD
-        )
-        self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        inputs_float = ops.cast(self.test_inputs, dtype="float32") / 255.0
+
+        # Create properly shaped mean and std according to data format
+        if keras.config.image_data_format() == "channels_last":
+            mean = ops.reshape(
+                ops.convert_to_tensor(IMAGENET_INCEPTION_MEAN), (1, 1, -1)
+            )
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_INCEPTION_STD), (1, 1, -1))
+        else:
+            mean = ops.reshape(
+                ops.convert_to_tensor(IMAGENET_INCEPTION_MEAN), (-1, 1, 1)
+            )
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_INCEPTION_STD), (-1, 1, 1))
+
+        expected = (inputs_float - mean) / std
+        self.assertAllClose(output, expected, rtol=1e-5, atol=1e-5)
 
     def test_dpn_preprocessing(self):
         layer = ImageNormalizationLayer(mode="dpn")
         output = layer(self.test_inputs)
-        output_np = output.numpy()
-        inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
-        expected = (inputs_float - np.array(IMAGENET_DPN_MEAN)) / np.array(
-            IMAGENET_DPN_STD
-        )
-        self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        inputs_float = ops.cast(self.test_inputs, dtype="float32") / 255.0
+
+        # Create properly shaped mean and std according to data format
+        if keras.config.image_data_format() == "channels_last":
+            mean = ops.reshape(ops.convert_to_tensor(IMAGENET_DPN_MEAN), (1, 1, -1))
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_DPN_STD), (1, 1, -1))
+        else:
+            mean = ops.reshape(ops.convert_to_tensor(IMAGENET_DPN_MEAN), (-1, 1, 1))
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_DPN_STD), (-1, 1, 1))
+
+        expected = (inputs_float - mean) / std
+        self.assertAllClose(output, expected, rtol=1e-5, atol=1e-5)
 
     def test_clip_preprocessing(self):
         layer = ImageNormalizationLayer(mode="clip")
         output = layer(self.test_inputs)
-        output_np = output.numpy()
-        inputs_float = self.test_inputs.numpy().astype(np.float32) / 255.0
-        expected = (inputs_float - np.array(OPENAI_CLIP_MEAN)) / np.array(
-            OPENAI_CLIP_STD
-        )
-        self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        inputs_float = ops.cast(self.test_inputs, dtype="float32") / 255.0
+
+        # Create properly shaped mean and std according to data format
+        if keras.config.image_data_format() == "channels_last":
+            mean = ops.reshape(ops.convert_to_tensor(OPENAI_CLIP_MEAN), (1, 1, -1))
+            std = ops.reshape(ops.convert_to_tensor(OPENAI_CLIP_STD), (1, 1, -1))
+        else:
+            mean = ops.reshape(ops.convert_to_tensor(OPENAI_CLIP_MEAN), (-1, 1, 1))
+            std = ops.reshape(ops.convert_to_tensor(OPENAI_CLIP_STD), (-1, 1, 1))
+
+        expected = (inputs_float - mean) / std
+        self.assertAllClose(output, expected, rtol=1e-5, atol=1e-5)
 
     def test_zero_to_one_preprocessing(self):
         layer = ImageNormalizationLayer(mode="zero_to_one")
         output = layer(self.test_inputs)
 
-        output_np = output.numpy()
+        self.assertTrue(ops.all(output >= 0.0))
+        self.assertTrue(ops.all(output <= 1.0))
 
-        self.assertTrue(np.all(output_np >= 0.0))
-        self.assertTrue(np.all(output_np <= 1.0))
-
-        expected = self.test_inputs.numpy().astype(np.float32) / 255.0
-        self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        expected = ops.cast(self.test_inputs, dtype="float32") / 255.0
+        self.assertAllClose(output, expected, rtol=1e-5, atol=1e-5)
 
     def test_minus_one_to_one_preprocessing(self):
         layer = ImageNormalizationLayer(mode="minus_one_to_one")
         output = layer(self.test_inputs)
+        self.assertTrue(ops.all(output >= -1.0))
+        self.assertTrue(ops.all(output <= 1.0))
 
-        output_np = output.numpy()
-        self.assertTrue(np.all(output_np >= -1.0))
-        self.assertTrue(np.all(output_np <= 1.0))
-
-        expected = (self.test_inputs.numpy().astype(np.float32) / 255.0) * 2.0 - 1.0
-        self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+        expected = (ops.cast(self.test_inputs, dtype="float32") / 255.0) * 2.0 - 1.0
+        self.assertAllClose(output, expected, rtol=1e-5, atol=1e-5)
 
     def test_different_input_shapes(self):
         test_shapes = [
@@ -137,17 +160,31 @@ class TestImageNormalizationLayer(TestCase):
         self.assertEqual(reconstructed_layer.mode, "imagenet")
 
     def test_output_dtypes(self):
+        import torch
+
         layer = ImageNormalizationLayer(mode="imagenet")
         output = layer(self.test_inputs)
-        self.assertEqual(output.dtype, "float32")
+
+        if keras.backend.backend() == "torch":
+            self.assertEqual(output.dtype, torch.float32)
+        else:
+            self.assertEqual(output.dtype, "float32")
 
         inputs_float32 = ops.cast(self.test_inputs, "float32")
         output_float32 = layer(inputs_float32)
-        self.assertEqual(output_float32.dtype, "float32")
+
+        if keras.backend.backend() == "torch":
+            self.assertEqual(output_float32.dtype, torch.float32)
+        else:
+            self.assertEqual(output_float32.dtype, "float32")
 
         inputs_int32 = ops.cast(self.test_inputs, "int32")
         output_int32 = layer(inputs_int32)
-        self.assertEqual(output_int32.dtype, "float32")
+
+        if keras.backend.backend() == "torch":
+            self.assertEqual(output_int32.dtype, torch.float32)
+        else:
+            self.assertEqual(output_int32.dtype, "float32")
 
     def test_data_format(self):
         input_channels_last = ops.cast(
@@ -166,29 +203,23 @@ class TestImageNormalizationLayer(TestCase):
         keras.config.set_image_data_format("channels_last")
         try:
             output_channels_last = layer(input_channels_last)
-
             self.assertEqual(output_channels_last.shape, (2, 224, 224, 3))
-
-            output_np = output_channels_last.numpy()
-            inputs_float = input_channels_last.numpy().astype(np.float32) / 255.0
-            mean = np.reshape(IMAGENET_DEFAULT_MEAN, (1, 1, 1, 3))
-            std = np.reshape(IMAGENET_DEFAULT_STD, (1, 1, 1, 3))
+            inputs_float = ops.cast(input_channels_last, dtype="float32") / 255.0
+            mean = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_MEAN), (1, 1, -1))
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_STD), (1, 1, -1))
             expected = (inputs_float - mean) / std
-            self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+            self.assertAllClose(output_channels_last, expected, rtol=1e-5, atol=1e-5)
         finally:
             keras.config.set_image_data_format(original_data_format)
 
         keras.config.set_image_data_format("channels_first")
         try:
             output_channels_first = layer(input_channels_first)
-
             self.assertEqual(output_channels_first.shape, (2, 3, 224, 224))
-
-            output_np = output_channels_first.numpy()
-            inputs_float = input_channels_first.numpy().astype(np.float32) / 255.0
-            mean = np.reshape(IMAGENET_DEFAULT_MEAN, (1, 3, 1, 1))
-            std = np.reshape(IMAGENET_DEFAULT_STD, (1, 3, 1, 1))
+            inputs_float = ops.cast(input_channels_first, dtype="float32") / 255.0
+            mean = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_MEAN), (-1, 1, 1))
+            std = ops.reshape(ops.convert_to_tensor(IMAGENET_DEFAULT_STD), (-1, 1, 1))
             expected = (inputs_float - mean) / std
-            self.assertTrue(np.allclose(output_np, expected, rtol=1e-5, atol=1e-5))
+            self.assertAllClose(output_channels_first, expected, rtol=1e-5, atol=1e-5)
         finally:
             keras.config.set_image_data_format(original_data_format)

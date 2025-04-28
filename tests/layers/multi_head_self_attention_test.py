@@ -1,4 +1,3 @@
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -108,14 +107,14 @@ class TestMultiHeadSelfAttention(TestCase):
         train_output = layer(self.test_3d_inputs, training=True)
         infer_output = layer(self.test_3d_inputs, training=False)
         assert ops.shape(train_output) == ops.shape(infer_output)
-        assert not np.allclose(train_output.numpy(), infer_output.numpy())
+        self.assertNotAllClose(train_output, infer_output)
 
     def test_training_vs_inference_4d(self):
         layer = MultiHeadSelfAttention(dim=self.dim, attn_drop=0.5, proj_drop=0.5)
         train_output = layer(self.test_4d_inputs, training=True)
         infer_output = layer(self.test_4d_inputs, training=False)
         assert ops.shape(train_output) == ops.shape(infer_output)
-        assert not np.allclose(train_output.numpy(), infer_output.numpy())
+        self.assertNotAllClose(train_output, infer_output)
 
     def test_qk_norm_3d(self):
         custom_epsilon = 1e-5
@@ -204,23 +203,23 @@ class TestMultiHeadSelfAttention(TestCase):
         layer = MultiHeadSelfAttention(dim=self.dim)
         small_inputs = self.test_3d_inputs * 1e-10
         small_outputs = layer(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
         large_inputs = self.test_3d_inputs * 1e10
         large_outputs = layer(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))
 
     def test_numerical_stability_4d(self):
         layer = MultiHeadSelfAttention(dim=self.dim)
         small_inputs = self.test_4d_inputs * 1e-10
         small_outputs = layer(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
         large_inputs = self.test_4d_inputs * 1e10
         large_outputs = layer(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))
 
     def test_attention_computation_3d(self):
         layer = MultiHeadSelfAttention(dim=self.dim, num_heads=self.num_heads)
@@ -257,9 +256,9 @@ class TestMultiHeadSelfAttention(TestCase):
             )
 
             outputs_3d = layer_3d(self.test_3d_inputs)
-            assert not np.any(np.isnan(outputs_3d.numpy()))
-            assert not np.any(np.isinf(outputs_3d.numpy()))
+            assert not ops.any(ops.isnan(outputs_3d))
+            assert not ops.any(ops.isinf(outputs_3d))
 
             outputs_4d = layer_4d(self.test_4d_inputs)
-            assert not np.any(np.isnan(outputs_4d.numpy()))
-            assert not np.any(np.isinf(outputs_4d.numpy()))
+            assert not ops.any(ops.isnan(outputs_4d))
+            assert not ops.any(ops.isinf(outputs_4d))

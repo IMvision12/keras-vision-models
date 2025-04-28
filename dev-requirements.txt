@@ -1,6 +1,7 @@
 keras>=3.6.0
 torch
 tensorflow-cpu>=2.18.0
+jax
 ruff
 timm
 transformers

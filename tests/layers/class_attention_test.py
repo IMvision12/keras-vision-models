@@ -1,4 +1,4 @@
-import numpy as np
+import keras
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -111,13 +111,16 @@ class TestClassAttention(TestCase):
         )
 
     def test_training_vs_inference(self):
+        keras.utils.set_random_seed(42)
         layer_cl = ClassAttention(
             dim=self.dim, num_heads=self.num_heads, attn_drop=0.5, proj_drop=0.5
         )
         train_output_cl = layer_cl(self.test_inputs_channels_last, training=True)
         infer_output_cl = layer_cl(self.test_inputs_channels_last, training=False)
         assert ops.shape(train_output_cl) == ops.shape(infer_output_cl)
-        assert not np.allclose(train_output_cl.numpy(), infer_output_cl.numpy())
+
+        diff_cl = ops.sum(ops.abs(train_output_cl - infer_output_cl))
+        assert diff_cl > 0, "Training and inference outputs should be different"
 
         layer_cf = ClassAttention(
             dim=self.dim,
@@ -129,7 +132,9 @@ class TestClassAttention(TestCase):
         train_output_cf = layer_cf(self.test_inputs_channels_first, training=True)
         infer_output_cf = layer_cf(self.test_inputs_channels_first, training=False)
         assert ops.shape(train_output_cf) == ops.shape(infer_output_cf)
-        assert not np.allclose(train_output_cf.numpy(), infer_output_cf.numpy())
+
+        diff_cf = ops.sum(ops.abs(train_output_cf - infer_output_cf))
+        assert diff_cf > 0, "Training and inference outputs should be different"
 
     def test_get_config(self):
         layer = ClassAttention(
@@ -212,26 +217,26 @@ class TestClassAttention(TestCase):
         layer_cl = ClassAttention(dim=self.dim, num_heads=self.num_heads)
         small_inputs = self.test_inputs_channels_last * 1e-10
         small_outputs = layer_cl(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
 
         large_inputs = self.test_inputs_channels_last * 1e10
         large_outputs = layer_cl(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))
 
         layer_cf = ClassAttention(
             dim=self.dim, num_heads=self.num_heads, data_format="channels_first"
         )
         small_inputs = self.test_inputs_channels_first * 1e-10
         small_outputs = layer_cf(small_inputs)
-        assert not np.any(np.isnan(small_outputs.numpy()))
-        assert not np.any(np.isinf(small_outputs.numpy()))
+        assert not ops.any(ops.isnan(small_outputs))
+        assert not ops.any(ops.isinf(small_outputs))
 
         large_inputs = self.test_inputs_channels_first * 1e10
         large_outputs = layer_cf(large_inputs)
-        assert not np.any(np.isnan(large_outputs.numpy()))
-        assert not np.any(np.isinf(large_outputs.numpy()))
+        assert not ops.any(ops.isnan(large_outputs))
+        assert not ops.any(ops.isinf(large_outputs))
 
     def test_attention_computation(self):
         layer_cl = ClassAttention(dim=self.dim, num_heads=self.num_heads)
@@ -242,7 +247,7 @@ class TestClassAttention(TestCase):
 
         outputs_cl = layer_cl(x_cl)
         assert ops.shape(outputs_cl) == (self.batch_size, 1, self.dim)
-        assert not np.allclose(outputs_cl.numpy(), np.zeros(outputs_cl.shape))
+        assert ops.sum(ops.abs(outputs_cl)) > 0
 
         layer_cf = ClassAttention(
             dim=self.dim, num_heads=self.num_heads, data_format="channels_first"
@@ -255,44 +260,62 @@ class TestClassAttention(TestCase):
 
         outputs_cf = layer_cf(x_cf)
         assert ops.shape(outputs_cf) == (self.batch_size, self.dim, 1)
-        assert not np.allclose(outputs_cf.numpy(), np.zeros(outputs_cf.shape))
+        assert ops.sum(ops.abs(outputs_cf)) > 0
 
     def test_class_token_attention(self):
         layer_cl = ClassAttention(dim=self.dim, num_heads=self.num_heads)
-
-        inputs_np_cl = np.zeros(self.input_shape_channels_last)
-        inputs_np_cl[:, 0, :] = 1.0
-        inputs_cl = ops.convert_to_tensor(inputs_np_cl)
+        inputs_cl = ops.zeros(self.input_shape_channels_last)
+        temp_ones = ops.ones((self.batch_size, 1, self.dim))
+        if inputs_cl.shape[1] > 1:
+            zeros_part = ops.zeros((self.batch_size, inputs_cl.shape[1] - 1, self.dim))
+            inputs_cl = ops.concatenate([temp_ones, zeros_part], axis=1)
+        else:
+            inputs_cl = temp_ones
 
         outputs_cl = layer_cl(inputs_cl)
         assert ops.shape(outputs_cl) == (self.batch_size, 1, self.dim)
-        assert not np.allclose(outputs_cl.numpy(), np.zeros(outputs_cl.shape))
+        assert ops.sum(ops.abs(outputs_cl)) > 0
 
-        inputs_np_cl = np.ones(self.input_shape_channels_last)
-        inputs_np_cl[:, 0, :] = 0.0
-        inputs_cl = ops.convert_to_tensor(inputs_np_cl)
+        temp_zeros = ops.zeros((self.batch_size, 1, self.dim))
+        if self.input_shape_channels_last[1] > 1:
+            ones_part = ops.ones(
+                (self.batch_size, self.input_shape_channels_last[1] - 1, self.dim)
+            )
+            inputs_cl = ops.concatenate([temp_zeros, ones_part], axis=1)
+        else:
+            inputs_cl = temp_zeros
 
         outputs_cl = layer_cl(inputs_cl)
-        assert not np.allclose(outputs_cl.numpy(), np.zeros(outputs_cl.shape))
+        assert ops.sum(ops.abs(outputs_cl)) > 0
 
         layer_cf = ClassAttention(
             dim=self.dim, num_heads=self.num_heads, data_format="channels_first"
         )
 
-        inputs_np_cf = np.zeros(self.input_shape_channels_first)
-        inputs_np_cf[:, :, 0] = 1.0
-        inputs_cf = ops.convert_to_tensor(inputs_np_cf)
+        temp_ones = ops.ones((self.batch_size, self.dim, 1))
+        if self.input_shape_channels_first[2] > 1:
+            zeros_part = ops.zeros(
+                (self.batch_size, self.dim, self.input_shape_channels_first[2] - 1)
+            )
+            inputs_cf = ops.concatenate([temp_ones, zeros_part], axis=2)
+        else:
+            inputs_cf = temp_ones
 
         outputs_cf = layer_cf(inputs_cf)
         assert ops.shape(outputs_cf) == (self.batch_size, self.dim, 1)
-        assert not np.allclose(outputs_cf.numpy(), np.zeros(outputs_cf.shape))
+        assert ops.sum(ops.abs(outputs_cf)) > 0
 
-        inputs_np_cf = np.ones(self.input_shape_channels_first)
-        inputs_np_cf[:, :, 0] = 0.0
-        inputs_cf = ops.convert_to_tensor(inputs_np_cf)
+        temp_zeros = ops.zeros((self.batch_size, self.dim, 1))
+        if self.input_shape_channels_first[2] > 1:
+            ones_part = ops.ones(
+                (self.batch_size, self.dim, self.input_shape_channels_first[2] - 1)
+            )
+            inputs_cf = ops.concatenate([temp_zeros, ones_part], axis=2)
+        else:
+            inputs_cf = temp_zeros
 
         outputs_cf = layer_cf(inputs_cf)
-        assert not np.allclose(outputs_cf.numpy(), np.zeros(outputs_cf.shape))
+        assert ops.sum(ops.abs(outputs_cf)) > 0
 
     def test_output_format_matches_input_format(self):
         layer_cl = ClassAttention(

@@ -1,4 +1,3 @@
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -35,8 +34,8 @@ class TestAffine(TestCase):
         assert layer.alpha.shape == expected_shape
         assert layer.beta.shape == expected_shape
 
-        assert np.allclose(layer.alpha.numpy(), np.ones(expected_shape))
-        assert np.allclose(layer.beta.numpy(), np.zeros(expected_shape))
+        self.assertAllClose(layer.alpha, ops.ones(expected_shape))
+        self.assertAllClose(layer.beta, ops.zeros(expected_shape))
 
     def test_call(self):
         layer = Affine()
@@ -49,7 +48,7 @@ class TestAffine(TestCase):
         )
 
         expected_output = self.test_inputs * layer.alpha + layer.beta
-        assert np.allclose(outputs.numpy(), expected_output.numpy())
+        self.assertAllClose(outputs, expected_output)
 
     def test_get_config(self):
         layer = Affine(dim=self.projection_dim)
@@ -108,18 +107,18 @@ class TestAffine(TestCase):
         layer.build(self.input_shape)
 
         assert layer.alpha.trainable
-        initial_alpha = layer.alpha.numpy().copy()
-        new_alpha_values = initial_alpha + 0.5
+        initial_alpha_value = ops.convert_to_tensor(layer.alpha) * 1.0
+        new_alpha_values = ops.convert_to_tensor(layer.alpha) + 0.5
         layer.alpha.assign(new_alpha_values)
-        assert np.allclose(layer.alpha.numpy(), new_alpha_values)
-        assert not np.allclose(layer.alpha.numpy(), initial_alpha)
+        self.assertAllClose(layer.alpha, new_alpha_values)
+        self.assertNotAllClose(layer.alpha, initial_alpha_value)
 
         assert layer.beta.trainable
-        initial_beta = layer.beta.numpy().copy()
-        new_beta_values = initial_beta + 0.3
+        initial_beta_value = ops.convert_to_tensor(layer.beta) * 1.0
+        new_beta_values = ops.convert_to_tensor(layer.beta) + 0.3
         layer.beta.assign(new_beta_values)
-        assert np.allclose(layer.beta.numpy(), new_beta_values)
-        assert not np.allclose(layer.beta.numpy(), initial_beta)
+        self.assertAllClose(layer.beta, new_beta_values)
+        self.assertNotAllClose(layer.beta, initial_beta_value)
 
     def test_non_standard_input_dims(self):
         input_2d = ops.ones((self.batch_size, self.projection_dim))

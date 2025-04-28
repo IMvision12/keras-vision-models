@@ -1,7 +1,5 @@
 name: Layer Tests
 on:
-  push:
-    branches: [ main ]
   pull_request:
   release:
     types: [created]

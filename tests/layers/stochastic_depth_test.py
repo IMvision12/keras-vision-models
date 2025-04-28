@@ -38,11 +38,11 @@ class TestStochasticDepth(TestCase):
         output = layer(self.test_inputs, training=True)
 
         self.assertEqual(output.shape, self.input_shape)
-        
+
         output_np = ops.convert_to_numpy(output)
         inputs_np = ops.convert_to_numpy(self.test_inputs)
         self.assertTrue(ops.any(ops.abs(output_np - inputs_np) > 1e-6))
-        
+
         keep_prob = 1 - self.drop_rate
         max_expected_value = 1.0 / keep_prob
         self.assertTrue(ops.any(output > 1.0))
@@ -53,7 +53,7 @@ class TestStochasticDepth(TestCase):
         output = layer(self.test_inputs, training=False)
 
         self.assertEqual(output.shape, self.input_shape)
-        
+
         self.assertAllClose(output, self.test_inputs)
 
     def test_different_input_shapes(self):
@@ -89,17 +89,19 @@ class TestStochasticDepth(TestCase):
         for seed1, seed2 in [(42, 43), (100, 200), (1, 999), (555, 777), (10, 20)]:
             keras.utils.set_random_seed(seed1)
             output1 = layer(self.test_inputs, training=True)
-            
+
             keras.utils.set_random_seed(seed2)
             output2 = layer(self.test_inputs, training=True)
-            
+
             diff = ops.abs(ops.mean(output1) - ops.mean(output2))
             if diff > 1e-3:
                 found_difference = True
                 break
-        
-        self.assertTrue(found_difference, 
-                        "StochasticDepth should produce different outputs with different seeds")
+
+        self.assertTrue(
+            found_difference,
+            "StochasticDepth should produce different outputs with different seeds",
+        )
 
     def test_deterministic_behavior(self):
         layer = StochasticDepth(drop_path_rate=self.drop_rate)

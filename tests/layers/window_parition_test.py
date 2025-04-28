@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import ops
 from keras.src.testing import TestCase
 
@@ -78,7 +77,7 @@ class TestWindowPartition(TestCase):
             ],
         )
 
-        assert np.allclose(outputs.numpy(), manual_result.numpy())
+        self.assertAllClose(outputs, manual_result)
 
     def test_call_fused(self):
         channels_per_head = self.channels // self.num_heads

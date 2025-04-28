@@ -183,9 +183,7 @@ class TestWindowAttention(TestCase):
             training=False,
         )
         self.assertEqual(ops.shape(train_output), ops.shape(infer_output))
-        self.assertNotEqual(
-            ops.mean(train_output), ops.mean(infer_output)
-        )
+        self.assertNotEqual(ops.mean(train_output), ops.mean(infer_output))
 
     def test_get_config(self):
         custom_qk_scale = 0.125
@@ -335,7 +333,9 @@ class TestWindowAttention(TestCase):
         B = self.batch_size
 
         random_inputs = keras.ops.convert_to_tensor(
-            keras.random.normal(shape=self.input_shape, mean=0, stddev=1, dtype="float32")
+            keras.random.normal(
+                shape=self.input_shape, mean=0, stddev=1, dtype="float32"
+            )
         )
 
         zero_mask = ops.zeros(

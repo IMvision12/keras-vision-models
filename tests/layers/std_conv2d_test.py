@@ -105,9 +105,7 @@ class TestStdConv2D(TestCase):
 
         output_without_bias = layer_no_bias(self.test_inputs)
 
-        self.assertFalse(
-            self.assertAllClose(output_with_bias, output_without_bias)
-        )
+        self.assertFalse(self.assertAllClose(output_with_bias, output_without_bias))
 
     def test_activation(self):
         layer = StdConv2D(

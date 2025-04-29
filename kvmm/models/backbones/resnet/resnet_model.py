@@ -205,7 +205,7 @@ def bottleneck_block(
 
     if senet:
         x = squeeze_excitation_block(
-            x, data_format=data_format, name=f"{block_name}.se"
+            x, data_format=data_format, name=f"{block_name}_se"
         )
 
     if (

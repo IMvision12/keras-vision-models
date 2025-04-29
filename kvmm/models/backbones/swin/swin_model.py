@@ -165,7 +165,7 @@ def swin_block(
         name=f"{name}_layernorm_2",
     )
     normalized_x = norm_layer2(skip_x1)
-    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f"{name}.mlp")
+    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f"{name}_mlp")
     skip_x2 = skip_x1 + dropout_layer(mlp_x)
 
     return skip_x2
@@ -599,7 +599,7 @@ class SwinTransformer(keras.Model):
             )
             if not_last:
                 x = patch_merging(
-                    x, channels_axis=channels_axis, name=f"layers.{i + 1}_downsample"
+                    x, channels_axis=channels_axis, name=f"layers_{i + 1}_downsample"
                 )
             features.append(x)
 

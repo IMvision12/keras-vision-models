@@ -1,17 +1,18 @@
-import pytest
-
 from kvmm.models import mobilenetv3
+from ....test_backbone_modeling import BackboneTestCase
 
-from ....test_backbone_modeling import BackboneTest, ModelConfig
 
+class TestMobileNetV3(BackboneTestCase):
+    """Test case for the MobileNetV3 model."""
+    __test__ = True
 
-class TestMobileNetV3(BackboneTest):
-    @pytest.fixture
-    def model_config(self) -> ModelConfig:
-        return ModelConfig(
-            model_cls=mobilenetv3.MobileNetV3Small075, input_shape=(32, 32, 3)
+    def setUp(self):
+        super().setUp()
+        self.configure(
+            model_cls=mobilenetv3.MobileNetV3Small075, 
+            input_shape=(32, 32, 3)
         )
-
+    
     def get_default_kwargs(self) -> dict:
         return {
             "include_normalization": True,
@@ -19,3 +20,9 @@ class TestMobileNetV3(BackboneTest):
             "classifier_activation": "softmax",
             "weights": None,
         }
+    
+    def test_weight_loading(self):
+        custom_model = mobilenetv3.MobileNetV3Small075(
+            input_shape=(32, 32, 3),
+        )
+        return super().test_weight_loading(custom_model)

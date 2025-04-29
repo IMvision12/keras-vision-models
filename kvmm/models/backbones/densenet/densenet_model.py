@@ -380,9 +380,7 @@ def DenseNet121(
     )
 
     if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("DenseNet121", weights, model, DENSENET_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -424,9 +422,7 @@ def DenseNet161(
     )
 
     if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("DenseNet161", weights, model, DENSENET_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -467,9 +463,7 @@ def DenseNet169(
     )
 
     if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("DenseNet169", weights, model, DENSENET_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -510,9 +504,7 @@ def DenseNet201(
     )
 
     if weights in get_all_weight_names(DENSENET_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ConvNeXtAtto", weights, model, DENSENET_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("DenseNet201", weights, model, DENSENET_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

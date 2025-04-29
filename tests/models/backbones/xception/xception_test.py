@@ -22,6 +22,6 @@ class TestXception(BackboneTestCase):
 
     def test_weight_loading(self):
         custom_model = xception.Xception(
-            input_shape=(32, 32, 3),
+            input_shape=(299, 299, 3),
         )
         return super().test_weight_loading(custom_model)

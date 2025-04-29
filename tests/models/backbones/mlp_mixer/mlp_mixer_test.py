@@ -22,6 +22,6 @@ class TestMLPMixer(BackboneTestCase):
 
     def test_weight_loading(self):
         custom_model = mlp_mixer.MLPMixerB16(
-            input_shape=(32, 32, 3),
+            input_shape=(224, 224, 3),
         )
         return super().test_weight_loading(custom_model)

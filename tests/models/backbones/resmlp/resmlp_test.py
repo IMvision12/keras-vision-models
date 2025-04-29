@@ -22,6 +22,6 @@ class TestResMLP(BackboneTestCase):
 
     def test_weight_loading(self):
         custom_model = resmlp.ResMLP12(
-            input_shape=(32, 32, 3),
+            input_shape=(224, 224, 3),
         )
         return super().test_weight_loading(custom_model)

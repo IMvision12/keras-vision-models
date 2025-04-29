@@ -373,7 +373,7 @@ class ResNet(keras.Model):
 
         for i, num_blocks in enumerate(block_repeats):
             for j in range(num_blocks):
-                common_args["block_name"] = f"resnet_layer{i + 1}.{j}"
+                common_args["block_name"] = f"resnet_layer{i + 1}_{j}"
                 if j == 0 and i > 0:
                     x = block_fn(
                         x, filters[i], strides=2, downsample=True, **common_args

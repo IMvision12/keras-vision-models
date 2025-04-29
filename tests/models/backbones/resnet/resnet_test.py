@@ -1,18 +1,17 @@
 from kvmm.models import resnet
+
 from ....test_backbone_modeling import BackboneTestCase
 
 
 class TestResNet(BackboneTestCase):
     """Test case for the ResNet model."""
+
     __test__ = True
 
     def setUp(self):
         super().setUp()
-        self.configure(
-            model_cls=resnet.ResNet50, 
-            input_shape=(32, 32, 3)
-        )
-    
+        self.configure(model_cls=resnet.ResNet50, input_shape=(32, 32, 3))
+
     def get_default_kwargs(self) -> dict:
         return {
             "include_normalization": True,
@@ -20,7 +19,7 @@ class TestResNet(BackboneTestCase):
             "classifier_activation": "softmax",
             "weights": None,
         }
-    
+
     def test_weight_loading(self):
         custom_model = resnet.ResNet50(
             input_shape=(32, 32, 3),

@@ -4,10 +4,8 @@ import tempfile
 from typing import Any, Dict, Tuple, Type
 
 import keras
-from keras import ops
-
 import tensorflow as tf
-from keras import Model
+from keras import Model, ops
 from keras.src.testing import TestCase
 
 
@@ -22,7 +20,7 @@ class BackboneTestCase(TestCase):
         self.num_classes = 1000
 
     def configure(
-        self, 
+        self,
         model_cls: Type[Model],
         input_shape: Tuple[int, int, int] = (224, 224, 3),
         batch_size: int = 2,
@@ -38,12 +36,14 @@ class BackboneTestCase(TestCase):
         return {}
 
     def get_input_data(self) -> keras.KerasTensor:
-        return keras.random.uniform((self.batch_size,) + self.input_shape, dtype="float32")
+        return keras.random.uniform(
+            (self.batch_size,) + self.input_shape, dtype="float32"
+        )
 
     def create_model(self, **kwargs: Any) -> Model:
         if self.model_cls is None:
             self.skipTest("Model class not configured. Call configure() first.")
-            
+
         default_kwargs = {
             "include_top": True,
             "weights": None,
@@ -54,7 +54,9 @@ class BackboneTestCase(TestCase):
         default_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
         return self.model_cls(**default_kwargs)
 
-    def convert_data_format(self, data: keras.KerasTensor, to_format: str) -> keras.KerasTensor:
+    def convert_data_format(
+        self, data: keras.KerasTensor, to_format: str
+    ) -> keras.KerasTensor:
         if len(data.shape) == 4:
             if to_format == "channels_first":
                 return ops.transpose(data, (0, 3, 1, 2))
@@ -75,23 +77,22 @@ class BackboneTestCase(TestCase):
         output = model(input_data)
         self.assertEqual(output.shape, (self.batch_size, self.num_classes))
 
-    def test_weight_loading(self, model):        
+    def test_weight_loading(self, model):
         self.assertIsNotNone(model.weights, "Model weights not initialized")
-        self.assertTrue(len(model.trainable_weights) > 0, "Model has no trainable weights")
-        
+        self.assertTrue(
+            len(model.trainable_weights) > 0, "Model has no trainable weights"
+        )
+
         for weight in model.weights:
             has_nans = ops.any(ops.isnan(weight))
-            self.assertFalse(
-                has_nans,
-                f"Weight '{weight.name}' contains NaN values"
-            )
-            
+            self.assertFalse(has_nans, f"Weight '{weight.name}' contains NaN values")
+
             is_all_zeros = ops.all(ops.equal(weight, 0))
             self.assertFalse(
                 is_all_zeros,
-                f"Weight '{weight.name}' contains all zeros, suggesting improper initialization"
+                f"Weight '{weight.name}' contains all zeros, suggesting improper initialization",
             )
-            
+
     def test_data_formats(self):
         original_data_format = keras.config.image_data_format()
         input_data = self.get_input_data()
@@ -118,11 +119,11 @@ class BackboneTestCase(TestCase):
                 model_first.set_weights(model_last.get_weights())
 
                 output_first = model_first(current_data)
-                self.assertEqual(output_first.shape, (self.batch_size, self.num_classes))
-
-                self.assertAllClose(
-                    output_first, output_last, rtol=1e-5, atol=1e-5
+                self.assertEqual(
+                    output_first.shape, (self.batch_size, self.num_classes)
                 )
+
+                self.assertAllClose(output_first, output_last, rtol=1e-5, atol=1e-5)
         finally:
             keras.config.set_image_data_format(original_data_format)
 
@@ -138,14 +139,13 @@ class BackboneTestCase(TestCase):
             loaded_model = keras.models.load_model(save_path)
 
             self.assertIsInstance(
-                loaded_model, model.__class__,
-                f"Loaded model should be an instance of {model.__class__.__name__}"
+                loaded_model,
+                model.__class__,
+                f"Loaded model should be an instance of {model.__class__.__name__}",
             )
 
             loaded_output = loaded_model(input_data)
-            self.assertAllClose(
-                original_output, loaded_output, rtol=1e-5, atol=1e-5
-            )
+            self.assertAllClose(original_output, loaded_output, rtol=1e-5, atol=1e-5)
 
     def test_serialization(self):
         model = self.create_model()
@@ -161,14 +161,16 @@ class BackboneTestCase(TestCase):
         revived_cfg = revived_instance.get_config()
         revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
         self.assertEqual(
-            cfg_json, revived_cfg_json,
-            "Config JSON mismatch after from_config roundtrip"
+            cfg_json,
+            revived_cfg_json,
+            "Config JSON mismatch after from_config roundtrip",
         )
 
         if run_dir_test:
             self.assertEqual(
-                set(ref_dir), set(dir(revived_instance)),
-                "Dir mismatch after from_config roundtrip"
+                set(ref_dir),
+                set(dir(revived_instance)),
+                "Dir mismatch after from_config roundtrip",
             )
 
         serialized = keras.saving.serialize_keras_object(model)
@@ -179,8 +181,9 @@ class BackboneTestCase(TestCase):
         revived_cfg = revived_instance.get_config()
         revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
         self.assertEqual(
-            cfg_json, revived_cfg_json,
-            "Config JSON mismatch after full serialization roundtrip"
+            cfg_json,
+            revived_cfg_json,
+            "Config JSON mismatch after full serialization roundtrip",
         )
 
         if run_dir_test:
@@ -189,8 +192,9 @@ class BackboneTestCase(TestCase):
                 if "__annotations__" in lst:
                     lst.remove("__annotations__")
             self.assertEqual(
-                set(ref_dir), set(new_dir),
-                "Dir mismatch after full serialization roundtrip"
+                set(ref_dir),
+                set(new_dir),
+                "Dir mismatch after full serialization roundtrip",
             )
 
     def test_training_mode(self):
@@ -211,58 +215,81 @@ class BackboneTestCase(TestCase):
         features = model(input_data)
 
         self.assertIsInstance(
-            features, list,
-            "Backbone output should be a list of feature maps"
+            features, list, "Backbone output should be a list of feature maps"
         )
 
         self.assertGreaterEqual(
-            len(features), 2,
-            "Backbone should output at least 2 feature maps"
+            len(features), 2, "Backbone should output at least 2 feature maps"
         )
 
         for i, feature_map in enumerate(features):
             is_transformer_output = len(feature_map.shape) == 3
 
             self.assertIn(
-                len(feature_map.shape), (3, 4),
+                len(feature_map.shape),
+                (3, 4),
                 f"Feature map {i} should be a 3D (transformer) or 4D (CNN) tensor, "
-                f"got shape {feature_map.shape}"
+                f"got shape {feature_map.shape}",
             )
 
             self.assertEqual(
-                int(feature_map.shape[0]), self.batch_size,
+                int(feature_map.shape[0]),
+                self.batch_size,
                 f"Feature map {i} has incorrect batch size. "
-                f"Expected {self.batch_size}, got {feature_map.shape[0]}"
+                f"Expected {self.batch_size}, got {feature_map.shape[0]}",
             )
 
             if is_transformer_output:
                 seq_len, channels = int(feature_map.shape[1]), int(feature_map.shape[2])
-                self.assertGreater(seq_len, 0, f"Feature map {i} has invalid sequence length: {seq_len}")
-                self.assertGreater(channels, 0, f"Feature map {i} has invalid channel count: {channels}")
+                self.assertGreater(
+                    seq_len,
+                    0,
+                    f"Feature map {i} has invalid sequence length: {seq_len}",
+                )
+                self.assertGreater(
+                    channels,
+                    0,
+                    f"Feature map {i} has invalid channel count: {channels}",
+                )
 
                 if i > 0:
                     prev_map = features[i - 1]
-                    if len(prev_map.shape) == 3:  # Only compare with previous transformer outputs
+                    if (
+                        len(prev_map.shape) == 3
+                    ):  # Only compare with previous transformer outputs
                         prev_seq_len = int(prev_map.shape[1])
                         self.assertLessEqual(
-                            seq_len, prev_seq_len,
+                            seq_len,
+                            prev_seq_len,
                             f"Feature map {i} has larger sequence length than previous feature map. "
-                            f"Got {seq_len}, previous was {prev_seq_len}"
+                            f"Got {seq_len}, previous was {prev_seq_len}",
                         )
 
             else:  # CNN output (4D)
                 if keras.config.image_data_format() == "channels_last":
-                    h, w, c = int(feature_map.shape[1]), int(feature_map.shape[2]), int(feature_map.shape[3])
+                    h, w, c = (
+                        int(feature_map.shape[1]),
+                        int(feature_map.shape[2]),
+                        int(feature_map.shape[3]),
+                    )
                 else:
-                    c, h, w = int(feature_map.shape[1]), int(feature_map.shape[2]), int(feature_map.shape[3])
+                    c, h, w = (
+                        int(feature_map.shape[1]),
+                        int(feature_map.shape[2]),
+                        int(feature_map.shape[3]),
+                    )
 
                 self.assertGreater(h, 0, f"Feature map {i} has invalid height: {h}")
                 self.assertGreater(w, 0, f"Feature map {i} has invalid width: {w}")
-                self.assertGreater(c, 0, f"Feature map {i} has invalid channel count: {c}")
+                self.assertGreater(
+                    c, 0, f"Feature map {i} has invalid channel count: {c}"
+                )
 
                 if i > 0:
                     prev_map = features[i - 1]
-                    if len(prev_map.shape) == 4:  # Only compare with previous CNN outputs
+                    if (
+                        len(prev_map.shape) == 4
+                    ):  # Only compare with previous CNN outputs
                         prev_h = int(
                             prev_map.shape[1]
                             if keras.config.image_data_format() == "channels_last"
@@ -275,43 +302,52 @@ class BackboneTestCase(TestCase):
                         )
 
                         self.assertLessEqual(
-                            h, prev_h,
+                            h,
+                            prev_h,
                             f"Feature map {i} has larger height than previous feature map. "
-                            f"Got {h}, previous was {prev_h}"
+                            f"Got {h}, previous was {prev_h}",
                         )
                         self.assertLessEqual(
-                            w, prev_w,
+                            w,
+                            prev_w,
                             f"Feature map {i} has larger width than previous feature map. "
-                            f"Got {w}, previous was {prev_w}"
+                            f"Got {w}, previous was {prev_w}",
                         )
 
                         self.assertLessEqual(
-                            prev_h / h, 4,
+                            prev_h / h,
+                            4,
                             f"Feature map {i} has too large height reduction from previous feature map. "
-                            f"Got {h}, previous was {prev_h}"
+                            f"Got {h}, previous was {prev_h}",
                         )
                         self.assertLessEqual(
-                            prev_w / w, 4,
+                            prev_w / w,
+                            4,
                             f"Feature map {i} has too large width reduction from previous feature map. "
-                            f"Got {w}, previous was {prev_w}"
+                            f"Got {w}, previous was {prev_w}",
                         )
 
         features_train = model(input_data, training=True)
         self.assertEqual(
-            len(features_train), len(features),
-            "Number of feature maps should be consistent between training and inference modes"
+            len(features_train),
+            len(features),
+            "Number of feature maps should be consistent between training and inference modes",
         )
 
         if self.batch_size > 1:
             single_input = input_data[:1]
             single_features = model(single_input)
             self.assertEqual(
-                len(single_features), len(features),
-                "Number of feature maps should be consistent across different batch sizes"
+                len(single_features),
+                len(features),
+                "Number of feature maps should be consistent across different batch sizes",
             )
 
-            for i, (single_feat, batch_feat) in enumerate(zip(single_features, features)):
+            for i, (single_feat, batch_feat) in enumerate(
+                zip(single_features, features)
+            ):
                 self.assertEqual(
-                    tuple(single_feat.shape[1:]), tuple(batch_feat.shape[1:]),
-                    f"Feature map {i} shapes don't match between different batch sizes"
+                    tuple(single_feat.shape[1:]),
+                    tuple(batch_feat.shape[1:]),
+                    f"Feature map {i} shapes don't match between different batch sizes",
                 )

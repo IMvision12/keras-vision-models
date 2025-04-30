@@ -1,14 +1,16 @@
-import pytest
-
 from kvmm.models import efficientnetv2
 
-from ....test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTestCase
 
 
-class TestEfficientNetV2(BackboneTest):
-    @pytest.fixture
-    def model_config(self) -> ModelConfig:
-        return ModelConfig(
+class TestEfficientNetV2(BackboneTestCase):
+    """Test case for the EfficientNetV2 model."""
+
+    __test__ = True
+
+    def setUp(self):
+        super().setUp()
+        self.configure(
             model_cls=efficientnetv2.EfficientNetV2S, input_shape=(32, 32, 3)
         )
 
@@ -19,3 +21,9 @@ class TestEfficientNetV2(BackboneTest):
             "classifier_activation": "softmax",
             "weights": None,
         }
+
+    def test_weight_loading(self):
+        custom_model = efficientnetv2.EfficientNetV2S(
+            input_shape=(32, 32, 3),
+        )
+        return super().test_weight_loading(custom_model)

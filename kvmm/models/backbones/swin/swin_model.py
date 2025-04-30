@@ -165,7 +165,7 @@ def swin_block(
         name=f"{name}_layernorm_2",
     )
     normalized_x = norm_layer2(skip_x1)
-    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f"{name}.mlp")
+    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f"{name}_mlp")
     skip_x2 = skip_x1 + dropout_layer(mlp_x)
 
     return skip_x2
@@ -359,11 +359,25 @@ def swin_stage(
             [[0, 1, 2], [3, 4, 5], [6, 7, 8]], dtype="int32"
         )
 
-        rep_h = [pad_h - win_size, win_size - shift_sz, shift_sz]
-        rep_w = [pad_w - win_size, win_size - shift_sz, shift_sz]
+        expanded_h = ops.concatenate(
+            [
+                ops.tile(pattern[0:1, :], [pad_h - win_size, 1]),
+                ops.tile(pattern[1:2, :], [win_size - shift_sz, 1]),
+                ops.tile(pattern[2:3, :], [shift_sz, 1]),
+            ],
+            axis=0,
+        )
 
-        shift_base = ops.repeat(pattern, rep_h, axis=0)
-        shift_base = ops.repeat(shift_base, rep_w, axis=1)
+        # Then expand horizontally
+        shift_base = ops.concatenate(
+            [
+                ops.tile(expanded_h[:, 0:1], [1, pad_w - win_size]),
+                ops.tile(expanded_h[:, 1:2], [1, win_size - shift_sz]),
+                ops.tile(expanded_h[:, 2:3], [1, shift_sz]),
+            ],
+            axis=1,
+        )
+
         shift_wins = ops.squeeze(
             partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w), axis=-1
         )
@@ -599,7 +613,7 @@ class SwinTransformer(keras.Model):
             )
             if not_last:
                 x = patch_merging(
-                    x, channels_axis=channels_axis, name=f"layers.{i + 1}_downsample"
+                    x, channels_axis=channels_axis, name=f"layers_{i + 1}_downsample"
                 )
             features.append(x)
 

@@ -117,7 +117,7 @@ def inception_next_block(
     )
 
     x = layers.BatchNormalization(
-        axis=channels_axis, epsilon=1e-5, name=f"{name}.batchnorm"
+        axis=channels_axis, epsilon=1e-5, name=f"{name}_batchnorm"
     )(x)
 
     x = layers.Conv2D(

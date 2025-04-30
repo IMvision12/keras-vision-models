@@ -1,16 +1,16 @@
-import pytest
-
 from kvmm.models import mobilenetv2
 
-from ....test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTestCase
 
 
-class TestMobileNetV2(BackboneTest):
-    @pytest.fixture
-    def model_config(self) -> ModelConfig:
-        return ModelConfig(
-            model_cls=mobilenetv2.MobileNetV2WM50, input_shape=(32, 32, 3)
-        )
+class TestMobileNetV2(BackboneTestCase):
+    """Test case for the MobileNetV2 model."""
+
+    __test__ = True
+
+    def setUp(self):
+        super().setUp()
+        self.configure(model_cls=mobilenetv2.MobileNetV2WM50, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {
@@ -19,3 +19,9 @@ class TestMobileNetV2(BackboneTest):
             "classifier_activation": "softmax",
             "weights": None,
         }
+
+    def test_weight_loading(self):
+        custom_model = mobilenetv2.MobileNetV2WM50(
+            input_shape=(32, 32, 3),
+        )
+        return super().test_weight_loading(custom_model)

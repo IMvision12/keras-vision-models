@@ -1,14 +1,16 @@
-import pytest
-
 from kvmm.models import inception_next
 
-from ....test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTestCase
 
 
-class TestInceptionNeXt(BackboneTest):
-    @pytest.fixture
-    def model_config(self) -> ModelConfig:
-        return ModelConfig(
+class TestInceptionNeXt(BackboneTestCase):
+    """Test case for the InceptionNeXt model."""
+
+    __test__ = True
+
+    def setUp(self):
+        super().setUp()
+        self.configure(
             model_cls=inception_next.InceptionNeXtTiny, input_shape=(32, 32, 3)
         )
 
@@ -19,3 +21,9 @@ class TestInceptionNeXt(BackboneTest):
             "classifier_activation": "softmax",
             "weights": None,
         }
+
+    def test_weight_loading(self):
+        custom_model = inception_next.InceptionNeXtTiny(
+            input_shape=(32, 32, 3),
+        )
+        return super().test_weight_loading(custom_model)

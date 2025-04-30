@@ -1,14 +1,16 @@
-import pytest
-
 from kvmm.models import flexivit
 
-from ....test_backbone_modeling import BackboneTest, ModelConfig
+from ....test_backbone_modeling import BackboneTestCase
 
 
-class TestFlexiViT(BackboneTest):
-    @pytest.fixture
-    def model_config(self) -> ModelConfig:
-        return ModelConfig(model_cls=flexivit.FlexiViTSmall, input_shape=(32, 32, 3))
+class TestFlexiViT(BackboneTestCase):
+    """Test case for the FlexiViT model."""
+
+    __test__ = True
+
+    def setUp(self):
+        super().setUp()
+        self.configure(model_cls=flexivit.FlexiViTSmall, input_shape=(32, 32, 3))
 
     def get_default_kwargs(self) -> dict:
         return {
@@ -17,3 +19,9 @@ class TestFlexiViT(BackboneTest):
             "classifier_activation": "softmax",
             "weights": None,
         }
+
+    def test_weight_loading(self):
+        custom_model = flexivit.FlexiViTSmall(
+            input_shape=(32, 32, 3),
+        )
+        return super().test_weight_loading(custom_model)

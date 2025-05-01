@@ -1,5 +1,3 @@
-import math
-
 import keras
 from keras import layers, ops
 
@@ -58,8 +56,8 @@ class ImageToPatchesLayer(layers.Layer):
         else:
             c, h, w = x.shape[-3], x.shape[-2], x.shape[-1]
 
-        new_h = math.ceil(h / self.patch_size) * self.patch_size
-        new_w = math.ceil(w / self.patch_size) * self.patch_size
+        new_h = ((h + self.patch_size - 1) // self.patch_size) * self.patch_size
+        new_w = ((w + self.patch_size - 1) // self.patch_size) * self.patch_size
         num_patches_h = new_h // self.patch_size
         num_patches_w = new_w // self.patch_size
         num_patches = num_patches_h * num_patches_w

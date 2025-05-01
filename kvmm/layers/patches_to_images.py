@@ -1,5 +1,3 @@
-import math
-
 import keras
 from keras import layers, ops
 
@@ -60,6 +58,50 @@ class PatchesToImageLayer(layers.Layer):
         )
         super().build(input_shape)
 
+    def compute_output_shape(self, input_shape):
+        c = input_shape[-1] if self.data_format == "channels_last" else input_shape[1]
+        num_patches = (
+            input_shape[2] if self.data_format == "channels_last" else input_shape[-1]
+        )
+        side_patches = int(num_patches**0.5)
+        h = w = side_patches * self.patch_size
+
+        if self.data_format == "channels_last":
+            return input_shape[0], h, w, c
+        else:
+            return input_shape[0], c, h, w
+
+    def compute_output_spec(self, inputs, original_size=None, resize=False):
+        input_spec = keras.KerasTensor(inputs.shape, dtype=inputs.dtype)
+        batch_size = input_spec.shape[0]
+        c = (
+            input_spec.shape[-1]
+            if self.data_format == "channels_last"
+            else input_spec.shape[1]
+        )
+
+        if original_size is None:
+            num_patches = (
+                input_spec.shape[2]
+                if self.data_format == "channels_last"
+                else input_spec.shape[-1]
+            )
+            side_patches = int(num_patches**0.5)
+            h = w = side_patches * self.patch_size
+        else:
+            h, w = original_size
+
+            h = ((h + self.patch_size - 1) // self.patch_size) * self.patch_size
+            w = ((w + self.patch_size - 1) // self.patch_size) * self.patch_size
+
+            if resize:
+                h, w = original_size
+
+        if self.data_format == "channels_last":
+            return keras.KerasTensor((batch_size, h, w, c), dtype=inputs.dtype)
+        else:
+            return keras.KerasTensor((batch_size, c, h, w), dtype=inputs.dtype)
+
     def call(self, inputs, original_size=None, resize=False):
         x = inputs
 
@@ -72,11 +114,11 @@ class PatchesToImageLayer(layers.Layer):
                 if self.data_format == "channels_last"
                 else inputs.shape[-1]
             )
-            side_patches = int(math.sqrt(num_patches))
+            side_patches = int(num_patches**0.5)
             self.h = self.w = side_patches * self.patch_size
 
-        new_h = math.ceil(self.h / self.patch_size) * self.patch_size
-        new_w = math.ceil(self.w / self.patch_size) * self.patch_size
+        new_h = ((self.h + self.patch_size - 1) // self.patch_size) * self.patch_size
+        new_w = ((self.w + self.patch_size - 1) // self.patch_size) * self.patch_size
         num_patches_h = new_h // self.patch_size
         num_patches_w = new_w // self.patch_size
 

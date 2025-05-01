@@ -159,6 +159,13 @@ class EfficientMultiheadSelfAttention(layers.Layer):
 
         self.built = True
 
+    def compute_output_spec(self, input_spec):
+        input_shape = ops.shape(input_spec)
+        return keras.KerasTensor(
+            shape=(input_shape[0], input_shape[1], self.project_dim),
+            dtype=self.compute_dtype,
+        )
+
     def call(self, x, training=None):
         input_shape = ops.shape(x)
         B, N, C = input_shape[0], input_shape[1], input_shape[2]

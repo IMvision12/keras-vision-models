@@ -25,6 +25,6 @@ class TestSegFormer(SegmentationTestCase):
             weights="ade20k_512",
         )
         return super().test_weight_loading(custom_model)
-    
+
     def test_auxiliary_outputs(self):
         pytest.skip("SegFormer doesn't produce auxiliary outputs")

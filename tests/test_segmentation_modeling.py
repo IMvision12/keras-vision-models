@@ -11,7 +11,7 @@ from keras.src.testing import TestCase
 
 class SegmentationTestCase(TestCase):
     """Base test case for segmentation models."""
-    
+
     __test__ = False
 
     def __init__(self, *args, **kwargs):
@@ -59,7 +59,7 @@ class SegmentationTestCase(TestCase):
         model = self.create_model()
         self.assertIsInstance(model, Model)
 
-    def test_weight_loading(self, model):        
+    def test_weight_loading(self, model):
         self.assertIsNotNone(model.weights, "Model weights not initialized")
         self.assertTrue(
             len(model.trainable_weights) > 0, "Model has no trainable weights"
@@ -78,14 +78,14 @@ class SegmentationTestCase(TestCase):
         second_model = keras.models.clone_model(model)
         second_model.set_weights(model.get_weights())
         second_output = second_model(input_data)
-        
+
         if isinstance(original_output, list) and isinstance(second_output, list):
             self.assertEqual(
                 len(original_output),
                 len(second_output),
                 "Number of outputs doesn't match after loading weights",
             )
-            
+
             for i, (orig, loaded) in enumerate(zip(original_output, second_output)):
                 self.assertAllClose(
                     orig,
@@ -96,11 +96,11 @@ class SegmentationTestCase(TestCase):
                 )
         else:
             self.assertAllClose(
-                original_output, 
-                second_output, 
-                rtol=1e-5, 
+                original_output,
+                second_output,
+                rtol=1e-5,
                 atol=1e-5,
-                msg="Output mismatch after loading weights"
+                msg="Output mismatch after loading weights",
             )
 
     def test_model_forward_pass(self):
@@ -226,7 +226,9 @@ class SegmentationTestCase(TestCase):
                         msg=f"Output {i} mismatch after loading model",
                     )
             else:
-                self.assertAllClose(original_output, loaded_output, rtol=1e-5, atol=1e-5)
+                self.assertAllClose(
+                    original_output, loaded_output, rtol=1e-5, atol=1e-5
+                )
 
     def test_serialization(self):
         model = self.create_model()

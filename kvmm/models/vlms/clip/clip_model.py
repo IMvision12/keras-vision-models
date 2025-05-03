@@ -425,21 +425,27 @@ class CLIPModel(keras.Model):
     ):
         vision_heads = vision_width // 64
 
-        if weights:
-            if "336" in weights:
-                default_size = 336
+        if input_shape is not None and isinstance(input_shape, tuple):
+            if len(input_shape) == 3:
+                image_size = min(input_shape[0], input_shape[1])
+                channels = input_shape[2]
+                image_input_shape = [image_size, image_size, channels]
+            elif len(input_shape) == 2:
+                image_size = min(input_shape[0], input_shape[1])
+                image_input_shape = [image_size, image_size, 3]
             else:
-                default_size = 224
+                image_size = input_shape[0]
+                image_input_shape = [image_size, image_size, 3]
         else:
-            if isinstance(input_shape, tuple) and len(input_shape) >= 2:
-                default_size = min(input_shape[0], input_shape[1])
+            if weights:
+                if "336" in weights:
+                    image_size = 336
+                else:
+                    image_size = 224
             else:
-                default_size = 224
+                image_size = 224
 
-        if isinstance(input_shape, tuple) and len(input_shape) == 3:
-            image_input_shape = [default_size, default_size, input_shape[2]]
-        else:
-            image_input_shape = [default_size, default_size, 3]
+            image_input_shape = [image_size, image_size, 3]
 
         if input_tensor is not None and isinstance(input_tensor, dict):
             images_input = input_tensor.get("images")
@@ -470,7 +476,7 @@ class CLIPModel(keras.Model):
         # Create image and text encoders
         image_embeddings = clip_image_encoder(
             images_input,
-            input_resolution=default_size,
+            input_resolution=image_size,
             patch_size=vision_patch_size,
             width=vision_width,
             num_layers=vision_layers,

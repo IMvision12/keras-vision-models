@@ -1,6 +1,9 @@
 import keras
 from keras import layers, ops
 
+from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
+
 from .clip_layers import (
     CLIPAttention,
     CLIPLogitScale,
@@ -8,8 +11,7 @@ from .clip_layers import (
     VisionModelEmbedding,
 )
 from .config import CLIP_MODEL_CONFIG, CLIP_WEIGHTS_CONFIG
-from kvmm.model_registry import register_model
-from kvmm.utils import get_all_weight_names, load_weights_from_config
+
 
 def quick_gelu(x):
     """Applies the Quick GELU activation function to the input tensor.
@@ -433,12 +435,12 @@ class CLIPModel(keras.Model):
                 default_size = min(input_shape[0], input_shape[1])
             else:
                 default_size = 224
-        
+
         if isinstance(input_shape, tuple) and len(input_shape) == 3:
             image_input_shape = [default_size, default_size, input_shape[2]]
         else:
             image_input_shape = [default_size, default_size, 3]
-        
+
         if input_tensor is not None and isinstance(input_tensor, dict):
             images_input = input_tensor.get("images")
             token_ids_input = input_tensor.get("token_ids")
@@ -449,9 +451,7 @@ class CLIPModel(keras.Model):
             padding_mask_input = None
 
         if images_input is None:
-            images_input = layers.Input(
-                shape=image_input_shape, name="images"
-            )
+            images_input = layers.Input(shape=image_input_shape, name="images")
         if token_ids_input is None:
             token_ids_input = layers.Input(
                 shape=[
@@ -562,16 +562,14 @@ def ClipVitBase32(
         name=name,
         **kwargs,
     )
-    
+
     if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
-        
+
     return model
 
 
@@ -591,16 +589,14 @@ def ClipVitBase16(
         weights=weights,
         **kwargs,
     )
-    
+
     if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ClipVitBase16", weights, model, CLIP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ClipVitBase16", weights, model, CLIP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
-        
+
     return model
 
 
@@ -620,14 +616,12 @@ def ClipVitLarge14(
         name=name,
         **kwargs,
     )
-    
+
     if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "ClipVitLarge14", weights, model, CLIP_WEIGHTS_CONFIG
-        )
+        load_weights_from_config("ClipVitLarge14", weights, model, CLIP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
         print("No weights loaded.")
-        
+
     return model

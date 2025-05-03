@@ -36,17 +36,17 @@ CLIP_MODEL_CONFIG = {
 
 
 CLIP_WEIGHTS_CONFIG = {
-    "ClipVitBase32":{
+    "ClipVitBase32": {
         "res_224px": {
             "url": "",
         },
     },
-    "ClipVitBase16":{
+    "ClipVitBase16": {
         "res_224px": {
             "url": "",
         },
     },
-    "ClipVitLarge14":{
+    "ClipVitLarge14": {
         "res_224px": {
             "url": "",
         },

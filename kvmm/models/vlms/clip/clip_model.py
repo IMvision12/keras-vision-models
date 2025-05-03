@@ -7,7 +7,9 @@ from .clip_layers import (
     TextModelEmbedding,
     VisionModelEmbedding,
 )
-
+from .config import CLIP_MODEL_CONFIG, CLIP_WEIGHTS_CONFIG
+from kvmm.model_registry import register_model
+from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 def quick_gelu(x):
     """Applies the Quick GELU activation function to the input tensor.
@@ -405,7 +407,6 @@ class CLIPModel(keras.Model):
     def __init__(
         self,
         embed_dim=512,
-        image_resolution=224,
         vision_layers=12,
         vision_width=768,
         vision_patch_size=32,
@@ -414,13 +415,30 @@ class CLIPModel(keras.Model):
         transformer_width=512,
         transformer_heads=8,
         transformer_layers=12,
+        input_shape=None,
         input_tensor=None,
+        weights="res_224px",
         name="CLIPModel",
         **kwargs,
     ):
         vision_heads = vision_width // 64
 
-        # Define input tensors
+        if weights:
+            if "336" in weights:
+                default_size = 336
+            else:
+                default_size = 224
+        else:
+            if isinstance(input_shape, tuple) and len(input_shape) >= 2:
+                default_size = min(input_shape[0], input_shape[1])
+            else:
+                default_size = 224
+        
+        if isinstance(input_shape, tuple) and len(input_shape) == 3:
+            image_input_shape = [default_size, default_size, input_shape[2]]
+        else:
+            image_input_shape = [default_size, default_size, 3]
+        
         if input_tensor is not None and isinstance(input_tensor, dict):
             images_input = input_tensor.get("images")
             token_ids_input = input_tensor.get("token_ids")
@@ -432,7 +450,7 @@ class CLIPModel(keras.Model):
 
         if images_input is None:
             images_input = layers.Input(
-                shape=[image_resolution, image_resolution, 3], name="images"
+                shape=image_input_shape, name="images"
             )
         if token_ids_input is None:
             token_ids_input = layers.Input(
@@ -452,7 +470,7 @@ class CLIPModel(keras.Model):
         # Create image and text encoders
         image_embeddings = clip_image_encoder(
             images_input,
-            input_resolution=image_resolution,
+            input_resolution=default_size,
             patch_size=vision_patch_size,
             width=vision_width,
             num_layers=vision_layers,
@@ -492,7 +510,6 @@ class CLIPModel(keras.Model):
 
         # Store model parameters
         self.embed_dim = embed_dim
-        self.image_resolution = image_resolution
         self.vision_layers = vision_layers
         self.vision_width = vision_width
         self.vision_patch_size = vision_patch_size
@@ -508,7 +525,7 @@ class CLIPModel(keras.Model):
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "image_resolution": self.image_resolution,
+                "input_shape": self.input_shape[1:],
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,
@@ -527,3 +544,90 @@ class CLIPModel(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+@register_model
+def ClipVitBase32(
+    weights="res_224px",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitBase32",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitBase32"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+    
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+        
+    return model
+
+
+@register_model
+def ClipVitBase16(
+    weights="res_224px",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitBase16",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitBase16"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        weights=weights,
+        **kwargs,
+    )
+    
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ClipVitBase16", weights, model, CLIP_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+        
+    return model
+
+
+@register_model
+def ClipVitLarge14(
+    weights="res_224px",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitLarge14",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitLarge14"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+    
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "ClipVitLarge14", weights, model, CLIP_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+        
+    return model

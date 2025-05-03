@@ -1,56 +1,68 @@
 import keras
 from keras import layers, ops
 
-from .clip_layers import CLIPAttention, CLIPLogitScale, VisionModelEmbedding, TextModelEmbedding
+from .clip_layers import (
+    CLIPAttention,
+    CLIPLogitScale,
+    TextModelEmbedding,
+    VisionModelEmbedding,
+)
+
 
 def quick_gelu(x):
     """Applies the Quick GELU activation function to the input tensor.
-    
-    This is an approximation of the GELU (Gaussian Error Linear Unit) 
-    activation function that uses the sigmoid function for more efficient 
-    computation. It's used in the CLIP model as a replacement for the 
+
+    This is an approximation of the GELU (Gaussian Error Linear Unit)
+    activation function that uses the sigmoid function for more efficient
+    computation. It's used in the CLIP model as a replacement for the
     standard GELU activation.
-    
+
     Args:
         x: Input tensor.
-        
+
     Returns:
         Tensor with Quick GELU activation applied.
     """
     return x * ops.sigmoid(1.702 * x)
 
+
 def residual_attention_block(
-    x, proj_dim, num_heads, num_hidden_layers, layer_name_prefix, layer_idx,
-    causal_attention_mask=None, attention_mask=None
+    x,
+    proj_dim,
+    num_heads,
+    num_hidden_layers,
+    layer_name_prefix,
+    layer_idx,
+    causal_attention_mask=None,
+    attention_mask=None,
 ):
     """Creates a residual attention block used in the CLIP transformer encoder.
-    
+
     This function implements a standard transformer block consisting of multi-head
     self-attention followed by a feed-forward MLP block, with layer normalization
     and residual connections. The same architecture is used in both the vision and
     text encoders of the CLIP model.
-    
+
     Args:
         x: Input tensor of shape (batch_size, sequence_length, proj_dim).
         proj_dim: Integer, dimensionality of the projection space (hidden size).
         num_heads: Integer, number of attention heads.
         num_hidden_layers: Integer, total number of layers in the encoder.
-        layer_name_prefix: String, prefix for naming layers (e.g., "text_model_encoder" 
+        layer_name_prefix: String, prefix for naming layers (e.g., "text_model_encoder"
             or "vision_model_encoder").
         layer_idx: Integer, index of the current layer in the encoder.
-        causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length) 
+        causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
             used for causal (autoregressive) attention in the text encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
-    
+
     Returns:
         Output tensor of shape (batch_size, sequence_length, proj_dim).
-    
+
     """
     layer_prefix = f"{layer_name_prefix}_{layer_idx}"
 
     ln_1_output = keras.layers.LayerNormalization(
-        epsilon=1e-5,
-        name=f"{layer_prefix}_layernorm_1"
+        epsilon=1e-5, name=f"{layer_prefix}_layernorm_1"
     )(x)
 
     mask = None
@@ -58,30 +70,31 @@ def residual_attention_block(
         mask = ops.cast(causal_attention_mask, dtype=x.dtype)
     if attention_mask is not None:
         attention_mask = ops.cast(attention_mask, dtype=x.dtype)
-        mask = ops.add(causal_attention_mask, attention_mask) if causal_attention_mask is not None else attention_mask
+        mask = (
+            ops.add(causal_attention_mask, attention_mask)
+            if causal_attention_mask is not None
+            else attention_mask
+        )
 
     attention_output = CLIPAttention(
         proj_dim=proj_dim,
         num_heads=num_heads,
         num_hidden_layers=num_hidden_layers,
-        name_prefix=f"{layer_prefix}_attn"
+        name_prefix=f"{layer_prefix}_attn",
     )(ln_1_output, attention_mask=mask)[0]
 
     residual_1 = keras.layers.Add()([x, attention_output])
     ln_2_output = keras.layers.LayerNormalization(
-        epsilon=1e-5,
-        name=f"{layer_prefix}_layernorm_2"
+        epsilon=1e-5, name=f"{layer_prefix}_layernorm_2"
     )(residual_1)
 
-    mlp_output = keras.layers.Dense(
-        proj_dim * 4,
-        name=f"{layer_prefix}_dense_1"
-    )(ln_2_output)
+    mlp_output = keras.layers.Dense(proj_dim * 4, name=f"{layer_prefix}_dense_1")(
+        ln_2_output
+    )
     mlp_output = keras.layers.Lambda(quick_gelu)(mlp_output)
-    mlp_output = keras.layers.Dense(
-        proj_dim,
-        name=f"{layer_prefix}_dense_2"
-    )(mlp_output)
+    mlp_output = keras.layers.Dense(proj_dim, name=f"{layer_prefix}_dense_2")(
+        mlp_output
+    )
 
     output = keras.layers.Add()([residual_1, mlp_output])
 
@@ -89,19 +102,24 @@ def residual_attention_block(
 
 
 def clip_encoder(
-    inputs, width, num_layers, heads, layer_prefix=None,
-    causal_attention_mask=None, attention_mask=None
+    inputs,
+    width,
+    num_layers,
+    heads,
+    layer_prefix=None,
+    causal_attention_mask=None,
+    attention_mask=None,
 ):
     """Creates a transformer encoder used in both vision and text components of CLIP.
-    
+
     This function implements a standard transformer encoder architecture that is shared
     between the vision and text branches of CLIP, with minor differences handled through
-    parameters. The encoder consists of a sequence of residual attention blocks, each 
+    parameters. The encoder consists of a sequence of residual attention blocks, each
     containing multi-head self-attention followed by an MLP block with layer normalization
     and residual connections.
-    
+
     Args:
-        inputs: Tensor of shape (batch_size, sequence_length, width) containing the 
+        inputs: Tensor of shape (batch_size, sequence_length, width) containing the
             embedded input sequence (either text tokens or image patches).
         width: Integer, dimensionality of the transformer's hidden representations.
         num_layers: Integer, number of transformer layers in the encoder.
@@ -109,16 +127,16 @@ def clip_encoder(
             typically be width / 64 for optimal performance.
         layer_prefix: Optional string, prefix for naming layers to distinguish between
             vision and text encoders when sharing the same architecture.
-        causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length) 
+        causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
             used for causal (autoregressive) attention in the text encoder. Set to None
             for the vision encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
             Set to None for the vision encoder.
-    
+
     Returns:
         A tensor of shape (batch_size, sequence_length, width) containing the encoded
         representations of the input sequence.
-    
+
     """
     x = inputs
 
@@ -147,31 +165,31 @@ def clip_image_encoder(
     output_dim=512,
 ):
     """Creates a CLIP image encoder based on Vision Transformer (ViT) architecture.
-    
+
     This function implements the vision component of the CLIP model, which processes
-    images using a Vision Transformer (ViT) architecture. The encoder divides the input 
+    images using a Vision Transformer (ViT) architecture. The encoder divides the input
     image into fixed-size patches, linearly embeds each patch, adds position embeddings,
-    and processes the resulting sequence with a transformer encoder. The final 
-    representation is obtained from the class token and projected to the joint 
+    and processes the resulting sequence with a transformer encoder. The final
+    representation is obtained from the class token and projected to the joint
     embedding space.
-    
+
     Args:
-        inputs: Tensor of shape (batch_size, height, width, channels) containing the 
+        inputs: Tensor of shape (batch_size, height, width, channels) containing the
             input images.
         input_resolution: Integer, resolution of input images (both height and width).
             Images are expected to be square with this resolution.
-        patch_size: Integer, size of image patches. The image will be divided into 
+        patch_size: Integer, size of image patches. The image will be divided into
             patches of this size, which determines the sequence length for the transformer.
         width: Integer, dimensionality of the transformer's hidden representations.
         num_layers: Integer, number of transformer layers in the vision encoder.
         heads: Integer, number of attention heads in each transformer layer.
-        output_dim: Integer, dimensionality of the final image embedding output that 
+        output_dim: Integer, dimensionality of the final image embedding output that
             matches the joint embedding space.
-    
+
     Returns:
         A tensor of shape (batch_size, output_dim) containing the image embeddings
         that can be compared with text embeddings in the joint embedding space.
-    
+
     """
     patch_embeddings = keras.layers.Conv2D(
         filters=width,
@@ -184,24 +202,29 @@ def clip_image_encoder(
     )(inputs)
 
     embeddings = VisionModelEmbedding(
-        width,
-        input_resolution,
-        patch_size,
-        name="vision_model_embeddings"
+        width, input_resolution, patch_size, name="vision_model_embeddings"
     )(patch_embeddings)
 
-    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(embeddings)
+    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(
+        embeddings
+    )
     encoded = clip_encoder(
         x,
         width=width,
         num_layers=num_layers,
         heads=heads,
-        layer_prefix="vision_model_encoder"
+        layer_prefix="vision_model_encoder",
     )
 
-    class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(encoded)
-    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_2")(class_token)
-    outputs = keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(x)
+    class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
+        encoded
+    )
+    x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_2")(
+        class_token
+    )
+    outputs = keras.layers.Dense(output_dim, use_bias=False, name="visual_projection")(
+        x
+    )
 
     return outputs
 
@@ -217,26 +240,26 @@ def clip_text_encoder(
     context_length,
 ):
     """Creates a CLIP text encoder for processing tokenized text inputs.
-    
+
     This function implements the text encoder component of the CLIP architecture,
-    which consists of a transformer model with token embeddings, positional 
-    embeddings, masked self-attention, and a final projection to the joint 
-    embedding space. The text encoder processes tokenized text inputs and 
+    which consists of a transformer model with token embeddings, positional
+    embeddings, masked self-attention, and a final projection to the joint
+    embedding space. The text encoder processes tokenized text inputs and
     produces embeddings that can be compared with image embeddings.
-    
+
     Args:
         inputs: Tensor of shape (batch_size, context_length) containing tokenized
             text sequences with padding as needed.
         attention_mask: Tensor of shape (batch_size, context_length) containing
             1s for non-padding tokens and 0s for padding tokens.
-        transformer_width: Integer, dimensionality of the transformer's hidden 
+        transformer_width: Integer, dimensionality of the transformer's hidden
             representations.
         transformer_layers: Integer, number of transformer layers in the text encoder.
         transformer_heads: Integer, number of attention heads in each transformer layer.
         vocab_size: Integer, size of the token vocabulary.
         embed_dim: Integer, dimensionality of the final text embedding output.
         context_length: Integer, maximum length of input text sequences.
-    
+
     Returns:
         A tensor of shape (batch_size, embed_dim) containing the text embeddings
         that can be compared with image embeddings in the joint embedding space.
@@ -246,10 +269,12 @@ def clip_text_encoder(
         vocab_size=vocab_size,
         context_length=context_length,
         embedding_dim=transformer_width,
-        name="text_model_embedding"
+        name="text_model_embedding",
     )(inputs)
 
-    causal_attention_mask = ops.cast(ops.triu(ops.ones((context_length, context_length))), "float32")
+    causal_attention_mask = ops.cast(
+        ops.triu(ops.ones((context_length, context_length))), "float32"
+    )
 
     attention_mask_float = ops.cast(attention_mask, dtype="float32")
     expanded_mask = ops.reshape(attention_mask_float, (-1, 1, 1, context_length))
@@ -263,21 +288,21 @@ def clip_text_encoder(
         heads=transformer_heads,
         causal_attention_mask=causal_attention_mask,
         attention_mask=expanded_mask,
-        layer_prefix="text_model_encoder"
+        layer_prefix="text_model_encoder",
     )
 
-    layer_norm = keras.layers.LayerNormalization(name="text_model_layernorm")(encoded_output)
+    layer_norm = keras.layers.LayerNormalization(name="text_model_layernorm")(
+        encoded_output
+    )
 
     indices = ops.argmax(inputs, axis=-1)
 
     one_hot_indices = ops.one_hot(indices, context_length)
-    selected_features = ops.einsum('bi,bij->bj', one_hot_indices, layer_norm)
+    selected_features = ops.einsum("bi,bij->bj", one_hot_indices, layer_norm)
     selected_features = ops.expand_dims(selected_features, axis=1)
 
     text_features = keras.layers.Dense(
-        embed_dim,
-        name="text_projection",
-        use_bias=False
+        embed_dim, name="text_projection", use_bias=False
     )(selected_features)
 
     output = ops.squeeze(text_features, axis=1)
@@ -286,26 +311,26 @@ def clip_text_encoder(
 
 def clip_head(image_embeddings, text_embeddings):
     """Creates the CLIP model head that processes embedded image and text features.
-    
+
     This function performs normalization of the image and text embeddings and applies
-    a learned temperature parameter (logit scale) to control the sharpness of the 
+    a learned temperature parameter (logit scale) to control the sharpness of the
     similarity distribution. The normalization ensures that similarity is measured
     by cosine distance, while the temperature scaling helps with training stability
     and convergence.
-    
+
     Args:
-        image_embeddings: Tensor of shape (batch_size, embed_dim) containing the 
+        image_embeddings: Tensor of shape (batch_size, embed_dim) containing the
             output features from the image encoder.
         text_embeddings: Tensor of shape (batch_size, embed_dim) containing the
             output features from the text encoder.
-            
+
     Returns:
         A tuple of (image_logits, text_logits):
-            - image_logits: Normalized and scaled image embeddings of shape 
+            - image_logits: Normalized and scaled image embeddings of shape
               (batch_size, embed_dim)
             - text_logits: Normalized and scaled text embeddings of shape
               (batch_size, embed_dim)
-              
+
     """
     normalize_image_features = ops.sqrt(
         ops.sum(ops.power(image_embeddings, 2), keepdims=True)
@@ -315,21 +340,17 @@ def clip_head(image_embeddings, text_embeddings):
     )
     image_embeddings = image_embeddings / normalize_image_features
     text_embeddings = text_embeddings / normalize_text_features
-    logit_scale_layer = CLIPLogitScale(
-        initial_value=0.07,
-        name="logit_scale"
-    )
+    logit_scale_layer = CLIPLogitScale(initial_value=0.07, name="logit_scale")
     image_logits, text_logits = logit_scale_layer([image_embeddings, text_embeddings])
     return image_logits, text_logits
-
 
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class CLIPModel(keras.Model):
     """Instantiates the Contrastive Language-Image Pre-training (CLIP) architecture.
-    
+
     CLIP is a neural network trained on a variety of (image, text) pairs. It can be used
-    for zero-shot image classification, image-text similarity ranking, and other 
+    for zero-shot image classification, image-text similarity ranking, and other
     multimodal tasks. This implementation follows the original paper architecture.
 
     Reference:
@@ -338,11 +359,11 @@ class CLIPModel(keras.Model):
     - [Improving Vision-Language Pre-training with Large-scale Caption Annotations](
         https://arxiv.org/abs/2111.08735)
     - [OpenAI CLIP GitHub Repository](https://github.com/openai/CLIP)
-    
+
     The model consists of two main components:
     1. A vision transformer (ViT) that encodes images
     2. A text transformer that encodes text
-    
+
     These encoders project images and text into a shared embedding space where
     similarity is computed using cosine similarity.
 
@@ -353,7 +374,7 @@ class CLIPModel(keras.Model):
             Images will be resized to this resolution before processing.
         vision_layers: Integer, number of transformer layers in the vision model.
             Deeper models generally perform better but require more computation.
-        vision_width: Integer, width/dimensionality of the vision transformer's hidden 
+        vision_width: Integer, width/dimensionality of the vision transformer's hidden
             representations.
         vision_patch_size: Integer, size of patches for the vision transformer. The image
             will be divided into patches of this size before processing.
@@ -372,10 +393,10 @@ class CLIPModel(keras.Model):
 
     Returns:
         A Keras `Model` instance with image and text inputs, and embedding outputs.
-    
+
     Note:
         - Both image and text features are L2-normalized before output
-        - The model can be used for zero-shot classification by comparing image 
+        - The model can be used for zero-shot classification by comparing image
           embeddings with text embeddings of class descriptions
         - For best performance with pretrained weights, use the same preprocessing
           as was used during training
@@ -398,7 +419,7 @@ class CLIPModel(keras.Model):
         **kwargs,
     ):
         vision_heads = vision_width // 64
-        
+
         # Define input tensors
         if input_tensor is not None and isinstance(input_tensor, dict):
             images_input = input_tensor.get("images")
@@ -408,20 +429,26 @@ class CLIPModel(keras.Model):
             images_input = None
             token_ids_input = None
             padding_mask_input = None
-            
+
         if images_input is None:
             images_input = layers.Input(
                 shape=[image_resolution, image_resolution, 3], name="images"
             )
         if token_ids_input is None:
             token_ids_input = layers.Input(
-                shape=[context_length,], name="token_ids"
+                shape=[
+                    context_length,
+                ],
+                name="token_ids",
             )
         if padding_mask_input is None:
             padding_mask_input = layers.Input(
-                shape=[context_length,], name="padding_mask"
+                shape=[
+                    context_length,
+                ],
+                name="padding_mask",
             )
-            
+
         # Create image and text encoders
         image_embeddings = clip_image_encoder(
             images_input,
@@ -432,7 +459,7 @@ class CLIPModel(keras.Model):
             heads=vision_heads,
             output_dim=embed_dim,
         )
-        
+
         text_embeddings = clip_text_encoder(
             token_ids_input,
             attention_mask=padding_mask_input,
@@ -443,13 +470,13 @@ class CLIPModel(keras.Model):
             embed_dim=embed_dim,
             context_length=context_length,
         )
-        
+
         # Apply projection head
         image_logits, text_logits = clip_head(
             image_embeddings,
             text_embeddings,
         )
-        
+
         outputs = {
             "image_logits": image_logits,
             "text_logits": text_logits,

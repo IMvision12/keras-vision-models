@@ -1,0 +1,91 @@
+name: Tests
+on:
+  pull_request:
+  release:
+    types: [created]
+jobs:
+
+  test-matrix-backend:
+    name: Test the code (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [tensorflow, jax, torch, numpy]
+    
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          
+          # Install backend-specific dependencies
+          if [ "${{ matrix.backend }}" == "tensorflow" ]; then
+            pip install tensorflow
+          elif [ "${{ matrix.backend }}" == "jax" ]; then
+            pip install jax jaxlib
+          elif [ "${{ matrix.backend }}" == "torch" ]; then
+            pip install torch
+          elif [ "${{ matrix.backend }}" == "numpy" ]; then
+            pip install numpy
+          fi
+          
+          # Install Keras
+          pip install keras
+          
+          # Install additional dependencies
+          pip install pytest pytest-cov timm
+          pip install -r requirements.txt
+          pip install -e .
+      
+      - name: Run tests
+        run: |
+          echo "Running tests with backend: $KERAS_BACKEND"
+          
+          # Print large message for layer tests
+          echo ""
+          echo "================================================================"
+          echo "=                                                              ="
+          echo "=                   RUNNING LAYER TESTS                        ="
+          echo "=                                                              ="
+          echo "================================================================"
+          echo ""
+          
+          # Run layer tests
+          pytest tests/layers/*_test.py -v --cov=./ --cov-append
+          
+          # Print large message for model tests
+          echo ""
+          echo "================================================================"
+          echo "=                                                              ="
+          echo "=                   RUNNING MODEL TESTS                        ="
+          echo "=                                                              ="
+          echo "================================================================"
+          echo ""
+          
+          # Run model tests if they exist
+          TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
+          if [ -n "$TEST_FILES" ]; then
+            pytest $TEST_FILES -v --cov=./ --cov-append
+          else
+            echo "No model test files found. Skipping model tests."
+          fi
+          
+          # Generate coverage report
+          coverage xml -o coverage.xml
+      
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: keras-${{ matrix.backend }}
+          fail_ci_if_error: false

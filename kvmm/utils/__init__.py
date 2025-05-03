@@ -1,7 +1,7 @@
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
+from kvmm.utils.file_downloader import download_file, validate_url
 from kvmm.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kvmm.utils.model_weights_util import (
-    download_weights,
     get_all_weight_names,
     load_weights_from_config,
 )

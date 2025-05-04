@@ -7,6 +7,55 @@ import keras
 
 
 class CLIPTokenizer(keras.Layer):
+    """
+    CLIP Tokenizer Implementation for Keras
+
+    This module provides a Keras-based implementation of the CLIP tokenizer used in OpenAI's
+    CLIP (Contrastive Language-Image Pre-training) model. The tokenizer converts text into
+    token IDs that can be processed by the CLIP text encoder.
+
+    The tokenizer implements BPE (Byte-Pair Encoding) tokenization with special handling for
+    various text preprocessing steps including Unicode normalization, whitespace cleaning,
+    and special token handling.
+
+    Args:
+        vocab_file (str): Path to the vocabulary JSON file
+        merges_file (str): Path to the BPE merges file
+        context_length (int, optional): Maximum context length for padding/truncation. Defaults to 77.
+        errors (str, optional): Error handling strategy for decoding. Defaults to "replace".
+        unk_token (str, optional): Token for unknown words. Defaults to "<|endoftext|>".
+        bos_token (str, optional): Beginning of sequence token. Defaults to "<|startoftext|>".
+        eos_token (str, optional): End of sequence token. Defaults to "<|endoftext|>".
+        pad_token (str, optional): Padding token. Defaults to "<|endoftext|>".
+
+    Key features:
+    - Byte-level BPE tokenization
+    - Support for special tokens (BOS, EOS, PAD, UNK)
+    - Text preprocessing including Unicode normalization and whitespace cleaning
+    - Integration with Keras as a layer for seamless use in neural network pipelines
+
+    Example usage:
+
+        # Initialize the tokenizer with vocabulary and merges files
+        tokenizer = CLIPTokenizer(
+            vocab_file="path/to/vocab.json",
+            merges_file="path/to/merges.txt",
+            context_length=77
+        )
+
+        # Tokenize and encode a single text
+        text = "A photo of a cat"
+        encoded = tokenizer(text)
+
+        # Tokenize a batch of texts
+        texts = ["A photo of a cat", "A painting of a dog"]
+        batch_encoded = tokenizer(texts)
+
+        # Decode token IDs back to text
+        token_ids = encoded["input_ids"][0]
+        decoded_text = tokenizer.decode(token_ids)
+    """
+
     def __init__(
         self,
         vocab_file: str,

@@ -4,4 +4,5 @@ from kvmm.models.vlms.clip.clip_model import (
     ClipVitBase32,
     ClipVitLarge14,
 )
+from kvmm.models.vlms.clip.clip_processor import CLIPProcessor
 from kvmm.models.vlms.clip.clip_tokenizer import CLIPTokenizer

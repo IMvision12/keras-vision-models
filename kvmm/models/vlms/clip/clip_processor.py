@@ -1,6 +1,6 @@
 import keras
 
-from kvmm.models import clip
+from kvmm.models.vlms.clip import CLIPImageProcessor, CLIPTokenizer
 from kvmm.utils import download_file
 
 
@@ -84,7 +84,7 @@ class CLIPProcessor(keras.layers.Layer):
     ):
         super().__init__(**kwargs)
 
-        self.image_processor = clip.CLIPImageProcessor(
+        self.image_processor = CLIPImageProcessor(
             image_resolution=image_resolution,
             mean=mean,
             std=std,
@@ -104,7 +104,7 @@ class CLIPProcessor(keras.layers.Layer):
             vocab_file_path = vocab_file
             merges_file_path = merges_file
 
-        self.tokenizer = clip.CLIPTokenizer(
+        self.tokenizer = CLIPTokenizer(
             vocab_file=vocab_file_path,
             merges_file=merges_file_path,
             context_length=context_length,

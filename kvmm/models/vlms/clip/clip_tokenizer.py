@@ -6,6 +6,7 @@ import unicodedata
 import keras
 
 
+@keras.saving.register_keras_serializable(package="kvmm")
 class CLIPTokenizer(keras.Layer):
     """
     CLIP Tokenizer Implementation for Keras

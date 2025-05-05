@@ -1,9 +1,11 @@
 import keras
 
-from kvmm.models.vlms.clip import CLIPImageProcessor, CLIPTokenizer
+from kvmm.models.vlms.clip.clip_image_processor import CLIPImageProcessor
+from kvmm.models.vlms.clip.clip_tokenizer import CLIPTokenizer
 from kvmm.utils import download_file
 
 
+@keras.saving.register_keras_serializable(package="kvmm")
 class CLIPProcessor(keras.layers.Layer):
     """
     Combined processor for CLIP model, handling both image and text inputs.

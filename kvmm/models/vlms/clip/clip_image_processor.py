@@ -4,6 +4,7 @@ import keras
 from keras import ops
 
 
+@keras.saving.register_keras_serializable(package="kvmm")
 class CLIPImageProcessor(keras.layers.Layer):
     """
     Image processor for CLIP (Contrastive Language-Image Pre-training) models.

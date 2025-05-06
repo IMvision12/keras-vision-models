@@ -425,17 +425,30 @@ class CLIPModel(keras.Model):
     ):
         vision_heads = vision_width // 64
 
+        data_format = keras.backend.image_data_format()
+
         if input_shape is not None and isinstance(input_shape, tuple):
             if len(input_shape) == 3:
-                image_size = min(input_shape[0], input_shape[1])
-                channels = input_shape[2]
-                image_input_shape = [image_size, image_size, channels]
+                if data_format == "channels_last":
+                    image_size = min(input_shape[0], input_shape[1])
+                    channels = input_shape[2]
+                    image_input_shape = [image_size, image_size, channels]
+                else:
+                    image_size = min(input_shape[1], input_shape[2])
+                    channels = input_shape[0]
+                    image_input_shape = [channels, image_size, image_size]
             elif len(input_shape) == 2:
                 image_size = min(input_shape[0], input_shape[1])
-                image_input_shape = [image_size, image_size, 3]
+                if data_format == "channels_last":
+                    image_input_shape = [image_size, image_size, 3]
+                else:
+                    image_input_shape = [3, image_size, image_size]
             else:
                 image_size = input_shape[0]
-                image_input_shape = [image_size, image_size, 3]
+                if data_format == "channels_last":
+                    image_input_shape = [image_size, image_size, 3]
+                else:
+                    image_input_shape = [3, image_size, image_size]
         else:
             if weights:
                 if "336" in weights:
@@ -445,7 +458,10 @@ class CLIPModel(keras.Model):
             else:
                 image_size = 224
 
-            image_input_shape = [image_size, image_size, 3]
+            if data_format == "channels_last":
+                image_input_shape = [image_size, image_size, 3]
+            else:
+                image_input_shape = [3, image_size, image_size]
 
         if input_tensor is not None and isinstance(input_tensor, dict):
             images_input = input_tensor.get("images")

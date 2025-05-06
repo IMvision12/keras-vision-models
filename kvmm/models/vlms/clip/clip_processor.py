@@ -97,11 +97,11 @@ class CLIPProcessor(keras.layers.Layer):
 
         if vocab_file is None and merges_file is None:
             vocab_file_path = download_file(
-                "https://huggingface.co/openai/clip-vit-base-patch16/resolve/main/vocab.json"
-            )  # temp
+                "https://github.com/IMvision12/keras-vision-models/releases/download/clip/vocab.json"
+            )
             merges_file_path = download_file(
-                "https://huggingface.co/openai/clip-vit-base-patch16/resolve/main/merges.txt"
-            )  # temp
+                "https://github.com/IMvision12/keras-vision-models/releases/download/clip/merges.txt"
+            )
         else:
             vocab_file_path = vocab_file
             merges_file_path = merges_file

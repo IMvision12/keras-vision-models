@@ -1,30 +1,34 @@
-import pytest
-
 from kvmm.models import segformer
+from keras import ops
+from ....test_modelling import ModelTestCase
 
-from ....test_segmentation_modeling import SegmentationTestCase
-
-
-class TestSegFormer(SegmentationTestCase):
-    """Test case for the SegFormer model."""
-
+class TestSegFormer(ModelTestCase):
     __test__ = True
-
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
     def setUp(self):
         super().setUp()
-        self.configure(model_cls=segformer.SegFormerB0, input_shape=(32, 32, 3))
 
-    def get_default_kwargs(self) -> dict:
-        return {
-            "weights": None,
-        }
-
-    def test_weight_loading(self):
+        self.input_data = ops.ones((2, 32, 32, 3))
+        self.expected_output_shape = (2, 32, 32, 150)
+        self.configure(
+            model_cls=segformer.SegFormerB0,
+            model_type="segmentation",
+            init_kwargs={
+                "weights": None,
+                "input_shape": (32, 32, 3),
+                "num_classes": 150
+            },
+            input_data=self.input_data,
+            expected_output_shape=self.expected_output_shape
+        )
+    
+    def test_weight_initialization(self):
         custom_model = segformer.SegFormerB0(
             input_shape=(32, 32, 3),
             weights="ade20k_512",
+            num_classes=150
         )
-        return super().test_weight_loading(custom_model)
-
-    def test_auxiliary_outputs(self):
-        pytest.skip("SegFormer doesn't produce auxiliary outputs")
+        return super().test_weight_initialization(custom_model)

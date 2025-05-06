@@ -121,6 +121,7 @@ class CLIPProcessor(keras.layers.Layer):
         self,
         text=None,
         images=None,
+        image_paths=None,
         return_tensors=True,
     ):
         encoding = {}
@@ -132,6 +133,12 @@ class CLIPProcessor(keras.layers.Layer):
         if images is not None:
             image_encoding = self.image_processor(
                 images=images,
+            )
+            encoding.update(image_encoding)
+
+        if image_paths is not None:
+            image_encoding = self.image_processor(
+                image_paths=image_paths,
             )
             encoding.update(image_encoding)
 

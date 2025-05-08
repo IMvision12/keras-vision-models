@@ -31,6 +31,6 @@ class TestInceptionResNetV2(ModelTestCase):
 
     def test_weight_initialization(self):
         custom_model = inception_resnetv2.InceptionResNetV2(
-            input_shape=(32, 32, 3),
+            input_shape=(75, 75, 3),
         )
         return super().test_weight_initialization(custom_model)

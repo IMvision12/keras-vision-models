@@ -1,31 +1,37 @@
 from kvmm.models import cait
+from keras import ops
+from ....test_modelling import ModelTestCase
 
-from ....test_backbone_modeling import BackboneTestCase
-
-
-class TestCaiT(BackboneTestCase):
-    """Test case for the CaiT model."""
-
+class TestCaiT(ModelTestCase):
     __test__ = True
-
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
     def setUp(self):
         super().setUp()
-        self.configure(model_cls=cait.CaiTXXS24, input_shape=(32, 32, 3))
-
-    def get_default_kwargs(self) -> dict:
-        return {
-            "include_normalization": True,
-            "normalization_mode": "imagenet",
-            "classifier_activation": "softmax",
-            "weights": None,
-        }
-
-    def test_weight_loading(self):
+        
+        self.input_data = ops.ones((2, 32, 32, 3))
+        self.expected_output_shape = (2, 1000)
+        
+        self.configure(
+            model_cls=cait.CaiTXXS24,
+            model_type="backbone",
+            init_kwargs={
+                "weights": None,
+                "input_shape": (32, 32, 3),
+                "include_top": True,
+            },
+            input_data=self.input_data,
+            expected_output_shape=self.expected_output_shape
+        )
+    
+    def test_weight_initialization(self):
         custom_model = cait.CaiTXXS24(
             input_shape=(32, 32, 3),
         )
-        return super().test_weight_loading(custom_model)
-
+        return super().test_weight_initialization(custom_model)
+    
     def test_backbone_features(self):
         model = self.create_model(include_top=False, as_backbone=True)
         input_data = self.get_input_data()

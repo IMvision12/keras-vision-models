@@ -1,19 +1,22 @@
-from kvmm.models import poolformer
 from keras import ops
+
+from kvmm.models import poolformer
+
 from ....test_modelling import ModelTestCase
+
 
 class TestPoolFormer(ModelTestCase):
     __test__ = True
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def setUp(self):
         super().setUp()
-        
+
         self.input_data = ops.ones((2, 32, 32, 3))
         self.expected_output_shape = (2, 1000)
-        
+
         self.configure(
             model_cls=poolformer.PoolFormerS12,
             model_type="backbone",
@@ -23,9 +26,9 @@ class TestPoolFormer(ModelTestCase):
                 "include_top": True,
             },
             input_data=self.input_data,
-            expected_output_shape=self.expected_output_shape
+            expected_output_shape=self.expected_output_shape,
         )
-    
+
     def test_weight_initialization(self):
         custom_model = poolformer.PoolFormerS12(
             input_shape=(32, 32, 3),

@@ -10,7 +10,6 @@ from keras.src.testing import TestCase
 
 
 class ModelTestCase(TestCase):
-
     __test__ = False
 
     def __init__(self, *args, **kwargs):
@@ -38,7 +37,7 @@ class ModelTestCase(TestCase):
         self.input_data = input_data
         self.expected_output_shape = expected_output_shape
         self.batch_size = batch_size
-        
+
         return self
 
     def create_model(self, **kwargs: Any) -> Model:
@@ -46,15 +45,15 @@ class ModelTestCase(TestCase):
             self.skipTest("Model class not configured. Call configure() first.")
 
         combined_kwargs = self.init_kwargs.copy()
-        
+
         combined_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
-        
+
         return self.model_cls(**combined_kwargs)
 
     def get_input_data(self, **kwargs) -> Union[Dict[str, Any], keras.KerasTensor]:
         if self.input_data is None:
             self.skipTest("Input data not configured. Call configure() first.")
-            
+
         return self.input_data
 
     def convert_data_format(
@@ -62,7 +61,7 @@ class ModelTestCase(TestCase):
     ) -> keras.KerasTensor:
         if not isinstance(data, (keras.KerasTensor, tf.Tensor)):
             return data
-            
+
         if len(data.shape) == 4:
             if to_format == "channels_first":
                 return ops.transpose(data, (0, 3, 1, 2))
@@ -76,11 +75,16 @@ class ModelTestCase(TestCase):
     def convert_dict_data_format(self, data_dict, to_format):
         if not isinstance(data_dict, dict):
             return self.convert_data_format(data_dict, to_format)
-            
+
         result = {}
         for key, value in data_dict.items():
-            if isinstance(value, (keras.KerasTensor, tf.Tensor)) and len(value.shape) == 4:
-                if (value.shape[-1] <= 4 and value.shape[-1] >= 1) or (value.shape[1] <= 4 and value.shape[1] >= 1):
+            if (
+                isinstance(value, (keras.KerasTensor, tf.Tensor))
+                and len(value.shape) == 4
+            ):
+                if (value.shape[-1] <= 4 and value.shape[-1] >= 1) or (
+                    value.shape[1] <= 4 and value.shape[1] >= 1
+                ):
                     result[key] = self.convert_data_format(value, to_format)
                 else:
                     result[key] = value
@@ -91,11 +95,13 @@ class ModelTestCase(TestCase):
     def check_output_shape(self, output, expected_shape):
         if expected_shape is None:
             return
-            
+
         if isinstance(output, dict) and isinstance(expected_shape, dict):
             for key, shape in expected_shape.items():
                 self.assertIn(
-                    key, output, f"Expected output key '{key}' not found in model output"
+                    key,
+                    output,
+                    f"Expected output key '{key}' not found in model output",
                 )
                 self.assertEqual(
                     tuple(output[key].shape),
@@ -136,10 +142,10 @@ class ModelTestCase(TestCase):
         if model is None:
             self.skipTest("Model not provided for weight initialization test")
         self.assertIsNotNone(model.weights, "Model weights not initialized")
-        
+
         if len(model.trainable_weights) == 0:
             self.skipTest("Model has no trainable weights")
-            
+
         for weight in model.weights:
             has_nans = ops.any(ops.isnan(weight))
             self.assertFalse(has_nans, f"Weight '{weight.name}' contains NaN values")
@@ -154,14 +160,16 @@ class ModelTestCase(TestCase):
         model = self.create_model()
         input_data = self.get_input_data()
         output = model(input_data)
-        
+
         if self.expected_output_shape is not None:
             self.check_output_shape(output, self.expected_output_shape)
 
     def test_data_formats(self):
         if isinstance(self.input_data, dict) and len(self.input_data) > 1:
-            self.skipTest("Data format test not implemented for complex dictionary inputs")
-        
+            self.skipTest(
+                "Data format test not implemented for complex dictionary inputs"
+            )
+
         original_data_format = keras.config.image_data_format()
         input_data = self.get_input_data()
 
@@ -170,34 +178,47 @@ class ModelTestCase(TestCase):
             model_last = self.create_model()
             output_last = model_last(input_data)
 
-            if keras.config.backend() == "tensorflow" and tf.config.list_physical_devices("GPU"):
+            if (
+                keras.config.backend() == "tensorflow"
+                and tf.config.list_physical_devices("GPU")
+            ):
                 keras.config.set_image_data_format("channels_first")
-                
+
                 if isinstance(input_data, dict):
-                    current_data = self.convert_dict_data_format(input_data, "channels_first")
+                    current_data = self.convert_dict_data_format(
+                        input_data, "channels_first"
+                    )
                 else:
-                    current_data = self.convert_data_format(input_data, "channels_first")
-                
+                    current_data = self.convert_data_format(
+                        input_data, "channels_first"
+                    )
+
                 model_first = self.create_model()
-                
+
                 try:
                     model_first.set_weights(model_last.get_weights())
                 except ValueError:
                     pass
-                
+
                 output_first = model_first(current_data)
-                
-                if (not isinstance(output_first, dict) and 
-                    not isinstance(output_last, dict) and
-                    not isinstance(output_first, list) and
-                    not isinstance(output_last, list) and
-                    len(output_first.shape) == len(output_last.shape)):
-                    
+
+                if (
+                    not isinstance(output_first, dict)
+                    and not isinstance(output_last, dict)
+                    and not isinstance(output_first, list)
+                    and not isinstance(output_last, list)
+                    and len(output_first.shape) == len(output_last.shape)
+                ):
                     if len(output_first.shape) == 4:
-                        output_first_converted = self.convert_data_format(output_first, "channels_last")
+                        output_first_converted = self.convert_data_format(
+                            output_first, "channels_last"
+                        )
                         try:
                             self.assertAllClose(
-                                output_first_converted, output_last, rtol=1e-5, atol=1e-5
+                                output_first_converted,
+                                output_last,
+                                rtol=1e-5,
+                                atol=1e-5,
                             )
                         except AssertionError:
                             pass
@@ -215,7 +236,7 @@ class ModelTestCase(TestCase):
             try:
                 model.save(save_path)
                 loaded_model = keras.models.load_model(save_path)
-                
+
                 self.assertIsInstance(
                     loaded_model,
                     model.__class__,
@@ -223,40 +244,49 @@ class ModelTestCase(TestCase):
                 )
 
                 loaded_output = loaded_model(input_data)
-                
-                if isinstance(original_output, dict) and isinstance(loaded_output, dict):
+
+                if isinstance(original_output, dict) and isinstance(
+                    loaded_output, dict
+                ):
                     for key in original_output:
                         self.assertIn(key, loaded_output)
                         self.assertAllClose(
-                            original_output[key], loaded_output[key], rtol=1e-5, atol=1e-5
+                            original_output[key],
+                            loaded_output[key],
+                            rtol=1e-5,
+                            atol=1e-5,
                         )
-                elif isinstance(original_output, list) and isinstance(loaded_output, list):
+                elif isinstance(original_output, list) and isinstance(
+                    loaded_output, list
+                ):
                     self.assertEqual(len(original_output), len(loaded_output))
                     for orig, loaded in zip(original_output, loaded_output):
                         self.assertAllClose(orig, loaded, rtol=1e-5, atol=1e-5)
                 else:
-                    self.assertAllClose(original_output, loaded_output, rtol=1e-5, atol=1e-5)
+                    self.assertAllClose(
+                        original_output, loaded_output, rtol=1e-5, atol=1e-5
+                    )
             except Exception as e:
                 self.skipTest(f"Model saving/loading failed: {str(e)}")
 
     def test_serialization(self):
         model = self.create_model()
-        
+
         try:
             cfg = model.get_config()
             cfg_json = json.dumps(cfg, sort_keys=True, indent=4)
-            
+
             cls = model.__class__
             revived_instance = cls.from_config(cfg)
             revived_cfg = revived_instance.get_config()
             revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
-            
+
             self.assertEqual(
                 cfg_json,
                 revived_cfg_json,
                 "Config JSON mismatch after from_config roundtrip",
             )
-            
+
             serialized = keras.saving.serialize_keras_object(model)
             serialized_json = json.dumps(serialized, sort_keys=True, indent=4)
             revived_instance = keras.saving.deserialize_keras_object(
@@ -264,7 +294,7 @@ class ModelTestCase(TestCase):
             )
             revived_cfg = revived_instance.get_config()
             revived_cfg_json = json.dumps(revived_cfg, sort_keys=True, indent=4)
-            
+
             self.assertEqual(
                 cfg_json,
                 revived_cfg_json,
@@ -286,7 +316,9 @@ class ModelTestCase(TestCase):
         if isinstance(training_output, dict) and isinstance(inference_output, dict):
             self.assertEqual(set(training_output.keys()), set(inference_output.keys()))
             for key in training_output:
-                self.assertEqual(training_output[key].shape, inference_output[key].shape)
+                self.assertEqual(
+                    training_output[key].shape, inference_output[key].shape
+                )
         elif isinstance(training_output, list) and isinstance(inference_output, list):
             self.assertEqual(len(training_output), len(inference_output))
             for train_out, infer_out in zip(training_output, inference_output):
@@ -297,37 +329,40 @@ class ModelTestCase(TestCase):
     def test_batch_size_invariance(self):
         model = self.create_model()
         input_data = self.get_input_data()
-        
-        if not isinstance(input_data, (keras.KerasTensor, tf.Tensor)) or len(input_data.shape) < 3:
+
+        if (
+            not isinstance(input_data, (keras.KerasTensor, tf.Tensor))
+            or len(input_data.shape) < 3
+        ):
             self.skipTest("Batch size test only applicable for simple tensor inputs")
-            
+
         if input_data.shape[0] > 1:
             try:
                 single_input = input_data[:1]
                 single_output = model(single_input)
-                
+
                 batch_output = model(input_data)
-                
+
                 if isinstance(single_output, dict) and isinstance(batch_output, dict):
                     for key in single_output:
                         self.assertEqual(
-                            single_output[key].shape[1:], 
+                            single_output[key].shape[1:],
                             batch_output[key].shape[1:],
-                            f"Output '{key}' shapes don't match with different batch sizes"
+                            f"Output '{key}' shapes don't match with different batch sizes",
                         )
                 elif isinstance(single_output, list) and isinstance(batch_output, list):
                     self.assertEqual(len(single_output), len(batch_output))
                     for single, batch in zip(single_output, batch_output):
                         self.assertEqual(
-                            single.shape[1:], 
+                            single.shape[1:],
                             batch.shape[1:],
-                            "Output shapes don't match with different batch sizes"
+                            "Output shapes don't match with different batch sizes",
                         )
                 else:
                     self.assertEqual(
-                        single_output.shape[1:], 
+                        single_output.shape[1:],
                         batch_output.shape[1:],
-                        "Output shapes don't match with different batch sizes"
+                        "Output shapes don't match with different batch sizes",
                     )
             except Exception as e:
                 self.skipTest(f"Batch size test failed: {str(e)}")
@@ -335,42 +370,78 @@ class ModelTestCase(TestCase):
     def test_backbone_features(self):
         if self.model_type != "backbone":
             self.skipTest("This test is only for backbone models")
-            
+
         try:
             backbone_kwargs = self.init_kwargs.copy()
             if "include_top" in backbone_kwargs:
                 backbone_kwargs["include_top"] = False
             backbone_kwargs["as_backbone"] = True
-            
+
             model = self.create_model(**backbone_kwargs)
             input_data = self.get_input_data()
             features = model(input_data)
-            
-            self.assertIsInstance(features, list, "Backbone output should be a list of feature maps")
-            self.assertGreaterEqual(len(features), 1, "Backbone should output at least 1 feature map")
-            
+
+            self.assertIsInstance(
+                features, list, "Backbone output should be a list of feature maps"
+            )
+            self.assertGreaterEqual(
+                len(features), 1, "Backbone should output at least 1 feature map"
+            )
+
             for i, feature in enumerate(features):
                 if len(feature.shape) == 3:
-                    self.assertEqual(feature.shape[0], input_data.shape[0], "Batch dimension mismatch")
+                    self.assertEqual(
+                        feature.shape[0],
+                        input_data.shape[0],
+                        "Batch dimension mismatch",
+                    )
                 elif len(feature.shape) == 4:
-                    self.assertEqual(feature.shape[0], input_data.shape[0], "Batch dimension mismatch")
-                    
-                    if i > 0 and len(features[i-1].shape) == 4:
-                        prev_h_idx = 1 if keras.config.image_data_format() == "channels_last" else 2
-                        prev_w_idx = 2 if keras.config.image_data_format() == "channels_last" else 3
-                        curr_h_idx = 1 if keras.config.image_data_format() == "channels_last" else 2
-                        curr_w_idx = 2 if keras.config.image_data_format() == "channels_last" else 3
-                        
-                        prev_h, prev_w = features[i-1].shape[prev_h_idx], features[i-1].shape[prev_w_idx]
-                        curr_h, curr_w = feature.shape[curr_h_idx], feature.shape[curr_w_idx]
-                        
+                    self.assertEqual(
+                        feature.shape[0],
+                        input_data.shape[0],
+                        "Batch dimension mismatch",
+                    )
+
+                    if i > 0 and len(features[i - 1].shape) == 4:
+                        prev_h_idx = (
+                            1
+                            if keras.config.image_data_format() == "channels_last"
+                            else 2
+                        )
+                        prev_w_idx = (
+                            2
+                            if keras.config.image_data_format() == "channels_last"
+                            else 3
+                        )
+                        curr_h_idx = (
+                            1
+                            if keras.config.image_data_format() == "channels_last"
+                            else 2
+                        )
+                        curr_w_idx = (
+                            2
+                            if keras.config.image_data_format() == "channels_last"
+                            else 3
+                        )
+
+                        prev_h, prev_w = (
+                            features[i - 1].shape[prev_h_idx],
+                            features[i - 1].shape[prev_w_idx],
+                        )
+                        curr_h, curr_w = (
+                            feature.shape[curr_h_idx],
+                            feature.shape[curr_w_idx],
+                        )
+
                         self.assertLessEqual(
-                            curr_h, prev_h, 
-                            f"Feature map {i} height should be <= previous feature map height"
+                            curr_h,
+                            prev_h,
+                            f"Feature map {i} height should be <= previous feature map height",
                         )
                         self.assertLessEqual(
-                            curr_w, prev_w, 
-                            f"Feature map {i} width should be <= previous feature map width"
+                            curr_w,
+                            prev_w,
+                            f"Feature map {i} width should be <= previous feature map width",
                         )
         except Exception as e:
             self.skipTest(f"Backbone feature test failed: {str(e)}")
@@ -378,61 +449,65 @@ class ModelTestCase(TestCase):
     def test_different_input_sizes(self):
         if self.model_type != "segmentation":
             self.skipTest("This test is only for segmentation models")
-            
+
         try:
             input_data = self.get_input_data()
             if isinstance(input_data, dict):
                 self.skipTest("Input size test not implemented for dictionary inputs")
-                
+
             if len(input_data.shape) != 4:
-                self.skipTest("Input must be a 4D tensor (batch, height, width, channels)")
-                
+                self.skipTest(
+                    "Input must be a 4D tensor (batch, height, width, channels)"
+                )
+
             if keras.config.image_data_format() == "channels_last":
                 height_idx, width_idx, channel_idx = 1, 2, 3
             else:
                 channel_idx, height_idx, width_idx = 1, 2, 3
-                
+
             original_height = input_data.shape[height_idx]
             original_width = input_data.shape[width_idx]
             channels = input_data.shape[channel_idx]
-            
+
             larger_height = original_height + 32
             larger_width = original_width + 32
-            
+
             if keras.config.image_data_format() == "channels_last":
                 larger_shape = (larger_height, larger_width, channels)
                 larger_input = keras.random.uniform(
-                    (self.batch_size, larger_height, larger_width, channels), dtype="float32"
+                    (self.batch_size, larger_height, larger_width, channels),
+                    dtype="float32",
                 )
             else:
                 larger_shape = (channels, larger_height, larger_width)
                 larger_input = keras.random.uniform(
-                    (self.batch_size, channels, larger_height, larger_width), dtype="float32"
+                    (self.batch_size, channels, larger_height, larger_width),
+                    dtype="float32",
                 )
-                
+
             model_kwargs = self.init_kwargs.copy()
             if "input_shape" in model_kwargs:
                 model_kwargs["input_shape"] = larger_shape
-                
+
             larger_model = self.create_model(**model_kwargs)
             larger_output = larger_model(larger_input)
-            
+
             if isinstance(larger_output, list):
                 main_output = larger_output[-1]
             else:
                 main_output = larger_output
-                
+
             if keras.config.image_data_format() == "channels_last":
                 self.assertEqual(
                     main_output.shape[1:3],
                     (larger_height, larger_width),
-                    "Output spatial dimensions don't match input dimensions"
+                    "Output spatial dimensions don't match input dimensions",
                 )
             else:
                 self.assertEqual(
                     main_output.shape[2:4],
                     (larger_height, larger_width),
-                    "Output spatial dimensions don't match input dimensions"
+                    "Output spatial dimensions don't match input dimensions",
                 )
         except Exception as e:
             self.skipTest(f"Input size test failed: {str(e)}")
@@ -440,34 +515,36 @@ class ModelTestCase(TestCase):
     def test_vlm_text_image_inputs(self):
         if self.model_type != "vlm":
             self.skipTest("This test is only for VLM models")
-            
+
         model = self.create_model()
         input_data = self.get_input_data()
-        
+
         self.assertIsInstance(input_data, dict, "VLM input should be a dictionary")
-        
+
         output = model(input_data)
         self.check_output_shape(output, self.expected_output_shape)
-        
+
         output_train = model(input_data, training=True)
         output_infer = model(input_data, training=False)
-        
+
         if isinstance(output_train, dict) and isinstance(output_infer, dict):
             self.assertEqual(set(output_train.keys()), set(output_infer.keys()))
 
-    #Extend support for OD once model is added
+    # Extend support for OD once model is added
     def test_detection_model_outputs(self):
         if self.model_type != "detection":
             self.skipTest("This test is only for detection models")
-            
+
         model = self.create_model()
         input_data = self.get_input_data()
         output = model(input_data)
-        
+
         if isinstance(output, dict):
             common_keys = ["boxes", "scores", "classes", "num_detections"]
             for key in common_keys:
                 if key in output:
-                    self.assertIsNotNone(output[key], f"Output '{key}' should not be None")
-        
+                    self.assertIsNotNone(
+                        output[key], f"Output '{key}' should not be None"
+                    )
+
         self.check_output_shape(output, self.expected_output_shape)

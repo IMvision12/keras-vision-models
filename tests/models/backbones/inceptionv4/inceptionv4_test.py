@@ -1,27 +1,33 @@
 from kvmm.models import inceptionv4
+from keras import ops
+from ....test_modelling import ModelTestCase
 
-from ....test_backbone_modeling import BackboneTestCase
-
-
-class TestInceptionV4(BackboneTestCase):
-    """Test case for the InceptionV4 model."""
-
+class TestInceptionV4(ModelTestCase):
     __test__ = True
-
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
     def setUp(self):
         super().setUp()
-        self.configure(model_cls=inceptionv4.InceptionV4, input_shape=(75, 75, 3))
-
-    def get_default_kwargs(self) -> dict:
-        return {
-            "include_normalization": True,
-            "normalization_mode": "imagenet",
-            "classifier_activation": "softmax",
-            "weights": None,
-        }
-
-    def test_weight_loading(self):
+        
+        self.input_data = ops.ones((2, 75, 75, 3))
+        self.expected_output_shape = (2, 1000)
+        
+        self.configure(
+            model_cls=inceptionv4.InceptionV4,
+            model_type="backbone",
+            init_kwargs={
+                "weights": None,
+                "input_shape": (75, 75, 3),
+                "include_top": True,
+            },
+            input_data=self.input_data,
+            expected_output_shape=self.expected_output_shape
+        )
+    
+    def test_weight_initialization(self):
         custom_model = inceptionv4.InceptionV4(
             input_shape=(75, 75, 3),
         )
-        return super().test_weight_loading(custom_model)
+        return super().test_weight_initialization(custom_model)

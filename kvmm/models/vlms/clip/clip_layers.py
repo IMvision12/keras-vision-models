@@ -240,6 +240,12 @@ class TextModelEmbedding(keras.layers.Layer):
         position_embeddings = ops.tile(position_embeddings, (batch_size, 1, 1))
         return token_embeddings + position_embeddings
 
+    def build(self, input_shape):
+        self.token_embedding.build((None, self.context_length))
+        self.position_embedding.build((None, self.context_length))
+        self.built = True
+        super().build(input_shape)
+
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.context_length, self.embedding_dim)
 

@@ -31,6 +31,6 @@ class TestMLPMixer(ModelTestCase):
 
     def test_weight_initialization(self):
         custom_model = mlp_mixer.MLPMixerB16(
-            input_shape=(32, 32, 3),
+            input_shape=(224, 224, 3),
         )
         return super().test_weight_initialization(custom_model)

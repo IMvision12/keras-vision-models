@@ -1,29 +1,36 @@
+from keras import ops
+
 from kvmm.models import inception_next
 
-from ....test_backbone_modeling import BackboneTestCase
+from ....test_modelling import ModelTestCase
 
 
-class TestInceptionNeXt(BackboneTestCase):
-    """Test case for the InceptionNeXt model."""
-
+class TestInceptionNeXt(ModelTestCase):
     __test__ = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def setUp(self):
         super().setUp()
+
+        self.input_data = ops.ones((2, 32, 32, 3))
+        self.expected_output_shape = (2, 1000)
+
         self.configure(
-            model_cls=inception_next.InceptionNeXtTiny, input_shape=(32, 32, 3)
+            model_cls=inception_next.InceptionNeXtTiny,
+            model_type="backbone",
+            init_kwargs={
+                "weights": None,
+                "input_shape": (32, 32, 3),
+                "include_top": True,
+            },
+            input_data=self.input_data,
+            expected_output_shape=self.expected_output_shape,
         )
 
-    def get_default_kwargs(self) -> dict:
-        return {
-            "include_normalization": True,
-            "normalization_mode": "imagenet",
-            "classifier_activation": "softmax",
-            "weights": None,
-        }
-
-    def test_weight_loading(self):
+    def test_weight_initialization(self):
         custom_model = inception_next.InceptionNeXtTiny(
             input_shape=(32, 32, 3),
         )
-        return super().test_weight_loading(custom_model)
+        return super().test_weight_initialization(custom_model)

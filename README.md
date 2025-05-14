@@ -285,6 +285,14 @@ Prediction probabilities:
     |---------------|-------------------|---------------------|
     | SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers`|
 
+<br>
+
+- Vision-Language-Models (VLMs)
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | CLIP | [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020) | `transformers`|
+  
 ## 📜 License
 
 This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.

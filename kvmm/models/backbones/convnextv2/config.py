@@ -85,7 +85,7 @@ CONVNEXTV2_WEIGHTS_CONFIG = {
     },
     "ConvNeXtV2Large": {
         "fcmae_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnextv2_large_fcmae_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnextv2_large_fcmae_ft_in1k.weights.h5",
         },
         "fcmae_ft_in22k_in1k": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnextv2_large_fcmae_ft_in22k_in1k.keras",

@@ -267,7 +267,7 @@ EFFICIENTNET_WEIGHTS_CONFIG = {
     },
     "EfficientNetL2": {
         "ns_jft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_l2_ns_jft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_l2_ns_jft_in1k.weights.h5",
         },
         "ns_jft_in1k_475": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_l2_ns_jft_in1k_475.keras",

@@ -32,22 +32,22 @@ INCEPTION_NEXT_MODEL_CONFIG = {
 INCEPTION_NEXT_WEIGHTS_CONFIG = {
     "InceptionNeXtAtto": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_atto_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_atto_sail_in1k.weights.h5"
         },
     },
     "InceptionNeXtTiny": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_tiny_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_tiny_sail_in1k.weights.h5"
         },
     },
     "InceptionNeXtSmall": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_small_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_small_sail_in1k.weights.h5"
         },
     },
     "InceptionNeXtBase": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_base_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/inception_next_base_sail_in1k.weights.h5"
         },
     },
 }

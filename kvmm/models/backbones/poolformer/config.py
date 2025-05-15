@@ -29,27 +29,27 @@ POOLFORMER_MODEL_CONFIG = {
 POOLFORMER_WEIGHTS_CONFIG = {
     "PoolFormerS12": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_s12_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_s12_sail_in1k.weights.h5"
         },
     },
     "PoolFormerS24": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_s24_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_s24_sail_in1k.weights.h5"
         },
     },
     "PoolFormerS36": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_s36_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_s36_sail_in1k.weights.h5"
         },
     },
     "PoolFormerM36": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_m36_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_m36_sail_in1k.weights.h5"
         },
     },
     "PoolFormerM48": {
         "sail_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_m48_sail_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/poolformer_m48_sail_in1k.weights.h5"
         },
     },
 }

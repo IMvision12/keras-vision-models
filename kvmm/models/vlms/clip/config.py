@@ -38,20 +38,20 @@ CLIP_MODEL_CONFIG = {
 CLIP_WEIGHTS_CONFIG = {
     "ClipVitBase32": {
         "res_224px": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_224.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_224.weights.h5",
         },
     },
     "ClipVitBase16": {
         "res_224px": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase16_224.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase16_224.weights.h5",
         },
     },
     "ClipVitLarge14": {
         "res_224px": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
         "res_336px": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_336.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_336.weights.h5",
         },
     },
 }

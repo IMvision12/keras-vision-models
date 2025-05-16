@@ -116,4 +116,4 @@ for keras_weight, keras_weight_name in tqdm(
 
 
 # Save the model
-keras_model.save(f"{keras_model.name.lower()}_{input_shape[0]}.keras")
+keras_model.save_weights(f"{keras_model.name.lower()}_{input_shape[0]}.weights.h5")

@@ -46,6 +46,6 @@ if not results["standard_input"]:
         "Model equivalence test failed - model outputs do not match for standard input"
     )
 
-model_filename: str = "keras_org_xception.keras"
-custom_model.save(model_filename)
+model_filename: str = "keras_org_xception.weights.h5"
+custom_model.save_weights(model_filename)
 print(f"Model saved successfully as {model_filename}")

@@ -137,6 +137,6 @@ if not results["imagenet_test"]["all_passed"]:
         "Model equivalence test failed - model outputs do not match for standard input"
     )
 
-model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
-keras_model.save(model_filename)
+model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.weights.h5"
+keras_model.save_weights(model_filename)
 print(f"Model saved successfully as {model_filename}")

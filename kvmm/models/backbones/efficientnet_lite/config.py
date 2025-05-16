@@ -110,27 +110,27 @@ EFFICIENTNET_LITE_MODEL_CONFIG = {
 EFFICIENTNET_LITE_WEIGHTS_CONFIG = {
     "EfficientNetLite0": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite0_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite0_in1k.weights.h5",
         }
     },
     "EfficientNetLite1": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite1_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite1_in1k.weights.h5",
         },
     },
     "EfficientNetLite2": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite2_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite2_in1k.weights.h5",
         },
     },
     "EfficientNetLite3": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite3_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite3_in1k.weights.h5",
         },
     },
     "EfficientNetLite4": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite4_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/tf_efficientnet_lite4_in1k.weights.h5",
         },
     },
 }

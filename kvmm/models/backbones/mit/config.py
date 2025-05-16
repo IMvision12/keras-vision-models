@@ -10,32 +10,32 @@ MIT_MODEL_CONFIG = {
 MIT_WEIGHTS_CONFIG = {
     "MiT_B0": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B0.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B0.weights.h5"
         },
     },
     "MiT_B1": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B1.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B1.weights.h5"
         },
     },
     "MiT_B2": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B2.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B2.weights.h5"
         },
     },
     "MiT_B3": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B3.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B3.weights.h5"
         },
     },
     "MiT_B4": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B4.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B4.weights.h5"
         },
     },
     "MiT_B5": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B5.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.3/MiT_B5.weights.h5"
         },
     },
 }

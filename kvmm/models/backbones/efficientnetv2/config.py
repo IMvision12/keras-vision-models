@@ -421,66 +421,66 @@ DENSE_KERNEL_INITIALIZER = {
 EFFICIENTNETV2_WEIGHTS_CONFIG = {
     "EfficientNetV2S": {
         "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_s_in21k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_s_in21k_ft_in1k.weights.h5",
         },
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_s_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_s_in1k.weights.h5",
         },
         "in21k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_s_in21k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_s_in21k.weights.h5",
         },
     },
     "EfficientNetV2M": {
         "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_m_in21k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_m_in21k_ft_in1k.weights.h5",
         },
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_m_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_m_in1k.weights.h5",
         },
         "in21k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_m_in21k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_m_in21k.weights.h5",
         },
     },
     "EfficientNetV2L": {
         "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_l_in21k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_l_in21k_ft_in1k.weights.h5",
         },
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_l_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_l_in1k.weights.h5",
         },
         "in21k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_l_in21k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_l_in21k.weights.h5",
         },
     },
     "EfficientNetV2XL": {
         "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_xl_in21k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_xl_in21k_ft_in1k.weights.h5",
         },
         "in21k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_xl_in21k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_xl_in21k.weights.h5",
         },
     },
     "EfficientNetV2B0": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b0_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b0_in1k.weights.h5",
         },
     },
     "EfficientNetV2B1": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b1_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b1_in1k.weights.h5",
         },
     },
     "EfficientNetV2B2": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b2_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b2_in1k.weights.h5",
         },
     },
     "EfficientNetV2B3": {
         "in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b3_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b3_in1k.weights.h5",
         },
         "in21k_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b3_in21k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/tf_efficientnetv2_b3_in21k_ft_in1k.weights.h5",
         },
     },
 }

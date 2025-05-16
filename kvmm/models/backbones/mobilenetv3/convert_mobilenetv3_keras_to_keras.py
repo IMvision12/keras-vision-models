@@ -50,6 +50,8 @@ if not results["standard_input"]:
     )
 
 
-model_filename: str = f"keras_org_{model_config['model_cls'].__name__.lower()}.keras"
-custom_model.save(model_filename)
+model_filename: str = (
+    f"keras_org_{model_config['model_cls'].__name__.lower()}.weights.h5"
+)
+custom_model.save_weights(model_filename)
 print(f"Model saved successfully as {model_filename}")

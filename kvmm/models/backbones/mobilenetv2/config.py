@@ -29,27 +29,27 @@ MOBILENETV2_MODEL_CONFIG = {
 MOBILENETV2_WEIGHTS_CONFIG = {
     "MobileNetV2WM50": {
         "lamb_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_050_lamb_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_050_lamb_in1k.weights.h5"
         },
     },
     "MobileNetV2WM100": {
         "ra_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_100_ra_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_100_ra_in1k.weights.h5"
         },
     },
     "MobileNetV2WM110": {
         "ra_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_110d_ra_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_110d_ra_in1k.weights.h5"
         },
     },
     "MobileNetV2WM120": {
         "ra_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_120d_ra_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_120d_ra_in1k.weights.h5"
         },
     },
     "MobileNetV2WM140": {
         "ra_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_140_ra_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilenetv2_140_ra_in1k.weights.h5"
         },
     },
 }

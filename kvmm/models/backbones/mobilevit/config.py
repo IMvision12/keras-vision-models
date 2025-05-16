@@ -25,17 +25,17 @@ MOBILEVIT_MODEL_CONFIG = {
 MOBILEVIT_WEIGHTS_CONFIG = {
     "MobileViTXXS": {
         "cvnets_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilevit_xxs_cvnets_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilevit_xxs_cvnets_in1k.weights.h5"
         },
     },
     "MobileViTXS": {
         "cvnets_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilevit_xs_cvnets_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilevit_xs_cvnets_in1k.weights.h5"
         },
     },
     "MobileViTS": {
         "cvnets_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilevit_s_cvnets_in1k.keras"
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/mobilevit_s_cvnets_in1k.weights.h5"
         },
     },
 }

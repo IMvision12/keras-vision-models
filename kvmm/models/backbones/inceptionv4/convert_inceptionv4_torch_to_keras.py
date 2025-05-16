@@ -113,6 +113,8 @@ results = verify_cls_model_equivalence(
 
 if results["standard_input"]:
     # Save model
-    model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.keras"
-    keras_model.save(model_filename)
+    model_filename: str = (
+        f"{model_config['torch_model_name'].replace('.', '_')}.weights.h5"
+    )
+    keras_model.save_weights(model_filename)
     print(f"Model saved successfully as {model_filename}")

@@ -40,60 +40,60 @@ RESNEXT_WEIGHTS_CONFIG = {
     # ResNeXt Variants
     "ResNeXt50_32x4d": {
         "a1_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext50_32x4d_a1_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext50_32x4d_a1_in1k.weights.h5",
         },
         "tv_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext50_32x4d_tv_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext50_32x4d_tv_in1k.weights.h5",
         },
         "gluon_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext50_32x4d_gluon_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext50_32x4d_gluon_in1k.weights.h5",
         },
         "fb_ssl_yfcc100m_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_ssl_yfcc100m_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
         },
         "fb_swsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_swsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_swsl_ig1b_ft_in1k.weights.h5",
         },
     },
     "ResNeXt101_32x4d": {
         "fb_ssl_yfcc100m_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x4d_fb_ssl_yfcc100m_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x4d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
         },
         "fb_swsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x4d_fb_swsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x4d_fb_swsl_ig1b_ft_in1k.weights.h5",
         },
         "gluon_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x4d_gluon_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x4d_gluon_in1k.weights.h5",
         },
     },
     "ResNeXt101_32x8d": {
         "tv_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_tv_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_tv_in1k.weights.h5",
         },
         "fb_wsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_wsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_wsl_ig1b_ft_in1k.weights.h5",
         },
         "fb_ssl_yfcc100m_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_ssl_yfcc100m_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
         },
         "fb_swsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_swsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x8d_fb_swsl_ig1b_ft_in1k.weights.h5",
         },
     },
     "ResNeXt101_32x16d": {
         "fb_wsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x16d_fb_wsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x16d_fb_wsl_ig1b_ft_in1k.weights.h5",
         },
         "fb_ssl_yfcc100m_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x16d_fb_ssl_yfcc100m_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x16d_fb_ssl_yfcc100m_ft_in1k.weights.h5",
         },
         "fb_swsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x16d_fb_swsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x16d_fb_swsl_ig1b_ft_in1k.weights.h5",
         },
     },
     "ResNeXt101_32x32d": {
         "fb_wsl_ig1b_ft_in1k": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x32d_fb_wsl_ig1b_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/resnext101_32x32d_fb_wsl_ig1b_ft_in1k.weights.h5",
         }
     },
 }

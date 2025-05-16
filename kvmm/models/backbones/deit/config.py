@@ -86,96 +86,96 @@ DEIT_MODEL_CONFIG = {
 DEIT_WEIGHTS_CONFIG = {
     "DEiTTiny16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_tiny_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_tiny_patch16_224_fb_in1k.weights.h5",
         },
     },
     "DEiTSmall16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_small_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_small_patch16_224_fb_in1k.weights.h5",
         },
     },
     "DEiTBase16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_patch16_224_fb_in1k.weights.h5",
         },
         "fb_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_patch16_384_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_patch16_384_fb_in1k.weights.h5",
         },
     },
     "DEiTTinyDistilled16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_tiny_distilled_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_tiny_distilled_patch16_224_fb_in1k.weights.h5",
         },
     },
     "DEiTSmallDistilled16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_small_distilled_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_small_distilled_patch16_224_fb_in1k.weights.h5",
         },
     },
     "DEiTBaseDistilled16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_distilled_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_distilled_patch16_224_fb_in1k.weights.h5",
         },
         "fb_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_distilled_patch16_384_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit_base_distilled_patch16_384_fb_in1k.weights.h5",
         },
     },
     "DEiT3Small16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_224_fb_in1k.weights.h5",
         },
         "fb_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_384_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_384_fb_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_224_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_224_fb_in22k_ft_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_384_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_small_patch16_384_fb_in22k_ft_in1k.weights.h5",
         },
     },
     "DEiT3Medium16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_medium_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_medium_patch16_224_fb_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_medium_patch16_224_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_medium_patch16_224_fb_in22k_ft_in1k.weights.h5",
         },
     },
     "DEiT3Base16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_224_fb_in1k.weights.h5",
         },
         "fb_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_384_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_384_fb_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_224_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_224_fb_in22k_ft_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_384_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_base_patch16_384_fb_in22k_ft_in1k.weights.h5",
         },
     },
     "DEiT3Large16": {
         "fb_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_224_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_224_fb_in1k.weights.h5",
         },
         "fb_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_384_fb_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_384_fb_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_224_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_224_fb_in22k_ft_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_384": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_384_fb_in22k_ft_in1k.keras",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_large_patch16_384_fb_in22k_ft_in1k.weights.h5",
         },
     },
     "DEiT3Huge14": {
         "fb_in1k_224": {
-            "url": "https://huggingface.co/IMvision12/deit3-huge-patch14/resolve/main/deit3_huge_patch14_224_fb_in1k.keras",
+            "url": "https://huggingface.co/IMvision12/deit3-huge-patch14/resolve/main/deit3_huge_patch14_224_fb_in1k.weights.h5",
         },
         "fb_in22k_ft_in1k_224": {
-            "url": "https://huggingface.co/IMvision12/deit3-huge-patch14/resolve/main/deit3_huge_patch14_224_fb_in22k_ft_in1k.keras",
+            "url": "https://huggingface.co/IMvision12/deit3-huge-patch14/resolve/main/deit3_huge_patch14_224_fb_in22k_ft_in1k.weights.h5",
         },
     },
 }

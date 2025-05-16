@@ -68,10 +68,10 @@ RESNETV2_WEIGHTS_CONFIG = {
     },
     "ResNetV2_152x4": {
         "goog_in21k_ft_in1k_480": {
-            "url": "https://huggingface.co/IMvision12/resnetv2-152x4/resolve/main/resnetv2_152x4_bit_goog_in21k_ft_in1k.keras",
+            "url": "https://huggingface.co/IMvision12/resnetv2-152x4/resolve/main/resnetv2_152x4_bit_goog_in21k_ft_in1k.weights.h5",
         },
         "goog_in21k_224": {
-            "url": "https://huggingface.co/IMvision12/resnetv2-152x4/resolve/main/resnetv2_152x4_bit_goog_in21k.keras",
+            "url": "https://huggingface.co/IMvision12/resnetv2-152x4/resolve/main/resnetv2_152x4_bit_goog_in21k.weights.h5",
         },
     },
 }

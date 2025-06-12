@@ -362,7 +362,7 @@ class CLIPTokenizer(keras.Layer):
             token_ids = token_ids + [self.pad_token_id] * padding_length
         return {"input_ids": token_ids, "attention_mask": attention_mask}
 
-    def call(self, inputs=None, texts=None, return_tensors=True):
+    def call(self, inputs=None, texts=None):
         if texts is not None:
             text_inputs = texts
         elif inputs is not None:
@@ -381,10 +381,7 @@ class CLIPTokenizer(keras.Layer):
             all_token_ids.append(prepared_input["input_ids"])
             all_masks.append(prepared_input["attention_mask"])
 
-        if return_tensors:
-            return {
-                "input_ids": keras.ops.convert_to_tensor(all_token_ids, dtype="int32"),
-                "attention_mask": keras.ops.convert_to_tensor(all_masks, dtype="bool"),
-            }
-
-        return {"input_ids": all_token_ids, "attention_mask": all_masks}
+        return {
+            "input_ids": keras.ops.convert_to_tensor(all_token_ids, dtype="int32"),
+            "attention_mask": keras.ops.convert_to_tensor(all_masks, dtype="bool"),
+        }

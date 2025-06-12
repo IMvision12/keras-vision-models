@@ -134,12 +134,11 @@ class CLIPProcessor(keras.layers.Layer):
         text=None,
         images=None,
         image_paths=None,
-        return_tensors=True,
     ):
         encoding = {}
 
         if text is not None:
-            text_encoding = self.tokenizer(texts=text, return_tensors=return_tensors)
+            text_encoding = self.tokenizer(texts=text)
             encoding.update(text_encoding)
 
         if images is not None and image_paths is not None:

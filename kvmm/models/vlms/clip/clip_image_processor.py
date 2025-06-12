@@ -161,10 +161,12 @@ class CLIPImageProcessor(keras.layers.Layer):
     def call(
         self,
         inputs: Any = None,
-        images: Any = None,
         image_paths: Union[str, List[str]] = None,
     ) -> Dict[str, Any]:
         if image_paths is not None:
+            if inputs is not None:
+                raise ValueError("Cannot specify both 'inputs' and 'image_paths'")
+                
             if isinstance(image_paths, str):
                 processed_image = self.process_path(image_paths)
                 return {"images": ops.expand_dims(processed_image, axis=0)}
@@ -174,23 +176,19 @@ class CLIPImageProcessor(keras.layers.Layer):
                     processed_images.append(self.process_path(path))
                 return {"images": ops.stack(processed_images)}
 
-        if images is not None:
-            pass
-        elif inputs is not None:
-            images = inputs
-        else:
-            raise ValueError("No image inputs provided to CLIPImageProcessor")
+        if inputs is None:
+            raise ValueError("Must provide either 'inputs' or 'image_paths'")
 
-        if len(ops.shape(images)) == 3:
-            processed_image = self.preprocess(images)
+        if len(ops.shape(inputs)) == 3:
+            processed_image = self.preprocess(inputs)
             return {"images": ops.expand_dims(processed_image, axis=0)}
-
-        if not isinstance(images, (list, tuple)) and len(ops.shape(images)) != 4:
-            raise ValueError("Please provide images as tensors, arrays, or file paths")
-
-        if len(ops.shape(images)) == 4:
-            processed_images = ops.map_fn(self.preprocess, images)
+        
+        elif len(ops.shape(inputs)) == 4:
+            processed_images = ops.vectorized_map(self.preprocess, inputs)
             return {"images": processed_images}
+        
         else:
-            processed_image = self.preprocess(images)
-            return {"images": ops.expand_dims(processed_image, axis=0)}
+            raise ValueError(
+                f"Input images must have 3 dimensions (H, W, C) or 4 dimensions (B, H, W, C), "
+                f"got shape: {ops.shape(inputs)}"
+            )

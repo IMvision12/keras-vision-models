@@ -45,22 +45,34 @@ class CLIPProcessor(keras.layers.Layer):
         # Creating a processor with default settings
         processor = CLIPProcessor()
 
-        # Processing text and images
+        # Processing text and images together
         import numpy as np
         from PIL import Image
 
         # Load an example image
         image = Image.open("example.jpg")
+        image_array = keras.utils.img_to_array(image)
 
         # Process both text and images
         inputs = processor(
             text=["A photo of a cat", "An image of a dog"],
-            images=[image, image]  # Pass a list of PIL images or numpy arrays
+            images=image_array  # Single image or batch of images
         )
 
-        # The result contains both 'input_ids', 'attention_mask' for text
-        # and 'pixel_values' for images
-        print(inputs.keys())  # ['input_ids', 'attention_mask', 'pixel_values']
+        # The result contains both text and image encodings
+        print(inputs.keys())  # Contains tokenizer outputs + 'images'
+
+        # Process from file paths
+        inputs = processor(
+            text=["A photo of a cat"],
+            image_paths="path/to/image.jpg"
+        )
+
+        # Process multiple images from paths
+        inputs = processor(
+            text=["Photo 1", "Photo 2"],
+            image_paths=["path/to/image1.jpg", "path/to/image2.jpg"]
+        )
         ```
     """
 
@@ -130,16 +142,15 @@ class CLIPProcessor(keras.layers.Layer):
             text_encoding = self.tokenizer(texts=text, return_tensors=return_tensors)
             encoding.update(text_encoding)
 
+        if images is not None and image_paths is not None:
+            raise ValueError("Cannot specify both 'images' and 'image_paths'")
+
         if images is not None:
-            image_encoding = self.image_processor(
-                images=images,
-            )
+            image_encoding = self.image_processor(inputs=images)
             encoding.update(image_encoding)
 
         if image_paths is not None:
-            image_encoding = self.image_processor(
-                image_paths=image_paths,
-            )
+            image_encoding = self.image_processor(image_paths=image_paths)
             encoding.update(image_encoding)
 
         return encoding

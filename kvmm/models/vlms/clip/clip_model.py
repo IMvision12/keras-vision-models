@@ -34,7 +34,6 @@ def residual_attention_block(
     x,
     proj_dim,
     num_heads,
-    num_hidden_layers,
     layer_name_prefix,
     layer_idx,
     causal_attention_mask=None,
@@ -51,7 +50,6 @@ def residual_attention_block(
         x: Input tensor of shape (batch_size, sequence_length, proj_dim).
         proj_dim: Integer, dimensionality of the projection space (hidden size).
         num_heads: Integer, number of attention heads.
-        num_hidden_layers: Integer, total number of layers in the encoder.
         layer_name_prefix: String, prefix for naming layers (e.g., "text_model_encoder"
             or "vision_model_encoder").
         layer_idx: Integer, index of the current layer in the encoder.
@@ -83,7 +81,6 @@ def residual_attention_block(
     attention_output = CLIPAttention(
         proj_dim=proj_dim,
         num_heads=num_heads,
-        num_hidden_layers=num_hidden_layers,
         name_prefix=f"{layer_prefix}_attn",
     )(ln_1_output, attention_mask=mask)[0]
 
@@ -149,7 +146,6 @@ def clip_encoder(
             x,
             proj_dim=width,
             num_heads=heads,
-            num_hidden_layers=num_layers,
             layer_name_prefix=layer_prefix,
             layer_idx=i,
             causal_attention_mask=causal_attention_mask,

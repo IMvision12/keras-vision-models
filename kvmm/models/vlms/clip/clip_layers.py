@@ -22,7 +22,6 @@ class CLIPAttention(keras.layers.Layer):
             by num_heads to ensure even distribution of features across heads
         num_heads (int): Number of parallel attention heads. Each head operates
             on proj_dim/num_heads features
-        num_hidden_layers (int): Number of hidden layers in the transformer
         name_prefix (str, optional): Prefix for naming layer components. Defaults to None
         **kwargs: Additional keyword arguments passed to the parent Layer class
 
@@ -42,12 +41,11 @@ class CLIPAttention(keras.layers.Layer):
     """
 
     def __init__(
-        self, proj_dim, num_heads, num_hidden_layers, name_prefix=None, **kwargs
+        self, proj_dim, num_heads, name_prefix=None, **kwargs
     ):
         super().__init__(**kwargs)
         self.proj_dim = proj_dim
         self.num_heads = num_heads
-        self.num_hidden_layers = num_hidden_layers
         self.name_prefix = name_prefix
         self.head_dim = proj_dim // num_heads
         self.scale = self.head_dim**-0.5
@@ -114,7 +112,6 @@ class CLIPAttention(keras.layers.Layer):
             {
                 "proj_dim": self.proj_dim,
                 "num_heads": self.num_heads,
-                "num_hidden_layers": self.num_hidden_layers,
                 "name_prefix": self.name_prefix,
             }
         )

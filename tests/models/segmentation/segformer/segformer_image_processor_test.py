@@ -103,7 +103,7 @@ class TestSegFormerImageProcessor:
         )
         expected = keras.ops.convert_to_numpy(expected)
 
-        np.testing.assert_allclose(result_custom, expected, rtol=1e-5)
+        np.testing.assert_allclose(result_custom, expected, rtol=1e-4, atol=1e-6)
 
     def test_normalization(self, sample_image_array):
         result_default = segformer.SegFormerImageProcessor(

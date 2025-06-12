@@ -6,3 +6,4 @@ ruff
 timm
 transformers
 accelerate
+pytest

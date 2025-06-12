@@ -40,9 +40,7 @@ class CLIPAttention(keras.layers.Layer):
         - Used in CLIP's text and image encoders for contextual feature extraction
     """
 
-    def __init__(
-        self, proj_dim, num_heads, name_prefix=None, **kwargs
-    ):
+    def __init__(self, proj_dim, num_heads, name_prefix=None, **kwargs):
         super().__init__(**kwargs)
         self.proj_dim = proj_dim
         self.num_heads = num_heads

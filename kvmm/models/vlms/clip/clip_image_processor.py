@@ -166,7 +166,7 @@ class CLIPImageProcessor(keras.layers.Layer):
         if image_paths is not None:
             if inputs is not None:
                 raise ValueError("Cannot specify both 'inputs' and 'image_paths'")
-                
+
             if isinstance(image_paths, str):
                 processed_image = self.process_path(image_paths)
                 return {"images": ops.expand_dims(processed_image, axis=0)}
@@ -182,11 +182,11 @@ class CLIPImageProcessor(keras.layers.Layer):
         if len(ops.shape(inputs)) == 3:
             processed_image = self.preprocess(inputs)
             return {"images": ops.expand_dims(processed_image, axis=0)}
-        
+
         elif len(ops.shape(inputs)) == 4:
             processed_images = ops.vectorized_map(self.preprocess, inputs)
             return {"images": processed_images}
-        
+
         else:
             raise ValueError(
                 f"Input images must have 3 dimensions (H, W, C) or 4 dimensions (B, H, W, C), "

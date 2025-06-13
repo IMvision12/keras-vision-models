@@ -99,13 +99,13 @@ for keras_weight, keras_weight_name in tqdm(
         torch_logit_scale = torch_model.logit_scale
         keras_weight.assign(torch_logit_scale.detach().cpu().numpy())
         continue
-    
+
     if keras_weight_name == "vision_model_embeddings_pos_embed":
         torch_pos_embed = torch_model.vision_model.embeddings.position_embedding.weight
         torch_pos_embed_expanded = torch_pos_embed.unsqueeze(0)
         keras_weight.assign(torch_pos_embed_expanded.detach().cpu().numpy())
         continue
-    
+
     if torch_weight_name not in torch_weights_dict:
         raise WeightMappingError(keras_weight_name, torch_weight_name)
 

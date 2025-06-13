@@ -1,6 +1,8 @@
 import keras
 from keras import ops
+
 from kvmm.layers import AddPositionEmbs
+
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class CLIPAttention(keras.layers.Layer):
@@ -145,7 +147,9 @@ class VisionModelEmbedding(keras.layers.Layer):
         the patch embeddings plus class token, with positional embeddings added.
     """
 
-    def __init__(self, width, input_resolution, patch_size, data_format="channels_last", **kwargs):
+    def __init__(
+        self, width, input_resolution, patch_size, data_format="channels_last", **kwargs
+    ):
         super().__init__(**kwargs)
         self.width = width
         self.input_resolution = input_resolution
@@ -159,7 +163,7 @@ class VisionModelEmbedding(keras.layers.Layer):
             grid_w=self.grid_size,
             no_embed_class=False,
             use_distillation=False,
-            name="position_embeddings"
+            name="position_embeddings",
         )
 
     def build(self, input_shape):
@@ -173,16 +177,20 @@ class VisionModelEmbedding(keras.layers.Layer):
     def call(self, inputs):
         batch_size = ops.shape(inputs)[0]
         if self.data_format == "channels_first":
-            patch_embeddings = keras.layers.Reshape((self.width, self.num_patches))(inputs)
+            patch_embeddings = keras.layers.Reshape((self.width, self.num_patches))(
+                inputs
+            )
             patch_embeddings = keras.layers.Permute((2, 1))(patch_embeddings)
         else:
-            patch_embeddings = keras.layers.Reshape((self.num_patches, self.width))(inputs)
+            patch_embeddings = keras.layers.Reshape((self.num_patches, self.width))(
+                inputs
+            )
         class_embed = ops.broadcast_to(
             self.class_embedding, (batch_size, 1, self.width)
         )
         embeddings = ops.concatenate([class_embed, patch_embeddings], axis=1)
         embeddings = self.position_embs(embeddings)
-        
+
         return embeddings
 
     def get_config(self):

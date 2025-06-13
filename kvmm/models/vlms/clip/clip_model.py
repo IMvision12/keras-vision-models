@@ -420,72 +420,47 @@ class CLIPModel(keras.Model):
         **kwargs,
     ):
         vision_heads = vision_width // 64
-
         data_format = keras.backend.image_data_format()
 
-        if input_shape is not None and isinstance(input_shape, tuple):
-            if len(input_shape) == 3:
-                if data_format == "channels_last":
-                    image_size = min(input_shape[0], input_shape[1])
-                    channels = input_shape[2]
-                    image_input_shape = [image_size, image_size, channels]
-                else:
-                    image_size = min(input_shape[1], input_shape[2])
-                    channels = input_shape[0]
-                    image_input_shape = [channels, image_size, image_size]
-            elif len(input_shape) == 2:
+        if input_shape is not None:
+            if len(input_shape) >= 2:
                 image_size = min(input_shape[0], input_shape[1])
-                if data_format == "channels_last":
-                    image_input_shape = [image_size, image_size, 3]
-                else:
-                    image_input_shape = [3, image_size, image_size]
             else:
                 image_size = input_shape[0]
-                if data_format == "channels_last":
-                    image_input_shape = [image_size, image_size, 3]
-                else:
-                    image_input_shape = [3, image_size, image_size]
-        else:
-            if weights:
-                if "336" in weights:
-                    image_size = 336
-                else:
-                    image_size = 224
+
+            if len(input_shape) == 3:
+                channels = (
+                    input_shape[2] if data_format == "channels_last" else input_shape[0]
+                )
             else:
-                image_size = 224
-
-            if data_format == "channels_last":
-                image_input_shape = [image_size, image_size, 3]
-            else:
-                image_input_shape = [3, image_size, image_size]
-
-        if input_tensor is not None and isinstance(input_tensor, dict):
-            images_input = input_tensor.get("images")
-            token_ids_input = input_tensor.get("token_ids")
-            padding_mask_input = input_tensor.get("padding_mask")
+                channels = 3
         else:
-            images_input = None
-            token_ids_input = None
-            padding_mask_input = None
+            image_size = 336 if weights and "336" in weights else 224
+            channels = 3
 
-        if images_input is None:
+        image_input_shape = (
+            [channels, image_size, image_size]
+            if data_format == "channels_first"
+            else [image_size, image_size, channels]
+        )
+
+        if isinstance(input_tensor, dict):
+            images_input = input_tensor.get("images") or layers.Input(
+                shape=image_input_shape, name="images"
+            )
+            token_ids_input = input_tensor.get("token_ids") or layers.Input(
+                shape=[context_length], name="token_ids"
+            )
+            padding_mask_input = input_tensor.get("padding_mask") or layers.Input(
+                shape=[context_length], name="padding_mask"
+            )
+        else:
             images_input = layers.Input(shape=image_input_shape, name="images")
-        if token_ids_input is None:
-            token_ids_input = layers.Input(
-                shape=[
-                    context_length,
-                ],
-                name="token_ids",
-            )
-        if padding_mask_input is None:
+            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
             padding_mask_input = layers.Input(
-                shape=[
-                    context_length,
-                ],
-                name="padding_mask",
+                shape=[context_length], name="padding_mask"
             )
 
-        # Create image and text encoders
         image_embeddings = clip_image_encoder(
             images_input,
             input_resolution=image_size,
@@ -507,7 +482,6 @@ class CLIPModel(keras.Model):
             context_length=context_length,
         )
 
-        # Apply projection head
         image_logits, text_logits = clip_head(
             image_embeddings,
             text_embeddings,

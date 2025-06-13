@@ -163,6 +163,7 @@ def clip_image_encoder(
     num_layers=12,
     heads=12,
     output_dim=512,
+    data_format="channels_last",
 ):
     """Creates a CLIP image encoder based on Vision Transformer (ViT) architecture.
 
@@ -185,6 +186,8 @@ def clip_image_encoder(
         heads: Integer, number of attention heads in each transformer layer.
         output_dim: Integer, dimensionality of the final image embedding output that
             matches the joint embedding space.
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
 
     Returns:
         A tensor of shape (batch_size, output_dim) containing the image embeddings
@@ -197,12 +200,12 @@ def clip_image_encoder(
         strides=patch_size,
         padding="valid",
         use_bias=False,
-        data_format="channels_last",
+        data_format=data_format,
         name="vision_model_conv",
     )(inputs)
 
     embeddings = VisionModelEmbedding(
-        width, input_resolution, patch_size, name="vision_model_embeddings"
+        width, input_resolution, patch_size, data_format, name="vision_model_embeddings"
     )(patch_embeddings)
 
     x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(
@@ -423,26 +426,31 @@ class CLIPModel(keras.Model):
         data_format = keras.backend.image_data_format()
 
         if input_shape is not None:
-            if len(input_shape) >= 2:
-                image_size = min(input_shape[0], input_shape[1])
+            if data_format == "channels_first":
+                if len(input_shape) == 3:
+                    channels = input_shape[0]
+                    image_size = min(input_shape[1], input_shape[2])
+                else:
+                    channels = 3
+                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
             else:
-                image_size = input_shape[0]
+                if len(input_shape) >= 2:
+                    image_size = min(input_shape[0], input_shape[1])
+                else:
+                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
 
-            if len(input_shape) == 3:
-                channels = (
-                    input_shape[2] if data_format == "channels_last" else input_shape[0]
-                )
-            else:
-                channels = 3
+                if len(input_shape) == 3:
+                    channels = input_shape[2]
+                else:
+                    channels = 3
         else:
             image_size = 336 if weights and "336" in weights else 224
             channels = 3
 
-        image_input_shape = (
-            [channels, image_size, image_size]
-            if data_format == "channels_first"
-            else [image_size, image_size, channels]
-        )
+        if data_format == "channels_first":
+            image_input_shape = [channels, image_size, image_size]
+        else:
+            image_input_shape = [image_size, image_size, channels]
 
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images") or layers.Input(
@@ -469,6 +477,7 @@ class CLIPModel(keras.Model):
             num_layers=vision_layers,
             heads=vision_heads,
             output_dim=embed_dim,
+            data_format=data_format,
         )
 
         text_embeddings = clip_text_encoder(

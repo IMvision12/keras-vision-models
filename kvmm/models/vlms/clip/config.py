@@ -86,5 +86,4 @@ CLIP_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },
-    
 }

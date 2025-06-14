@@ -40,7 +40,7 @@ jobs:
           fi
           
           # Install Keras
-          pip install keras
+          pip install -U keras
           
           # Install additional dependencies
           pip install pytest pytest-cov timm

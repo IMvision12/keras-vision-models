@@ -548,33 +548,6 @@ class CLIPModel(keras.Model):
 
 
 @register_model
-def ClipVitBase32(
-    weights="res_224px",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitBase32",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitBase32"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
 def ClipVitBase16(
     weights="res_224px",
     input_tensor=None,
@@ -593,6 +566,33 @@ def ClipVitBase16(
 
     if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
         load_weights_from_config("ClipVitBase16", weights, model, CLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def ClipVitBase32(
+    weights="res_224px",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitBase32",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitBase32"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

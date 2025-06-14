@@ -1,20 +1,20 @@
 CLIP_MODEL_CONFIG = {
-    "ClipVitBase32": {
+    "ClipVitBase16": {
         "embed_dim": 512,
         "vision_layers": 12,
         "vision_width": 768,
-        "vision_patch_size": 32,
+        "vision_patch_size": 16,
         "context_length": 77,
         "vocab_size": 49408,
         "transformer_width": 512,
         "transformer_heads": 8,
         "transformer_layers": 12,
     },
-    "ClipVitBase16": {
+    "ClipVitBase32": {
         "embed_dim": 512,
         "vision_layers": 12,
         "vision_width": 768,
-        "vision_patch_size": 16,
+        "vision_patch_size": 32,
         "context_length": 77,
         "vocab_size": 49408,
         "transformer_width": 512,
@@ -58,14 +58,17 @@ CLIP_MODEL_CONFIG = {
 
 
 CLIP_WEIGHTS_CONFIG = {
+    "ClipVitBase16": {
+        "openai_224": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase16_224.weights.h5",
+        },
+    },
     "ClipVitBase32": {
         "openai_224": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_224.weights.h5",
         },
-    },
-    "ClipVitBase16": {
-        "openai_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase16_224.weights.h5",
+        "laion2b_224": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },
     "ClipVitLarge14": {
@@ -74,6 +77,9 @@ CLIP_WEIGHTS_CONFIG = {
         },
         "openai_336": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_336.weights.h5",
+        },
+        "laion2b_224": {
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },
     "ClipVitG14": {

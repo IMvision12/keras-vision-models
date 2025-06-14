@@ -626,3 +626,57 @@ def ClipVitLarge14(
         print("No weights loaded.")
 
     return model
+
+
+@register_model
+def ClipVitG14(
+    weights="laion2b_224",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitG14",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitG14"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("ClipVitG14", weights, model, CLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def ClipVitBigG14(
+    weights="laion2b_224",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitBigG14",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitBigG14"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("ClipVitBigG14", weights, model, CLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model

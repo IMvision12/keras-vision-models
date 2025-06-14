@@ -1,11 +1,13 @@
-from kvmm.utils import download_file
 import json
+
+from kvmm.utils import download_file
+
 
 def load_weights_from_config(
     model_name: str, weights_name: str, model, weights_config: dict
 ):
     """
-    Load pre-trained weights for any model architecture, with support for 
+    Load pre-trained weights for any model architecture, with support for
     Keras 3.10+ sharded weights.
 
     Args:
@@ -19,7 +21,7 @@ def load_weights_from_config(
 
     Raises:
         ValueError: If model_name or weights_name is invalid
-    
+
     Example:
         >>> # Configuration with simplified detection
         >>> weights_config = {
@@ -35,14 +37,14 @@ def load_weights_from_config(
         ...         "imagenet": "https://example.com/efficientnet_b0.h5"  # Legacy string format
         ...     }
         ... }
-        >>> 
+        >>>
         >>> # Load legacy single-file weights (.h5, .weights, etc.)
         >>> model = load_weights_from_config("ResNet50", "imagenet", model, weights_config)
-        >>> 
+        >>>
         >>> # Load sharded weights (automatically detected from .json extension)
         >>> model = load_weights_from_config("ResNet50", "imagenet_21k", model, weights_config)
     """
-    
+
     if not weights_name or weights_name == "none":
         return model
 
@@ -62,29 +64,29 @@ def load_weights_from_config(
         )
 
     weights_info = model_weights[weights_name]
-    
+
     if isinstance(weights_info, str):
         weights_url = weights_info
     elif isinstance(weights_info, dict) and "url" in weights_info:
         weights_url = weights_info["url"]
     else:
         raise ValueError(f"Invalid weights configuration for '{weights_name}'")
-    
+
     if not weights_url:
         raise ValueError(f"URL for weights '{weights_name}' is not defined")
-    
+
     try:
-        if weights_url.lower().endswith('.json'):
+        if weights_url.lower().endswith(".json"):
             json_path = download_file(weights_url)
-            with open(json_path, 'r') as f:
+            with open(json_path, "r") as f:
                 json_data = json.load(f)
-            
+
             if "shards" not in json_data:
                 raise ValueError("JSON file missing 'shards' key")
-            
+
             shard_paths = []
             base_url = "/".join(weights_url.split("/")[:-1])
-            
+
             for shard_info in json_data["shards"]:
                 if isinstance(shard_info, str):
                     shard_url = f"{base_url}/{shard_info}"
@@ -92,19 +94,20 @@ def load_weights_from_config(
                     shard_url = f"{base_url}/{shard_info['filename']}"
                 else:
                     raise ValueError(f"Invalid shard format in JSON")
-                
+
                 shard_path = download_file(shard_url)
                 shard_paths.append(shard_path)
-            
+
             model.load_weights(shard_paths)
             return model
         else:
             weights_path = download_file(weights_url)
             model.load_weights(weights_path)
             return model
-            
+
     except Exception as e:
         raise ValueError(f"Failed to load weights for {model_name}: {str(e)}")
+
 
 def get_all_weight_names(config: dict) -> list:
     """

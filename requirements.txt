@@ -1,9 +1,15 @@
-tensorflow-cpu>=2.18.0
+tensorflow-cpu~=2.18.1;sys_platform != 'darwin'
+tensorflow~=2.18.1;sys_platform == 'darwin'
+tf_keras
+tf2onnx
 
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch>=2.1.0
+torch==2.6.0;sys_platform != 'darwin'
+torch==2.6.0;sys_platform == 'darwin'
+torch-xla==2.6.0;sys_platform != 'darwin'
 
-jax[cpu]
+jax[cpu]==0.5.0
+flax
 
-keras>=3.6.0
+keras>=3.10.0
 pillow

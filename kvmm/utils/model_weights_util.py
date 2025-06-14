@@ -93,7 +93,7 @@ def load_weights_from_config(
                 elif isinstance(shard_info, dict) and "filename" in shard_info:
                     shard_url = f"{base_url}/{shard_info['filename']}"
                 else:
-                    raise ValueError(f"Invalid shard format in JSON")
+                    raise ValueError("Invalid shard format in JSON")
 
                 shard_path = download_file(shard_url)
                 shard_paths.append(shard_path)

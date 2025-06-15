@@ -94,9 +94,9 @@ def residual_attention_block(
     )(residual_1)
 
     mlp_intermediate_size = int(proj_dim * mlp_ratio)
-    mlp_output = keras.layers.Dense(mlp_intermediate_size, name=f"{layer_prefix}_dense_1")(
-        ln_2_output
-    )
+    mlp_output = keras.layers.Dense(
+        mlp_intermediate_size, name=f"{layer_prefix}_dense_1"
+    )(ln_2_output)
     mlp_output = keras.layers.Lambda(quick_gelu)(mlp_output)
     mlp_output = keras.layers.Dense(proj_dim, name=f"{layer_prefix}_dense_2")(
         mlp_output

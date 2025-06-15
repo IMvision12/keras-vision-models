@@ -63,7 +63,7 @@ CLIP_MODEL_CONFIG = {
         "transformer_layers": 32,
         "vision_mlp_ratio": 8192 / 1664,
         "text_mlp_ratio": 5120 / 1280,
-    }
+    },
 }
 
 

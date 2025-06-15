@@ -77,7 +77,7 @@ CLIP_WEIGHTS_CONFIG = {
         "openai_224": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_224.weights.h5",
         },
-        "laion2b_224": {
+        "laion2b_s34B_b79K_224": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },

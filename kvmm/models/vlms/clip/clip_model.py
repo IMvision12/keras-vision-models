@@ -38,6 +38,7 @@ def residual_attention_block(
     layer_idx,
     causal_attention_mask=None,
     attention_mask=None,
+    mlp_ratio=4.0,
 ):
     """Creates a residual attention block used in the CLIP transformer encoder.
 
@@ -56,6 +57,8 @@ def residual_attention_block(
         causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
             used for causal (autoregressive) attention in the text encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
+        mlp_ratio: Float, ratio for MLP intermediate size (default 4.0).
+            Vision model uses ~4.36363, text model uses 4.0.
 
     Returns:
         Output tensor of shape (batch_size, sequence_length, proj_dim).
@@ -89,7 +92,8 @@ def residual_attention_block(
         epsilon=1e-5, name=f"{layer_prefix}_layernorm_2"
     )(residual_1)
 
-    mlp_output = keras.layers.Dense(proj_dim * 4, name=f"{layer_prefix}_dense_1")(
+    mlp_intermediate_size = int(proj_dim * mlp_ratio)
+    mlp_output = keras.layers.Dense(mlp_intermediate_size, name=f"{layer_prefix}_dense_1")(
         ln_2_output
     )
     mlp_output = keras.layers.Lambda(quick_gelu)(mlp_output)
@@ -110,6 +114,7 @@ def clip_encoder(
     layer_prefix=None,
     causal_attention_mask=None,
     attention_mask=None,
+    mlp_ratio=None,
 ):
     """Creates a transformer encoder used in both vision and text components of CLIP.
 
@@ -150,6 +155,7 @@ def clip_encoder(
             layer_idx=i,
             causal_attention_mask=causal_attention_mask,
             attention_mask=attention_mask,
+            mlp_ratio=mlp_ratio,
         )
 
     return x
@@ -163,6 +169,7 @@ def clip_image_encoder(
     num_layers=12,
     heads=12,
     output_dim=512,
+    vision_mlp_ratio=4.0,
     data_format="channels_last",
 ):
     """Creates a CLIP image encoder based on Vision Transformer (ViT) architecture.
@@ -217,6 +224,7 @@ def clip_image_encoder(
         num_layers=num_layers,
         heads=heads,
         layer_prefix="vision_model_encoder",
+        mlp_ratio=vision_mlp_ratio,
     )
 
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
@@ -241,6 +249,7 @@ def clip_text_encoder(
     vocab_size,
     embed_dim,
     context_length,
+    text_mlp_ratio,
 ):
     """Creates a CLIP text encoder for processing tokenized text inputs.
 
@@ -291,6 +300,7 @@ def clip_text_encoder(
         heads=transformer_heads,
         causal_attention_mask=causal_attention_mask,
         attention_mask=expanded_mask,
+        mlp_ratio=text_mlp_ratio,
         layer_prefix="text_model_encoder",
     )
 
@@ -416,6 +426,8 @@ class CLIPModel(keras.Model):
         transformer_width=512,
         transformer_heads=8,
         transformer_layers=12,
+        vision_mlp_ratio=4.0,
+        text_mlp_ratio=4.0,
         input_shape=None,
         input_tensor=None,
         weights="res_224px",
@@ -477,6 +489,7 @@ class CLIPModel(keras.Model):
             num_layers=vision_layers,
             heads=vision_heads,
             output_dim=embed_dim,
+            vision_mlp_ratio=vision_mlp_ratio,
             data_format=data_format,
         )
 
@@ -488,6 +501,7 @@ class CLIPModel(keras.Model):
             transformer_heads=transformer_heads,
             vocab_size=vocab_size,
             embed_dim=embed_dim,
+            text_mlp_ratio=text_mlp_ratio,
             context_length=context_length,
         )
 
@@ -519,6 +533,8 @@ class CLIPModel(keras.Model):
         self.transformer_width = transformer_width
         self.transformer_heads = transformer_heads
         self.transformer_layers = transformer_layers
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.text_mlp_ratio = text_mlp_ratio
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -535,6 +551,8 @@ class CLIPModel(keras.Model):
                 "transformer_width": self.transformer_width,
                 "transformer_heads": self.transformer_heads,
                 "transformer_layers": self.transformer_layers,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "text_mlp_ratio": self.text_mlp_ratio,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
                 "trainable": self.trainable,

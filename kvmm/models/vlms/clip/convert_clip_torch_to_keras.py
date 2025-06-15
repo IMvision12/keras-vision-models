@@ -51,9 +51,9 @@ attn_name_replace = {
 }
 
 input_shape = (224, 224, 3)
-keras_model: keras.Model = clip.ClipVitBase16(weights=None, input_shape=input_shape)
+keras_model: keras.Model = clip.ClipVitBigG14(weights=None, input_shape=input_shape)
 torch_model: torch.nn.Module = AutoModel.from_pretrained(
-    "openai/clip-vit-base-patch16"
+    "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
 ).eval()
 
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
@@ -122,4 +122,4 @@ for keras_weight, keras_weight_name in tqdm(
 
 
 # Save the model
-keras_model.save_weights(f"{keras_model.name.lower()}_{input_shape[0]}.weights.h5")
+#keras_model.save_weights(f"{keras_model.name.lower()}_{input_shape[0]}.weights.h5")

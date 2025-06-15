@@ -9,6 +9,8 @@ CLIP_MODEL_CONFIG = {
         "transformer_width": 512,
         "transformer_heads": 8,
         "transformer_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
     },
     "ClipVitBase32": {
         "embed_dim": 512,
@@ -20,6 +22,8 @@ CLIP_MODEL_CONFIG = {
         "transformer_width": 512,
         "transformer_heads": 8,
         "transformer_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
     },
     "ClipVitLarge14": {
         "embed_dim": 768,
@@ -31,6 +35,8 @@ CLIP_MODEL_CONFIG = {
         "transformer_width": 768,
         "transformer_heads": 12,
         "transformer_layers": 12,
+        "vision_mlp_ratio": 4.0,
+        "text_mlp_ratio": 4.0,
     },
     "ClipVitG14": {
         "embed_dim": 1024,
@@ -42,6 +48,8 @@ CLIP_MODEL_CONFIG = {
         "transformer_width": 1024,
         "transformer_heads": 16,
         "transformer_layers": 24,
+        "vision_mlp_ratio": 6144 / 1408,
+        "text_mlp_ratio": 4096 / 1024,
     },
     "ClipVitBigG14": {
         "embed_dim": 1280,
@@ -53,7 +61,9 @@ CLIP_MODEL_CONFIG = {
         "transformer_width": 1280,
         "transformer_heads": 20,
         "transformer_layers": 32,
-    },
+        "vision_mlp_ratio": 8192 / 1664,
+        "text_mlp_ratio": 5120 / 1280,
+    }
 }
 
 

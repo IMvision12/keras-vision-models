@@ -57,8 +57,9 @@ def residual_attention_block(
         causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
             used for causal (autoregressive) attention in the text encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
-        mlp_ratio: Float, ratio for MLP intermediate size (default 4.0).
-            Vision model uses ~4.36363, text model uses 4.0.
+        mlp_ratio: Optional float, ratio of the MLP hidden dimension to the embedding
+            dimension. The MLP expands the representation by this factor in its hidden
+            layer. If None, defaults to 4.0.
 
     Returns:
         Output tensor of shape (batch_size, sequence_length, proj_dim).
@@ -138,6 +139,9 @@ def clip_encoder(
             for the vision encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
             Set to None for the vision encoder.
+        mlp_ratio: Optional float, ratio of the MLP hidden dimension to the embedding
+            dimension. The MLP expands the representation by this factor in its hidden
+            layer. If None, defaults to 4.0.
 
     Returns:
         A tensor of shape (batch_size, sequence_length, width) containing the encoded
@@ -193,6 +197,9 @@ def clip_image_encoder(
         heads: Integer, number of attention heads in each transformer layer.
         output_dim: Integer, dimensionality of the final image embedding output that
             matches the joint embedding space.
+        vision_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the vision transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
         data_format: string, either 'channels_last' or 'channels_first',
             specifies the input data format.
 
@@ -271,6 +278,9 @@ def clip_text_encoder(
         vocab_size: Integer, size of the token vocabulary.
         embed_dim: Integer, dimensionality of the final text embedding output.
         context_length: Integer, maximum length of input text sequences.
+        text_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the text transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
 
     Returns:
         A tensor of shape (batch_size, embed_dim) containing the text embeddings
@@ -399,6 +409,12 @@ class CLIPModel(keras.Model):
         transformer_heads: Integer, number of attention heads in the text transformer.
             Should typically be transformer_width / 64.
         transformer_layers: Integer, number of transformer layers in the text transformer.
+        vision_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the vision transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
+        text_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the text transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
         input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
             the model's input. If not provided, new input tensors are created.
         name: String, the name of the model. Defaults to `"CLIPModel"`.

@@ -88,17 +88,17 @@ CLIP_WEIGHTS_CONFIG = {
         "openai_336": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_336.weights.h5",
         },
-        "laion2b_224": {
+        "laion2b_s32B_b82K_224": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },
     "ClipVitG14": {
-        "laion2b_224": {
+        "laion2b_s12B_b42K_224": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },
     "ClipVitBigG14": {
-        "laion2b_224": {
+        "laion2b_39B_b160k_224": {
             "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
         },
     },

@@ -122,4 +122,5 @@ for keras_weight, keras_weight_name in tqdm(
 
 
 # Save the model
-keras_model.save_weights(f"{keras_model.name.lower()}_{input_shape[0]}.weights.h5")
+weight_name = f"{keras_model.name.lower()}_{list(clip.config.CLIP_WEIGHTS_CONFIG[keras_model.name].keys())[0]}.weights.h5"
+keras_model.save_weights(weight_name)  # use max_shard_size if >2GB

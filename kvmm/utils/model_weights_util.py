@@ -1,6 +1,4 @@
 import json
-import os
-from collections import OrderedDict
 
 from kvmm.utils import download_file
 

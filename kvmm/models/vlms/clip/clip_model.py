@@ -555,10 +555,17 @@ class CLIPModel(keras.Model):
 
     def get_config(self):
         config = super().get_config()
+
+        image_shape_with_batch = self.input_shape[0]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "input_shape": self.input_shape[1:],
+                "input_shape": image_input_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,

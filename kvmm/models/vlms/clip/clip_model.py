@@ -38,6 +38,7 @@ def residual_attention_block(
     layer_idx,
     causal_attention_mask=None,
     attention_mask=None,
+    mlp_ratio=4.0,
 ):
     """Creates a residual attention block used in the CLIP transformer encoder.
 
@@ -56,6 +57,9 @@ def residual_attention_block(
         causal_attention_mask: Optional tensor of shape (sequence_length, sequence_length)
             used for causal (autoregressive) attention in the text encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
+        mlp_ratio: Optional float, ratio of the MLP hidden dimension to the embedding
+            dimension. The MLP expands the representation by this factor in its hidden
+            layer. If None, defaults to 4.0.
 
     Returns:
         Output tensor of shape (batch_size, sequence_length, proj_dim).
@@ -89,9 +93,10 @@ def residual_attention_block(
         epsilon=1e-5, name=f"{layer_prefix}_layernorm_2"
     )(residual_1)
 
-    mlp_output = keras.layers.Dense(proj_dim * 4, name=f"{layer_prefix}_dense_1")(
-        ln_2_output
-    )
+    mlp_intermediate_size = int(proj_dim * mlp_ratio)
+    mlp_output = keras.layers.Dense(
+        mlp_intermediate_size, name=f"{layer_prefix}_dense_1"
+    )(ln_2_output)
     mlp_output = keras.layers.Lambda(quick_gelu)(mlp_output)
     mlp_output = keras.layers.Dense(proj_dim, name=f"{layer_prefix}_dense_2")(
         mlp_output
@@ -110,6 +115,7 @@ def clip_encoder(
     layer_prefix=None,
     causal_attention_mask=None,
     attention_mask=None,
+    mlp_ratio=None,
 ):
     """Creates a transformer encoder used in both vision and text components of CLIP.
 
@@ -133,6 +139,9 @@ def clip_encoder(
             for the vision encoder.
         attention_mask: Optional tensor used to mask padding tokens in text processing.
             Set to None for the vision encoder.
+        mlp_ratio: Optional float, ratio of the MLP hidden dimension to the embedding
+            dimension. The MLP expands the representation by this factor in its hidden
+            layer. If None, defaults to 4.0.
 
     Returns:
         A tensor of shape (batch_size, sequence_length, width) containing the encoded
@@ -150,6 +159,7 @@ def clip_encoder(
             layer_idx=i,
             causal_attention_mask=causal_attention_mask,
             attention_mask=attention_mask,
+            mlp_ratio=mlp_ratio,
         )
 
     return x
@@ -163,6 +173,8 @@ def clip_image_encoder(
     num_layers=12,
     heads=12,
     output_dim=512,
+    vision_mlp_ratio=4.0,
+    data_format="channels_last",
 ):
     """Creates a CLIP image encoder based on Vision Transformer (ViT) architecture.
 
@@ -185,6 +197,11 @@ def clip_image_encoder(
         heads: Integer, number of attention heads in each transformer layer.
         output_dim: Integer, dimensionality of the final image embedding output that
             matches the joint embedding space.
+        vision_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the vision transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
 
     Returns:
         A tensor of shape (batch_size, output_dim) containing the image embeddings
@@ -197,12 +214,12 @@ def clip_image_encoder(
         strides=patch_size,
         padding="valid",
         use_bias=False,
-        data_format="channels_last",
+        data_format=data_format,
         name="vision_model_conv",
     )(inputs)
 
     embeddings = VisionModelEmbedding(
-        width, input_resolution, patch_size, name="vision_model_embeddings"
+        width, input_resolution, patch_size, data_format, name="vision_model_embeddings"
     )(patch_embeddings)
 
     x = keras.layers.LayerNormalization(epsilon=1e-5, name="vision_model_layernorm_1")(
@@ -214,6 +231,7 @@ def clip_image_encoder(
         num_layers=num_layers,
         heads=heads,
         layer_prefix="vision_model_encoder",
+        mlp_ratio=vision_mlp_ratio,
     )
 
     class_token = keras.layers.Lambda(lambda x: x[:, 0, :], name="extract_token")(
@@ -238,6 +256,7 @@ def clip_text_encoder(
     vocab_size,
     embed_dim,
     context_length,
+    text_mlp_ratio,
 ):
     """Creates a CLIP text encoder for processing tokenized text inputs.
 
@@ -259,6 +278,9 @@ def clip_text_encoder(
         vocab_size: Integer, size of the token vocabulary.
         embed_dim: Integer, dimensionality of the final text embedding output.
         context_length: Integer, maximum length of input text sequences.
+        text_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the text transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
 
     Returns:
         A tensor of shape (batch_size, embed_dim) containing the text embeddings
@@ -288,6 +310,7 @@ def clip_text_encoder(
         heads=transformer_heads,
         causal_attention_mask=causal_attention_mask,
         attention_mask=expanded_mask,
+        mlp_ratio=text_mlp_ratio,
         layer_prefix="text_model_encoder",
     )
 
@@ -386,6 +409,12 @@ class CLIPModel(keras.Model):
         transformer_heads: Integer, number of attention heads in the text transformer.
             Should typically be transformer_width / 64.
         transformer_layers: Integer, number of transformer layers in the text transformer.
+        vision_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the vision transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
+        text_mlp_ratio: Float, ratio of the MLP hidden dimension to the embedding
+            dimension in the text transformer. The MLP expands the representation
+            by this factor in its hidden layer. Default is 4.0.
         input_tensor: Optional Keras tensor (output of `layers.Input()`) to use as
             the model's input. If not provided, new input tensors are created.
         name: String, the name of the model. Defaults to `"CLIPModel"`.
@@ -413,79 +442,61 @@ class CLIPModel(keras.Model):
         transformer_width=512,
         transformer_heads=8,
         transformer_layers=12,
+        vision_mlp_ratio=4.0,
+        text_mlp_ratio=4.0,
         input_shape=None,
         input_tensor=None,
-        weights="res_224px",
+        weights="openai_224",
         name="CLIPModel",
         **kwargs,
     ):
         vision_heads = vision_width // 64
-
         data_format = keras.backend.image_data_format()
 
-        if input_shape is not None and isinstance(input_shape, tuple):
-            if len(input_shape) == 3:
-                if data_format == "channels_last":
-                    image_size = min(input_shape[0], input_shape[1])
-                    channels = input_shape[2]
-                    image_input_shape = [image_size, image_size, channels]
-                else:
-                    image_size = min(input_shape[1], input_shape[2])
+        if input_shape is not None:
+            if data_format == "channels_first":
+                if len(input_shape) == 3:
                     channels = input_shape[0]
-                    image_input_shape = [channels, image_size, image_size]
-            elif len(input_shape) == 2:
-                image_size = min(input_shape[0], input_shape[1])
-                if data_format == "channels_last":
-                    image_input_shape = [image_size, image_size, 3]
+                    image_size = min(input_shape[1], input_shape[2])
                 else:
-                    image_input_shape = [3, image_size, image_size]
+                    channels = 3
+                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
             else:
-                image_size = input_shape[0]
-                if data_format == "channels_last":
-                    image_input_shape = [image_size, image_size, 3]
+                if len(input_shape) >= 2:
+                    image_size = min(input_shape[0], input_shape[1])
                 else:
-                    image_input_shape = [3, image_size, image_size]
+                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
+
+                if len(input_shape) == 3:
+                    channels = input_shape[2]
+                else:
+                    channels = 3
         else:
-            if weights:
-                if "336" in weights:
-                    image_size = 336
-                else:
-                    image_size = 224
-            else:
-                image_size = 224
+            image_size = 336 if weights and "336" in weights else 224
+            channels = 3
 
-            if data_format == "channels_last":
-                image_input_shape = [image_size, image_size, 3]
-            else:
-                image_input_shape = [3, image_size, image_size]
-
-        if input_tensor is not None and isinstance(input_tensor, dict):
-            images_input = input_tensor.get("images")
-            token_ids_input = input_tensor.get("token_ids")
-            padding_mask_input = input_tensor.get("padding_mask")
+        if data_format == "channels_first":
+            image_input_shape = [channels, image_size, image_size]
         else:
-            images_input = None
-            token_ids_input = None
-            padding_mask_input = None
+            image_input_shape = [image_size, image_size, channels]
 
-        if images_input is None:
+        if isinstance(input_tensor, dict):
+            images_input = input_tensor.get("images") or layers.Input(
+                shape=image_input_shape, name="images"
+            )
+            token_ids_input = input_tensor.get("token_ids") or layers.Input(
+                shape=[context_length], name="token_ids"
+            )
+            padding_mask_input = input_tensor.get("padding_mask") or layers.Input(
+                shape=[context_length], name="padding_mask"
+            )
+        else:
             images_input = layers.Input(shape=image_input_shape, name="images")
-        if token_ids_input is None:
-            token_ids_input = layers.Input(
-                shape=[
-                    context_length,
-                ],
-                name="token_ids",
-            )
-        if padding_mask_input is None:
+            token_ids_input = layers.Input(shape=[context_length], name="token_ids")
             padding_mask_input = layers.Input(
-                shape=[
-                    context_length,
-                ],
-                name="padding_mask",
+                shape=[context_length], name="padding_mask"
             )
 
-        # Create image and text encoders
         image_embeddings = clip_image_encoder(
             images_input,
             input_resolution=image_size,
@@ -494,6 +505,8 @@ class CLIPModel(keras.Model):
             num_layers=vision_layers,
             heads=vision_heads,
             output_dim=embed_dim,
+            vision_mlp_ratio=vision_mlp_ratio,
+            data_format=data_format,
         )
 
         text_embeddings = clip_text_encoder(
@@ -504,10 +517,10 @@ class CLIPModel(keras.Model):
             transformer_heads=transformer_heads,
             vocab_size=vocab_size,
             embed_dim=embed_dim,
+            text_mlp_ratio=text_mlp_ratio,
             context_length=context_length,
         )
 
-        # Apply projection head
         image_logits, text_logits = clip_head(
             image_embeddings,
             text_embeddings,
@@ -536,14 +549,23 @@ class CLIPModel(keras.Model):
         self.transformer_width = transformer_width
         self.transformer_heads = transformer_heads
         self.transformer_layers = transformer_layers
+        self.vision_mlp_ratio = vision_mlp_ratio
+        self.text_mlp_ratio = text_mlp_ratio
         self.input_tensor = input_tensor
 
     def get_config(self):
         config = super().get_config()
+
+        image_shape_with_batch = self.input_shape[0]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+
         config.update(
             {
                 "embed_dim": self.embed_dim,
-                "input_shape": self.input_shape[1:],
+                "input_shape": image_input_shape,
                 "vision_layers": self.vision_layers,
                 "vision_width": self.vision_width,
                 "vision_patch_size": self.vision_patch_size,
@@ -552,6 +574,8 @@ class CLIPModel(keras.Model):
                 "transformer_width": self.transformer_width,
                 "transformer_heads": self.transformer_heads,
                 "transformer_layers": self.transformer_layers,
+                "vision_mlp_ratio": self.vision_mlp_ratio,
+                "text_mlp_ratio": self.text_mlp_ratio,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
                 "trainable": self.trainable,
@@ -565,35 +589,8 @@ class CLIPModel(keras.Model):
 
 
 @register_model
-def ClipVitBase32(
-    weights="res_224px",
-    input_tensor=None,
-    input_shape=None,
-    name="ClipVitBase32",
-    **kwargs,
-):
-    model = CLIPModel(
-        **CLIP_MODEL_CONFIG["ClipVitBase32"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        weights=weights,
-        name=name,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
-        load_weights_from_config("ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
 def ClipVitBase16(
-    weights="res_224px",
+    weights="openai_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitBase16",
@@ -619,8 +616,35 @@ def ClipVitBase16(
 
 
 @register_model
+def ClipVitBase32(
+    weights="openai_224",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitBase32",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitBase32"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("ClipVitBase32", weights, model, CLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
 def ClipVitLarge14(
-    weights="res_224px",
+    weights="openai_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitLarge14",
@@ -637,6 +661,60 @@ def ClipVitLarge14(
 
     if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
         load_weights_from_config("ClipVitLarge14", weights, model, CLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def ClipVitG14(
+    weights="laion2b_s12B_b42K_224",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitG14",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitG14"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("ClipVitG14", weights, model, CLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def ClipVitBigG14(
+    weights="laion2b_39B_b160k_224",
+    input_tensor=None,
+    input_shape=None,
+    name="ClipVitBigG14",
+    **kwargs,
+):
+    model = CLIPModel(
+        **CLIP_MODEL_CONFIG["ClipVitBigG14"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(CLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("ClipVitBigG14", weights, model, CLIP_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:

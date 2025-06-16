@@ -3,7 +3,7 @@ from typing import Dict
 import keras
 import torch
 from tqdm import tqdm
-from transformers import CLIPModel
+from transformers import AutoModel
 
 from kvmm.models import clip
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
@@ -20,7 +20,7 @@ weight_name_mapping = {
     "text.model": "text_model",
     "conv": "embeddings.patch_embedding",
     "class.embedding": "class_embedding",
-    "positional.embedding": "position_embedding.weight",
+    "pos.embed": "position_embedding.weight",
     "vision_model.layernorm.1": "vision_model.pre_layrnorm",
     "text_model.encoder": "text_model.encoder.layers",
     "vision_model.encoder": "vision_model.encoder.layers",
@@ -52,7 +52,7 @@ attn_name_replace = {
 
 input_shape = (224, 224, 3)
 keras_model: keras.Model = clip.ClipVitBase16(weights=None, input_shape=input_shape)
-torch_model: torch.nn.Module = CLIPModel.from_pretrained(
+torch_model: torch.nn.Module = AutoModel.from_pretrained(
     "openai/clip-vit-base-patch16"
 ).eval()
 
@@ -100,6 +100,12 @@ for keras_weight, keras_weight_name in tqdm(
         keras_weight.assign(torch_logit_scale.detach().cpu().numpy())
         continue
 
+    if keras_weight_name == "vision_model_embeddings_pos_embed":
+        torch_pos_embed = torch_model.vision_model.embeddings.position_embedding.weight
+        torch_pos_embed_expanded = torch_pos_embed.unsqueeze(0)
+        keras_weight.assign(torch_pos_embed_expanded.detach().cpu().numpy())
+        continue
+
     if torch_weight_name not in torch_weights_dict:
         raise WeightMappingError(keras_weight_name, torch_weight_name)
 
@@ -116,4 +122,5 @@ for keras_weight, keras_weight_name in tqdm(
 
 
 # Save the model
-keras_model.save_weights(f"{keras_model.name.lower()}_{input_shape[0]}.weights.h5")
+weight_name = f"{keras_model.name.lower()}_{list(clip.config.CLIP_WEIGHTS_CONFIG[keras_model.name].keys())[0]}.weights.h5"
+keras_model.save_weights(weight_name)  # use max_shard_size if >2GB

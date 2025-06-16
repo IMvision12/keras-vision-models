@@ -1,6 +1,8 @@
 import keras
 from keras import ops
 
+from kvmm.layers import AddPositionEmbs
+
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class CLIPAttention(keras.layers.Layer):
@@ -132,6 +134,8 @@ class VisionModelEmbedding(keras.layers.Layer):
         width (int): Dimension of the embedding space.
         input_resolution (int): Resolution of the input image (assumes square images).
         patch_size (int): Size of each image patch (assumes square patches).
+        data_format: string, either 'channels_last' or 'channels_first',
+            specifies the input data format.
         **kwargs: Additional keyword arguments passed to the parent class.
 
     Inputs:
@@ -143,12 +147,24 @@ class VisionModelEmbedding(keras.layers.Layer):
         the patch embeddings plus class token, with positional embeddings added.
     """
 
-    def __init__(self, width, input_resolution, patch_size, **kwargs):
+    def __init__(
+        self, width, input_resolution, patch_size, data_format="channels_last", **kwargs
+    ):
         super().__init__(**kwargs)
         self.width = width
         self.input_resolution = input_resolution
         self.patch_size = patch_size
+        self.data_format = data_format
         self.num_patches = (input_resolution // patch_size) ** 2
+        self.grid_size = input_resolution // patch_size
+
+        self.position_embs = AddPositionEmbs(
+            grid_h=self.grid_size,
+            grid_w=self.grid_size,
+            no_embed_class=False,
+            use_distillation=False,
+            name="position_embeddings",
+        )
 
     def build(self, input_shape):
         self.class_embedding = self.add_weight(
@@ -156,23 +172,25 @@ class VisionModelEmbedding(keras.layers.Layer):
             name="class_embedding",
         )
 
-        self.positional_embedding = self.add_weight(
-            shape=((self.num_patches + 1, self.width)),
-            trainable=True,
-            name="positional_embedding",
-        )
-
         super().build(input_shape)
 
     def call(self, inputs):
         batch_size = ops.shape(inputs)[0]
-
-        patch_embeddings = ops.reshape(inputs, (batch_size, self.num_patches, -1))
+        if self.data_format == "channels_first":
+            patch_embeddings = keras.layers.Reshape((self.width, self.num_patches))(
+                inputs
+            )
+            patch_embeddings = keras.layers.Permute((2, 1))(patch_embeddings)
+        else:
+            patch_embeddings = keras.layers.Reshape((self.num_patches, self.width))(
+                inputs
+            )
         class_embed = ops.broadcast_to(
-            self.class_embedding.value, (batch_size, 1, self.width)
+            self.class_embedding, (batch_size, 1, self.width)
         )
-        embeddings = keras.layers.Concatenate(axis=1)([class_embed, patch_embeddings])
-        embeddings = embeddings + self.positional_embedding
+        embeddings = ops.concatenate([class_embed, patch_embeddings], axis=1)
+        embeddings = self.position_embs(embeddings)
+
         return embeddings
 
     def get_config(self):

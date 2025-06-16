@@ -47,6 +47,6 @@ class TestCLIP(ModelTestCase):
     def test_weight_initialization(self):
         custom_model = clip.ClipVitBase32(
             input_shape=(224, 224, 3),
-            weights="res_224px",
+            weights="openai_224",
         )
         return super().test_weight_initialization(custom_model)

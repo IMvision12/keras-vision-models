@@ -70,36 +70,36 @@ CLIP_MODEL_CONFIG = {
 CLIP_WEIGHTS_CONFIG = {
     "ClipVitBase16": {
         "openai_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase16_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase16_openai_224.weights.h5",
         },
     },
     "ClipVitBase32": {
         "openai_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_openai_224.weights.h5",
         },
         "laion2b_s34B_b79K_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbase32_laion2b_s34B_b79K_224.weights.h5",
         },
     },
     "ClipVitLarge14": {
         "openai_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_openai_224.weights.h5",
         },
         "openai_336": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_336.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_openai_336.weights.h5",
         },
         "laion2b_s32B_b82K_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_laion2b_s32B_b82K_224.weights.h5",
         },
     },
     "ClipVitG14": {
         "laion2b_s12B_b42K_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitg14_laion2b_s12B_b42K_224.weights.json",
         },
     },
     "ClipVitBigG14": {
         "laion2b_39B_b160k_224": {
-            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitlarge14_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/clip/clipvitbigg14_laion2b_39B_b160k_224.weights.json",
         },
     },
 }

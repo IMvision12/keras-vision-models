@@ -446,7 +446,7 @@ class CLIPModel(keras.Model):
         text_mlp_ratio=4.0,
         input_shape=None,
         input_tensor=None,
-        weights="res_224px",
+        weights="openai_224",
         name="CLIPModel",
         **kwargs,
     ):
@@ -583,7 +583,7 @@ class CLIPModel(keras.Model):
 
 @register_model
 def ClipVitBase16(
-    weights="res_224px",
+    weights="openai_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitBase16",
@@ -610,7 +610,7 @@ def ClipVitBase16(
 
 @register_model
 def ClipVitBase32(
-    weights="res_224px",
+    weights="openai_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitBase32",
@@ -637,7 +637,7 @@ def ClipVitBase32(
 
 @register_model
 def ClipVitLarge14(
-    weights="res_224px",
+    weights="openai_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitLarge14",
@@ -664,7 +664,7 @@ def ClipVitLarge14(
 
 @register_model
 def ClipVitG14(
-    weights="laion2b_224",
+    weights="laion2b_s12B_b42K_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitG14",
@@ -691,7 +691,7 @@ def ClipVitG14(
 
 @register_model
 def ClipVitBigG14(
-    weights="laion2b_224",
+    weights="laion2b_39B_b160k_224",
     input_tensor=None,
     input_shape=None,
     name="ClipVitBigG14",

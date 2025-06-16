@@ -1,4 +1,6 @@
 import json
+import os
+from collections import OrderedDict
 
 from kvmm.utils import download_file
 
@@ -27,18 +29,18 @@ def load_weights_from_config(
         >>> weights_config = {
         ...     "ResNet50": {
         ...         "imagenet": {
-        ...             "url": "https://example.com/resnet50_imagenet.h5"  # Legacy weights
+        ...             "url": "https://example.com/resnet50_imagenet.h5"
         ...         },
         ...         "imagenet_21k": {
         ...             "url": "https://example.com/resnet50_21k.json"  # Sharded weights
         ...         }
         ...     },
         ...     "EfficientNetB0": {
-        ...         "imagenet": "https://example.com/efficientnet_b0.h5"  # Legacy string format
+        ...         "imagenet": "https://example.com/efficientnet_b0.h5"
         ...     }
         ... }
         >>>
-        >>> # Load legacy single-file weights (.h5, .weights, etc.)
+        >>> # Load single-file weights (.h5, .weights, etc.)
         >>> model = load_weights_from_config("ResNet50", "imagenet", model, weights_config)
         >>>
         >>> # Load sharded weights (automatically detected from .json extension)
@@ -81,24 +83,18 @@ def load_weights_from_config(
             with open(json_path, "r") as f:
                 json_data = json.load(f)
 
-            if "shards" not in json_data:
-                raise ValueError("JSON file missing 'shards' key")
-
-            shard_paths = []
             base_url = "/".join(weights_url.split("/")[:-1])
 
-            for shard_info in json_data["shards"]:
-                if isinstance(shard_info, str):
-                    shard_url = f"{base_url}/{shard_info}"
-                elif isinstance(shard_info, dict) and "filename" in shard_info:
-                    shard_url = f"{base_url}/{shard_info['filename']}"
-                else:
-                    raise ValueError("Invalid shard format in JSON")
+            if "weight_map" in json_data:
+                weight_files = set(json_data["weight_map"].values())
+            else:
+                raise ValueError("JSON file must contain either 'weight_map' key")
 
-                shard_path = download_file(shard_url)
-                shard_paths.append(shard_path)
+            for weight_file in sorted(weight_files):
+                weight_url = f"{base_url}/{weight_file}"
+                _ = download_file(weight_url)
 
-            model.load_weights(shard_paths)
+            model.load_weights(json_path)
             return model
         else:
             weights_path = download_file(weights_url)

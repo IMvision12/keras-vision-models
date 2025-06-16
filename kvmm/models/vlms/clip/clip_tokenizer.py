@@ -362,21 +362,17 @@ class CLIPTokenizer(keras.Layer):
             token_ids = token_ids + [self.pad_token_id] * padding_length
         return {"input_ids": token_ids, "attention_mask": attention_mask}
 
-    def call(self, inputs=None, texts=None):
-        if texts is not None:
-            text_inputs = texts
-        elif inputs is not None:
-            text_inputs = inputs
-        else:
+    def call(self, inputs=None):
+        if inputs is None:
             raise ValueError("No text inputs provided to CLIPTokenizer")
 
-        if isinstance(text_inputs, str):
-            text_inputs = [text_inputs]
+        if isinstance(inputs, str):
+            inputs = [inputs]
 
         all_token_ids = []
         all_masks = []
 
-        for text in text_inputs:
+        for text in inputs:
             prepared_input = self.prepare_for_model(text)
             all_token_ids.append(prepared_input["input_ids"])
             all_masks.append(prepared_input["attention_mask"])

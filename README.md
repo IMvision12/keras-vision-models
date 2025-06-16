@@ -208,7 +208,7 @@ import kvmm
 
 processor = kvmm.models.clip.CLIPProcessor()
 model = kvmm.models.clip.ClipVitBase16(
-    weights="res_224px",
+    weights="openai_224",
     input_shape=(224, 224, 3),
 )
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")

@@ -41,7 +41,9 @@ class ModelTestCase(TestCase):
         return self
 
     def create_model(self, **kwargs: Any) -> Model:
-        self.assertIsNotNone(self.model_cls, "Model class not configured. Call configure() first.")
+        self.assertIsNotNone(
+            self.model_cls, "Model class not configured. Call configure() first."
+        )
 
         combined_kwargs = self.init_kwargs.copy()
         combined_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
@@ -49,7 +51,9 @@ class ModelTestCase(TestCase):
         return self.model_cls(**combined_kwargs)
 
     def get_input_data(self, **kwargs) -> Union[Dict[str, Any], keras.KerasTensor]:
-        self.assertIsNotNone(self.input_data, "Input data not configured. Call configure() first.")
+        self.assertIsNotNone(
+            self.input_data, "Input data not configured. Call configure() first."
+        )
         return self.input_data
 
     def convert_data_format(
@@ -137,7 +141,9 @@ class ModelTestCase(TestCase):
     def test_weight_initialization(self, model=None):
         self.assertIsNotNone(model, "Model not provided for weight initialization test")
         self.assertIsNotNone(model.weights, "Model weights not initialized")
-        self.assertGreater(len(model.trainable_weights), 0, "Model has no trainable weights")
+        self.assertGreater(
+            len(model.trainable_weights), 0, "Model has no trainable weights"
+        )
 
         for weight in model.weights:
             has_nans = ops.any(ops.isnan(weight))
@@ -160,7 +166,7 @@ class ModelTestCase(TestCase):
     def test_data_formats(self):
         self.assertFalse(
             isinstance(self.input_data, dict) and len(self.input_data) > 1,
-            "Data format test not implemented for complex dictionary inputs"
+            "Data format test not implemented for complex dictionary inputs",
         )
 
         original_data_format = keras.config.image_data_format()
@@ -171,8 +177,9 @@ class ModelTestCase(TestCase):
         output_last = model_last(input_data)
 
         self.assertTrue(
-            keras.config.backend() == "tensorflow" and tf.config.list_physical_devices("GPU"),
-            "GPU required for data format testing"
+            keras.config.backend() == "tensorflow"
+            and tf.config.list_physical_devices("GPU"),
+            "GPU required for data format testing",
         )
 
         keras.config.set_image_data_format("channels_first")
@@ -302,11 +309,14 @@ class ModelTestCase(TestCase):
         input_data = self.get_input_data()
 
         self.assertTrue(
-            isinstance(input_data, (keras.KerasTensor, tf.Tensor)) and len(input_data.shape) >= 3,
-            "Batch size test only applicable for simple tensor inputs with at least 3 dimensions"
+            isinstance(input_data, (keras.KerasTensor, tf.Tensor))
+            and len(input_data.shape) >= 3,
+            "Batch size test only applicable for simple tensor inputs with at least 3 dimensions",
         )
 
-        self.assertGreater(input_data.shape[0], 1, "Batch size must be greater than 1 for this test")
+        self.assertGreater(
+            input_data.shape[0], 1, "Batch size must be greater than 1 for this test"
+        )
 
         single_input = input_data[:1]
         single_output = model(single_input)
@@ -336,7 +346,9 @@ class ModelTestCase(TestCase):
             )
 
     def test_backbone_features(self):
-        self.assertEqual(self.model_type, "backbone", "This test is only for backbone models")
+        self.assertEqual(
+            self.model_type, "backbone", "This test is only for backbone models"
+        )
 
         backbone_kwargs = self.init_kwargs.copy()
         if "include_top" in backbone_kwargs:
@@ -370,24 +382,16 @@ class ModelTestCase(TestCase):
 
                 if i > 0 and len(features[i - 1].shape) == 4:
                     prev_h_idx = (
-                        1
-                        if keras.config.image_data_format() == "channels_last"
-                        else 2
+                        1 if keras.config.image_data_format() == "channels_last" else 2
                     )
                     prev_w_idx = (
-                        2
-                        if keras.config.image_data_format() == "channels_last"
-                        else 3
+                        2 if keras.config.image_data_format() == "channels_last" else 3
                     )
                     curr_h_idx = (
-                        1
-                        if keras.config.image_data_format() == "channels_last"
-                        else 2
+                        1 if keras.config.image_data_format() == "channels_last" else 2
                     )
                     curr_w_idx = (
-                        2
-                        if keras.config.image_data_format() == "channels_last"
-                        else 3
+                        2 if keras.config.image_data_format() == "channels_last" else 3
                     )
 
                     prev_h, prev_w = (
@@ -411,11 +415,20 @@ class ModelTestCase(TestCase):
                     )
 
     def test_different_input_sizes(self):
-        self.assertEqual(self.model_type, "segmentation", "This test is only for segmentation models")
+        self.assertEqual(
+            self.model_type, "segmentation", "This test is only for segmentation models"
+        )
 
         input_data = self.get_input_data()
-        self.assertFalse(isinstance(input_data, dict), "Input size test not implemented for dictionary inputs")
-        self.assertEqual(len(input_data.shape), 4, "Input must be a 4D tensor (batch, height, width, channels)")
+        self.assertFalse(
+            isinstance(input_data, dict),
+            "Input size test not implemented for dictionary inputs",
+        )
+        self.assertEqual(
+            len(input_data.shape),
+            4,
+            "Input must be a 4D tensor (batch, height, width, channels)",
+        )
 
         if keras.config.image_data_format() == "channels_last":
             height_idx, width_idx, channel_idx = 1, 2, 3
@@ -485,7 +498,9 @@ class ModelTestCase(TestCase):
             self.assertEqual(set(output_train.keys()), set(output_infer.keys()))
 
     def test_detection_model_outputs(self):
-        self.assertEqual(self.model_type, "detection", "This test is only for detection models")
+        self.assertEqual(
+            self.model_type, "detection", "This test is only for detection models"
+        )
 
         model = self.create_model()
         input_data = self.get_input_data()

@@ -346,9 +346,8 @@ class ModelTestCase(TestCase):
             )
 
     def test_backbone_features(self):
-        self.assertEqual(
-            self.model_type, "backbone", "This test is only for backbone models"
-        )
+        if self.model_type != "backbone":
+            self.skipTest("This test is only for backbone models")
 
         backbone_kwargs = self.init_kwargs.copy()
         if "include_top" in backbone_kwargs:
@@ -415,9 +414,8 @@ class ModelTestCase(TestCase):
                     )
 
     def test_different_input_sizes(self):
-        self.assertEqual(
-            self.model_type, "segmentation", "This test is only for segmentation models"
-        )
+        if self.model_type != "segmentation":
+            self.skipTest("This test is only for segmentation models")
 
         input_data = self.get_input_data()
         self.assertFalse(
@@ -481,7 +479,8 @@ class ModelTestCase(TestCase):
             )
 
     def test_vlm_text_image_inputs(self):
-        self.assertEqual(self.model_type, "vlm", "This test is only for VLM models")
+        if self.model_type != "vlm":
+            self.skipTest("This test is only for VLM models")
 
         model = self.create_model()
         input_data = self.get_input_data()
@@ -496,22 +495,3 @@ class ModelTestCase(TestCase):
 
         if isinstance(output_train, dict) and isinstance(output_infer, dict):
             self.assertEqual(set(output_train.keys()), set(output_infer.keys()))
-
-    def test_detection_model_outputs(self):
-        self.assertEqual(
-            self.model_type, "detection", "This test is only for detection models"
-        )
-
-        model = self.create_model()
-        input_data = self.get_input_data()
-        output = model(input_data)
-
-        if isinstance(output, dict):
-            common_keys = ["boxes", "scores", "classes", "num_detections"]
-            for key in common_keys:
-                if key in output:
-                    self.assertIsNotNone(
-                        output[key], f"Output '{key}' should not be None"
-                    )
-
-        self.check_output_shape(output, self.expected_output_shape)

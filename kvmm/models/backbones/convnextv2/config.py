@@ -96,13 +96,13 @@ CONVNEXTV2_WEIGHTS_CONFIG = {
     },
     "ConvNeXtV2Huge": {
         "fcmae_ft_in1k": {
-            "url": "https://huggingface.co/IMvision12/convnextv2-huge/resolve/main/convnextv2_huge_fcmae_ft_in1k.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnextv2_huge_fcmae_ft_in1k.weights.json",
         },
         "fcmae_ft_in22k_in1k_384": {
-            "url": "https://huggingface.co/IMvision12/convnextv2-huge/resolve/main/convnextv2_huge_fcmae_ft_in22k_in1k_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnextv2_huge_fcmae_ft_in22k_in1k_384.weights.json",
         },
         "fcmae_ft_in22k_in1k_512": {
-            "url": "https://huggingface.co/IMvision12/convnextv2-huge/resolve/main/convnextv2_huge_fcmae_ft_in22k_in1k_512.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.1/convnextv2_huge_fcmae_ft_in22k_in1k_512.weights.json",
         },
     },
 }

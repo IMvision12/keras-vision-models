@@ -172,10 +172,10 @@ DEIT_WEIGHTS_CONFIG = {
     },
     "DEiT3Huge14": {
         "fb_in1k_224": {
-            "url": "https://huggingface.co/IMvision12/deit3-huge-patch14/resolve/main/deit3_huge_patch14_224_fb_in1k.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_huge_patch14_224_fb_in1k.weights.json",
         },
         "fb_in22k_ft_in1k_224": {
-            "url": "https://huggingface.co/IMvision12/deit3-huge-patch14/resolve/main/deit3_huge_patch14_224_fb_in22k_ft_in1k.weights.h5",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/v0.2/deit3_huge_patch14_224_fb_in22k_ft_in1k.weights.json",
         },
     },
 }

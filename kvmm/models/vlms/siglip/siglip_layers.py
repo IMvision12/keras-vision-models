@@ -1,7 +1,7 @@
 import keras
 from keras import layers, ops, initializers
 
-class SigLipAttention(keras.Layer):
+class SigLIPAttention(keras.Layer):
     """Multi-head attention layer for SigLip model.
     
     This layer implements scaled dot-product multi-head attention with optional
@@ -271,7 +271,7 @@ class LogitScaleBias(layers.Layer):
         >>> scale_bias = LogitScaleBias()
         >>> scaled_logits = scale_bias(similarity_matrix)
     """
-    
+
     def build(self, input_shape):
         self.logit_scale = self.add_weight(
             shape=(),

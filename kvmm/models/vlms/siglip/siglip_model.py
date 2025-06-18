@@ -632,7 +632,6 @@ class SigLIPModel(keras.Model):
     """
     def __init__(
         self,
-        embed_dim=768,
         input_shape=(224, 224, 3),
         patch_size=16,
         vision_hidden_dim=768,
@@ -640,6 +639,7 @@ class SigLIPModel(keras.Model):
         vision_num_heads=12,
         vision_intermediate_dim=3072,
         vocabulary_size=32000,
+        embed_dim=768,
         text_hidden_dim=768,
         text_num_layers=12,
         text_num_heads=12,
@@ -717,13 +717,13 @@ class SigLIPModel(keras.Model):
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
         # Store model parameters
-        self.embed_dim = embed_dim
         self.patch_size = patch_size
         self.vision_hidden_dim = vision_hidden_dim
         self.vision_num_layers = vision_num_layers
         self.vision_num_heads = vision_num_heads
         self.vision_intermediate_dim = vision_intermediate_dim
         self.vocabulary_size = vocabulary_size
+        self.embed_dim = embed_dim
         self.text_hidden_dim = text_hidden_dim
         self.text_num_layers = text_num_layers
         self.text_num_heads = text_num_heads
@@ -734,7 +734,6 @@ class SigLIPModel(keras.Model):
         config = super().get_config()
         config.update(
             {
-                "embed_dim": self.embed_dim,
                 "input_shape": self.input_shape[1:],
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
@@ -742,6 +741,7 @@ class SigLIPModel(keras.Model):
                 "vision_num_heads": self.vision_num_heads,
                 "vision_intermediate_dim": self.vision_intermediate_dim,
                 "vocabulary_size": self.vocabulary_size,
+                "embed_dim": self.embed_dim,
                 "text_hidden_dim": self.text_hidden_dim,
                 "text_num_layers": self.text_num_layers,
                 "text_num_heads": self.text_num_heads,
@@ -756,3 +756,85 @@ class SigLIPModel(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
+
+
+@register_model
+def SigLIPBaseP16(
+    weights="google_224",
+    input_tensor=None,
+    input_shape=None,
+    name="SigLIPBaseP16",
+    **kwargs,
+):
+    model = SigLIPModel(
+        **SigLIP_MODEL_CONFIG["SigLIPBaseP16"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        weights=weights,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("SigLIPBaseP16", weights, model, SigLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def SigLIPLargeP16(
+    weights="google_256",
+    input_tensor=None,
+    input_shape=None,
+    name="SigLIPLargeP16",
+    **kwargs,
+):
+    model = SigLIPModel(
+        **SigLIP_MODEL_CONFIG["SigLIPLargeP16"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        weights=weights,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("SigLIPLargeP16", weights, model, SigLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+
+
+@register_model
+def SigLIPSo400mP14(
+    weights="google_224",
+    input_tensor=None,
+    input_shape=None,
+    name="SigLIPSo400mP14",
+    **kwargs,
+):
+    model = SigLIPModel(
+        **SigLIP_MODEL_CONFIG["SigLIPSo400mP14"],
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        weights=weights,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(SigLIP_WEIGHTS_CONFIG):
+        load_weights_from_config("SigLIPSo400mP14", weights, model, SigLIP_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model

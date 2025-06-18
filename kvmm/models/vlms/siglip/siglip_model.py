@@ -645,40 +645,60 @@ class SigLIPModel(keras.Model):
         text_num_heads=12,
         text_intermediate_dim=3072,
         input_tensor=None,
+        weights="google_224",
         name="SigLIPModel",
         **kwargs,
     ):
         data_format = keras.backend.image_data_format()
 
-        # Handle input shape flexibility
-        if isinstance(input_shape, (tuple, list)) and len(input_shape) >= 2:
-            if len(input_shape) == 3:
-                final_image_shape = input_shape
-            elif len(input_shape) == 2:
-                if data_format == "channels_last":
-                    final_image_shape = (*input_shape, 3)
+        if input_shape is not None:
+            if data_format == "channels_first":
+                if len(input_shape) == 3:
+                    channels = input_shape[0]
+                    image_size = min(input_shape[1], input_shape[2])
                 else:
-                    final_image_shape = (3, *input_shape)
+                    channels = 3
+                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
             else:
-                final_image_shape = (224, 224, 3)  # fallback
-        else:
-            final_image_shape = (224, 224, 3)  # fallback
+                if len(input_shape) >= 2:
+                    image_size = min(input_shape[0], input_shape[1])
+                else:
+                    image_size = input_shape[0] if len(input_shape) >= 1 else 224
 
-        if input_tensor is not None and isinstance(input_tensor, dict):
-            images_input = input_tensor.get("images")
-            token_ids_input = input_tensor.get("token_ids")
+                if len(input_shape) == 3:
+                    channels = input_shape[2]
+                else:
+                    channels = 3
         else:
-            images_input = None
-            token_ids_input = None
+            if weights:
+                if "512" in weights:
+                    image_size = 512
+                elif "384" in weights:
+                    image_size = 384
+                elif "256" in weights:
+                    image_size = 256
+                else:
+                    image_size = 224
+            else:
+                image_size = 224
+            channels = 3
 
-        if images_input is None:
-            images_input = layers.Input(shape=final_image_shape, name="images")
-        if token_ids_input is None:
-            token_ids_input = layers.Input(
-                shape=(None,), dtype="int32", name="token_ids"
+        if data_format == "channels_first":
+            image_input_shape = [channels, image_size, image_size]
+        else:
+            image_input_shape = [image_size, image_size, channels]
+
+        if isinstance(input_tensor, dict):
+            images_input = input_tensor.get("images") or layers.Input(
+                shape=image_input_shape, name="images"
             )
+            token_ids_input = input_tensor.get("token_ids") or layers.Input(
+                shape=(None,), name="token_ids"
+            )
+        else:
+            images_input = layers.Input(shape=image_input_shape, name="images")
+            token_ids_input = layers.Input(shape=(None,), name="token_ids")
 
-        # Create image and text encoders
         vision_embeddings = siglip_vision_encoder(
             images_input,
             patch_size=patch_size,
@@ -732,9 +752,16 @@ class SigLIPModel(keras.Model):
 
     def get_config(self):
         config = super().get_config()
+        
+        image_shape_with_batch = self.input_shape[0]
+        if image_shape_with_batch[0] is None:
+            image_input_shape = image_shape_with_batch[1:]
+        else:
+            image_input_shape = image_shape_with_batch
+
         config.update(
             {
-                "input_shape": self.input_shape[1:],
+                "input_shape": image_input_shape,
                 "patch_size": self.patch_size,
                 "vision_hidden_dim": self.vision_hidden_dim,
                 "vision_num_layers": self.vision_num_layers,

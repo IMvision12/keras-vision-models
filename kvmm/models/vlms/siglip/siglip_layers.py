@@ -1,6 +1,7 @@
 import keras
 from keras import layers, ops, initializers
 
+@keras.saving.register_keras_serializable(package="kvmm")
 class SigLIPAttention(keras.Layer):
     """Multi-head attention layer for SigLip model.
     
@@ -109,7 +110,6 @@ class SigLIPAttention(keras.Layer):
             value = inputs
 
         batch_size = ops.shape(inputs)[0]
-        seq_len = ops.shape(inputs)[1]
 
         if self.combined_qkv:
             q_proj = self.in_proj(inputs)
@@ -156,7 +156,7 @@ class SigLIPAttention(keras.Layer):
         })
         return config
 
-
+@keras.saving.register_keras_serializable(package="kvmm")
 class Probe(layers.Layer):
     """Learnable probe parameter layer.
     
@@ -203,7 +203,7 @@ class Probe(layers.Layer):
         config.update({"hidden_dim": self.hidden_dim})
         return config
 
-
+@keras.saving.register_keras_serializable(package="kvmm")
 class PositionIDs(layers.Layer):
     """Position ID generation layer for text and vision inputs.
     
@@ -252,7 +252,7 @@ class PositionIDs(layers.Layer):
         config.update({"max_length": self.max_length})
         return config
 
-
+@keras.saving.register_keras_serializable(package="kvmm")
 class LogitScaleBias(layers.Layer):
     """Learnable logit scaling and bias layer for contrastive learning.
     

@@ -550,6 +550,7 @@ def siglip_head(vision_embedding, text_embedding):
 
     return vision_logits, text_logits
 
+@keras.saving.register_keras_serializable(package="kvmm")
 class SigLIPModel(keras.Model):
     """
     Complete SigLIP (Sigmoid Loss for Language Image Pre-training) model implementation.

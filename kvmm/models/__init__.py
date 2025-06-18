@@ -34,3 +34,4 @@ from kvmm.models.backbones import (
 )
 from kvmm.models.segmentation import segformer
 from kvmm.models.vlms import clip
+from kvmm.models.vlms import siglip

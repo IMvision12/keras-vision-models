@@ -706,12 +706,6 @@ class SigLIPModel(keras.Model):
             images_input = layers.Input(shape=image_input_shape, name="images")
             token_ids_input = layers.Input(shape=(None,), name="token_ids")
 
-        vocab_size = vocabulary_size
-
-        if weights:
-            if "multilingual" in weights:
-                vocab_size = 250000
-
         vision_embeddings = siglip_vision_encoder(
             images_input,
             patch_size=patch_size,
@@ -724,7 +718,7 @@ class SigLIPModel(keras.Model):
 
         text_embeddings = siglip_text_encoder(
             token_ids_input,
-            vocabulary_size=vocab_size,
+            vocabulary_size=vocabulary_size,
             embedding_dim=embed_dim,
             hidden_dim=text_hidden_dim,
             num_layers=text_num_layers,
@@ -807,8 +801,13 @@ def SigLIPBaseP16(
     name="SigLIPBaseP16",
     **kwargs,
 ):
+    custom_config = SigLIP_MODEL_CONFIG["SigLIPBaseP16"].copy()
+    if weights:
+        if "multilingual" in weights:
+            custom_config["vocabulary_size"] = 250000
+
     model = SigLIPModel(
-        **SigLIP_MODEL_CONFIG["SigLIPBaseP16"],
+        **custom_config,
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,
@@ -863,8 +862,13 @@ def SigLIPSo400mP14(
     name="SigLIPSo400mP14",
     **kwargs,
 ):
+    custom_config = SigLIP_MODEL_CONFIG["SigLIPSo400mP14"].copy()
+    if weights:
+        if "384" in weights:
+            custom_config["max_sequence_length"] = 64
+
     model = SigLIPModel(
-        **SigLIP_MODEL_CONFIG["SigLIPSo400mP14"],
+        **custom_config,
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,

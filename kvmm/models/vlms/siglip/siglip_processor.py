@@ -33,6 +33,8 @@ class SigLIPProcessor(keras.layers.Layer):
         do_resize (bool, optional): Whether to resize images. Default is True.
         vocab_file (str, optional): Path to the vocabulary file for the tokenizer.
             If None, will download the default vocabulary file.
+        multilingual (bool, optional): Whether to use multilingual vocabulary.
+            Set to True when using multilingual SigLIP models. Default is False.
         context_length (int, optional): Maximum token sequence length. Default is 64.
         do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing.
             Default is True.
@@ -86,6 +88,16 @@ class SigLIPProcessor(keras.layers.Layer):
             text=["A detailed photo of a landscape"],
             images=image_array
         )
+
+        # Using multilingual model
+        multilingual_processor = SigLIPProcessor(
+            multilingual=True
+        )
+
+        inputs = multilingual_processor(
+            text=["Une photo d'un chat", "Ein Bild von einem Hund"],
+            images=image_array
+        )
         ```
     """
 
@@ -100,6 +112,7 @@ class SigLIPProcessor(keras.layers.Layer):
         do_resize: bool = True,
         # Tokenizer params
         vocab_file: Optional[str] = None,
+        multilingual: bool = False,
         context_length: int = 64,
         do_lower_case: bool = True,
         unk_token: str = "<unk>",
@@ -119,9 +132,14 @@ class SigLIPProcessor(keras.layers.Layer):
         )
 
         if vocab_file is None:
-            vocab_file_path = download_file(
-                "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/vocab.json"
-            )
+            if multilingual:
+                vocab_file_path = download_file(
+                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/multilingual_vocab.json"
+                )
+            else:
+                vocab_file_path = download_file(
+                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/vocab.json"
+                )
         else:
             vocab_file_path = vocab_file
 

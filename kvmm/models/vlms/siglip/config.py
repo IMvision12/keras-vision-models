@@ -49,9 +49,6 @@ SigLIP_WEIGHTS_CONFIG = {
         "google_256": {
             "url": "",
         },
-        "google_multilingual_256": {
-            "url": "",
-        },
         "google_384": {
             "url": "",
         },

@@ -705,6 +705,11 @@ class SigLIPModel(keras.Model):
             images_input = layers.Input(shape=image_input_shape, name="images")
             token_ids_input = layers.Input(shape=(None,), name="token_ids")
 
+        if "multilingual" in weights:
+            vocab_size = 250000
+        else:
+            vocab_size = vocabulary_size
+
         vision_embeddings = siglip_vision_encoder(
             images_input,
             patch_size=patch_size,
@@ -717,7 +722,7 @@ class SigLIPModel(keras.Model):
 
         text_embeddings = siglip_text_encoder(
             token_ids_input,
-            vocabulary_size=vocabulary_size,
+            vocabulary_size=vocab_size,
             embedding_dim=embed_dim,
             hidden_dim=text_hidden_dim,
             num_layers=text_num_layers,

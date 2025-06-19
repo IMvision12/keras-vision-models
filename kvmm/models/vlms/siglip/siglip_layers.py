@@ -213,53 +213,160 @@ class Probe(layers.Layer):
         return config
 
 
-@keras.saving.register_keras_serializable(package="kvmm")
+@keras.saving.register_keras_serializable(package="siglip")
 class PositionIDs(layers.Layer):
-    """Position ID generation layer for text and vision inputs.
+    """
+    Advanced position IDs layer that can generate both 1D and 2D position indices
+    for vision transformers with support for different grid sizes.
 
-    This layer generates position IDs as a sequence of integers from 0 to max_length-1.
-    The position IDs are stored as a non-trainable weight and can be used for
-    positional encoding in transformer models.
+    This layer can generate:
+    1. Sequential position IDs (0, 1, 2, ..., grid_h * grid_w - 1)
+    2. 2D coordinate-based position IDs with separate height and width indices
 
     Args:
-        max_length (int): Maximum sequence length for position IDs.
+        grid_h (int): Height of the position grid.
+        grid_w (int): Width of the position grid.
+        use_2d_positions (bool): If True, generates 2D position coordinates.
+            If False, generates sequential 1D position indices.
+        name (str, optional): Name of the layer.
         **kwargs: Additional keyword arguments passed to the parent Layer class.
 
-    Attributes:
-        max_length (int): Maximum sequence length.
-        position_ids (Variable): Non-trainable position ID tensor of shape
-                                (1, max_length).
+    Output Shape:
+        - If use_2d_positions=False: `(1, grid_h * grid_w)` with sequential indices
+        - If use_2d_positions=True: `(1, grid_h * grid_w, 2)` with [height, width] coordinates
 
-    Returns:
-        Tensor: Position IDs tensor of shape (1, max_length).
+    Examples:
+        ```python
+        # 1D sequential position IDs for a 2x3 grid
+        pos_layer_1d = PositionIDs(grid_h=2, grid_w=3, use_2d_positions=False)
+        # Output shape: (1, 6) with values [0, 1, 2, 3, 4, 5]
 
-    Example:
-        >>> pos_layer = PositionIDs(max_length=512)
-        >>> position_ids = pos_layer(inputs)  # Shape: (1, 512), values [0, 1, ..., 511]
+        # 2D coordinate-based position IDs for a 2x3 grid
+        pos_layer_2d = PositionIDs(grid_h=2, grid_w=3, use_2d_positions=True)
+        # Output shape: (1, 6, 2) with coordinates:
+        # [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]]
+
+        # Usage in a model
+        inputs = keras.Input(shape=(6, 256))  # 6 patches, 256 dimensions
+        position_ids = PositionIDs(grid_h=2, grid_w=3)(inputs)
+        # position_ids can be used for positional embeddings
+        ```
     """
 
-    def __init__(self, max_length, **kwargs):
-        super().__init__(**kwargs)
-        self.max_length = max_length
+    def __init__(self, grid_h, grid_w, use_2d_positions=False, name=None, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.grid_h = int(grid_h)
+        self.grid_w = int(grid_w)
+        self.use_2d_positions = use_2d_positions
+        self.max_length = self.grid_h * self.grid_w
 
     def build(self, input_shape):
+        if self.use_2d_positions:
+            output_shape = (1, self.max_length, 2)
+        else:
+            output_shape = (1, self.max_length)
+
         self.position_ids = self.add_weight(
-            shape=(1, self.max_length),
+            shape=output_shape,
             initializer="zeros",
             dtype="int32",
             trainable=False,
             name="position_ids",
         )
-        self.position_ids.assign(
-            ops.expand_dims(ops.arange(0, self.max_length), axis=0)
-        )
+
+        self._initialize_position_ids()
+        super().build(input_shape)
+
+    def _initialize_position_ids(self):
+        if self.use_2d_positions:
+            h_coords = ops.repeat(
+                ops.arange(self.grid_h, dtype="int32"), repeats=self.grid_w
+            )
+            w_coords = ops.tile(
+                ops.arange(self.grid_w, dtype="int32"), multiples=[self.grid_h]
+            )
+            coords = ops.stack([h_coords, w_coords], axis=1)
+            coords = ops.expand_dims(coords, axis=0)
+            self.position_ids.assign(coords)
+        else:
+            position_indices = ops.expand_dims(
+                ops.arange(0, self.max_length, dtype="int32"), axis=0
+            )
+            self.position_ids.assign(position_indices)
 
     def call(self, inputs):
         return self.position_ids
 
+    def compute_output_shape(self, input_shape):
+        if self.use_2d_positions:
+            return (1, self.max_length, 2)
+        else:
+            return (1, self.max_length)
+
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        store["grid_h"] = self.grid_h
+        store["grid_w"] = self.grid_w
+        store["use_2d_positions"] = self.use_2d_positions
+        store["max_length"] = self.max_length
+
+    def load_own_variables(self, store):
+        if (
+            "grid_h" in store
+            and "grid_w" in store
+            and "use_2d_positions" in store
+            and "max_length" in store
+        ):
+            source_grid_h = int(store["grid_h"][...])
+            source_grid_w = int(store["grid_w"][...])
+            source_use_2d = bool(store["use_2d_positions"][...])
+            source_max_length = int(store["max_length"][...])
+
+            if (
+                source_grid_h == self.grid_h
+                and source_grid_w == self.grid_w
+                and source_use_2d == self.use_2d_positions
+            ):
+                if "0" in store:
+                    stored_weights = store["0"]
+                    if stored_weights.shape == self.position_ids.shape:
+                        self.position_ids.assign(stored_weights)
+                        return
+
+            self._initialize_position_ids()
+
+        elif "max_length" in store:
+            source_max_length = int(store["max_length"][...])
+            import math
+
+            source_grid_size = int(math.sqrt(source_max_length))
+            source_grid_h = source_grid_w = source_grid_size
+            source_use_2d = False
+
+            if (
+                source_grid_h == self.grid_h
+                and source_grid_w == self.grid_w
+                and source_use_2d == self.use_2d_positions
+            ):
+                if "0" in store:
+                    stored_weights = store["0"]
+                    if stored_weights.shape == self.position_ids.shape:
+                        self.position_ids.assign(stored_weights)
+                        return
+
+            self._initialize_position_ids()
+        else:
+            self._initialize_position_ids()
+
     def get_config(self):
         config = super().get_config()
-        config.update({"max_length": self.max_length})
+        config.update(
+            {
+                "grid_h": self.grid_h,
+                "grid_w": self.grid_w,
+                "use_2d_positions": self.use_2d_positions,
+            }
+        )
         return config
 
 
@@ -302,3 +409,203 @@ class LogitScaleBias(layers.Layer):
     def call(self, similarity_matrix):
         scaled_logits = ops.multiply(similarity_matrix, ops.exp(self.logit_scale))
         return ops.add(scaled_logits, self.logit_bias)
+
+
+@keras.saving.register_keras_serializable(package="siglip")
+class PositionEmbedding(layers.Layer):
+    """
+    Position embedding layer that can handle different grid sizes through interpolation.
+
+    This layer creates learnable position embeddings that can be interpolated to handle
+    different input sizes. It supports both 1D and 2D interpolation modes:
+    - 1D interpolation: Linear interpolation for sequence-based positions
+    - 2D interpolation: Bilinear interpolation for grid-based positions (e.g., image patches)
+
+    The layer automatically detects whether to use 1D or 2D interpolation based on
+    whether the position count forms a perfect square (indicating a 2D grid).
+
+    Args:
+        max_positions (int): Maximum number of positions to embed. For 2D grids,
+            this should be grid_height * grid_width.
+        embedding_dim (int): Dimensionality of the position embeddings.
+        embeddings_initializer (str or keras.initializers.Initializer): Initializer
+            for the embedding weights. Defaults to "random_normal".
+        name (str, optional): Name of the layer.
+        **kwargs: Additional keyword arguments passed to the parent Layer class.
+
+    Input Shape:
+        Position indices tensor of any shape containing integer values in range
+        [0, max_positions). Typically (batch_size, sequence_length) or
+        (batch_size, height, width).
+
+    Output Shape:
+        Same shape as input with an additional dimension of size embedding_dim.
+        If input shape is (..., ), output shape is (..., embedding_dim).
+
+    Attributes:
+        max_positions (int): Maximum number of positions.
+        embedding_dim (int): Dimension of embeddings.
+        embeddings (tf.Variable): Learnable embedding weights of shape
+            (max_positions, embedding_dim).
+
+    Examples:
+        ```python
+        # Basic usage for sequence positions
+        pos_embed = PositionEmbedding(max_positions=100, embedding_dim=256)
+        position_ids = tf.range(10)  # [0, 1, 2, ..., 9]
+        embeddings = pos_embed(position_ids)  # Shape: (10, 256)
+
+        # For 2D grid positions (e.g., 4x4 image patches)
+        pos_embed_2d = PositionEmbedding(max_positions=16, embedding_dim=128)
+        # Position IDs for a 4x4 grid: [0, 1, 2, ..., 15]
+        grid_positions = tf.range(16)
+        grid_embeddings = pos_embed_2d(grid_positions)  # Shape: (16, 128)
+
+        # The layer automatically handles size changes during loading
+        # If trained on 4x4 grid (16 positions) and loaded for 8x8 grid (64 positions),
+        # it will interpolate the embeddings using 2D bilinear interpolation
+
+        # Batch processing
+        batch_positions = tf.constant([[0, 1, 2], [3, 4, 5]])  # Shape: (2, 3)
+        batch_embeddings = pos_embed(batch_positions)  # Shape: (2, 3, 256)
+        ```
+
+    Note:
+        - When loading pretrained weights with different max_positions, the layer
+          automatically interpolates embeddings to match the new size
+        - 2D interpolation is used when both source and target positions form
+          perfect squares (indicating grid layouts)
+        - 1D linear interpolation is used for all other cases
+        - Embedding dimension must match between source and target - no interpolation
+          is performed across the embedding dimension
+    """
+
+    def __init__(
+        self,
+        max_positions,
+        embedding_dim,
+        embeddings_initializer="random_normal",
+        name=None,
+        **kwargs,
+    ):
+        super().__init__(name=name, **kwargs)
+        self.max_positions = max_positions
+        self.embedding_dim = embedding_dim
+        self.embeddings_initializer = embeddings_initializer
+
+    def build(self, input_shape):
+        self.embeddings = self.add_weight(
+            shape=(self.max_positions, self.embedding_dim),
+            initializer=self.embeddings_initializer,
+            trainable=True,
+            name="embeddings",
+        )
+        super().build(input_shape)
+
+    def call(self, inputs):
+        indices = ops.cast(inputs, "int32")
+        return ops.take(self.embeddings, indices, axis=0)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape + (self.embedding_dim,)
+
+    def compute_output_spec(self, input_spec):
+        output_shape = input_spec.shape + (self.embedding_dim,)
+        return keras.KerasTensor(output_shape, dtype=self.compute_dtype)
+
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        store["max_positions"] = self.max_positions
+        store["embedding_dim"] = self.embedding_dim
+
+    def load_own_variables(self, store):
+        try:
+            source_max_positions = int(store["max_positions"][...])
+            source_embedding_dim = int(store["embedding_dim"][...])
+        except (KeyError, TypeError):
+            stored_weights = store["0"]
+            source_max_positions, source_embedding_dim = stored_weights.shape
+
+        stored_embeddings = store["0"]
+
+        if (
+            source_max_positions == self.max_positions
+            and source_embedding_dim == self.embedding_dim
+        ):
+            self.embeddings.assign(stored_embeddings)
+            return
+
+        if source_embedding_dim != self.embedding_dim:
+            raise ValueError(
+                f"Embedding dimension mismatch: expected {self.embedding_dim}, got {source_embedding_dim}"
+            )
+
+        if source_max_positions != self.max_positions:
+            import math
+
+            source_grid_size = int(math.sqrt(source_max_positions))
+            target_grid_size = int(math.sqrt(self.max_positions))
+
+            if (
+                source_grid_size * source_grid_size == source_max_positions
+                and target_grid_size * target_grid_size == self.max_positions
+            ):
+                interpolated = self._interpolate_2d_embeddings(
+                    stored_embeddings,
+                    (source_grid_size, source_grid_size),
+                    (target_grid_size, target_grid_size),
+                )
+            else:
+                interpolated = self._interpolate_1d_embeddings(
+                    stored_embeddings, source_max_positions, self.max_positions
+                )
+
+            self.embeddings.assign(interpolated)
+        else:
+            self.embeddings.assign(stored_embeddings)
+
+    def _interpolate_2d_embeddings(self, embeddings, source_shape, target_shape):
+        source_h, source_w = source_shape
+        target_h, target_w = target_shape
+        embed_dim = embeddings.shape[-1]
+
+        embeddings_2d = ops.reshape(embeddings, (source_h, source_w, embed_dim))
+        embeddings_2d = ops.expand_dims(embeddings_2d, axis=0)
+        interpolated = ops.image.resize(
+            embeddings_2d, size=(target_h, target_w), interpolation="bilinear"
+        )
+        interpolated = ops.squeeze(interpolated, axis=0)
+        interpolated = ops.reshape(interpolated, (target_h * target_w, embed_dim))
+
+        return interpolated
+
+    def _interpolate_1d_embeddings(self, embeddings, source_length, target_length):
+        if source_length == target_length:
+            return embeddings
+
+        source_indices = ops.linspace(0.0, float(source_length - 1), target_length)
+        source_indices_int = ops.cast(ops.floor(source_indices), "int32")
+        source_indices_frac = source_indices - ops.cast(source_indices_int, "float32")
+        source_indices_int = ops.clip(source_indices_int, 0, source_length - 2)
+        source_indices_int_next = ops.clip(source_indices_int + 1, 0, source_length - 1)
+        embeddings_curr = ops.take(embeddings, source_indices_int, axis=0)
+        embeddings_next = ops.take(embeddings, source_indices_int_next, axis=0)
+        source_indices_frac = ops.expand_dims(source_indices_frac, axis=1)
+        interpolated = embeddings_curr + source_indices_frac * (
+            embeddings_next - embeddings_curr
+        )
+
+        return interpolated
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "max_positions": self.max_positions,
+                "embedding_dim": self.embedding_dim,
+                "embeddings_initializer": keras.utils.serialize_keras_object(
+                    self.embeddings_initializer
+                ),
+            }
+        )
+        return config

@@ -5,7 +5,13 @@ from kvmm.model_registry import register_model
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import SigLIP_MODEL_CONFIG, SigLIP_WEIGHTS_CONFIG
-from .siglip_layers import LogitScaleBias, PositionIDs, Probe, SigLIPAttention
+from .siglip_layers import (
+    LogitScaleBias,
+    PositionEmbedding,
+    PositionIDs,
+    Probe,
+    SigLIPAttention,
+)
 
 
 def siglip_encoder(
@@ -200,6 +206,7 @@ def siglip_vision_embedding(
     """
 
     num_positions = (image_size // patch_size) ** 2
+    num_patches_per_side = image_size // patch_size
 
     patch_embeddings = layers.Conv2D(
         hidden_dim,
@@ -222,11 +229,16 @@ def siglip_vision_embedding(
             (2, 1),
         )(patch_embeddings)
 
-    position_ids = PositionIDs(num_positions, name=f"{name}_position_ids")(inputs)
+    position_ids = PositionIDs(
+        grid_h=num_patches_per_side,
+        grid_w=num_patches_per_side,
+        use_2d_positions=False,
+        name=f"{name}_position_ids",
+    )(inputs)
 
-    position_embeddings = layers.Embedding(
-        num_positions,
-        hidden_dim,
+    position_embeddings = PositionEmbedding(
+        max_positions=num_positions,
+        embedding_dim=hidden_dim,
         embeddings_initializer=initializers.RandomNormal(
             stddev=1.0 / ops.sqrt(hidden_dim)
         ),
@@ -383,13 +395,17 @@ def siglip_text_embedding(
         name=f"{name}_token_embedding",
     )(inputs)
 
-    position_ids = PositionIDs(sequence_length, name=f"{name}_position_ids")(inputs)
+    position_ids = PositionIDs(
+        grid_h=1,
+        grid_w=sequence_length,
+        use_2d_positions=False,
+        name=f"{name}_position_ids",
+    )(inputs)
 
-    embedded_positions = layers.Embedding(
-        sequence_length,
-        embedding_dim,
+    embedded_positions = PositionEmbedding(
+        max_positions=sequence_length,
+        embedding_dim=embedding_dim,
         embeddings_initializer=embeddings_initializer,
-        mask_zero=mask_zero,
         name=f"{name}_position_embedding",
     )(position_ids)
 

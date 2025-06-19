@@ -719,7 +719,6 @@ class SigLIPModel(keras.Model):
             num_layers=vision_num_layers,
             num_heads=vision_num_heads,
             intermediate_dim=vision_intermediate_dim,
-            max_sequence_length=max_sequence_length,
             data_format=data_format,
         )
 
@@ -731,6 +730,7 @@ class SigLIPModel(keras.Model):
             num_layers=text_num_layers,
             num_heads=text_num_heads,
             intermediate_dim=text_intermediate_dim,
+            max_sequence_length=max_sequence_length,
         )
 
         # Apply projection head

@@ -4,14 +4,13 @@ import keras
 from keras import ops
 
 
-
 @keras.saving.register_keras_serializable(package="kvmm")
 class SigLIPImageProcessor(keras.layers.Layer):
     """
     Image processor for SigLIP (Sigmoid Loss for Language Image Pre-training) models.
     This processor handles various preprocessing steps for images to be used with SigLIP models,
     including resizing, center cropping, and normalization.
-    
+
     Attributes:
         image_resolution (int): Target resolution for the processed images.
         mean (keras.ops.Tensor): Mean values for RGB channels used in normalization.
@@ -19,41 +18,41 @@ class SigLIPImageProcessor(keras.layers.Layer):
         do_center_crop (bool): Whether to perform center cropping.
         do_normalize (bool): Whether to normalize the image using mean and std values.
         do_resize (bool): Whether to resize the image to the target resolution.
-    
+
     Examples:
         Basic usage with an image tensor:
         ```python
         import keras
         from keras import ops
-        
+
         # Create the processor
         processor = SigLIPImageProcessor(image_resolution=224)
-        
+
         # Process a single image
         image = keras.utils.load_img("path/to/image.jpg")
         image_array = keras.utils.img_to_array(image)
         result = processor(image_array)
         processed_image = result["images"]  # Shape: (1, 224, 224, 3)
-        
+
         # Process a batch of images
         batch_size = 4
         random_images = ops.random.uniform((batch_size, 256, 256, 3))
         result = processor(random_images)
         processed_batch = result["images"]  # Shape: (4, 224, 224, 3)
         ```
-        
+
         Process images from file paths:
         ```python
         # Process a single image path
         result = processor(image_paths="path/to/image.jpg")
         processed_image = result["images"]  # Shape: (1, 224, 224, 3)
-        
+
         # Process multiple image paths
         image_paths = ["path/to/image1.jpg", "path/to/image2.jpg", "path/to/image3.jpg"]
         result = processor(image_paths=image_paths)
         processed_images = result["images"]  # Shape: (3, 224, 224, 3)
         ```
-        
+
         Custom processing configuration:
         ```python
         # Create processor with custom settings
@@ -63,7 +62,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
             std=[0.5, 0.5, 0.5],
             do_center_crop=False,  # Skip center cropping
         )
-        
+
         # Use with SigLIP model
         siglip_model = load_siglip_model()
         image = keras.utils.load_img("path/to/image.jpg")
@@ -71,7 +70,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
         processed = custom_processor(image_array)
         image_features = siglip_model(processed)
         ```
-        
+
         Integration with image augmentation:
         ```python
         # Define augmentation layer
@@ -80,22 +79,22 @@ class SigLIPImageProcessor(keras.layers.Layer):
             keras.layers.RandomRotation(0.1),
             keras.layers.RandomZoom(0.1),
         ])
-        
+
         # Apply augmentation before SigLIP processing
         image = keras.utils.load_img("path/to/image.jpg")
         image_array = keras.utils.img_to_array(image)
         image_array = image_array / 255.0  # Normalize to [0,1]
-        
+
         # Augment and add batch dimension
         augmented = augmentation(ops.expand_dims(image_array, 0))
-        
+
         # Process augmented image
         processor = SigLIPImageProcessor()
         result = processor(augmented)
         processed_image = result["images"]
         ```
     """
-    
+
     def __init__(
         self,
         image_resolution: int = 224,
@@ -156,9 +155,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
         left = (width - self.image_resolution) // 2
 
         cropped = ops.slice(
-            image,
-            [top, left, 0],
-            [self.image_resolution, self.image_resolution, 3]
+            image, [top, left, 0], [self.image_resolution, self.image_resolution, 3]
         )
 
         return cropped
@@ -205,12 +202,16 @@ class SigLIPImageProcessor(keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "image_resolution": self.image_resolution,
-            "mean": self.mean.tolist() if hasattr(self.mean, 'tolist') else self.mean,
-            "std": self.std.tolist() if hasattr(self.std, 'tolist') else self.std,
-            "do_center_crop": self.do_center_crop,
-            "do_normalize": self.do_normalize,
-            "do_resize": self.do_resize,
-        })
+        config.update(
+            {
+                "image_resolution": self.image_resolution,
+                "mean": self.mean.tolist()
+                if hasattr(self.mean, "tolist")
+                else self.mean,
+                "std": self.std.tolist() if hasattr(self.std, "tolist") else self.std,
+                "do_center_crop": self.do_center_crop,
+                "do_normalize": self.do_normalize,
+                "do_resize": self.do_resize,
+            }
+        )
         return config

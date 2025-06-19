@@ -1,9 +1,10 @@
+import re
 from typing import Dict
+
 import keras
 import torch
 from tqdm import tqdm
 from transformers import SiglipModel
-import re
 
 from kvmm.models import siglip
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
@@ -18,17 +19,17 @@ weight_name_mapping = {
     "_": ".",
     "vision.model": "vision_model",
     "text.model": "text_model",
-    "patch.embedding.conv":"patch_embedding",
+    "patch.embedding.conv": "patch_embedding",
     "position.embedding.embeddings": "position_embedding.weight",
-    "token.embedding.embeddings":"token_embedding.weight",
-    "text_model.post_layernorm":"text_model.final_layer_norm",
-    "layernorm.1":"layer_norm1",
-    "layernorm.2":"layer_norm2",
-    "dense.1":"mlp.fc1",
-    "dense.2":"mlp.fc2",
-    "vision_model.final.layernorm":"vision_model.post_layernorm",
-    "text_model.final.layernorm":"text_model.final_layer_norm",
-    "probe.probe":"probe",
+    "token.embedding.embeddings": "token_embedding.weight",
+    "text_model.post_layernorm": "text_model.final_layer_norm",
+    "layernorm.1": "layer_norm1",
+    "layernorm.2": "layer_norm2",
+    "dense.1": "mlp.fc1",
+    "dense.2": "mlp.fc2",
+    "vision_model.final.layernorm": "vision_model.post_layernorm",
+    "text_model.final.layernorm": "text_model.final_layer_norm",
+    "probe.probe": "probe",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
@@ -36,22 +37,22 @@ weight_name_mapping = {
 }
 
 attn_name_replace = {
-    "_":".",
-    "self.attn":"self_attn",
+    "_": ".",
+    "self.attn": "self_attn",
     "vision.model": "vision_model",
     "text.model": "text_model",
-    "in.proj":"in_proj",
-    "out.proj":"out_proj",
-    "q.proj":"q_proj",
-    "k.proj":"k_proj",
-    "v.proj":"v_proj",
+    "in.proj": "in_proj",
+    "out.proj": "out_proj",
+    "q.proj": "q_proj",
+    "k.proj": "k_proj",
+    "v.proj": "v_proj",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
     "bias": "bias",
 }
 
-keras_model: keras.Model = siglip.SigLIPBaseP16(weights=None, input_shape=(224,224,3))
+keras_model: keras.Model = siglip.SigLIPBaseP16(weights=None, input_shape=(224, 224, 3))
 torch_model: torch.nn.Module = SiglipModel.from_pretrained(
     "google/siglip-base-patch16-224"
 ).eval()
@@ -78,7 +79,11 @@ for keras_weight, keras_weight_name in tqdm(
     if "attention" in torch_weight_name:
         if "in_proj" in keras_weight.path:
             if "kernel" in keras_weight.path:
-                torch_in_proj_weight = torch_model.vision_model.head.attention.in_proj_weight.detach().numpy().T
+                torch_in_proj_weight = (
+                    torch_model.vision_model.head.attention.in_proj_weight.detach()
+                    .numpy()
+                    .T
+                )
                 keras_weight.assign(torch_in_proj_weight)
             else:
                 torch_in_proj_bias = torch_model.vision_model.head.attention.in_proj_bias.detach().numpy()
@@ -96,18 +101,26 @@ for keras_weight, keras_weight_name in tqdm(
 
     if "logit" in torch_weight_name:
         if torch_weight_name.split(".")[-1] == "scale":
-            torch_weight_name = re.sub(r"logit.scale.bias.\d+.logit.scale", "logit_scale", torch_weight_name)
+            torch_weight_name = re.sub(
+                r"logit.scale.bias.\d+.logit.scale", "logit_scale", torch_weight_name
+            )
             keras_weight.assign(torch_model.logit_scale[0].detach().cpu().numpy())
         else:
-            torch_weight_name = re.sub(r"logit.bias.\d+.logit.bias", "logit_bias", torch_weight_name)
+            torch_weight_name = re.sub(
+                r"logit.bias.\d+.logit.bias", "logit_bias", torch_weight_name
+            )
             keras_weight.assign(torch_model.logit_bias[0].detach().cpu().numpy())
         continue
 
     if "position.ids" in torch_weight_name:
         if "vision_model" in torch_weight_name:
-            keras_weight.assign(torch_model.vision_model.embeddings.position_ids.detach().cpu().numpy())
+            keras_weight.assign(
+                torch_model.vision_model.embeddings.position_ids.detach().cpu().numpy()
+            )
         elif "text_model" in torch_weight_name:
-            keras_weight.assign(torch_model.text_model.embeddings.position_ids.detach().cpu().numpy())
+            keras_weight.assign(
+                torch_model.text_model.embeddings.position_ids.detach().cpu().numpy()
+            )
         continue
 
     if "head.attention" in torch_weight_name:

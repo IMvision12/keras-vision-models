@@ -508,7 +508,7 @@ def siglip_head(vision_embedding, text_embedding):
 
     Returns:
         tuple: A tuple containing:
-            - vision_logits: Tensor of shape (batch_size, batch_size) representing
+            - image_logits: Tensor of shape (batch_size, batch_size) representing
                            similarity scores from vision to text perspective.
             - text_logits: Tensor of shape (batch_size, batch_size) representing
                           similarity scores from text to vision perspective.
@@ -533,9 +533,9 @@ def siglip_head(vision_embedding, text_embedding):
     similarity_matrix = ops.matmul(norm_text, ops.transpose(norm_vision))
 
     text_logits = LogitScaleBias()(similarity_matrix)
-    vision_logits = ops.transpose(text_logits)
+    image_logits = ops.transpose(text_logits)
 
-    return vision_logits, text_logits
+    return image_logits, text_logits
 
 
 @keras.saving.register_keras_serializable(package="kvmm")
@@ -590,7 +590,7 @@ class SigLIPModel(keras.Model):
 
     Outputs:
         Dictionary containing:
-        - "vision_logits": Similarity logits from vision perspective, shape (batch_size, batch_size)
+        - "image_logits": Similarity logits from vision perspective, shape (batch_size, batch_size)
         - "text_logits": Similarity logits from text perspective, shape (batch_size, batch_size)
 
     Example:
@@ -611,7 +611,7 @@ class SigLIPModel(keras.Model):
         >>>
         >>> # Forward pass
         >>> outputs = model(inputs)
-        >>> print(outputs["vision_logits"].shape)  # (8, 8)
+        >>> print(outputs["image_logits"].shape)  # (8, 8)
         >>> print(outputs["text_logits"].shape)    # (8, 8)
 
     Note:
@@ -710,10 +710,10 @@ class SigLIPModel(keras.Model):
         )
 
         # Apply projection head
-        vision_logits, text_logits = siglip_head(vision_embeddings, text_embeddings)
+        image_logits, text_logits = siglip_head(vision_embeddings, text_embeddings)
 
         outputs = {
-            "vision_logits": vision_logits,
+            "image_logits": image_logits,
             "text_logits": text_logits,
         }
 

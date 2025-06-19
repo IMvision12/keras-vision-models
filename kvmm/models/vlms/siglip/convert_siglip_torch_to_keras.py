@@ -139,3 +139,8 @@ for keras_weight, keras_weight_name in tqdm(
         )
 
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+
+# Save the model
+weight_name = f"{keras_model.name.lower()}_{list(siglip.config.SigLIP_WEIGHTS_CONFIG[keras_model.name].keys())[0]}.weights.h5"
+keras_model.save_weights(weight_name)  # use max_shard_size if >2GB

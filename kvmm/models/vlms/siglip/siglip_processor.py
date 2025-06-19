@@ -120,7 +120,7 @@ class SigLIPProcessor(keras.layers.Layer):
 
         if vocab_file is None:
             vocab_file_path = download_file(
-                "https://github.com/IMvision12/keras-vision-models/releases/download/siglip/vocab.json"
+                "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/vocab.json"
             )
         else:
             vocab_file_path = vocab_file

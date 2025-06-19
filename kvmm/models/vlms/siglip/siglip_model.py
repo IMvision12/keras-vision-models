@@ -650,6 +650,7 @@ class SigLIPModel(keras.Model):
         text_num_layers=12,
         text_num_heads=12,
         text_intermediate_dim=3072,
+        max_sequence_length=64,
         input_tensor=None,
         weights="google_224",
         name="SigLIPModel",
@@ -705,12 +706,11 @@ class SigLIPModel(keras.Model):
             images_input = layers.Input(shape=image_input_shape, name="images")
             token_ids_input = layers.Input(shape=(None,), name="token_ids")
 
-        vocab_size = vocabulary_size 
+        vocab_size = vocabulary_size
 
         if weights:
             if "multilingual" in weights:
                 vocab_size = 250000
-
 
         vision_embeddings = siglip_vision_encoder(
             images_input,
@@ -719,6 +719,7 @@ class SigLIPModel(keras.Model):
             num_layers=vision_num_layers,
             num_heads=vision_num_heads,
             intermediate_dim=vision_intermediate_dim,
+            max_sequence_length=max_sequence_length,
             data_format=data_format,
         )
 
@@ -759,6 +760,7 @@ class SigLIPModel(keras.Model):
         self.text_num_layers = text_num_layers
         self.text_num_heads = text_num_heads
         self.text_intermediate_dim = text_intermediate_dim
+        self.max_sequence_length = max_sequence_length
         self.input_tensor = input_tensor
 
     def get_config(self):
@@ -784,6 +786,7 @@ class SigLIPModel(keras.Model):
                 "text_num_layers": self.text_num_layers,
                 "text_num_heads": self.text_num_heads,
                 "text_intermediate_dim": self.text_intermediate_dim,
+                "max_sequence_length": self.max_sequence_length,
                 "input_tensor": self.input_tensor,
                 "name": self.name,
                 "trainable": self.trainable,

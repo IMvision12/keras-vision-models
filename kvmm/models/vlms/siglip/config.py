@@ -11,6 +11,7 @@ SigLIP_MODEL_CONFIG = {
         "text_num_layers": 12,
         "text_num_heads": 12,
         "text_intermediate_dim": 3072,
+        "max_sequence_length": 64,
     },
     "SigLIPLargeP16": {
         "patch_size": 16,
@@ -24,6 +25,7 @@ SigLIP_MODEL_CONFIG = {
         "text_num_layers": 24,
         "text_num_heads": 16,
         "text_intermediate_dim": 4096,
+        "max_sequence_length": 64,
     },
     "SigLIPSo400mP14": {
         "patch_size": 14,
@@ -37,6 +39,7 @@ SigLIP_MODEL_CONFIG = {
         "text_num_layers": 27,
         "text_num_heads": 16,
         "text_intermediate_dim": 4304,
+        "max_sequence_length": 16,
     },
 }
 

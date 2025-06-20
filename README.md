@@ -209,7 +209,7 @@ import kvmm
 processor = kvmm.models.clip.CLIPProcessor()
 model = kvmm.models.clip.ClipVitBase16(
     weights="openai_224",
-    input_shape=(224, 224, 3),
+    input_shape=(224, 224, 3), # You can fine-tune or infer with variable size 
 )
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
 output = model(
@@ -291,6 +291,7 @@ Prediction probabilities:
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | CLIP | [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020) | `transformers`|
+    | SigLIP | [Sigmoid Loss for Language Image Pre-Training](https://arxiv.org/abs/2303.15343) | `transformers`|
   
 ## 📜 License
 

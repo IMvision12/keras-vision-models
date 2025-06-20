@@ -33,4 +33,4 @@ from kvmm.models.backbones import (
     xception,
 )
 from kvmm.models.segmentation import segformer
-from kvmm.models.vlms import clip
+from kvmm.models.vlms import clip, siglip

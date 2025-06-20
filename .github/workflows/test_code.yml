@@ -1,11 +1,50 @@
-name: Tests
+name: Manual Tests
 on:
-  pull_request:
-  release:
+  issue_comment:
     types: [created]
+
 jobs:
+  check-command:
+    # Only run on pull request comments
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/run@')
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+      pr-ref: ${{ steps.pr-info.outputs.ref }}
+      pr-sha: ${{ steps.pr-info.outputs.sha }}
+    steps:
+      - name: Check if comment contains /run@
+        id: check
+        run: |
+          if [[ "${{ github.event.comment.body }}" == "/run@"* ]]; then
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Get PR info
+        id: pr-info
+        if: steps.check.outputs.should-run == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr_number="${{ github.event.issue.number }}"
+          pr_info=$(gh api repos/${{ github.repository }}/pulls/$pr_number)
+          echo "ref=$(echo "$pr_info" | jq -r .head.ref)" >> $GITHUB_OUTPUT
+          echo "sha=$(echo "$pr_info" | jq -r .head.sha)" >> $GITHUB_OUTPUT
+      
+      - name: Add reaction to comment
+        if: steps.check.outputs.should-run == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            --method POST \
+            --field content="+1"
 
   test-matrix-backend:
+    needs: check-command
+    if: needs.check-command.outputs.should-run == 'true'
     name: Test the code (${{ matrix.backend }})
     runs-on: ubuntu-latest
     strategy:
@@ -17,7 +56,10 @@ jobs:
       KERAS_BACKEND: ${{ matrix.backend }}
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.check-command.outputs.pr-sha }}
       
       - name: Set up Python 3.11
         uses: actions/setup-python@v5

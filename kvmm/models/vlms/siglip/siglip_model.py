@@ -323,7 +323,7 @@ def siglip_vision_encoder(
         patch_size=patch_size,
         image_size=height,
         data_format=data_format,
-        name=f"vision_model_embeddings",
+        name="vision_model_embeddings",
     )
     for i in range(num_layers):
         x = siglip_encoder(
@@ -335,7 +335,7 @@ def siglip_vision_encoder(
             name=f"vision_model_encoder_layers_{i}",
         )
     x = layers.LayerNormalization(
-        epsilon=layer_norm_epsilon, name=f"vision_model_final_layernorm"
+        epsilon=layer_norm_epsilon, name="vision_model_final_layernorm"
     )(x)
     x = siglip_attention_pooling(
         x,
@@ -343,7 +343,7 @@ def siglip_vision_encoder(
         intermediate_dim,
         num_heads,
         layer_norm_epsilon,
-        name=f"vision_model_head",
+        name="vision_model_head",
     )
 
     return x
@@ -477,7 +477,7 @@ def siglip_text_encoder(
         vocabulary_size=vocabulary_size,
         sequence_length=max_sequence_length,
         embedding_dim=embedding_dim,
-        name=f"text_model_embeddings",
+        name="text_model_embeddings",
     )
 
     for i in range(num_layers):
@@ -492,14 +492,14 @@ def siglip_text_encoder(
 
     x = layers.LayerNormalization(
         epsilon=layer_norm_epsilon,
-        name=f"text_model_final_layernorm",
+        name="text_model_final_layernorm",
     )(x)
 
     x = x[:, -1, :]
     outputs = layers.Dense(
         projection_dim,
         kernel_initializer=initializers.LecunNormal(),
-        name=f"text_model_head",
+        name="text_model_head",
     )(x)
 
     return outputs

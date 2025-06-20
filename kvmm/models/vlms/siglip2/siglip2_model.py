@@ -14,7 +14,7 @@ def SigLIP2BaseP16(
 ):
 
     model = SigLIPModel(
-        SigLIP2_MODEL_CONFIG["SigLIP2BaseP16"],
+        **SigLIP2_MODEL_CONFIG["SigLIP2BaseP16"],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,
@@ -42,7 +42,7 @@ def SigLIP2BaseP32(
 ):
 
     model = SigLIPModel(
-        SigLIP2_MODEL_CONFIG["SigLIP2BaseP32"],
+        **SigLIP2_MODEL_CONFIG["SigLIP2BaseP32"],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,
@@ -70,7 +70,7 @@ def SigLIP2GiantP16(
 ):
 
     model = SigLIPModel(
-        SigLIP2_MODEL_CONFIG["SigLIP2GiantP16"],
+        **SigLIP2_MODEL_CONFIG["SigLIP2GiantP16"],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,
@@ -97,7 +97,7 @@ def SigLIP2LargeP16(
 ):
 
     model = SigLIPModel(
-        SigLIP2_MODEL_CONFIG["SigLIP2LargeP16"],
+        **SigLIP2_MODEL_CONFIG["SigLIP2LargeP16"],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,
@@ -125,7 +125,7 @@ def SigLIP2So400mP14(
 ):
 
     model = SigLIPModel(
-        SigLIP2_MODEL_CONFIG["SigLIP2So400mP14"],
+        **SigLIP2_MODEL_CONFIG["SigLIP2So400mP14"],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,
@@ -153,7 +153,7 @@ def SigLIP2So400mP16(
 ):
 
     model = SigLIPModel(
-        SigLIP2_MODEL_CONFIG["SigLIP2So400mP16"],
+        **SigLIP2_MODEL_CONFIG["SigLIP2So400mP16"],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=name,

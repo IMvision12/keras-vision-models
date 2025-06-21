@@ -213,6 +213,7 @@ class Probe(layers.Layer):
         return config
 
 
+@keras.saving.register_keras_serializable(package="siglip")
 class PositionIDs(layers.Layer):
     """
     Advanced position IDs layer that can generate both 1D and 2D position indices
@@ -326,14 +327,8 @@ class PositionIDs(layers.Layer):
                 and source_grid_w == self.grid_w
                 and source_use_2d == self.use_2d_positions
             ):
-                weight_key = None
-                for key in ["0", 0]:
-                    if key in store:
-                        weight_key = key
-                        break
-
-                if weight_key is not None:
-                    stored_weights = store[weight_key]
+                if "0" in store:
+                    stored_weights = store["0"]
                     if stored_weights.shape == self.position_ids.shape:
                         self.position_ids.assign(stored_weights)
                         return
@@ -353,14 +348,8 @@ class PositionIDs(layers.Layer):
                 and source_grid_w == self.grid_w
                 and source_use_2d == self.use_2d_positions
             ):
-                weight_key = None
-                for key in ["0", 0]:
-                    if key in store:
-                        weight_key = key
-                        break
-
-                if weight_key is not None:
-                    stored_weights = store[weight_key]
+                if "0" in store:
+                    stored_weights = store["0"]
                     if stored_weights.shape == self.position_ids.shape:
                         self.position_ids.assign(stored_weights)
                         return

@@ -3,8 +3,8 @@ import string
 from typing import Dict, List, Optional, Union
 
 import keras
-from keras import ops
 import sentencepiece as spm
+from keras import ops
 
 
 @keras.saving.register_keras_serializable(package="kvmm")
@@ -75,6 +75,7 @@ class SigLIPTokenizer(keras.Layer):
         with other vision-language models. The greedy tokenization approach differs from
         BPE-based tokenizers used in models like CLIP.
     """
+
     def __init__(
         self,
         vocab_file: str,
@@ -97,8 +98,14 @@ class SigLIPTokenizer(keras.Layer):
         self.sp_model = spm.SentencePieceProcessor()
         self.sp_model.load(vocab_file)
 
-        self.encoder = {self.sp_model.id_to_piece(i): i for i in range(self.sp_model.get_piece_size())}
-        self.decoder = {i: self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())}
+        self.encoder = {
+            self.sp_model.id_to_piece(i): i
+            for i in range(self.sp_model.get_piece_size())
+        }
+        self.decoder = {
+            i: self.sp_model.id_to_piece(i)
+            for i in range(self.sp_model.get_piece_size())
+        }
 
         self.unk_token_id = self.sp_model.piece_to_id(self.unk_token)
         self.pad_token_id = self.sp_model.piece_to_id(self.pad_token)
@@ -111,14 +118,22 @@ class SigLIPTokenizer(keras.Layer):
 
     def _build_subword_vocab(self):
         self.sorted_tokens = sorted(
-            [self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size()) if not self.sp_model.id_to_piece(i).startswith("<")],
+            [
+                self.sp_model.id_to_piece(i)
+                for i in range(self.sp_model.get_piece_size())
+                if not self.sp_model.id_to_piece(i).startswith("<")
+            ],
             key=len,
             reverse=True,
         )
-        self.token_set = set(self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size()))
+        self.token_set = set(
+            self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
+        )
 
     def _build_token_lookup_tensors(self):
-        vocab_keys = [self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())]
+        vocab_keys = [
+            self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
+        ]
         vocab_values = list(range(self.sp_model.get_piece_size()))
 
         self.vocab_keys_tensor = ops.convert_to_tensor(vocab_keys, dtype="string")

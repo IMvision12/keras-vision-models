@@ -21,7 +21,7 @@ class SigLIPTokenizer(keras.Layer):
     a longest-match-first approach for tokenization.
 
     Args:
-        model_file (str): Path to the SentencePiece model file (.model format)
+        vocab_file (str): Path to the SentencePiece model file (.model format)
         context_length (int, optional): Maximum context length for padding/truncation. Defaults to 64.
         do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing. Defaults to True.
         unk_token (str, optional): Token for unknown/out-of-vocabulary words. Defaults to "<unk>".
@@ -47,7 +47,7 @@ class SigLIPTokenizer(keras.Layer):
     Example usage:
         # Initialize the tokenizer with SentencePiece model file
         tokenizer = SigLIPTokenizer(
-            model_file="path/to/tokenizer.model",
+            vocab_file="path/to/vocab.model",
             context_length=64,
             do_lower_case=True
         )
@@ -77,7 +77,7 @@ class SigLIPTokenizer(keras.Layer):
     """
     def __init__(
         self,
-        model_file: str,
+        vocab_file: str,
         context_length: int = 64,
         do_lower_case: bool = True,
         unk_token: str = "<unk>",
@@ -86,7 +86,7 @@ class SigLIPTokenizer(keras.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.model_file = model_file
+        self.model_file = vocab_file
         self.context_length = context_length
         self.do_lower_case = do_lower_case
 
@@ -95,7 +95,7 @@ class SigLIPTokenizer(keras.Layer):
         self.eos_token = eos_token
 
         self.sp_model = spm.SentencePieceProcessor()
-        self.sp_model.load(model_file)
+        self.sp_model.load(vocab_file)
 
         self.encoder = {self.sp_model.id_to_piece(i): i for i in range(self.sp_model.get_piece_size())}
         self.decoder = {i: self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())}
@@ -307,7 +307,7 @@ class SigLIPTokenizer(keras.Layer):
         config = super().get_config()
         config.update(
             {
-                "model_file": self.model_file,
+                "vocab_file": self.vocab_file,
                 "context_length": self.context_length,
                 "do_lower_case": self.do_lower_case,
                 "unk_token": self.unk_token,

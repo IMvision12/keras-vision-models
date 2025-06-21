@@ -97,6 +97,9 @@ SigLIP2_WEIGHTS_CONFIG = {
         "google_384": {
             "url": "",
         },
+        "google_512": {
+            "url": "",
+        },
     },
     "SigLIP2BaseP32": {
         "google_256": {

@@ -9,6 +9,72 @@ import sentencepiece as spm
 
 @keras.saving.register_keras_serializable(package="kvmm")
 class SigLIPTokenizer(keras.Layer):
+    """
+    SigLIP Tokenizer Implementation for Keras
+
+    This module provides a Keras-based implementation of the SigLIP tokenizer used in Google's
+    SigLIP (Sigmoid Loss for Language Image Pre-training) model. The tokenizer converts text into
+    token IDs that can be processed by the SigLIP text encoder.
+
+    The tokenizer implements greedy subword tokenization with SentencePiece-style preprocessing,
+    including text canonicalization, punctuation removal, and special token handling. It uses
+    a longest-match-first approach for tokenization.
+
+    Args:
+        model_file (str): Path to the SentencePiece model file (.model format)
+        context_length (int, optional): Maximum context length for padding/truncation. Defaults to 64.
+        do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing. Defaults to True.
+        unk_token (str, optional): Token for unknown/out-of-vocabulary words. Defaults to "<unk>".
+        pad_token (str, optional): Padding token used for sequence padding. Defaults to "</s>".
+        eos_token (str, optional): End of sequence token. Defaults to "</s>".
+
+    Key features:
+    - Greedy longest-match-first subword tokenization
+    - SentencePiece-style text preprocessing with underline prefix
+    - Text canonicalization including punctuation removal and whitespace normalization
+    - Support for special tokens (UNK, PAD, EOS)
+    - Configurable case sensitivity
+    - Integration with Keras as a layer for seamless use in neural network pipelines
+    - Tensor-based operations for efficient batch processing
+
+    Text preprocessing pipeline:
+    1. Canonicalize text (remove punctuation, normalize whitespace)
+    2. Apply lowercase conversion if enabled
+    3. Add SentencePiece underline prefix
+    4. Perform greedy tokenization using longest-match-first strategy
+    5. Handle unknown characters with UNK token
+
+    Example usage:
+        # Initialize the tokenizer with SentencePiece model file
+        tokenizer = SigLIPTokenizer(
+            model_file="path/to/tokenizer.model",
+            context_length=64,
+            do_lower_case=True
+        )
+
+        # Tokenize and encode a single text
+        text = "A photo of a cat"
+        encoded = tokenizer(text)
+
+        # Tokenize a batch of texts
+        texts = ["A photo of a cat", "A painting of a dog"]
+        batch_encoded = tokenizer(texts)
+
+        # Decode token IDs back to text
+        token_ids = encoded["input_ids"][0]
+        decoded_text = tokenizer.decode(token_ids.numpy())
+
+        # Get sequence lengths (excluding padding)
+        lengths = tokenizer.get_sequence_length(encoded["input_ids"])
+
+        # Batch decode multiple sequences
+        decoded_texts = tokenizer.batch_decode(encoded["input_ids"])
+
+    Note:
+        This tokenizer is specifically designed for SigLIP models and may not be compatible
+        with other vision-language models. The greedy tokenization approach differs from
+        BPE-based tokenizers used in models like CLIP.
+    """
     def __init__(
         self,
         model_file: str,

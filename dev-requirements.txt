@@ -7,3 +7,4 @@ timm
 transformers
 accelerate
 pytest
+sentencepiece 

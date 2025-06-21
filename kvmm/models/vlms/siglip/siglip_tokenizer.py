@@ -1,9 +1,9 @@
-import json
 import re
 import string
 from typing import Dict, List, Optional, Union
 
 import keras
+import sentencepiece as spm
 from keras import ops
 
 
@@ -21,7 +21,7 @@ class SigLIPTokenizer(keras.Layer):
     a longest-match-first approach for tokenization.
 
     Args:
-        vocab_file (str): Path to the vocabulary JSON file containing token-to-ID mappings
+        vocab_file (str): Path to the SentencePiece model file (.model format)
         context_length (int, optional): Maximum context length for padding/truncation. Defaults to 64.
         do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing. Defaults to True.
         unk_token (str, optional): Token for unknown/out-of-vocabulary words. Defaults to "<unk>".
@@ -45,9 +45,9 @@ class SigLIPTokenizer(keras.Layer):
     5. Handle unknown characters with UNK token
 
     Example usage:
-        # Initialize the tokenizer with vocabulary file
+        # Initialize the tokenizer with SentencePiece model file
         tokenizer = SigLIPTokenizer(
-            vocab_file="path/to/vocab.json",
+            vocab_file="path/to/vocab.model",
             context_length=64,
             do_lower_case=True
         )
@@ -87,6 +87,7 @@ class SigLIPTokenizer(keras.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.model_file = vocab_file
         self.context_length = context_length
         self.do_lower_case = do_lower_case
 
@@ -94,13 +95,21 @@ class SigLIPTokenizer(keras.Layer):
         self.pad_token = pad_token
         self.eos_token = eos_token
 
-        with open(vocab_file, "r", encoding="utf-8") as f:
-            self.encoder = json.load(f)
-        self.decoder = {v: k for k, v in self.encoder.items()}
+        self.sp_model = spm.SentencePieceProcessor()
+        self.sp_model.load(vocab_file)
 
-        self.unk_token_id = self.encoder.get(self.unk_token, 0)
-        self.pad_token_id = self.encoder.get(self.pad_token, 1)
-        self.eos_token_id = self.encoder.get(self.eos_token, 1)
+        self.encoder = {
+            self.sp_model.id_to_piece(i): i
+            for i in range(self.sp_model.get_piece_size())
+        }
+        self.decoder = {
+            i: self.sp_model.id_to_piece(i)
+            for i in range(self.sp_model.get_piece_size())
+        }
+
+        self.unk_token_id = self.sp_model.piece_to_id(self.unk_token)
+        self.pad_token_id = self.sp_model.piece_to_id(self.pad_token)
+        self.eos_token_id = self.sp_model.piece_to_id(self.eos_token)
 
         self.spiece_underline = "▁"
         self._build_subword_vocab()
@@ -109,15 +118,23 @@ class SigLIPTokenizer(keras.Layer):
 
     def _build_subword_vocab(self):
         self.sorted_tokens = sorted(
-            [token for token in self.encoder.keys() if not token.startswith("<")],
+            [
+                self.sp_model.id_to_piece(i)
+                for i in range(self.sp_model.get_piece_size())
+                if not self.sp_model.id_to_piece(i).startswith("<")
+            ],
             key=len,
             reverse=True,
         )
-        self.token_set = set(self.encoder.keys())
+        self.token_set = {
+            self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
+        }
 
     def _build_token_lookup_tensors(self):
-        vocab_keys = list(self.encoder.keys())
-        vocab_values = list(self.encoder.values())
+        vocab_keys = [
+            self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
+        ]
+        vocab_values = list(range(self.sp_model.get_piece_size()))
 
         self.vocab_keys_tensor = ops.convert_to_tensor(vocab_keys, dtype="string")
         self.vocab_values_tensor = ops.convert_to_tensor(vocab_values, dtype="int32")
@@ -179,20 +196,18 @@ class SigLIPTokenizer(keras.Layer):
     def encode(self, text: Union[str, List[str]]) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
             tokens = self.tokenize(text)
-            token_ids = [self.encoder.get(token, self.unk_token_id) for token in tokens]
+            token_ids = [self.sp_model.piece_to_id(token) for token in tokens]
             return token_ids
         else:
             all_token_ids = []
             for single_text in text:
                 tokens = self.tokenize(single_text)
-                token_ids = [
-                    self.encoder.get(token, self.unk_token_id) for token in tokens
-                ]
+                token_ids = [self.sp_model.piece_to_id(token) for token in tokens]
                 all_token_ids.append(token_ids)
             return all_token_ids
 
     def decode(self, token_ids: List[int]) -> str:
-        tokens = [self.decoder.get(token_id, self.unk_token) for token_id in token_ids]
+        tokens = [self.sp_model.id_to_piece(token_id) for token_id in token_ids]
         text = "".join(tokens)
         text = text.replace(self.spiece_underline, " ")
         text = text.strip()
@@ -254,7 +269,7 @@ class SigLIPTokenizer(keras.Layer):
 
     @property
     def vocab_size(self) -> int:
-        return len(self.encoder)
+        return self.sp_model.get_piece_size()
 
     def call(self, inputs):
         if inputs is None:
@@ -307,6 +322,7 @@ class SigLIPTokenizer(keras.Layer):
         config = super().get_config()
         config.update(
             {
+                "vocab_file": self.vocab_file,
                 "context_length": self.context_length,
                 "do_lower_case": self.do_lower_case,
                 "unk_token": self.unk_token,

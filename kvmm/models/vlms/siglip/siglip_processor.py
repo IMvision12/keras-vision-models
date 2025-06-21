@@ -134,11 +134,11 @@ class SigLIPProcessor(keras.layers.Layer):
         if vocab_file is None:
             if multilingual:
                 vocab_file_path = download_file(
-                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/multilingual_vocab.json"
+                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip_multilingual_vocab.model"
                 )
             else:
                 vocab_file_path = download_file(
-                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/vocab.json"
+                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip_vocab.model"
                 )
         else:
             vocab_file_path = vocab_file

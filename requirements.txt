@@ -13,3 +13,5 @@ flax
 
 keras>=3.10.0
 pillow
+
+sentencepiece 

@@ -1,8 +1,8 @@
 from typing import Dict, List, Union
 
 import keras
-from keras import ops
 import sentencepiece as spm
+from keras import ops
 
 
 @keras.saving.register_keras_serializable(package="kvmm")
@@ -139,7 +139,11 @@ class SigLIP2Tokenizer(keras.Layer):
     def decode(self, token_ids: List[int]) -> str:
         filtered_ids = []
         for token_id in token_ids:
-            if token_id not in [self.pad_token_id, self.bos_token_id, self.eos_token_id]:
+            if token_id not in [
+                self.pad_token_id,
+                self.bos_token_id,
+                self.eos_token_id,
+            ]:
                 filtered_ids.append(token_id)
 
         if filtered_ids:
@@ -171,7 +175,7 @@ class SigLIP2Tokenizer(keras.Layer):
             token_ids_with_special = self.build_inputs_with_special_tokens(token_ids)
 
             if len(token_ids_with_special) > self.context_length:
-                token_ids_with_special = token_ids_with_special[:self.context_length]
+                token_ids_with_special = token_ids_with_special[: self.context_length]
 
             processed_sequences.append(token_ids_with_special)
 
@@ -200,7 +204,7 @@ class SigLIP2Tokenizer(keras.Layer):
         token_ids = self.build_inputs_with_special_tokens(token_ids)
 
         if len(token_ids) > self.context_length:
-            token_ids = token_ids[:self.context_length]
+            token_ids = token_ids[: self.context_length]
 
         padding_length = self.context_length - len(token_ids)
         if padding_length > 0:
@@ -221,8 +225,7 @@ class SigLIP2Tokenizer(keras.Layer):
     def id_to_token(self, id: int) -> str:
         if id >= self.vocab_size or id < 0:
             raise ValueError(
-                f"`id` must be in range [0, {self.vocab_size - 1}]. "
-                f"Received: {id}"
+                f"`id` must be in range [0, {self.vocab_size - 1}]. Received: {id}"
             )
         return self.sp_model.id_to_piece(id)
 
@@ -271,13 +274,15 @@ class SigLIP2Tokenizer(keras.Layer):
         if isinstance(inputs, str):
             inputs = [inputs]
 
-        if hasattr(inputs, 'numpy'):
+        if hasattr(inputs, "numpy"):
             inputs = inputs.numpy()
             if inputs.ndim == 0:
                 inputs = [inputs.item()]
             else:
-                inputs = [item.decode('utf-8') if isinstance(item, bytes) else str(item)
-                         for item in inputs.flatten()]
+                inputs = [
+                    item.decode("utf-8") if isinstance(item, bytes) else str(item)
+                    for item in inputs.flatten()
+                ]
 
         all_token_ids = self.encode(inputs)
         result = self.prepare_for_model_tensor(all_token_ids)
@@ -286,16 +291,18 @@ class SigLIP2Tokenizer(keras.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "model_file": self.model_file,
-            "context_length": self.context_length,
-            "add_bos": self.add_bos,
-            "add_eos": self.add_eos,
-            "pad_token": self.pad_token,
-            "bos_token": self.bos_token,
-            "eos_token": self.eos_token,
-            "unk_token": self.unk_token,
-        })
+        config.update(
+            {
+                "model_file": self.model_file,
+                "context_length": self.context_length,
+                "add_bos": self.add_bos,
+                "add_eos": self.add_eos,
+                "pad_token": self.pad_token,
+                "bos_token": self.bos_token,
+                "eos_token": self.eos_token,
+                "unk_token": self.unk_token,
+            }
+        )
         return config
 
     @classmethod

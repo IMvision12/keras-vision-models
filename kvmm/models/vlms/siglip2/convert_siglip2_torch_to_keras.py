@@ -4,7 +4,7 @@ from typing import Dict
 import keras
 import torch
 from tqdm import tqdm
-from transformers import Siglip2Model
+from transformers import AutoModel
 
 from kvmm.models import siglip2
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
@@ -52,8 +52,10 @@ attn_name_replace = {
     "bias": "bias",
 }
 
-keras_model: keras.Model = siglip2.SigLIP2BaseP16(weights=None, input_shape=(224, 224, 3))
-torch_model: torch.nn.Module = Siglip2Model.from_pretrained(
+keras_model: keras.Model = siglip2.SigLIP2BaseP16(
+    weights=None, input_shape=(224, 224, 3)
+)
+torch_model: torch.nn.Module = AutoModel.from_pretrained(
     "google/siglip2-base-patch16-224"
 ).eval()
 

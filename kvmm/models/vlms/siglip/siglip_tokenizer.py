@@ -126,9 +126,9 @@ class SigLIPTokenizer(keras.Layer):
             key=len,
             reverse=True,
         )
-        self.token_set = set(
+        self.token_set = {
             self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
-        )
+        }
 
     def _build_token_lookup_tensors(self):
         vocab_keys = [

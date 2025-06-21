@@ -215,41 +215,39 @@ class Probe(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="siglip")
 class PositionIDs(layers.Layer):
-    """
-    Advanced position IDs layer that can generate both 1D and 2D position indices
-    for vision transformers with support for different grid sizes.
+    """A Keras layer that generates position IDs for vision transformers.
 
-    This layer can generate:
-    1. Sequential position IDs (0, 1, 2, ..., grid_h * grid_w - 1)
-    2. 2D coordinate-based position IDs with separate height and width indices
+    This layer creates position identifiers for a 2D grid of patches, commonly used
+    in vision transformers for spatial positional encoding. It supports both 1D
+    sequential position IDs and 2D coordinate-based position IDs.
 
     Args:
-        grid_h (int): Height of the position grid.
-        grid_w (int): Width of the position grid.
-        use_2d_positions (bool): If True, generates 2D position coordinates.
-            If False, generates sequential 1D position indices.
+        grid_h (int): Height of the grid (number of patches vertically).
+        grid_w (int): Width of the grid (number of patches horizontally).
+        use_2d_positions (bool, optional): Whether to generate 2D coordinates
+            (height, width) for each position. If False, generates sequential
+            1D position IDs. Defaults to False.
         name (str, optional): Name of the layer.
         **kwargs: Additional keyword arguments passed to the parent Layer class.
 
-    Output Shape:
-        - If use_2d_positions=False: `(1, grid_h * grid_w)` with sequential indices
-        - If use_2d_positions=True: `(1, grid_h * grid_w, 2)` with [height, width] coordinates
+    Attributes:
+        grid_h (int): Height of the grid.
+        grid_w (int): Width of the grid.
+        use_2d_positions (bool): Whether using 2D or 1D position encoding.
+        max_length (int): Total number of positions (grid_h * grid_w).
+        position_ids (tf.Variable): The position ID tensor.
 
-    Examples:
+    Output shape:
+        - If use_2d_positions=False: (1, max_length)
+        - If use_2d_positions=True: (1, max_length, 2)
+
+    Example:
         ```python
-        # 1D sequential position IDs for a 2x3 grid
-        pos_layer_1d = PositionIDs(grid_h=2, grid_w=3, use_2d_positions=False)
-        # Output shape: (1, 6) with values [0, 1, 2, 3, 4, 5]
+        # Create 1D position IDs for a 14x14 grid
+        pos_layer = PositionIDs(grid_h=14, grid_w=14, use_2d_positions=False)
 
-        # 2D coordinate-based position IDs for a 2x3 grid
-        pos_layer_2d = PositionIDs(grid_h=2, grid_w=3, use_2d_positions=True)
-        # Output shape: (1, 6, 2) with coordinates:
-        # [[0,0], [0,1], [0,2], [1,0], [1,1], [1,2]]
-
-        # Usage in a model
-        inputs = keras.Input(shape=(6, 256))  # 6 patches, 256 dimensions
-        position_ids = PositionIDs(grid_h=2, grid_w=3)(inputs)
-        # position_ids can be used for positional embeddings
+        # Create 2D coordinate position IDs for a 16x16 grid
+        pos_layer_2d = PositionIDs(grid_h=16, grid_w=16, use_2d_positions=True)
         ```
     """
 
@@ -311,52 +309,7 @@ class PositionIDs(layers.Layer):
         store["max_length"] = self.max_length
 
     def load_own_variables(self, store):
-        if (
-            "grid_h" in store
-            and "grid_w" in store
-            and "use_2d_positions" in store
-            and "max_length" in store
-        ):
-            source_grid_h = int(store["grid_h"][...])
-            source_grid_w = int(store["grid_w"][...])
-            source_use_2d = bool(store["use_2d_positions"][...])
-            source_max_length = int(store["max_length"][...])
-
-            if (
-                source_grid_h == self.grid_h
-                and source_grid_w == self.grid_w
-                and source_use_2d == self.use_2d_positions
-            ):
-                if "0" in store:
-                    stored_weights = store["0"]
-                    if stored_weights.shape == self.position_ids.shape:
-                        self.position_ids.assign(stored_weights)
-                        return
-
-            self._initialize_position_ids()
-
-        elif "max_length" in store:
-            source_max_length = int(store["max_length"][...])
-            import math
-
-            source_grid_size = int(math.sqrt(source_max_length))
-            source_grid_h = source_grid_w = source_grid_size
-            source_use_2d = False
-
-            if (
-                source_grid_h == self.grid_h
-                and source_grid_w == self.grid_w
-                and source_use_2d == self.use_2d_positions
-            ):
-                if "0" in store:
-                    stored_weights = store["0"]
-                    if stored_weights.shape == self.position_ids.shape:
-                        self.position_ids.assign(stored_weights)
-                        return
-
-            self._initialize_position_ids()
-        else:
-            self._initialize_position_ids()
+        self._initialize_position_ids()
 
     def get_config(self):
         config = super().get_config()

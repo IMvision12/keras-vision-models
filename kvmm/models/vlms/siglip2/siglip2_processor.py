@@ -10,15 +10,15 @@ from kvmm.utils import download_file
 @keras.saving.register_keras_serializable(package="kvmm")
 class SigLIP2Processor(keras.layers.Layer):
     """
-    Combined processor for SigLIP (Sigmoid Loss for Language Image Pre-training) model,
-    handling both image and text inputs.
-
-    This processor combines both image processing and text tokenization for SigLIP models.
-    It allows you to process both modalities with a single interface, handling all the
-    necessary preprocessing steps for SigLIP model inference or training.
-
-    The processor can be customized with various parameters for both the image processor
-    and tokenizer components.
+    Unified processor for SigLIP2 models.
+    
+    This processor combines image preprocessing and text tokenization into a single interface
+    for SigLIP2 multimodal models. It handles all necessary preprocessing steps for both 
+    visual and textual inputs, making it easy to prepare data for model inference or training.
+    
+    The processor supports flexible input formats including PIL Images, numpy arrays, 
+    file paths, and various text formats. It applies consistent preprocessing including
+    image resizing, normalization, and text tokenization with proper padding and truncation.
 
     Args:
         image_resolution (int, optional): The target resolution for processed images.

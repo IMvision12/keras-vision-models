@@ -19,7 +19,7 @@ class SigLIP2Tokenizer(keras.Layer):
     of sentence (BOS), end of sentence (EOS), and padding (PAD) tokens.
 
     Args:
-        model_file (str): Path to the SentencePiece model file (.spm)
+        vocab_file (str): Path to the SentencePiece model file (.spm)
         context_length (int, optional): Maximum context length for padding/truncation. Defaults to 64.
         add_bos (bool, optional): Add beginning of sentence token to the result. Defaults to True.
         add_eos (bool, optional): Add end of sentence token to the result. Defaults to True.
@@ -39,7 +39,7 @@ class SigLIP2Tokenizer(keras.Layer):
     Example usage:
         # Initialize the tokenizer with SentencePiece model file
         tokenizer = SigLIP2Tokenizer(
-            model_file="path/to/model.spm",
+            vocab_file="path/to/model.spm",
             context_length=64,
             add_bos=True,
             add_eos=True
@@ -64,7 +64,7 @@ class SigLIP2Tokenizer(keras.Layer):
 
     def __init__(
         self,
-        model_file: str,
+        vocab_file: str,
         context_length: int = 64,
         add_bos: bool = False,
         add_eos: bool = False,
@@ -76,7 +76,7 @@ class SigLIP2Tokenizer(keras.Layer):
     ):
         super().__init__(**kwargs)
 
-        self.model_file = model_file
+        self.vocab_file = vocab_file
         self.context_length = context_length
         self.add_bos = add_bos
         self.add_eos = add_eos
@@ -87,7 +87,7 @@ class SigLIP2Tokenizer(keras.Layer):
         self.unk_token = unk_token
 
         self.sp_model = spm.SentencePieceProcessor()
-        self.sp_model.load(model_file)
+        self.sp_model.load(vocab_file)
 
         self._build_vocabulary()
 
@@ -293,7 +293,7 @@ class SigLIP2Tokenizer(keras.Layer):
         config = super().get_config()
         config.update(
             {
-                "model_file": self.model_file,
+                "vocab_file": self.vocab_file,
                 "context_length": self.context_length,
                 "add_bos": self.add_bos,
                 "add_eos": self.add_eos,

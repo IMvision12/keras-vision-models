@@ -75,51 +75,51 @@ SigLIP2_MODEL_CONFIG = {
 SigLIP2_WEIGHTS_CONFIG = {
     "SigLIP2BaseP16": {
         "google_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2basep16_google_224.weights.h5",
         },
         "google_256": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2basep16_google_256.weights.h5",
         },
         "google_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2basep16_google_384.weights.h5",
         },
         "google_512": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2basep16_google_512.weights.h5",
         },
     },
     "SigLIP2BaseP32": {
         "google_256": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2basep32_google_256.weights.h5",
         },
     },
     "SigLIP2LargeP16": {
         "google_256": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2largep16_google_256.weights.json",
         },
         "google_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2largep16_google_384.weights.json",
         },
         "google_512": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2largep16_google_512.weights.json",
         },
     },
     "SigLIP2So400mP14": {
         "google_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2so400mp14_google_224.weights.json",
         },
         "google_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2so400mp14_google_384.weights.json",
         },
     },
     "SigLIP2So400mP16": {
         "google_256": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2so400mp16_google_256.weights.json",
         },
         "google_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2so400mp16_google_384.weights.json",
         },
         "google_512": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2so400mp16_google_512.weights.json",
         },
     },
 }

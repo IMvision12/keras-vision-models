@@ -559,10 +559,10 @@ class SigLIPModel(keras.Model):
     """
     SigLIP/SigLIP2 (Sigmoid Loss for Language Image Pre-training) model implementation.
 
-    This class implements the full SigLIP and SigLIP2 architecture for vision-language 
-    contrastive learning. The model consists of separate vision and text encoders that 
-    produce embeddings, which are then compared using a contrastive head to compute 
-    similarity logits. The architecture enables joint training on image-text pairs for 
+    This class implements the full SigLIP and SigLIP2 architecture for vision-language
+    contrastive learning. The model consists of separate vision and text encoders that
+    produce embeddings, which are then compared using a contrastive head to compute
+    similarity logits. The architecture enables joint training on image-text pairs for
     tasks like image-text retrieval, zero-shot classification, and multimodal understanding.
 
     SigLIP2 builds upon the original SigLIP with architectural improvements and enhanced

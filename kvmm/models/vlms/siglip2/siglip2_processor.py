@@ -11,12 +11,12 @@ from kvmm.utils import download_file
 class SigLIP2Processor(keras.layers.Layer):
     """
     Unified processor for SigLIP2 models.
-    
+
     This processor combines image preprocessing and text tokenization into a single interface
-    for SigLIP2 multimodal models. It handles all necessary preprocessing steps for both 
+    for SigLIP2 multimodal models. It handles all necessary preprocessing steps for both
     visual and textual inputs, making it easy to prepare data for model inference or training.
-    
-    The processor supports flexible input formats including PIL Images, numpy arrays, 
+
+    The processor supports flexible input formats including PIL Images, numpy arrays,
     file paths, and various text formats. It applies consistent preprocessing including
     image resizing, normalization, and text tokenization with proper padding and truncation.
 
@@ -120,8 +120,8 @@ class SigLIP2Processor(keras.layers.Layer):
 
         if vocab_file is None:
             vocab_file_path = download_file(
-                    "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2_vocab.model"
-                )
+                "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2_vocab.model"
+            )
         else:
             vocab_file_path = vocab_file
 

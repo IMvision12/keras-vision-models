@@ -55,7 +55,7 @@ class SigLIP2Tokenizer(keras.Layer):
 
         # Decode token IDs back to text
         token_ids = encoded["input_ids"][0]
-        decoded_text = tokenizer.decode(token_ids.numpy())
+        decoded_text = tokenizer.detokenize(token_ids.numpy())
 
     Note:
         This tokenizer requires the `sentencepiece` library to be installed:
@@ -119,24 +119,25 @@ class SigLIP2Tokenizer(keras.Layer):
         if self.unk_token_id == -1:
             self.unk_token_id = self.encoder.get(self.unk_token, 3)
 
-    def tokenize(self, text: str) -> List[str]:
-        if not text:
-            return []
-        tokens = self.sp_model.encode_as_pieces(text)
-        return tokens
-
-    def encode(self, text: Union[str, List[str]]) -> Union[List[int], List[List[int]]]:
+    def tokenize(
+        self, text: Union[str, List[str]]
+    ) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
+            if not text:
+                return []
             token_ids = self.sp_model.encode_as_ids(text)
             return token_ids
         else:
             all_token_ids = []
             for single_text in text:
-                token_ids = self.sp_model.encode_as_ids(single_text)
-                all_token_ids.append(token_ids)
+                if not single_text:
+                    all_token_ids.append([])
+                else:
+                    token_ids = self.sp_model.encode_as_ids(single_text)
+                    all_token_ids.append(token_ids)
             return all_token_ids
 
-    def decode(self, token_ids: List[int]) -> str:
+    def detokenize(self, token_ids: List[int]) -> str:
         filtered_ids = []
         for token_id in token_ids:
             if token_id not in [
@@ -197,7 +198,7 @@ class SigLIP2Tokenizer(keras.Layer):
 
     def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
         if isinstance(text, str):
-            token_ids = self.encode(text)
+            token_ids = self.tokenize(text)
         else:
             token_ids = text
 
@@ -249,7 +250,7 @@ class SigLIP2Tokenizer(keras.Layer):
                     tid for tid in token_ids_list if tid != self.pad_token_id
                 ]
 
-            decoded_text = self.decode(token_ids_list)
+            decoded_text = self.detokenize(token_ids_list)
             decoded_texts.append(decoded_text)
 
         return decoded_texts
@@ -284,7 +285,7 @@ class SigLIP2Tokenizer(keras.Layer):
                     for item in inputs.flatten()
                 ]
 
-        all_token_ids = self.encode(inputs)
+        all_token_ids = self.tokenize(inputs)
         result = self.prepare_for_model_tensor(all_token_ids)
 
         return result

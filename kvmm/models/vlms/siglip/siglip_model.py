@@ -557,13 +557,16 @@ def siglip_head(vision_embedding, text_embedding):
 @keras.saving.register_keras_serializable(package="kvmm")
 class SigLIPModel(keras.Model):
     """
-    Complete SigLIP (Sigmoid Loss for Language Image Pre-training) model implementation.
+    SigLIP/SigLIP2 (Sigmoid Loss for Language Image Pre-training) model implementation.
 
-    This class implements the full SigLIP architecture for vision-language contrastive learning.
-    The model consists of separate vision and text encoders that produce embeddings, which are
-    then compared using a contrastive head to compute similarity logits. The architecture enables
-    joint training on image-text pairs for tasks like image-text retrieval, zero-shot classification,
-    and multimodal understanding.
+    This class implements the full SigLIP and SigLIP2 architecture for vision-language
+    contrastive learning. The model consists of separate vision and text encoders that
+    produce embeddings, which are then compared using a contrastive head to compute
+    similarity logits. The architecture enables joint training on image-text pairs for
+    tasks like image-text retrieval, zero-shot classification, and multimodal understanding.
+
+    SigLIP2 builds upon the original SigLIP with architectural improvements and enhanced
+    training strategies for better vision-language alignment and performance.
 
     The model architecture includes:
     - Vision encoder: Patch-based image processing with transformer layers
@@ -610,7 +613,7 @@ class SigLIPModel(keras.Model):
         - "text_logits": Similarity logits from text perspective, shape (batch_size, batch_size)
 
     Example:
-        >>> # Create a SigLIP model
+        >>> # Create a SigLIP/SigLIP2 model
         >>> model = SigLIPModel(
         ...     embed_dim=512,
         ...     input_shape=(224, 224, 3),

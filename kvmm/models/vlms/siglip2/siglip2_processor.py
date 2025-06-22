@@ -16,9 +16,10 @@ class SigLIP2Processor(keras.layers.Layer):
     for SigLIP2 multimodal models. It handles all necessary preprocessing steps for both
     visual and textual inputs, making it easy to prepare data for model inference or training.
 
-    The processor supports flexible input formats including PIL Images, numpy arrays,
-    file paths, and various text formats. It applies consistent preprocessing including
-    image resizing, normalization, and text tokenization with proper padding and truncation.
+    The processor uses a SentencePiece-based tokenizer for text processing and supports
+    flexible input formats including PIL Images, numpy arrays, file paths, and various text
+    formats. It applies consistent preprocessing including image resizing, normalization,
+    and text tokenization with proper padding and truncation.
 
     Args:
         image_resolution (int, optional): The target resolution for processed images.
@@ -31,14 +32,15 @@ class SigLIP2Processor(keras.layers.Layer):
             Default is True.
         do_normalize (bool, optional): Whether to normalize images. Default is True.
         do_resize (bool, optional): Whether to resize images. Default is True.
-        vocab_file (str, optional): Path to the vocabulary file for the tokenizer.
-            If None, will download the default vocabulary file.
+        vocab_file (str, optional): Path to the SentencePiece model file (.spm).
+            If None, will download the default SentencePiece model file.
         context_length (int, optional): Maximum token sequence length. Default is 64.
-        do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing.
-            Default is True.
+        add_bos (bool, optional): Whether to add beginning of sentence token. Default is False.
+        add_eos (bool, optional): Whether to add end of sentence token. Default is False.
+        pad_token (str, optional): Padding token. Default is "<pad>".
+        bos_token (str, optional): Beginning of sentence token. Default is "<bos>".
+        eos_token (str, optional): End of sequence token. Default is "<eos>".
         unk_token (str, optional): Token to use for unknown words. Default is "<unk>".
-        pad_token (str, optional): Padding token. Default is "</s>".
-        eos_token (str, optional): End of sequence token. Default is "</s>".
         **kwargs: Additional keyword arguments passed to the base Layer class.
 
     Example:
@@ -61,7 +63,7 @@ class SigLIP2Processor(keras.layers.Layer):
         )
 
         # The result contains both text and image encodings
-        print(inputs.keys())  # Contains tokenizer outputs + 'images'
+        print(inputs.keys())  # Contains 'input_ids' + 'images'
 
         # Process from file paths
         inputs = processor(
@@ -75,18 +77,31 @@ class SigLIP2Processor(keras.layers.Layer):
             image_paths=["path/to/image1.jpg", "path/to/image2.jpg"]
         )
 
-        # Custom configuration for higher resolution
+        # Custom configuration for higher resolution and longer sequences
         high_res_processor = SigLIP2Processor(
             image_resolution=384,
             context_length=128,
-            do_lower_case=False
+            add_bos=True,
+            add_eos=True
         )
 
         inputs = high_res_processor(
             text=["A detailed photo of a landscape"],
             images=image_array
         )
+
+        # Decode processed text back to strings
+        decoded_texts = processor.decode_text(inputs["input_ids"])
+        print(decoded_texts)
+
+        # Get actual sequence lengths (excluding padding)
+        seq_lengths = processor.get_sequence_length(inputs["input_ids"])
+        print(f"Sequence lengths: {seq_lengths}")
         ```
+
+    Note:
+        This processor requires the `sentencepiece` library to be installed for text tokenization:
+        pip install sentencepiece
     """
 
     def __init__(
@@ -101,10 +116,12 @@ class SigLIP2Processor(keras.layers.Layer):
         # Tokenizer params
         vocab_file: Optional[str] = None,
         context_length: int = 64,
-        do_lower_case: bool = True,
+        add_bos: bool = False,
+        add_eos: bool = False,
+        pad_token: str = "<pad>",
+        bos_token: str = "<bos>",
+        eos_token: str = "<eos>",
         unk_token: str = "<unk>",
-        pad_token: str = "</s>",
-        eos_token: str = "</s>",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -128,10 +145,12 @@ class SigLIP2Processor(keras.layers.Layer):
         self.tokenizer = SigLIP2Tokenizer(
             vocab_file=vocab_file_path,
             context_length=context_length,
-            do_lower_case=do_lower_case,
-            unk_token=unk_token,
+            add_bos=add_bos,
+            add_eos=add_eos,
             pad_token=pad_token,
+            bos_token=bos_token,
             eos_token=eos_token,
+            unk_token=unk_token,
         )
 
         self._config = {
@@ -143,10 +162,12 @@ class SigLIP2Processor(keras.layers.Layer):
             "do_resize": do_resize,
             "vocab_file": vocab_file,
             "context_length": context_length,
-            "do_lower_case": do_lower_case,
-            "unk_token": unk_token,
+            "add_bos": add_bos,
+            "add_eos": add_eos,
             "pad_token": pad_token,
+            "bos_token": bos_token,
             "eos_token": eos_token,
+            "unk_token": unk_token,
         }
 
     def call(
@@ -189,6 +210,11 @@ class SigLIP2Processor(keras.layers.Layer):
     def get_sequence_length(self, input_ids: keras.KerasTensor) -> keras.KerasTensor:
         return self.tokenizer.get_sequence_length(input_ids)
 
+    def truncate_sequences(
+        self, input_ids: keras.KerasTensor, max_length: int
+    ) -> keras.KerasTensor:
+        return self.tokenizer.truncate_sequences(input_ids, max_length)
+
     @property
     def vocab_size(self) -> int:
         return self.tokenizer.vocab_size
@@ -200,6 +226,10 @@ class SigLIP2Processor(keras.layers.Layer):
     @property
     def eos_token_id(self) -> int:
         return self.tokenizer.eos_token_id
+
+    @property
+    def bos_token_id(self) -> int:
+        return self.tokenizer.bos_token_id
 
     @property
     def unk_token_id(self) -> int:

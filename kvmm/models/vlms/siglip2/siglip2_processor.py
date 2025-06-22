@@ -16,9 +16,9 @@ class SigLIP2Processor(keras.layers.Layer):
     for SigLIP2 multimodal models. It handles all necessary preprocessing steps for both
     visual and textual inputs, making it easy to prepare data for model inference or training.
 
-    The processor uses a SentencePiece-based tokenizer for text processing and supports 
-    flexible input formats including PIL Images, numpy arrays, file paths, and various text 
-    formats. It applies consistent preprocessing including image resizing, normalization, 
+    The processor uses a SentencePiece-based tokenizer for text processing and supports
+    flexible input formats including PIL Images, numpy arrays, file paths, and various text
+    formats. It applies consistent preprocessing including image resizing, normalization,
     and text tokenization with proper padding and truncation.
 
     Args:

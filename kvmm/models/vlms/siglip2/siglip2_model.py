@@ -64,35 +64,6 @@ def SigLIP2BaseP32(
 
 
 @register_model
-def SigLIP2GiantP16(
-    weights="google_224",
-    input_tensor=None,
-    input_shape=None,
-    name="SigLIP2GiantP16",
-    **kwargs,
-):
-    model = SigLIPModel(
-        **SigLIP2_MODEL_CONFIG["SigLIP2GiantP16"],
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=name,
-        weights=weights,
-        **kwargs,
-    )
-
-    if weights in get_all_weight_names(SigLIP2_WEIGHTS_CONFIG):
-        load_weights_from_config(
-            "SigLIP2GiantP16", weights, model, SigLIP2_WEIGHTS_CONFIG
-        )
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
-@register_model
 def SigLIP2LargeP16(
     weights="google_224",
     input_tensor=None,

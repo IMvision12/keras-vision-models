@@ -115,7 +115,7 @@ SigLIP2_WEIGHTS_CONFIG = {
         },
     },
     "SigLIP2LargeP16": {
-        "google_224": {
+        "google_256": {
             "url": "",
         },
         "google_384": {

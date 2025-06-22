@@ -54,7 +54,7 @@ class CLIPTokenizer(keras.Layer):
 
         # Decode token IDs back to text
         token_ids = encoded["input_ids"][0]
-        decoded_text = tokenizer.decode(token_ids)
+        decoded_text = tokenizer.detokenize(token_ids)
     """
 
     def __init__(
@@ -304,7 +304,7 @@ class CLIPTokenizer(keras.Layer):
         self.cache[token] = word
         return word
 
-    def tokenize(self, text):
+    def _tokenize_to_bpe_tokens(self, text):
         if self.use_ftfy:
             text = self._whitespace_clean(self.fix_text(text)).lower()
         else:
@@ -316,15 +316,15 @@ class CLIPTokenizer(keras.Layer):
 
         return bpe_tokens
 
-    def encode(self, text):
-        bpe_tokens = self.tokenize(text)
+    def tokenize(self, text):
+        bpe_tokens = self._tokenize_to_bpe_tokens(text)
         token_ids = [
             self.encoder.get(token, self.encoder.get(self.unk_token, 0))
             for token in bpe_tokens
         ]
         return token_ids
 
-    def decode(self, token_ids):
+    def detokenize(self, token_ids):
         text = "".join([self.decoder.get(token_id, "") for token_id in token_ids])
         byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
         text = (
@@ -350,7 +350,7 @@ class CLIPTokenizer(keras.Layer):
 
     def prepare_for_model(self, text):
         if isinstance(text, str):
-            token_ids = self.encode(text)
+            token_ids = self.tokenize(text)
         else:
             token_ids = text
         token_ids = self.build_inputs_with_special_tokens(token_ids)

@@ -62,13 +62,13 @@ class SigLIPTokenizer(keras.Layer):
 
         # Decode token IDs back to text
         token_ids = encoded["input_ids"][0]
-        decoded_text = tokenizer.decode(token_ids.numpy())
+        decoded_text = tokenizer.detokenize(token_ids.numpy())
 
         # Get sequence lengths (excluding padding)
         lengths = tokenizer.get_sequence_length(encoded["input_ids"])
 
         # Batch decode multiple sequences
-        decoded_texts = tokenizer.batch_decode(encoded["input_ids"])
+        decoded_texts = tokenizer.batch_detokenize(encoded["input_ids"])
 
     Note:
         This tokenizer is specifically designed for SigLIP models and may not be compatible
@@ -187,26 +187,28 @@ class SigLIPTokenizer(keras.Layer):
 
         return tokens
 
-    def tokenize(self, text: str) -> List[str]:
+    def _tokenize_to_tokens(self, text: str) -> List[str]:
         text = self._preprocess_text(text)
         tokens = self._tokenize_greedy(text)
         tokens = [token for token in tokens if token]
         return tokens
 
-    def encode(self, text: Union[str, List[str]]) -> Union[List[int], List[List[int]]]:
+    def tokenize(
+        self, text: Union[str, List[str]]
+    ) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
-            tokens = self.tokenize(text)
+            tokens = self._tokenize_to_tokens(text)
             token_ids = [self.sp_model.piece_to_id(token) for token in tokens]
             return token_ids
         else:
             all_token_ids = []
             for single_text in text:
-                tokens = self.tokenize(single_text)
+                tokens = self._tokenize_to_tokens(single_text)
                 token_ids = [self.sp_model.piece_to_id(token) for token in tokens]
                 all_token_ids.append(token_ids)
             return all_token_ids
 
-    def decode(self, token_ids: List[int]) -> str:
+    def detokenize(self, token_ids: List[int]) -> str:
         tokens = [self.sp_model.id_to_piece(token_id) for token_id in token_ids]
         text = "".join(tokens)
         text = text.replace(self.spiece_underline, " ")
@@ -252,7 +254,7 @@ class SigLIPTokenizer(keras.Layer):
 
     def prepare_for_model(self, text: Union[str, List[int]]) -> Dict[str, List[int]]:
         if isinstance(text, str):
-            token_ids = self.encode(text)
+            token_ids = self.tokenize(text)
         else:
             token_ids = text
 
@@ -278,12 +280,12 @@ class SigLIPTokenizer(keras.Layer):
         if isinstance(inputs, str):
             inputs = [inputs]
 
-        all_token_ids = self.encode(inputs)
+        all_token_ids = self.tokenize(inputs)
         result = self.prepare_for_model_tensor(all_token_ids)
 
         return result
 
-    def batch_decode(
+    def batch_detokenize(
         self, token_ids_batch: keras.KerasTensor, skip_special_tokens: bool = True
     ) -> List[str]:
         if hasattr(token_ids_batch, "numpy"):
@@ -300,7 +302,7 @@ class SigLIPTokenizer(keras.Layer):
                     tid for tid in token_ids_list if tid != self.pad_token_id
                 ]
 
-            decoded_text = self.decode(token_ids_list)
+            decoded_text = self.detokenize(token_ids_list)
             decoded_texts.append(decoded_text)
 
         return decoded_texts

@@ -117,17 +117,19 @@ class CLIPImageProcessor(keras.layers.Layer):
     def preprocess(self, image: Any) -> Any:
         shape = ops.shape(image)
         num_channels = shape[-1]
-        image_1_to_3 = ops.repeat(image, 3, axis=-1)
-        image_4_to_3 = image[..., :3]
-
-        image = ops.where(
-            ops.equal(num_channels, 1),
-            image_1_to_3,
-            ops.where(ops.equal(num_channels, 4), image_4_to_3, image),
-        )
+        
+        if num_channels == 1:
+            # Convert grayscale to RGB by repeating the single channel
+            image = ops.repeat(image, 3, axis=-1)
+        elif num_channels == 4:
+            # Convert RGBA to RGB by dropping the alpha channel
+            image = image[..., :3]
+        elif num_channels == 3:
+            pass
+        else:
+            raise ValueError(f"Unsupported number of image channels: {num_channels}")
 
         image = ops.cast(image, "float32")
-
         image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
 
         if self.do_resize:

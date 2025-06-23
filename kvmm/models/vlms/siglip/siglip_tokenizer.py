@@ -2,9 +2,9 @@ import re
 import string
 from typing import Dict, List, Optional, Union
 
+import keras
 import sentencepiece as spm
 from keras import ops
-import keras
 
 
 @keras.saving.register_keras_serializable(package="kvmm")

@@ -116,7 +116,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
     def preprocess(self, image: Any) -> Any:
         shape = ops.shape(image)
         num_channels = shape[-1]
-        
+
         if num_channels == 1:
             # Convert grayscale to RGB by repeating the single channel
             image = ops.repeat(image, 3, axis=-1)
@@ -173,16 +173,18 @@ class SigLIPImageProcessor(keras.layers.Layer):
         pad_left = (new_width - width) // 2
         pad_right = new_width - width - pad_left
 
-        paddings = ops.stack([
-            ops.stack([pad_top, pad_bottom]),
-            ops.stack([pad_left, pad_right]), 
-            ops.stack([ops.convert_to_tensor(0), ops.convert_to_tensor(0)])
-        ])
+        paddings = ops.stack(
+            [
+                ops.stack([pad_top, pad_bottom]),
+                ops.stack([pad_left, pad_right]),
+                ops.stack([ops.convert_to_tensor(0), ops.convert_to_tensor(0)]),
+            ]
+        )
 
         padded_image = ops.pad(image, paddings, constant_values=0)
         crop_y_start = (new_height - target_size) // 2
         crop_x_start = (new_width - target_size) // 2
-        
+
         padded_cropped = ops.slice(
             padded_image,
             [crop_y_start, crop_x_start, 0],

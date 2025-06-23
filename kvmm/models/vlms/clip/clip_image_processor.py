@@ -115,17 +115,22 @@ class CLIPImageProcessor(keras.layers.Layer):
         self.do_resize = do_resize
 
     def preprocess(self, image: Any) -> Any:
-        if image.shape[-1] != 3:
-            if image.shape[-1] == 1:
-                image = ops.repeat(image, 3, axis=-1)
-            elif image.shape[-1] == 4:
-                image = image[..., :3]
+        shape = ops.shape(image)
+        num_channels = shape[-1]
 
-        if image.dtype != "float32":
-            image = ops.cast(image, "float32")
+        if num_channels == 1:
+            # Convert grayscale to RGB by repeating the single channel
+            image = ops.repeat(image, 3, axis=-1)
+        elif num_channels == 4:
+            # Convert RGBA to RGB by dropping the alpha channel
+            image = image[..., :3]
+        elif num_channels == 3:
+            pass
+        else:
+            raise ValueError(f"Unsupported number of image channels: {num_channels}")
 
-        if ops.max(image) > 1.0:
-            image = image / 255.0
+        image = ops.cast(image, "float32")
+        image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
 
         if self.do_resize:
             image = ops.image.resize(
@@ -143,15 +148,49 @@ class CLIPImageProcessor(keras.layers.Layer):
         return image
 
     def _center_crop(self, image: Any) -> Any:
-        width, height = image.shape[0], image.shape[1]
-        central_fraction = self.image_resolution / width
+        shape = ops.shape(image)
+        height, width = shape[0], shape[1]
+        target_size = self.image_resolution
 
-        left = ops.cast((width - width * central_fraction) / 2, dtype="int32")
-        top = ops.cast((height - height * central_fraction) / 2, dtype="int32")
-        right = ops.cast((width + width * central_fraction) / 2, dtype="int32")
-        bottom = ops.cast((height + height * central_fraction) / 2, dtype="int32")
+        y_start = (height - target_size) // 2
+        x_start = (width - target_size) // 2
+        y_end = y_start + target_size
+        x_end = x_start + target_size
 
-        return ops.slice(image, [left, top, 0], [right - left, bottom - top, 3])
+        can_crop = ops.logical_and(
+            ops.logical_and(y_start >= 0, x_start >= 0),
+            ops.logical_and(y_end <= height, x_end <= width),
+        )
+
+        simple_cropped = ops.slice(
+            image, [y_start, x_start, 0], [target_size, target_size, 3]
+        )
+        new_height = ops.maximum(target_size, height)
+        new_width = ops.maximum(target_size, width)
+
+        pad_top = (new_height - height) // 2
+        pad_bottom = new_height - height - pad_top
+        pad_left = (new_width - width) // 2
+        pad_right = new_width - width - pad_left
+
+        paddings = ops.stack(
+            [
+                ops.stack([pad_top, pad_bottom]),
+                ops.stack([pad_left, pad_right]),
+                ops.stack([ops.convert_to_tensor(0), ops.convert_to_tensor(0)]),
+            ]
+        )
+
+        padded_image = ops.pad(image, paddings, constant_values=0)
+        crop_y_start = (new_height - target_size) // 2
+        crop_x_start = (new_width - target_size) // 2
+
+        padded_cropped = ops.slice(
+            padded_image,
+            [crop_y_start, crop_x_start, 0],
+            [target_size, target_size, 3],
+        )
+        return ops.where(can_crop, simple_cropped, padded_cropped)
 
     def process_path(self, image_path: str) -> Any:
         image = keras.utils.load_img(image_path)

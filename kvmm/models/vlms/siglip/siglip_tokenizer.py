@@ -87,7 +87,7 @@ class SigLIPTokenizer(keras.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.model_file = vocab_file
+        self.vocab_file = vocab_file
         self.context_length = context_length
         self.do_lower_case = do_lower_case
 
@@ -114,8 +114,6 @@ class SigLIPTokenizer(keras.Layer):
         self.spiece_underline = "▁"
         self._build_subword_vocab()
 
-        self._build_token_lookup_tensors()
-
     def _build_subword_vocab(self):
         self.sorted_tokens = sorted(
             [
@@ -129,15 +127,6 @@ class SigLIPTokenizer(keras.Layer):
         self.token_set = {
             self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
         }
-
-    def _build_token_lookup_tensors(self):
-        vocab_keys = [
-            self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
-        ]
-        vocab_values = list(range(self.sp_model.get_piece_size()))
-
-        self.vocab_keys_tensor = ops.convert_to_tensor(vocab_keys, dtype="string")
-        self.vocab_values_tensor = ops.convert_to_tensor(vocab_values, dtype="int32")
 
     def remove_punctuation(self, text: str) -> str:
         return text.translate(str.maketrans("", "", string.punctuation))
@@ -333,3 +322,7 @@ class SigLIPTokenizer(keras.Layer):
             }
         )
         return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

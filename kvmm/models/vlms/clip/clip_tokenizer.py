@@ -111,8 +111,8 @@ class CLIPTokenizer(keras.Layer):
         }
 
         self.pat = re.compile(
-            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s\w]+|\w+|\s+""",
-            re.IGNORECASE,
+            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s]+|\s+""",
+            re.UNICODE,
         )
 
         self.fix_text = None
@@ -201,11 +201,11 @@ class CLIPTokenizer(keras.Layer):
         return word
 
     def _tokenize_to_bpe_tokens(self, text):
-        text = self._whitespace_clean(text.lower())
+        text = self._whitespace_clean(text)
 
         bpe_tokens = []
         for token in re.findall(self.pat, text):
-            if token.isspace():
+            if not token.strip():
                 continue
 
             token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
@@ -214,6 +214,12 @@ class CLIPTokenizer(keras.Layer):
         return bpe_tokens
 
     def tokenize(self, text):
+        if isinstance(text, list):
+            return [self._tokenize_single_text(t) for t in text]
+        else:
+            return self._tokenize_single_text(text)
+    
+    def _tokenize_single_text(self, text):
         bpe_tokens = self._tokenize_to_bpe_tokens(text)
         token_ids = [
             self.encoder.get(token, self.encoder.get(self.unk_token, 0))
@@ -250,7 +256,7 @@ class CLIPTokenizer(keras.Layer):
 
     def prepare_for_model(self, text):
         if isinstance(text, str):
-            token_ids = self.tokenize(text)
+            token_ids = self._tokenize_single_text(text)
         else:
             token_ids = text
         token_ids = self.build_inputs_with_special_tokens(token_ids)

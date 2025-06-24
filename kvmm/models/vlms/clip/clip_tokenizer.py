@@ -202,12 +202,12 @@ class CLIPTokenizer(keras.Layer):
 
     def _tokenize_to_bpe_tokens(self, text):
         text = self._whitespace_clean(text.lower())
-        
+
         bpe_tokens = []
         for token in re.findall(self.pat, text):
             if token.isspace():
                 continue
-                
+
             token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
             bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
 
@@ -224,7 +224,7 @@ class CLIPTokenizer(keras.Layer):
     def detokenize(self, token_ids):
         if isinstance(token_ids, int):
             token_ids = [token_ids]
-        
+
         text = "".join([self.decoder.get(token_id, "") for token_id in token_ids])
         byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
         text = (

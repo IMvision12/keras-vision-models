@@ -111,7 +111,7 @@ class CLIPTokenizer(keras.Layer):
         }
 
         self.pat = re.compile(
-            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[a-zA-Z]+|[0-9]|[^a-zA-Z0-9\s]+|\s+""",
+            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s\w]+|\w+|\s+""",
             re.IGNORECASE,
         )
 
@@ -150,110 +150,6 @@ class CLIPTokenizer(keras.Layer):
         text = re.sub(r"\s+", " ", text)
         text = text.strip()
         return text
-
-    def _is_punctuation(self, char):
-        cp = ord(char)
-        if (
-            (cp >= 33 and cp <= 47)
-            or (cp >= 58 and cp <= 64)
-            or (cp >= 91 and cp <= 96)
-            or (cp >= 123 and cp <= 126)
-        ):
-            return True
-        cat = unicodedata.category(char)
-        if cat.startswith("P"):
-            return True
-        return False
-
-    def _is_whitespace(self, char):
-        if char == " " or char == "\t" or char == "\n" or char == "\r":
-            return True
-        cat = unicodedata.category(char)
-        if cat == "Zs":
-            return True
-        return False
-
-    def _is_control(self, char):
-        if char == "\t" or char == "\n" or char == "\r":
-            return False
-        cat = unicodedata.category(char)
-        if cat.startswith("C"):
-            return True
-        return False
-
-    def _is_chinese_char(self, cp):
-        if (
-            (cp >= 0x4E00 and cp <= 0x9FFF)
-            or (cp >= 0x3400 and cp <= 0x4DBF)
-            or (cp >= 0x20000 and cp <= 0x2A6DF)
-            or (cp >= 0x2A700 and cp <= 0x2B73F)
-            or (cp >= 0x2B740 and cp <= 0x2B81F)
-            or (cp >= 0x2B820 and cp <= 0x2CEAF)
-            or (cp >= 0xF900 and cp <= 0xFAFF)
-            or (cp >= 0x2F800 and cp <= 0x2FA1F)
-        ):
-            return True
-        return False
-
-    def _clean_text(self, text):
-        output = []
-        for char in text:
-            cp = ord(char)
-            if cp == 0 or cp == 0xFFFD or self._is_control(char):
-                continue
-            if self._is_whitespace(char):
-                output.append(" ")
-            else:
-                output.append(char)
-        return "".join(output)
-
-    def _run_strip_accents(self, text):
-        text = unicodedata.normalize("NFD", text)
-        output = []
-        for char in text:
-            cat = unicodedata.category(char)
-            if cat == "Mn":
-                continue
-            output.append(char)
-        return "".join(output)
-
-    def _tokenize_chinese_chars(self, text):
-        output = []
-        for char in text:
-            cp = ord(char)
-            if self._is_chinese_char(cp):
-                output.append(" ")
-                output.append(char)
-                output.append(" ")
-            else:
-                output.append(char)
-        return "".join(output)
-
-    def _whitespace_tokenize(self, text):
-        text = text.strip()
-        if not text:
-            return []
-        tokens = text.split()
-        return tokens
-
-    def _basic_tokenize(self, text, never_split=None):
-        never_split = set(never_split) if never_split else set()
-        text = self._clean_text(text)
-
-        text = unicodedata.normalize("NFC", text)
-
-        orig_tokens = self._whitespace_tokenize(text)
-        split_tokens = []
-
-        for token in orig_tokens:
-            if token not in never_split:
-                token = token.lower()
-                token = self._run_strip_accents(token)
-
-            split_tokens.append(token)
-
-        output_tokens = self._whitespace_tokenize(" ".join(split_tokens))
-        return output_tokens
 
     @property
     def vocab_size(self):
@@ -305,12 +201,13 @@ class CLIPTokenizer(keras.Layer):
         return word
 
     def _tokenize_to_bpe_tokens(self, text):
-        if self.use_ftfy:
-            text = self._whitespace_clean(self.fix_text(text)).lower()
-        else:
-            text = " ".join(self._basic_tokenize(text))
+        text = self._whitespace_clean(text.lower())
+        
         bpe_tokens = []
         for token in re.findall(self.pat, text):
+            if token.isspace():
+                continue
+                
             token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
             bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
 
@@ -325,6 +222,9 @@ class CLIPTokenizer(keras.Layer):
         return token_ids
 
     def detokenize(self, token_ids):
+        if isinstance(token_ids, int):
+            token_ids = [token_ids]
+        
         text = "".join([self.decoder.get(token_id, "") for token_id in token_ids])
         byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
         text = (

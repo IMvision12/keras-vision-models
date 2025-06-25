@@ -75,22 +75,185 @@ class TestCLIPTokenizer(TestCase):
                 if word.isalpha():
                     self.assertIn(word, detokenized.lower())
 
-    def test_expected_tokenization_values(self):
+    def test_raw_tokenization_values(self):
         test_cases = [
             {
                 "text": "cat",
-                "expected_tokens": [49406, 2368, 49407],
+                "expected_tokens": [2368],
                 "description": "Simple single word",
             },
             {
                 "text": "a photo of a cat",
-                "expected_tokens": [49406, 320, 1125, 539, 320, 2368, 49407],
+                "expected_tokens": [320, 1125, 539, 320, 2368],
                 "description": "Common CLIP prompt",
             },
             {
                 "text": "dog",
-                "expected_tokens": [49406, 1929, 49407],
+                "expected_tokens": [1929],
                 "description": "Another simple word",
+            },
+            {
+                "text": "The quick brown fox jumped.",
+                "expected_tokens": [51, 797, 3712, 2866, 3240, 16901, 269],
+                "description": "Simple sentence",
+            },
+            {
+                "text": "",
+                "expected_tokens": [],
+                "description": "Empty string edge case",
+            },
+            {
+                "text": "A beautiful sunset over the mountains with golden light reflecting on a crystal clear lake",
+                "expected_tokens": [
+                    288,
+                    1215,
+                    3424,
+                    962,
+                    518,
+                    5873,
+                    593,
+                    3878,
+                    1395,
+                    19700,
+                    525,
+                    320,
+                    6517,
+                    3143,
+                    2553,
+                ],
+                "description": "Complex description",
+            },
+            {
+                "text": "Photo #123: A dog's best friend! Cost: $50.99",
+                "expected_tokens": [
+                    47,
+                    606,
+                    531,
+                    258,
+                    16,
+                    17,
+                    274,
+                    281,
+                    288,
+                    1929,
+                    568,
+                    949,
+                    1625,
+                    256,
+                    34,
+                    18749,
+                    281,
+                    259,
+                    20,
+                    271,
+                    269,
+                    24,
+                    280,
+                ],
+                "description": "Text with punctuation and numbers",
+            },
+            {
+                "text": "AI/ML Model Training @2024 #DeepLearning",
+                "expected_tokens": [
+                    32,
+                    296,
+                    270,
+                    44,
+                    299,
+                    44,
+                    78,
+                    2003,
+                    51,
+                    13964,
+                    287,
+                    17,
+                    15,
+                    17,
+                    275,
+                    258,
+                    35,
+                    68,
+                    1178,
+                    43,
+                    14550,
+                ],
+                "description": "Mixed case and special characters",
+            },
+            {
+                "text": "A painting of flowers in a vase on a wooden table",
+                "expected_tokens": [
+                    288,
+                    3086,
+                    539,
+                    4023,
+                    530,
+                    320,
+                    20431,
+                    525,
+                    320,
+                    9057,
+                    2175,
+                ],
+                "description": "Medium complexity description",
+            },
+            {
+                "text": "Night sky filled with stars and a bright full moon over a quiet lake surrounded by tall pine trees",
+                "expected_tokens": [
+                    45,
+                    897,
+                    2390,
+                    5589,
+                    593,
+                    2895,
+                    537,
+                    320,
+                    4852,
+                    1476,
+                    3293,
+                    962,
+                    320,
+                    7557,
+                    2553,
+                    13589,
+                    638,
+                    7771,
+                    7374,
+                    4682,
+                ],
+                "description": "Long complex description",
+            },
+        ]
+
+        for case in test_cases:
+            with self.subTest(text=case["text"], description=case["description"]):
+                actual_tokens = self.tokenizer._tokenize_single_text(case["text"])
+
+                self.assertListEqual(
+                    actual_tokens,
+                    case["expected_tokens"],
+                    f"Raw tokenization mismatch for '{case['text']}'. "
+                    f"Expected: {case['expected_tokens']}, Got: {actual_tokens}",
+                )
+
+    def test_full_tokenization_with_special_tokens(self):
+        test_cases = [
+            {
+                "text": "cat",
+                "expected_tokens": [49406, 2368, 49407],  # BOS + cat + EOS
+                "description": "Simple single word with special tokens",
+            },
+            {
+                "text": "a photo of a cat",
+                "expected_tokens": [
+                    49406,
+                    320,
+                    1125,
+                    539,
+                    320,
+                    2368,
+                    49407,
+                ],  # BOS + tokens + EOS
+                "description": "Common CLIP prompt with special tokens",
             },
         ]
 
@@ -98,26 +261,27 @@ class TestCLIPTokenizer(TestCase):
             with self.subTest(text=case["text"], description=case["description"]):
                 result = self.tokenizer(inputs=case["text"])
                 input_ids = ops.convert_to_numpy(result["input_ids"])[0]
-                eos_positions = [
-                    i
-                    for i, token_id in enumerate(input_ids)
-                    if token_id == self.tokenizer.eos_token_id
-                ]
-                if eos_positions:
-                    actual_tokens = input_ids[: eos_positions[0] + 1].tolist()
-                else:
-                    actual_tokens = [
-                        token_id
-                        for token_id in input_ids
-                        if token_id != self.tokenizer.eos_token_id
-                        or token_id == self.tokenizer.eos_token_id
-                    ]
-                    actual_tokens = actual_tokens[: len(case["expected_tokens"])]
+
+                pad_token_id = self.tokenizer.pad_token_id
+                eos_token_id = self.tokenizer.eos_token_id
+
+                actual_length = len(input_ids)
+                eos_found = False
+
+                for i, token_id in enumerate(input_ids):
+                    if token_id == eos_token_id and not eos_found:
+                        eos_found = True
+                        continue
+                    elif token_id == pad_token_id and eos_found:
+                        actual_length = i
+                        break
+
+                actual_tokens = input_ids[:actual_length].tolist()
 
                 self.assertListEqual(
                     actual_tokens,
                     case["expected_tokens"],
-                    f"Tokenization mismatch for '{case['text']}'. "
+                    f"Full tokenization mismatch for '{case['text']}'. "
                     f"Expected: {case['expected_tokens']}, Got: {actual_tokens}",
                 )
 

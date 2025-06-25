@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import unicodedata
 
 import keras
 
@@ -81,7 +80,6 @@ class CLIPTokenizer(keras.Layer):
         self.special_tokens = {
             "<|startoftext|>": 49406,
             "<|endoftext|>": 49407,
-            "<|pad|>": 0,
         }
 
         with open(vocab_file, "r", encoding="utf-8") as f:
@@ -111,8 +109,8 @@ class CLIPTokenizer(keras.Layer):
         }
 
         self.pat = re.compile(
-            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s]+|\s+""",
-            re.UNICODE,
+            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s\w]|[\w]+|\s+""",
+            re.IGNORECASE,
         )
 
         self.fix_text = None
@@ -159,14 +157,16 @@ class CLIPTokenizer(keras.Layer):
         if token in self.cache:
             return self.cache[token]
 
-        word = tuple(token[:-1]) + (token[-1] + "</w>",)
+        word = list(token[:-1]) + [token[-1] + "</w>"]
         pairs = self._get_pairs(word)
 
         if not pairs:
+            self.cache[token] = token + "</w>"
             return token + "</w>"
 
         while True:
             bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float("inf")))
+
             if bigram not in self.bpe_ranks:
                 break
 
@@ -190,7 +190,7 @@ class CLIPTokenizer(keras.Layer):
                     new_word.append(word[i])
                     i += 1
 
-            word = tuple(new_word)
+            word = new_word
             if len(word) == 1:
                 break
             else:
@@ -201,15 +201,26 @@ class CLIPTokenizer(keras.Layer):
         return word
 
     def _tokenize_to_bpe_tokens(self, text):
-        text = self._whitespace_clean(text)
+        text = self._whitespace_clean(text.strip())
+        if not text:
+            return []
 
         bpe_tokens = []
-        for token in re.findall(self.pat, text):
+
+        tokens = re.findall(self.pat, text)
+
+        for token in tokens:
             if not token.strip():
                 continue
 
-            token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
-            bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
+            token_bytes = token.encode("utf-8")
+            token_unicode = "".join(self.byte_encoder[b] for b in token_bytes)
+
+            bpe_result = self.bpe(token_unicode)
+
+            for bpe_token in bpe_result.split(" "):
+                if bpe_token:
+                    bpe_tokens.append(bpe_token)
 
         return bpe_tokens
 
@@ -218,24 +229,43 @@ class CLIPTokenizer(keras.Layer):
             return [self._tokenize_single_text(t) for t in text]
         else:
             return self._tokenize_single_text(text)
-    
+
     def _tokenize_single_text(self, text):
+        if not isinstance(text, str):
+            text = str(text)
+
+        if not text or not text.strip():
+            return []
+
         bpe_tokens = self._tokenize_to_bpe_tokens(text)
-        token_ids = [
-            self.encoder.get(token, self.encoder.get(self.unk_token, 0))
-            for token in bpe_tokens
-        ]
+        token_ids = []
+
+        for token in bpe_tokens:
+            if token in self.encoder:
+                token_ids.append(self.encoder[token])
+            else:
+                token_ids.append(self.encoder.get(self.unk_token, 0))
+
         return token_ids
 
     def detokenize(self, token_ids):
         if isinstance(token_ids, int):
             token_ids = [token_ids]
 
-        text = "".join([self.decoder.get(token_id, "") for token_id in token_ids])
-        byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
-        text = (
-            byte_array.decode("utf-8", errors=self.errors).replace("</w>", " ").strip()
-        )
+        tokens = []
+        for token_id in token_ids:
+            if token_id in self.decoder:
+                tokens.append(self.decoder[token_id])
+
+        text = "".join(tokens)
+
+        try:
+            byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
+            text = byte_array.decode("utf-8", errors=self.errors)
+            text = text.replace("</w>", " ").strip()
+        except Exception:
+            text = ""
+
         return text
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):

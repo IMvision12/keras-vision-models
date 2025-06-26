@@ -19,10 +19,7 @@ class TestSigLIP2Tokenizer(TestCase):
 
     def setUp(self):
         self.tokenizer = SigLIP2Tokenizer(
-            vocab_file=self.vocab_file, 
-            context_length=64,
-            add_bos=False,
-            add_eos=False
+            vocab_file=self.vocab_file, context_length=64, add_bos=False, add_eos=False
         )
 
     def test_tokenizer_initialization(self):
@@ -101,21 +98,67 @@ class TestSigLIP2Tokenizer(TestCase):
             {
                 "text": "A beautiful sunset over the mountains with golden light reflecting on a crystal clear lake",
                 "expected_tokens": [
-                    235280, 4964, 22097, 1163, 573, 17200, 675, 13658, 2611, 44211, 611, 476, 16162, 3110, 13492
+                    235280,
+                    4964,
+                    22097,
+                    1163,
+                    573,
+                    17200,
+                    675,
+                    13658,
+                    2611,
+                    44211,
+                    611,
+                    476,
+                    16162,
+                    3110,
+                    13492,
                 ],
                 "description": "Complex description",
             },
             {
                 "text": "Photo #123: A dog's best friend! Cost: $50.99",
                 "expected_tokens": [
-                    7869, 1700, 235274, 235284, 235304, 235292, 586, 5929, 235303, 235256, 1963, 4034, 235341, 8449, 235292, 697, 235308, 235276, 235265, 235315, 235315
+                    7869,
+                    1700,
+                    235274,
+                    235284,
+                    235304,
+                    235292,
+                    586,
+                    5929,
+                    235303,
+                    235256,
+                    1963,
+                    4034,
+                    235341,
+                    8449,
+                    235292,
+                    697,
+                    235308,
+                    235276,
+                    235265,
+                    235315,
+                    235315,
                 ],
                 "description": "Text with punctuation and numbers",
             },
             {
                 "text": "AI/ML Model Training @2024 #DeepLearning",
                 "expected_tokens": [
-                    11716, 235283, 3939, 5708, 13206, 1118, 235284, 235276, 235284, 235310, 1700, 26843, 26231
+                    11716,
+                    235283,
+                    3939,
+                    5708,
+                    13206,
+                    1118,
+                    235284,
+                    235276,
+                    235284,
+                    235310,
+                    1700,
+                    26843,
+                    26231,
                 ],
                 "description": "Mixed case and special characters",
             },
@@ -151,7 +194,27 @@ class TestSigLIP2Tokenizer(TestCase):
                 "expected_tokens": [
                     [21401],
                     [235280, 11825, 576, 9148, 575, 476, 34557, 611, 476, 11769, 3037],
-                    [25738, 8203, 10545, 675, 8995, 578, 476, 8660, 2247, 11883, 1163, 476, 11067, 13492, 22442, 731, 13754, 23780, 8195],
+                    [
+                        25738,
+                        8203,
+                        10545,
+                        675,
+                        8995,
+                        578,
+                        476,
+                        8660,
+                        2247,
+                        11883,
+                        1163,
+                        476,
+                        11067,
+                        13492,
+                        22442,
+                        731,
+                        13754,
+                        23780,
+                        8195,
+                    ],
                 ],
                 "description": "Varied length batch",
             },
@@ -174,19 +237,13 @@ class TestSigLIP2Tokenizer(TestCase):
 
         self.assertEqual(result, token_ids)
         tokenizer_with_bos = SigLIP2Tokenizer(
-            vocab_file=self.vocab_file,
-            context_length=64,
-            add_bos=True,
-            add_eos=False
+            vocab_file=self.vocab_file, context_length=64, add_bos=True, add_eos=False
         )
         result_bos = tokenizer_with_bos.build_inputs_with_special_tokens(token_ids)
         self.assertEqual(result_bos[0], tokenizer_with_bos.bos_token_id)
         self.assertEqual(result_bos[1:], token_ids)
         tokenizer_with_eos = SigLIP2Tokenizer(
-            vocab_file=self.vocab_file,
-            context_length=64,
-            add_bos=False,
-            add_eos=True
+            vocab_file=self.vocab_file, context_length=64, add_bos=False, add_eos=True
         )
         result_eos = tokenizer_with_eos.build_inputs_with_special_tokens(token_ids)
         self.assertEqual(result_eos[-1], tokenizer_with_eos.eos_token_id)
@@ -240,7 +297,7 @@ class TestSigLIP2Tokenizer(TestCase):
                 vocab_file=self.vocab_file,
                 context_length=context_length,
                 add_bos=False,
-                add_eos=False
+                add_eos=False,
             )
 
             result = tokenizer(inputs="test text")
@@ -334,10 +391,7 @@ class TestSigLIP2Tokenizer(TestCase):
 
     def test_special_token_configuration(self):
         tokenizer_both = SigLIP2Tokenizer(
-            vocab_file=self.vocab_file,
-            context_length=64,
-            add_bos=True,
-            add_eos=True
+            vocab_file=self.vocab_file, context_length=64, add_bos=True, add_eos=True
         )
 
         text = "hello world"
@@ -403,21 +457,21 @@ class TestSigLIP2Tokenizer(TestCase):
 
     def test_sentencepiece_specific_features(self):
         self.assertIsNotNone(self.tokenizer.sp_model)
-        
+
         text = "hello world"
         sp_tokens = self.tokenizer.sp_model.encode_as_ids(text)
         tokenizer_tokens = self.tokenizer.tokenize(text)
-        
+
         self.assertEqual(sp_tokens, tokenizer_tokens)
         decoded_sp = self.tokenizer.sp_model.decode_ids(sp_tokens)
         decoded_tokenizer = self.tokenizer.detokenize(tokenizer_tokens)
-        
+
         self.assertEqual(decoded_sp, decoded_tokenizer)
 
     def test_error_handling(self):
         with self.assertRaises(ValueError):
             self.tokenizer.id_to_token(-1)
-        
+
         with self.assertRaises(ValueError):
             self.tokenizer.id_to_token(self.tokenizer.vocab_size)
 

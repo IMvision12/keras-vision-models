@@ -43,7 +43,7 @@ class TestCLIPProcessor(TestCase):
             "A photo of a cat",
             "An image of a dog",
             "A beautiful sunset over the mountains",
-            "A red car driving on the highway"
+            "A red car driving on the highway",
         ]
         cls.single_text = "A photo of a cat"
 
@@ -103,7 +103,9 @@ class TestCLIPProcessor(TestCase):
         self.assertEqual(ops.shape(result["input_ids"])[0], 1)
         self.assertEqual(ops.shape(result["images"])[0], 1)
 
-        result = self.processor(text=self.sample_texts[:2], images=self.sample_image_array)
+        result = self.processor(
+            text=self.sample_texts[:2], images=self.sample_image_array
+        )
         self.assertEqual(ops.shape(result["input_ids"])[0], 2)
         self.assertEqual(ops.shape(result["images"])[0], 1)
 
@@ -115,43 +117,33 @@ class TestCLIPProcessor(TestCase):
         self.assertEqual(ops.shape(result["input_ids"])[0], 1)
         self.assertEqual(ops.shape(result["images"])[0], 2)
 
-        result = self.processor(text=self.sample_texts[:3], image_paths=self.sample_image_paths)
+        result = self.processor(
+            text=self.sample_texts[:3], image_paths=self.sample_image_paths
+        )
         self.assertEqual(ops.shape(result["input_ids"])[0], 3)
         self.assertEqual(ops.shape(result["images"])[0], 3)
 
     def test_custom_processor_parameters(self):
-        custom_processor = clip.CLIPProcessor(
-            image_resolution=336,
-            context_length=49
-        )
-        result = custom_processor(
-            text=self.single_text,
-            images=self.sample_image_array
-        )
+        custom_processor = clip.CLIPProcessor(image_resolution=336, context_length=49)
+        result = custom_processor(text=self.single_text, images=self.sample_image_array)
         self.assertEqual(tuple(ops.shape(result["images"])[1:3]), (336, 336))
         self.assertEqual(ops.shape(result["input_ids"])[1], 49)
 
-        custom_processor = clip.CLIPProcessor(
-            mean=[0.5, 0.5, 0.5],
-            std=[0.5, 0.5, 0.5]
-        )
+        custom_processor = clip.CLIPProcessor(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         result_custom = custom_processor(images=self.sample_image_array)
         result_default = self.processor(images=self.sample_image_array)
-        
+
         with self.assertRaises(AssertionError):
             self.assertAllClose(
-                result_custom["images"], 
-                result_default["images"], 
-                rtol=1e-4, 
-                atol=1e-4
+                result_custom["images"], result_default["images"], rtol=1e-4, atol=1e-4
             )
 
     def test_image_input_type_compatibility(self):
         result_array = self.processor(images=self.sample_image_array)["images"]
-        
+
         pil_array = keras.utils.img_to_array(self.sample_image_pil)
         result_pil = self.processor(images=pil_array)["images"]
-        
+
         self.assertEqual(ops.shape(result_array), ops.shape(result_pil))
 
     def test_channel_handling(self):
@@ -171,14 +163,14 @@ class TestCLIPProcessor(TestCase):
 
     def test_text_tokenization_details(self):
         result = self.processor(text=self.single_text)
-        
+
         self.assertIn("input_ids", result)
         self.assertIn("attention_mask", result)
-        
+
         input_ids = result["input_ids"]
         attention_mask = result["attention_mask"]
         self.assertEqual(ops.shape(input_ids), ops.shape(attention_mask))
-        
+
         attention_mask_np = ops.convert_to_numpy(attention_mask)
         unique_values = set(attention_mask_np.flatten())
         for val in unique_values:
@@ -189,7 +181,7 @@ class TestCLIPProcessor(TestCase):
             self.processor(
                 text=self.single_text,
                 images=self.sample_image_array,
-                image_paths=self.sample_image_path
+                image_paths=self.sample_image_path,
             )
 
         with self.assertRaises((ValueError, TypeError)):
@@ -205,8 +197,7 @@ class TestCLIPProcessor(TestCase):
 
     def test_edge_cases(self):
         small_image = ops.cast(
-            keras.random.randint(shape=(1, 1, 3), minval=0, maxval=256), 
-            dtype="uint8"
+            keras.random.randint(shape=(1, 1, 3), minval=0, maxval=256), dtype="uint8"
         )
         result_small = self.processor(images=small_image)["images"]
         self.assertEqual(tuple(ops.shape(result_small)[1:3]), (224, 224))
@@ -221,8 +212,12 @@ class TestCLIPProcessor(TestCase):
     def test_processing_consistency(self):
         result1 = self.processor(text=self.single_text)
         result2 = self.processor(text=self.single_text)
-        self.assertAllClose(result1["input_ids"], result2["input_ids"], rtol=1e-6, atol=1e-6)
-        self.assertAllClose(result1["attention_mask"], result2["attention_mask"], rtol=1e-6, atol=1e-6)
+        self.assertAllClose(
+            result1["input_ids"], result2["input_ids"], rtol=1e-6, atol=1e-6
+        )
+        self.assertAllClose(
+            result1["attention_mask"], result2["attention_mask"], rtol=1e-6, atol=1e-6
+        )
 
         result1 = self.processor(images=self.sample_image_array)
         result2 = self.processor(images=self.sample_image_array)
@@ -234,32 +229,27 @@ class TestCLIPProcessor(TestCase):
             mean=[0.5, 0.5, 0.5],
             std=[0.3, 0.3, 0.3],
             do_center_crop=False,
-            context_length=49
+            context_length=49,
         )
 
         original_result = processor(
-            text=self.single_text,
-            images=self.sample_image_array
+            text=self.single_text, images=self.sample_image_array
         )
-        
+
         config = processor.get_config()
         recreated_processor = clip.CLIPProcessor.from_config(config)
         recreated_result = recreated_processor(
-            text=self.single_text,
-            images=self.sample_image_array
+            text=self.single_text, images=self.sample_image_array
         )
-        
+
         self.assertAllClose(
-            original_result["input_ids"], 
-            recreated_result["input_ids"], 
-            rtol=1e-6, 
-            atol=1e-6
+            original_result["input_ids"],
+            recreated_result["input_ids"],
+            rtol=1e-6,
+            atol=1e-6,
         )
         self.assertAllClose(
-            original_result["images"], 
-            recreated_result["images"], 
-            rtol=1e-6, 
-            atol=1e-6
+            original_result["images"], recreated_result["images"], rtol=1e-6, atol=1e-6
         )
 
     def test_output_format(self):
@@ -276,8 +266,7 @@ class TestCLIPProcessor(TestCase):
         self.assertNotIn("attention_mask", result_image)
 
         result_combined = self.processor(
-            text=self.single_text,
-            images=self.sample_image_array
+            text=self.single_text, images=self.sample_image_array
         )
         self.assertIsInstance(result_combined, dict)
         self.assertIn("input_ids", result_combined)
@@ -320,13 +309,14 @@ class TestCLIPProcessor(TestCase):
             with self.subTest(config=config):
                 processor = clip.CLIPProcessor(**config)
                 result = processor(
-                    text=self.single_text,
-                    images=self.sample_image_array
+                    text=self.single_text, images=self.sample_image_array
                 )
 
                 self.assertEqual(len(ops.shape(result["input_ids"])), 2)
                 self.assertEqual(ops.shape(result["input_ids"])[0], 1)
-                self.assertEqual(ops.shape(result["input_ids"])[1], config.get("context_length", 77))
+                self.assertEqual(
+                    ops.shape(result["input_ids"])[1], config.get("context_length", 77)
+                )
 
                 self.assertEqual(len(ops.shape(result["images"])), 4)
                 self.assertEqual(ops.shape(result["images"])[0], 1)
@@ -336,16 +326,13 @@ class TestCLIPProcessor(TestCase):
                     expected_res = config.get("image_resolution", 224)
                     if config.get("do_center_crop", True):
                         self.assertEqual(
-                            tuple(ops.shape(result["images"])[1:3]), 
-                            (expected_res, expected_res)
+                            tuple(ops.shape(result["images"])[1:3]),
+                            (expected_res, expected_res),
                         )
 
     def test_nonexistent_image_path(self):
         with self.assertRaises((ValueError, FileNotFoundError, OSError)):
-            self.processor(
-                text=self.single_text,
-                image_paths="nonexistent_file.jpg"
-            )
+            self.processor(text=self.single_text, image_paths="nonexistent_file.jpg")
 
     def test_empty_inputs(self):
         with self.assertRaises((ValueError, IndexError)):
@@ -374,7 +361,7 @@ class TestCLIPProcessor(TestCase):
             keras.random.randint(shape=(3, 128, 128, 3), minval=0, maxval=256),
             dtype="uint8",
         )
-        
+
         result = self.processor(text=batch_texts, images=batch_images)
         self.assertEqual(ops.shape(result["input_ids"])[0], 2)
         self.assertEqual(ops.shape(result["images"])[0], 3)

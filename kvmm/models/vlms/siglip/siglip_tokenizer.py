@@ -16,40 +16,37 @@ class SigLIPTokenizer(keras.Layer):
     SigLIP (Sigmoid Loss for Language Image Pre-training) model. The tokenizer converts text into
     token IDs that can be processed by the SigLIP text encoder.
 
-    The tokenizer implements greedy subword tokenization with SentencePiece-style preprocessing,
-    including text canonicalization, punctuation removal, and special token handling. It uses
-    a longest-match-first approach for tokenization.
+    The tokenizer uses SentencePiece for subword tokenization with minimal text preprocessing
+    to match the official SigLIP implementation.
 
     Args:
         vocab_file (str): Path to the SentencePiece model file (.model format)
         context_length (int, optional): Maximum context length for padding/truncation. Defaults to 64.
-        do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing. Defaults to True.
+        do_lower_case (bool, optional): Whether to convert text to lowercase during preprocessing. Defaults to False.
         unk_token (str, optional): Token for unknown/out-of-vocabulary words. Defaults to "<unk>".
         pad_token (str, optional): Padding token used for sequence padding. Defaults to "</s>".
         eos_token (str, optional): End of sequence token. Defaults to "</s>".
 
     Key features:
-    - Greedy longest-match-first subword tokenization
-    - SentencePiece-style text preprocessing with underline prefix
-    - Text canonicalization including punctuation removal and whitespace normalization
+    - SentencePiece-based subword tokenization
+    - Minimal text preprocessing (only whitespace normalization)
+    - Preserves capitalization and punctuation by default
     - Support for special tokens (UNK, PAD, EOS)
-    - Configurable case sensitivity
     - Integration with Keras as a layer for seamless use in neural network pipelines
     - Tensor-based operations for efficient batch processing
 
     Text preprocessing pipeline:
-    1. Canonicalize text (remove punctuation, normalize whitespace)
-    2. Apply lowercase conversion if enabled
-    3. Add SentencePiece underline prefix
-    4. Perform greedy tokenization using longest-match-first strategy
-    5. Handle unknown characters with UNK token
+    1. Normalize whitespace (multiple spaces → single space, strip)
+    2. Apply lowercase conversion if enabled (disabled by default)
+    3. Use SentencePiece encoding directly
+    4. Add EOS token
 
     Example usage:
         # Initialize the tokenizer with SentencePiece model file
         tokenizer = SigLIPTokenizer(
             vocab_file="path/to/vocab.model",
             context_length=64,
-            do_lower_case=True
+            do_lower_case=False  # Default behavior preserves case and punctuation
         )
 
         # Tokenize and encode a single text
@@ -71,16 +68,16 @@ class SigLIPTokenizer(keras.Layer):
         decoded_texts = tokenizer.batch_detokenize(encoded["input_ids"])
 
     Note:
-        This tokenizer is specifically designed for SigLIP models and may not be compatible
-        with other vision-language models. The greedy tokenization approach differs from
-        BPE-based tokenizers used in models like CLIP.
+        This tokenizer is specifically designed for SigLIP models and matches the official
+        SigLIP tokenization behavior. It preserves capitalization and punctuation by default,
+        unlike some other vision-language model tokenizers.
     """
 
     def __init__(
         self,
         vocab_file: str,
         context_length: int = 64,
-        do_lower_case: bool = True,
+        do_lower_case: bool = False,
         unk_token: str = "<unk>",
         pad_token: str = "</s>",
         eos_token: str = "</s>",
@@ -111,23 +108,6 @@ class SigLIPTokenizer(keras.Layer):
         self.pad_token_id = self.sp_model.piece_to_id(self.pad_token)
         self.eos_token_id = self.sp_model.piece_to_id(self.eos_token)
 
-        self.spiece_underline = "▁"
-        self._build_subword_vocab()
-
-    def _build_subword_vocab(self):
-        self.sorted_tokens = sorted(
-            [
-                self.sp_model.id_to_piece(i)
-                for i in range(self.sp_model.get_piece_size())
-                if not self.sp_model.id_to_piece(i).startswith("<")
-            ],
-            key=len,
-            reverse=True,
-        )
-        self.token_set = {
-            self.sp_model.id_to_piece(i) for i in range(self.sp_model.get_piece_size())
-        }
-
     def remove_punctuation(self, text: str) -> str:
         return text.translate(str.maketrans("", "", string.punctuation))
 
@@ -146,66 +126,94 @@ class SigLIPTokenizer(keras.Layer):
         return text
 
     def _preprocess_text(self, text: str) -> str:
-        text = self.canonicalize_text(text)
-        if self.do_lower_case:
-            text = text.lower()
+        text = re.sub(r"\s+", " ", text)
+        text = text.strip()
         return text
-
-    def _tokenize_greedy(self, text: str) -> List[str]:
-        if not text:
-            return []
-        text = self.spiece_underline + text.replace(self.spiece_underline, " ")
-        tokens = []
-        i = 0
-        while i < len(text):
-            matched = False
-            for token in self.sorted_tokens:
-                if text[i:].startswith(token):
-                    tokens.append(token)
-                    i += len(token)
-                    matched = True
-                    break
-            if not matched:
-                char = text[i]
-                if char in self.token_set:
-                    tokens.append(char)
-                else:
-                    if self.unk_token in self.token_set:
-                        tokens.append(self.unk_token)
-                i += 1
-
-        return tokens
-
-    def _tokenize_to_tokens(self, text: str) -> List[str]:
-        text = self._preprocess_text(text)
-        tokens = self._tokenize_greedy(text)
-        tokens = [token for token in tokens if token]
-        return tokens
 
     def tokenize(
         self, text: Union[str, List[str]]
     ) -> Union[List[int], List[List[int]]]:
         if isinstance(text, str):
-            tokens = self._tokenize_to_tokens(text)
-            token_ids = [self.sp_model.piece_to_id(token) for token in tokens]
+            processed_text = self._preprocess_text(text)
+            token_ids = self.sp_model.encode_as_ids(processed_text)
+            token_ids.append(self.eos_token_id)
+
             return token_ids
         else:
             all_token_ids = []
             for single_text in text:
-                tokens = self._tokenize_to_tokens(single_text)
-                token_ids = [self.sp_model.piece_to_id(token) for token in tokens]
+                processed_text = self._preprocess_text(single_text)
+                token_ids = self.sp_model.encode_as_ids(processed_text)
+                token_ids.append(self.eos_token_id)
                 all_token_ids.append(token_ids)
             return all_token_ids
 
-    def detokenize(self, token_ids: List[int]) -> str:
-        tokens = [self.sp_model.id_to_piece(token_id) for token_id in token_ids]
-        text = "".join(tokens)
-        text = text.replace(self.spiece_underline, " ")
-        text = text.strip()
-        for special_token in [self.unk_token, self.pad_token, self.eos_token]:
-            text = text.replace(special_token, "")
+    def detokenize(
+        self,
+        token_ids: Union[List[int], List[List[int]], keras.KerasTensor],
+        skip_special_tokens: bool = True,
+    ) -> Union[str, List[str]]:
+        if hasattr(token_ids, "numpy"):
+            token_ids = token_ids.numpy()
 
-        return text.strip()
+        if (
+            isinstance(token_ids, list)
+            and len(token_ids) > 0
+            and isinstance(token_ids[0], list)
+        ):
+            decoded_texts = []
+            for seq_token_ids in token_ids:
+                if hasattr(seq_token_ids, "tolist"):
+                    seq_token_ids = seq_token_ids.tolist()
+
+                if skip_special_tokens:
+                    special_token_ids = {
+                        self.pad_token_id,
+                        self.eos_token_id,
+                        self.unk_token_id,
+                    }
+                    seq_token_ids = [
+                        tid for tid in seq_token_ids if tid not in special_token_ids
+                    ]
+
+                decoded_text = self.sp_model.decode_ids(seq_token_ids)
+                decoded_texts.append(decoded_text.strip())
+
+            return decoded_texts
+        elif hasattr(token_ids, "ndim") and token_ids.ndim == 2:
+            decoded_texts = []
+            for seq_token_ids in token_ids:
+                if hasattr(seq_token_ids, "tolist"):
+                    seq_token_ids = seq_token_ids.tolist()
+
+                if skip_special_tokens:
+                    special_token_ids = {
+                        self.pad_token_id,
+                        self.eos_token_id,
+                        self.unk_token_id,
+                    }
+                    seq_token_ids = [
+                        tid for tid in seq_token_ids if tid not in special_token_ids
+                    ]
+
+                decoded_text = self.sp_model.decode_ids(seq_token_ids)
+                decoded_texts.append(decoded_text.strip())
+
+            return decoded_texts
+        else:
+            if hasattr(token_ids, "tolist"):
+                token_ids = token_ids.tolist()
+
+            if skip_special_tokens:
+                special_token_ids = {
+                    self.pad_token_id,
+                    self.eos_token_id,
+                    self.unk_token_id,
+                }
+                token_ids = [tid for tid in token_ids if tid not in special_token_ids]
+
+            decoded_text = self.sp_model.decode_ids(token_ids)
+            return decoded_text.strip()
 
     def build_inputs_with_special_tokens(self, token_ids: List[int]) -> List[int]:
         return token_ids + [self.eos_token_id]
@@ -216,12 +224,12 @@ class SigLIPTokenizer(keras.Layer):
         processed_sequences = []
 
         for token_ids in token_ids_list:
-            token_ids_with_eos = token_ids + [self.eos_token_id]
+            if len(token_ids) >= self.context_length:
+                token_ids_processed = token_ids[: self.context_length]
+            else:
+                token_ids_processed = token_ids
 
-            if len(token_ids_with_eos) > self.context_length:
-                token_ids_with_eos = token_ids_with_eos[: self.context_length]
-
-            processed_sequences.append(token_ids_with_eos)
+            processed_sequences.append(token_ids_processed)
 
         max_len = self.context_length
         padded_sequences = []
@@ -247,10 +255,11 @@ class SigLIPTokenizer(keras.Layer):
         else:
             token_ids = text
 
-        token_ids = self.build_inputs_with_special_tokens(token_ids)
-
-        if len(token_ids) > self.context_length:
+        if len(token_ids) >= self.context_length:
             token_ids = token_ids[: self.context_length]
+        else:
+            if len(token_ids) > self.context_length:
+                token_ids = token_ids[: self.context_length]
 
         padding_length = self.context_length - len(token_ids)
         if padding_length > 0:

@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import unicodedata
 
 import keras
 
@@ -81,7 +80,6 @@ class CLIPTokenizer(keras.Layer):
         self.special_tokens = {
             "<|startoftext|>": 49406,
             "<|endoftext|>": 49407,
-            "<|pad|>": 0,
         }
 
         with open(vocab_file, "r", encoding="utf-8") as f:
@@ -111,7 +109,7 @@ class CLIPTokenizer(keras.Layer):
         }
 
         self.pat = re.compile(
-            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[a-zA-Z]+|[0-9]|[^a-zA-Z0-9\s]+|\s+""",
+            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s\w]|[\w]+|\s+""",
             re.IGNORECASE,
         )
 
@@ -151,110 +149,6 @@ class CLIPTokenizer(keras.Layer):
         text = text.strip()
         return text
 
-    def _is_punctuation(self, char):
-        cp = ord(char)
-        if (
-            (cp >= 33 and cp <= 47)
-            or (cp >= 58 and cp <= 64)
-            or (cp >= 91 and cp <= 96)
-            or (cp >= 123 and cp <= 126)
-        ):
-            return True
-        cat = unicodedata.category(char)
-        if cat.startswith("P"):
-            return True
-        return False
-
-    def _is_whitespace(self, char):
-        if char == " " or char == "\t" or char == "\n" or char == "\r":
-            return True
-        cat = unicodedata.category(char)
-        if cat == "Zs":
-            return True
-        return False
-
-    def _is_control(self, char):
-        if char == "\t" or char == "\n" or char == "\r":
-            return False
-        cat = unicodedata.category(char)
-        if cat.startswith("C"):
-            return True
-        return False
-
-    def _is_chinese_char(self, cp):
-        if (
-            (cp >= 0x4E00 and cp <= 0x9FFF)
-            or (cp >= 0x3400 and cp <= 0x4DBF)
-            or (cp >= 0x20000 and cp <= 0x2A6DF)
-            or (cp >= 0x2A700 and cp <= 0x2B73F)
-            or (cp >= 0x2B740 and cp <= 0x2B81F)
-            or (cp >= 0x2B820 and cp <= 0x2CEAF)
-            or (cp >= 0xF900 and cp <= 0xFAFF)
-            or (cp >= 0x2F800 and cp <= 0x2FA1F)
-        ):
-            return True
-        return False
-
-    def _clean_text(self, text):
-        output = []
-        for char in text:
-            cp = ord(char)
-            if cp == 0 or cp == 0xFFFD or self._is_control(char):
-                continue
-            if self._is_whitespace(char):
-                output.append(" ")
-            else:
-                output.append(char)
-        return "".join(output)
-
-    def _run_strip_accents(self, text):
-        text = unicodedata.normalize("NFD", text)
-        output = []
-        for char in text:
-            cat = unicodedata.category(char)
-            if cat == "Mn":
-                continue
-            output.append(char)
-        return "".join(output)
-
-    def _tokenize_chinese_chars(self, text):
-        output = []
-        for char in text:
-            cp = ord(char)
-            if self._is_chinese_char(cp):
-                output.append(" ")
-                output.append(char)
-                output.append(" ")
-            else:
-                output.append(char)
-        return "".join(output)
-
-    def _whitespace_tokenize(self, text):
-        text = text.strip()
-        if not text:
-            return []
-        tokens = text.split()
-        return tokens
-
-    def _basic_tokenize(self, text, never_split=None):
-        never_split = set(never_split) if never_split else set()
-        text = self._clean_text(text)
-
-        text = unicodedata.normalize("NFC", text)
-
-        orig_tokens = self._whitespace_tokenize(text)
-        split_tokens = []
-
-        for token in orig_tokens:
-            if token not in never_split:
-                token = token.lower()
-                token = self._run_strip_accents(token)
-
-            split_tokens.append(token)
-
-        output_tokens = self._whitespace_tokenize(" ".join(split_tokens))
-        return output_tokens
-
     @property
     def vocab_size(self):
         return len(self.encoder)
@@ -263,14 +157,16 @@ class CLIPTokenizer(keras.Layer):
         if token in self.cache:
             return self.cache[token]
 
-        word = tuple(token[:-1]) + (token[-1] + "</w>",)
+        word = list(token[:-1]) + [token[-1] + "</w>"]
         pairs = self._get_pairs(word)
 
         if not pairs:
+            self.cache[token] = token + "</w>"
             return token + "</w>"
 
         while True:
             bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float("inf")))
+
             if bigram not in self.bpe_ranks:
                 break
 
@@ -294,7 +190,7 @@ class CLIPTokenizer(keras.Layer):
                     new_word.append(word[i])
                     i += 1
 
-            word = tuple(new_word)
+            word = new_word
             if len(word) == 1:
                 break
             else:
@@ -305,31 +201,71 @@ class CLIPTokenizer(keras.Layer):
         return word
 
     def _tokenize_to_bpe_tokens(self, text):
-        if self.use_ftfy:
-            text = self._whitespace_clean(self.fix_text(text)).lower()
-        else:
-            text = " ".join(self._basic_tokenize(text))
+        text = self._whitespace_clean(text.strip())
+        if not text:
+            return []
+
         bpe_tokens = []
-        for token in re.findall(self.pat, text):
-            token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
-            bpe_tokens.extend(bpe_token for bpe_token in self.bpe(token).split(" "))
+
+        tokens = re.findall(self.pat, text)
+
+        for token in tokens:
+            if not token.strip():
+                continue
+
+            token_bytes = token.encode("utf-8")
+            token_unicode = "".join(self.byte_encoder[b] for b in token_bytes)
+
+            bpe_result = self.bpe(token_unicode)
+
+            for bpe_token in bpe_result.split(" "):
+                if bpe_token:
+                    bpe_tokens.append(bpe_token)
 
         return bpe_tokens
 
     def tokenize(self, text):
+        if isinstance(text, list):
+            return [self._tokenize_single_text(t) for t in text]
+        else:
+            return self._tokenize_single_text(text)
+
+    def _tokenize_single_text(self, text):
+        if not isinstance(text, str):
+            text = str(text)
+
+        if not text or not text.strip():
+            return []
+
         bpe_tokens = self._tokenize_to_bpe_tokens(text)
-        token_ids = [
-            self.encoder.get(token, self.encoder.get(self.unk_token, 0))
-            for token in bpe_tokens
-        ]
+        token_ids = []
+
+        for token in bpe_tokens:
+            if token in self.encoder:
+                token_ids.append(self.encoder[token])
+            else:
+                token_ids.append(self.encoder.get(self.unk_token, 0))
+
         return token_ids
 
     def detokenize(self, token_ids):
-        text = "".join([self.decoder.get(token_id, "") for token_id in token_ids])
-        byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
-        text = (
-            byte_array.decode("utf-8", errors=self.errors).replace("</w>", " ").strip()
-        )
+        if isinstance(token_ids, int):
+            token_ids = [token_ids]
+
+        tokens = []
+        for token_id in token_ids:
+            if token_id in self.decoder:
+                tokens.append(self.decoder[token_id])
+
+        text = "".join(tokens)
+
+        try:
+            byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
+            text = byte_array.decode("utf-8", errors=self.errors)
+            text = text.replace("</w>", " ").strip()
+        except Exception:
+            text = ""
+
         return text
 
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
@@ -350,7 +286,7 @@ class CLIPTokenizer(keras.Layer):
 
     def prepare_for_model(self, text):
         if isinstance(text, str):
-            token_ids = self.tokenize(text)
+            token_ids = self._tokenize_single_text(text)
         else:
             token_ids = text
         token_ids = self.build_inputs_with_special_tokens(token_ids)

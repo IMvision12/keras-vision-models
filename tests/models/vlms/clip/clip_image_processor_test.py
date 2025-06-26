@@ -13,7 +13,8 @@ class TestCLIPImageProcessor(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sample_image_array = ops.cast(
-            keras.random.randint(shape=(256, 256, 3), minval=0, maxval=256), dtype="uint8"
+            keras.random.randint(shape=(256, 256, 3), minval=0, maxval=256),
+            dtype="uint8",
         )
         cls.sample_image_pil = Image.fromarray(
             ops.convert_to_numpy(cls.sample_image_array)
@@ -29,7 +30,8 @@ class TestCLIPImageProcessor(TestCase):
         for i in range(3):
             temp_file = tempfile.NamedTemporaryFile(suffix=f"_{i}.png", delete=False)
             sample_array = ops.cast(
-                keras.random.randint(shape=(128, 128, 3), minval=0, maxval=256), dtype="uint8"
+                keras.random.randint(shape=(128, 128, 3), minval=0, maxval=256),
+                dtype="uint8",
             )
             sample_pil = Image.fromarray(ops.convert_to_numpy(sample_array))
             sample_pil.save(temp_file.name)
@@ -41,7 +43,7 @@ class TestCLIPImageProcessor(TestCase):
     def tearDownClass(cls):
         if os.path.exists(cls.sample_image_path):
             os.remove(cls.sample_image_path)
-        
+
         for temp_file in cls.temp_files:
             if os.path.exists(temp_file.name):
                 os.remove(temp_file.name)
@@ -62,7 +64,7 @@ class TestCLIPImageProcessor(TestCase):
         custom_processor = clip.CLIPImageProcessor(image_resolution=336)
         result = custom_processor(self.sample_image_array)
         processed_images = result["images"]
-        
+
         self.assertEqual(tuple(ops.shape(processed_images)[1:3]), (336, 336))
 
     def test_input_type_compatibility(self):
@@ -84,8 +86,8 @@ class TestCLIPImageProcessor(TestCase):
     def test_batch_processing(self):
         batch_size = 4
         batch_images = ops.cast(
-            keras.random.randint(shape=(batch_size, 128, 128, 3), minval=0, maxval=256), 
-            dtype="uint8"
+            keras.random.randint(shape=(batch_size, 128, 128, 3), minval=0, maxval=256),
+            dtype="uint8",
         )
         result = self.processor(batch_images)
         processed_batch = result["images"]
@@ -94,12 +96,14 @@ class TestCLIPImageProcessor(TestCase):
 
     def test_channel_handling(self):
         grayscale_image = ops.cast(
-            keras.random.randint(shape=(100, 100, 1), minval=0, maxval=256), dtype="uint8"
+            keras.random.randint(shape=(100, 100, 1), minval=0, maxval=256),
+            dtype="uint8",
         )
         result_gray = self.processor(grayscale_image)["images"]
         self.assertEqual(ops.shape(result_gray)[3], 3)
         rgba_image = ops.cast(
-            keras.random.randint(shape=(100, 100, 4), minval=0, maxval=256), dtype="uint8"
+            keras.random.randint(shape=(100, 100, 4), minval=0, maxval=256),
+            dtype="uint8",
         )
         result_rgba = self.processor(rgba_image)["images"]
         self.assertEqual(ops.shape(result_rgba)[3], 3)
@@ -108,15 +112,14 @@ class TestCLIPImageProcessor(TestCase):
         processor_default = clip.CLIPImageProcessor()
         result_default = processor_default(self.sample_image_array)["images"]
         processor_custom = clip.CLIPImageProcessor(
-            mean=[0.5, 0.5, 0.5],
-            std=[0.5, 0.5, 0.5]
+            mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]
         )
         result_custom = processor_custom(self.sample_image_array)["images"]
         processor_no_norm = clip.CLIPImageProcessor(do_normalize=False)
         result_no_norm = processor_no_norm(self.sample_image_array)["images"]
         with self.assertRaises(AssertionError):
             self.assertAllClose(result_default, result_custom, rtol=1e-4, atol=1e-4)
-        
+
         with self.assertRaises(AssertionError):
             self.assertAllClose(result_default, result_no_norm, rtol=1e-4, atol=1e-4)
 
@@ -124,13 +127,16 @@ class TestCLIPImageProcessor(TestCase):
         processor_resize = clip.CLIPImageProcessor(do_resize=True)
         result_resize = processor_resize(self.sample_image_array)["images"]
         self.assertEqual(tuple(ops.shape(result_resize)[1:3]), (224, 224))
-        processor_no_resize = clip.CLIPImageProcessor(do_resize=False, do_center_crop=False)
+        processor_no_resize = clip.CLIPImageProcessor(
+            do_resize=False, do_center_crop=False
+        )
         result_no_resize = processor_no_resize(self.sample_image_array)["images"]
         self.assertEqual(tuple(ops.shape(result_no_resize)[1:3]), (256, 256))
 
     def test_center_crop_functionality(self):
         large_image = ops.cast(
-            keras.random.randint(shape=(400, 400, 3), minval=0, maxval=256), dtype="uint8"
+            keras.random.randint(shape=(400, 400, 3), minval=0, maxval=256),
+            dtype="uint8",
         )
         processor_crop = clip.CLIPImageProcessor(do_center_crop=True)
         result_crop = processor_crop(large_image)["images"]
@@ -141,7 +147,8 @@ class TestCLIPImageProcessor(TestCase):
 
     def test_aspect_ratio_resize(self):
         rect_image = ops.cast(
-            keras.random.randint(shape=(100, 200, 3), minval=0, maxval=256), dtype="uint8"
+            keras.random.randint(shape=(100, 200, 3), minval=0, maxval=256),
+            dtype="uint8",
         )
         processor = clip.CLIPImageProcessor()
         result = processor(rect_image)["images"]
@@ -151,7 +158,7 @@ class TestCLIPImageProcessor(TestCase):
         float_image_01 = keras.random.uniform((100, 100, 3))
         result_01 = self.processor(float_image_01)["images"]
         self.assertEqual(tuple(ops.shape(result_01)[1:3]), (224, 224))
-        
+
         float_image_255 = keras.random.uniform((100, 100, 3)) * 255.0
         result_255 = self.processor(float_image_255)["images"]
         self.assertEqual(tuple(ops.shape(result_255)[1:3]), (224, 224))
@@ -160,14 +167,16 @@ class TestCLIPImageProcessor(TestCase):
         with self.assertRaises(ValueError):
             invalid_channels = ops.zeros((100, 100, 5))
             self.processor(invalid_channels)
-        
+
         with self.assertRaises(ValueError):
             invalid_dims = ops.zeros((100, 100))
             self.processor(invalid_dims)
-        
+
         with self.assertRaises(ValueError):
-            self.processor(inputs=self.sample_image_array, image_paths=self.sample_image_path)
-        
+            self.processor(
+                inputs=self.sample_image_array, image_paths=self.sample_image_path
+            )
+
         with self.assertRaises(ValueError):
             self.processor()
 
@@ -178,7 +187,8 @@ class TestCLIPImageProcessor(TestCase):
         result_small = self.processor(small_image)["images"]
         self.assertEqual(tuple(ops.shape(result_small)[1:3]), (224, 224))
         square_image = ops.cast(
-            keras.random.randint(shape=(224, 224, 3), minval=0, maxval=256), dtype="uint8"
+            keras.random.randint(shape=(224, 224, 3), minval=0, maxval=256),
+            dtype="uint8",
         )
         result_square = self.processor(square_image)["images"]
         self.assertEqual(tuple(ops.shape(result_square)[1:3]), (224, 224))
@@ -193,9 +203,9 @@ class TestCLIPImageProcessor(TestCase):
             image_resolution=336,
             mean=[0.5, 0.5, 0.5],
             std=[0.3, 0.3, 0.3],
-            do_center_crop=False
+            do_center_crop=False,
         )
-        
+
         original_result = processor(self.sample_image_array)["images"]
         config = processor.get_config()
         recreated_processor = clip.CLIPImageProcessor.from_config(config)
@@ -212,25 +222,47 @@ class TestCLIPImageProcessor(TestCase):
 
     def test_multiple_configuration_combinations(self):
         configs = [
-            {"image_resolution": 224, "do_resize": True, "do_center_crop": True, "do_normalize": True},
-            {"image_resolution": 336, "do_resize": True, "do_center_crop": False, "do_normalize": True},
-            {"image_resolution": 224, "do_resize": False, "do_center_crop": False, "do_normalize": False},
-            {"image_resolution": 512, "do_resize": True, "do_center_crop": True, "do_normalize": False},
+            {
+                "image_resolution": 224,
+                "do_resize": True,
+                "do_center_crop": True,
+                "do_normalize": True,
+            },
+            {
+                "image_resolution": 336,
+                "do_resize": True,
+                "do_center_crop": False,
+                "do_normalize": True,
+            },
+            {
+                "image_resolution": 224,
+                "do_resize": False,
+                "do_center_crop": False,
+                "do_normalize": False,
+            },
+            {
+                "image_resolution": 512,
+                "do_resize": True,
+                "do_center_crop": True,
+                "do_normalize": False,
+            },
         ]
-        
+
         for config in configs:
             with self.subTest(config=config):
                 processor = clip.CLIPImageProcessor(**config)
                 result = processor(self.sample_image_array)["images"]
-                
+
                 self.assertEqual(len(ops.shape(result)), 4)
                 self.assertEqual(ops.shape(result)[0], 1)
                 self.assertEqual(ops.shape(result)[3], 3)
-                
+
                 if config.get("do_resize", True):
                     expected_res = config.get("image_resolution", 224)
                     if config.get("do_center_crop", True):
-                        self.assertEqual(tuple(ops.shape(result)[1:3]), (expected_res, expected_res))
+                        self.assertEqual(
+                            tuple(ops.shape(result)[1:3]), (expected_res, expected_res)
+                        )
 
     def test_nonexistent_image_path(self):
         with self.assertRaises((ValueError, FileNotFoundError, OSError)):

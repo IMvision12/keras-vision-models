@@ -176,11 +176,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
             pad_left = (new_width - width) // 2
             pad_right = new_width - width - pad_left
 
-            paddings = [
-                (pad_top, pad_bottom),
-                (pad_left, pad_right),
-                (0, 0)
-            ]
+            paddings = [(pad_top, pad_bottom), (pad_left, pad_right), (0, 0)]
 
             padded_image = ops.pad(image, paddings, constant_values=0)
             crop_y_start = (new_height - target_size) // 2
@@ -214,7 +210,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
             else:
                 if len(image_paths) == 0:
                     raise ValueError("image_paths list cannot be empty")
-                
+
                 processed_images = []
                 for path in image_paths:
                     processed_images.append(self.process_path(path))

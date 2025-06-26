@@ -119,10 +119,8 @@ class CLIPImageProcessor(keras.layers.Layer):
         num_channels = shape[-1]
 
         if num_channels == 1:
-            # Convert grayscale to RGB by repeating the single channel
             image = ops.repeat(image, 3, axis=-1)
         elif num_channels == 4:
-            # Convert RGBA to RGB by dropping the alpha channel
             image = image[..., :3]
         elif num_channels == 3:
             pass
@@ -133,17 +131,32 @@ class CLIPImageProcessor(keras.layers.Layer):
         image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
 
         if self.do_resize:
-            image = ops.image.resize(
-                image,
-                (self.image_resolution, self.image_resolution),
-                interpolation="bicubic",
-            )
+            image = self._resize_with_aspect_ratio(image)
 
         if self.do_center_crop:
             image = self._center_crop(image)
 
         if self.do_normalize:
             image = (image - self.mean) / self.std
+
+        return image
+
+    def _resize_with_aspect_ratio(self, image: Any) -> Any:
+        shape = ops.shape(image)
+        height = ops.cast(shape[0], "float32")
+        width = ops.cast(shape[1], "float32")
+        target_size = ops.cast(self.image_resolution, "float32")
+
+        scale = target_size / ops.minimum(height, width)
+
+        new_height = ops.cast(height * scale, "int32")
+        new_width = ops.cast(width * scale, "int32")
+
+        image = ops.image.resize(
+            image,
+            (new_height, new_width),
+            interpolation="bicubic",
+        )
 
         return image
 
@@ -165,6 +178,7 @@ class CLIPImageProcessor(keras.layers.Layer):
         simple_cropped = ops.slice(
             image, [y_start, x_start, 0], [target_size, target_size, 3]
         )
+
         new_height = ops.maximum(target_size, height)
         new_width = ops.maximum(target_size, width)
 
@@ -190,6 +204,7 @@ class CLIPImageProcessor(keras.layers.Layer):
             [crop_y_start, crop_x_start, 0],
             [target_size, target_size, 3],
         )
+
         return ops.where(can_crop, simple_cropped, padded_cropped)
 
     def process_path(self, image_path: str) -> Any:

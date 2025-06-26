@@ -162,35 +162,37 @@ class SigLIPImageProcessor(keras.layers.Layer):
             ops.logical_and(y_end <= height, x_end <= width),
         )
 
-        simple_cropped = ops.slice(
-            image, [y_start, x_start, 0], [target_size, target_size, 3]
-        )
-        new_height = ops.maximum(target_size, height)
-        new_width = ops.maximum(target_size, width)
+        def simple_crop():
+            return ops.slice(
+                image, [y_start, x_start, 0], [target_size, target_size, 3]
+            )
 
-        pad_top = (new_height - height) // 2
-        pad_bottom = new_height - height - pad_top
-        pad_left = (new_width - width) // 2
-        pad_right = new_width - width - pad_left
+        def pad_and_crop():
+            new_height = ops.maximum(target_size, height)
+            new_width = ops.maximum(target_size, width)
 
-        paddings = ops.stack(
-            [
-                ops.stack([pad_top, pad_bottom]),
-                ops.stack([pad_left, pad_right]),
-                ops.stack([ops.convert_to_tensor(0), ops.convert_to_tensor(0)]),
+            pad_top = (new_height - height) // 2
+            pad_bottom = new_height - height - pad_top
+            pad_left = (new_width - width) // 2
+            pad_right = new_width - width - pad_left
+
+            paddings = [
+                (pad_top, pad_bottom),
+                (pad_left, pad_right),
+                (0, 0)
             ]
-        )
 
-        padded_image = ops.pad(image, paddings, constant_values=0)
-        crop_y_start = (new_height - target_size) // 2
-        crop_x_start = (new_width - target_size) // 2
+            padded_image = ops.pad(image, paddings, constant_values=0)
+            crop_y_start = (new_height - target_size) // 2
+            crop_x_start = (new_width - target_size) // 2
 
-        padded_cropped = ops.slice(
-            padded_image,
-            [crop_y_start, crop_x_start, 0],
-            [target_size, target_size, 3],
-        )
-        return ops.where(can_crop, simple_cropped, padded_cropped)
+            return ops.slice(
+                padded_image,
+                [crop_y_start, crop_x_start, 0],
+                [target_size, target_size, 3],
+            )
+
+        return ops.cond(can_crop, simple_crop, pad_and_crop)
 
     def process_path(self, image_path: str) -> Any:
         image = keras.utils.load_img(image_path)
@@ -210,6 +212,9 @@ class SigLIPImageProcessor(keras.layers.Layer):
                 processed_image = self.process_path(image_paths)
                 return ops.expand_dims(processed_image, axis=0)
             else:
+                if len(image_paths) == 0:
+                    raise ValueError("image_paths list cannot be empty")
+                
                 processed_images = []
                 for path in image_paths:
                     processed_images.append(self.process_path(path))

@@ -6,10 +6,10 @@ from keras import ops
 from keras.src.testing import TestCase
 from PIL import Image
 
-from kvmm.models import clip
+from kvmm.models import siglip
 
 
-class TestCLIPImageProcessor(TestCase):
+class TestSigLIPImageProcessor(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sample_image_array = ops.cast(
@@ -47,11 +47,11 @@ class TestCLIPImageProcessor(TestCase):
                 os.remove(temp_file.name)
 
     def setUp(self):
-        self.processor = clip.CLIPImageProcessor()
+        self.processor = siglip.SigLIPImageProcessor()
 
     def test_processor_basic_functionality(self):
         result = self.processor(self.sample_image_array)
-        processed_images = result["images"]
+        processed_images = result
 
         self.assertEqual(len(ops.shape(processed_images)), 4)
         self.assertEqual(ops.shape(processed_images)[0], 1)
@@ -59,25 +59,26 @@ class TestCLIPImageProcessor(TestCase):
         self.assertEqual(ops.shape(processed_images)[3], 3)
 
     def test_custom_image_resolution(self):
-        custom_processor = clip.CLIPImageProcessor(image_resolution=336)
+        custom_processor = siglip.SigLIPImageProcessor(image_resolution=336)
         result = custom_processor(self.sample_image_array)
-        processed_images = result["images"]
+        processed_images = result
         
         self.assertEqual(tuple(ops.shape(processed_images)[1:3]), (336, 336))
 
     def test_input_type_compatibility(self):
-        result_array = self.processor(self.sample_image_array)["images"]
+        result_array = self.processor(self.sample_image_array)
         pil_array = keras.utils.img_to_array(self.sample_image_pil)
-        result_pil = self.processor(pil_array)["images"]
+        result_pil = self.processor(pil_array)
         self.assertEqual(ops.shape(result_array), ops.shape(result_pil))
 
     def test_image_path_processing(self):
         result_single = self.processor(image_paths=self.sample_image_path)
-        processed_single = result_single["images"]
+        processed_single = result_single
         self.assertEqual(ops.shape(processed_single)[0], 1)
         self.assertEqual(tuple(ops.shape(processed_single)[1:3]), (224, 224))
+        
         result_multiple = self.processor(image_paths=self.sample_image_paths)
-        processed_multiple = result_multiple["images"]
+        processed_multiple = result_multiple
         self.assertEqual(ops.shape(processed_multiple)[0], 3)
         self.assertEqual(tuple(ops.shape(processed_multiple)[1:3]), (224, 224))
 
@@ -88,7 +89,7 @@ class TestCLIPImageProcessor(TestCase):
             dtype="uint8"
         )
         result = self.processor(batch_images)
-        processed_batch = result["images"]
+        processed_batch = result
         self.assertEqual(ops.shape(processed_batch)[0], batch_size)
         self.assertEqual(tuple(ops.shape(processed_batch)[1:3]), (224, 224))
 
@@ -96,24 +97,28 @@ class TestCLIPImageProcessor(TestCase):
         grayscale_image = ops.cast(
             keras.random.randint(shape=(100, 100, 1), minval=0, maxval=256), dtype="uint8"
         )
-        result_gray = self.processor(grayscale_image)["images"]
+        result_gray = self.processor(grayscale_image)
         self.assertEqual(ops.shape(result_gray)[3], 3)
+        
         rgba_image = ops.cast(
             keras.random.randint(shape=(100, 100, 4), minval=0, maxval=256), dtype="uint8"
         )
-        result_rgba = self.processor(rgba_image)["images"]
+        result_rgba = self.processor(rgba_image)
         self.assertEqual(ops.shape(result_rgba)[3], 3)
 
     def test_normalization_options(self):
-        processor_default = clip.CLIPImageProcessor()
-        result_default = processor_default(self.sample_image_array)["images"]
-        processor_custom = clip.CLIPImageProcessor(
-            mean=[0.5, 0.5, 0.5],
-            std=[0.5, 0.5, 0.5]
+        processor_default = siglip.SigLIPImageProcessor()
+        result_default = processor_default(self.sample_image_array)
+        
+        processor_custom = siglip.SigLIPImageProcessor(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
         )
-        result_custom = processor_custom(self.sample_image_array)["images"]
-        processor_no_norm = clip.CLIPImageProcessor(do_normalize=False)
-        result_no_norm = processor_no_norm(self.sample_image_array)["images"]
+        result_custom = processor_custom(self.sample_image_array)
+        
+        processor_no_norm = siglip.SigLIPImageProcessor(do_normalize=False)
+        result_no_norm = processor_no_norm(self.sample_image_array)
+        
         with self.assertRaises(AssertionError):
             self.assertAllClose(result_default, result_custom, rtol=1e-4, atol=1e-4)
         
@@ -121,39 +126,53 @@ class TestCLIPImageProcessor(TestCase):
             self.assertAllClose(result_default, result_no_norm, rtol=1e-4, atol=1e-4)
 
     def test_resize_functionality(self):
-        processor_resize = clip.CLIPImageProcessor(do_resize=True)
-        result_resize = processor_resize(self.sample_image_array)["images"]
+        processor_resize = siglip.SigLIPImageProcessor(do_resize=True)
+        result_resize = processor_resize(self.sample_image_array)
         self.assertEqual(tuple(ops.shape(result_resize)[1:3]), (224, 224))
-        processor_no_resize = clip.CLIPImageProcessor(do_resize=False, do_center_crop=False)
-        result_no_resize = processor_no_resize(self.sample_image_array)["images"]
+        
+        processor_no_resize = siglip.SigLIPImageProcessor(do_resize=False, do_center_crop=False)
+        result_no_resize = processor_no_resize(self.sample_image_array)
         self.assertEqual(tuple(ops.shape(result_no_resize)[1:3]), (256, 256))
 
     def test_center_crop_functionality(self):
         large_image = ops.cast(
             keras.random.randint(shape=(400, 400, 3), minval=0, maxval=256), dtype="uint8"
         )
-        processor_crop = clip.CLIPImageProcessor(do_center_crop=True)
-        result_crop = processor_crop(large_image)["images"]
+        processor_crop = siglip.SigLIPImageProcessor(do_center_crop=True)
+        result_crop = processor_crop(large_image)
         self.assertEqual(tuple(ops.shape(result_crop)[1:3]), (224, 224))
-        processor_no_crop = clip.CLIPImageProcessor(do_center_crop=False)
-        result_no_crop = processor_no_crop(large_image)["images"]
+        
+        processor_no_crop = siglip.SigLIPImageProcessor(do_center_crop=False)
+        result_no_crop = processor_no_crop(large_image)
         self.assertEqual(tuple(ops.shape(result_no_crop)[1:3]), (224, 224))
+
+    def test_center_crop_edge_cases(self):
+        small_image = ops.cast(
+            keras.random.randint(shape=(100, 100, 3), minval=0, maxval=256), dtype="uint8"
+        )
+        processor = siglip.SigLIPImageProcessor(do_resize=False, do_center_crop=True)
+        result = processor(small_image)
+        self.assertEqual(tuple(ops.shape(result)[1:3]), (224, 224))
+        rect_image = ops.cast(
+            keras.random.randint(shape=(300, 150, 3), minval=0, maxval=256), dtype="uint8"
+        )
+        result_rect = processor(rect_image)
+        self.assertEqual(tuple(ops.shape(result_rect)[1:3]), (224, 224))
 
     def test_aspect_ratio_resize(self):
         rect_image = ops.cast(
             keras.random.randint(shape=(100, 200, 3), minval=0, maxval=256), dtype="uint8"
         )
-        processor = clip.CLIPImageProcessor()
-        result = processor(rect_image)["images"]
+        processor = siglip.SigLIPImageProcessor()
+        result = processor(rect_image)
         self.assertEqual(tuple(ops.shape(result)[1:3]), (224, 224))
 
     def test_float_input_handling(self):
         float_image_01 = keras.random.uniform((100, 100, 3))
-        result_01 = self.processor(float_image_01)["images"]
+        result_01 = self.processor(float_image_01)
         self.assertEqual(tuple(ops.shape(result_01)[1:3]), (224, 224))
-        
         float_image_255 = keras.random.uniform((100, 100, 3)) * 255.0
-        result_255 = self.processor(float_image_255)["images"]
+        result_255 = self.processor(float_image_255)
         self.assertEqual(tuple(ops.shape(result_255)[1:3]), (224, 224))
 
     def test_invalid_input_handling(self):
@@ -175,53 +194,50 @@ class TestCLIPImageProcessor(TestCase):
         small_image = ops.cast(
             keras.random.randint(shape=(1, 1, 3), minval=0, maxval=256), dtype="uint8"
         )
-        result_small = self.processor(small_image)["images"]
+        result_small = self.processor(small_image)
         self.assertEqual(tuple(ops.shape(result_small)[1:3]), (224, 224))
         square_image = ops.cast(
             keras.random.randint(shape=(224, 224, 3), minval=0, maxval=256), dtype="uint8"
         )
-        result_square = self.processor(square_image)["images"]
+        result_square = self.processor(square_image)
         self.assertEqual(tuple(ops.shape(result_square)[1:3]), (224, 224))
 
     def test_processing_consistency(self):
-        result1 = self.processor(self.sample_image_array)["images"]
-        result2 = self.processor(self.sample_image_array)["images"]
+        result1 = self.processor(self.sample_image_array)
+        result2 = self.processor(self.sample_image_array)
         self.assertAllClose(result1, result2, rtol=1e-6, atol=1e-6)
 
     def test_serialization(self):
-        processor = clip.CLIPImageProcessor(
+        processor = siglip.SigLIPImageProcessor(
             image_resolution=336,
-            mean=[0.5, 0.5, 0.5],
-            std=[0.3, 0.3, 0.3],
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
             do_center_crop=False
         )
         
-        original_result = processor(self.sample_image_array)["images"]
+        original_result = processor(self.sample_image_array)
         config = processor.get_config()
-        recreated_processor = clip.CLIPImageProcessor.from_config(config)
-        recreated_result = recreated_processor(self.sample_image_array)["images"]
+        recreated_processor = siglip.SigLIPImageProcessor.from_config(config)
+        recreated_result = recreated_processor(self.sample_image_array)
         self.assertAllClose(original_result, recreated_result, rtol=1e-6, atol=1e-6)
 
     def test_output_format(self):
         result = self.processor(self.sample_image_array)
-        self.assertIsInstance(result, dict)
-        self.assertIn("images", result)
-        images = result["images"]
-        self.assertEqual(len(ops.shape(images)), 4)
-        self.assertEqual(ops.shape(images)[0], 1)
+        self.assertEqual(len(ops.shape(result)), 4)
+        self.assertEqual(ops.shape(result)[0], 1)
 
     def test_multiple_configuration_combinations(self):
         configs = [
             {"image_resolution": 224, "do_resize": True, "do_center_crop": True, "do_normalize": True},
             {"image_resolution": 336, "do_resize": True, "do_center_crop": False, "do_normalize": True},
             {"image_resolution": 224, "do_resize": False, "do_center_crop": False, "do_normalize": False},
-            {"image_resolution": 512, "do_resize": True, "do_center_crop": True, "do_normalize": False},
+            {"image_resolution": 384, "do_resize": True, "do_center_crop": True, "do_normalize": False},
         ]
         
         for config in configs:
             with self.subTest(config=config):
-                processor = clip.CLIPImageProcessor(**config)
-                result = processor(self.sample_image_array)["images"]
+                processor = siglip.SigLIPImageProcessor(**config)
+                result = processor(self.sample_image_array)
                 
                 self.assertEqual(len(ops.shape(result)), 4)
                 self.assertEqual(ops.shape(result)[0], 1)
@@ -239,3 +255,50 @@ class TestCLIPImageProcessor(TestCase):
     def test_empty_image_paths_list(self):
         with self.assertRaises((ValueError, IndexError)):
             self.processor(image_paths=[])
+
+    def test_preprocess_method_directly(self):
+        result = self.processor.preprocess(self.sample_image_array)
+        self.assertEqual(len(ops.shape(result)), 3)
+        self.assertEqual(tuple(ops.shape(result)[:2]), (224, 224))
+        self.assertEqual(ops.shape(result)[2], 3)
+
+    def test_process_path_method_directly(self):
+        result = self.processor.process_path(self.sample_image_path)
+        self.assertEqual(len(ops.shape(result)), 3)
+        self.assertEqual(tuple(ops.shape(result)[:2]), (224, 224))
+        self.assertEqual(ops.shape(result)[2], 3)
+
+    def test_custom_mean_std_ranges(self):
+        processor_imagenet = siglip.SigLIPImageProcessor(
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225]
+        )
+        result_imagenet = processor_imagenet(self.sample_image_array)
+        processor_default = siglip.SigLIPImageProcessor()
+        result_default = processor_default(self.sample_image_array)
+        with self.assertRaises(AssertionError):
+            self.assertAllClose(result_imagenet, result_default, rtol=1e-4, atol=1e-4)
+
+    def test_bicubic_interpolation_quality(self):
+        gradient_image = ops.cast(
+            ops.linspace(0, 255, 50 * 50 * 3), dtype="uint8"
+        )
+        gradient_image = ops.reshape(gradient_image, (50, 50, 3))
+        
+        processor = siglip.SigLIPImageProcessor(image_resolution=224)
+        result = processor(gradient_image)
+        self.assertEqual(tuple(ops.shape(result)[1:3]), (224, 224))
+        self.assertEqual(ops.shape(result)[3], 3)
+
+    def test_layer_inheritance(self):
+        self.assertIsInstance(self.processor, keras.layers.Layer)
+        inputs = keras.layers.Input(shape=(None, None, 3))
+        outputs = self.processor(inputs)
+        model = keras.Model(inputs=inputs, outputs=outputs)
+        
+        test_input = ops.cast(
+            keras.random.randint(shape=(1, 128, 128, 3), minval=0, maxval=256), 
+            dtype="uint8"
+        )
+        prediction = model.predict(test_input, verbose=0)
+        self.assertEqual(tuple(ops.shape(prediction)[1:3]), (224, 224))

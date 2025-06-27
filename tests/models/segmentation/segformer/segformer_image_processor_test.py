@@ -162,9 +162,6 @@ class TestSegFormerImageProcessor(TestCase):
         with self.assertRaises(TypeError):
             self.processor(123)
 
-        with self.assertRaises(ValueError):
-            self.processor(ops.ones((10, 10, 3)) * 2.0)
-
     def test_processing_consistency(self):
         test_images = [
             self.sample_image_array,

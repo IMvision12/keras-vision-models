@@ -73,11 +73,14 @@ def SegFormerImageProcessor(
             image = image[0]
         if len(image.shape) != 3:
             raise ValueError("Input tensor must have shape (H, W, C)")
-        if image.dtype != "uint8":
-            if keras.ops.max(image) <= 1.0:
-                image = keras.ops.cast(image * 255, "uint8")
-            else:
-                raise ValueError("Tensor must be uint8 or float32 in [0,1] range")
+
+        max_val = keras.ops.max(image)
+        min_val = keras.ops.min(image)
+
+        if max_val <= 1.0 and min_val >= 0.0:
+            image = image * 255.0
+        elif not (min_val >= 0 and max_val <= 255):
+            raise ValueError("Tensor values must be in [0,1] or [0,255] range")
     else:
         raise TypeError(
             "Input must be a file path, numpy array, PIL Image, or Keras tensor"

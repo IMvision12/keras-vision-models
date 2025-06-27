@@ -152,43 +152,33 @@ class SigLIPImageProcessor(keras.layers.Layer):
         height, width = shape[0], shape[1]
         target_size = self.image_resolution
 
-        y_start = (height - target_size) // 2
-        x_start = (width - target_size) // 2
-        y_end = y_start + target_size
-        x_end = x_start + target_size
+        scale_h = ops.cast(target_size, "float32") / ops.cast(height, "float32")
+        scale_w = ops.cast(target_size, "float32") / ops.cast(width, "float32")
+        scale = ops.maximum(scale_h, scale_w)
 
-        can_crop = ops.logical_and(
-            ops.logical_and(y_start >= 0, x_start >= 0),
-            ops.logical_and(y_end <= height, x_end <= width),
+        new_height = ops.cast(ops.cast(height, "float32") * scale, "int32")
+        new_width = ops.cast(ops.cast(width, "float32") * scale, "int32")
+
+        new_height = ops.maximum(new_height, target_size)
+        new_width = ops.maximum(new_width, target_size)
+
+        resized_image = ops.image.resize(
+            image,
+            (new_height, new_width),
+            interpolation="bicubic",
+            antialias=True,
         )
 
-        def simple_crop():
-            return ops.slice(
-                image, [y_start, x_start, 0], [target_size, target_size, 3]
-            )
+        y_start = (new_height - target_size) // 2
+        x_start = (new_width - target_size) // 2
 
-        def pad_and_crop():
-            new_height = ops.maximum(target_size, height)
-            new_width = ops.maximum(target_size, width)
+        cropped_image = ops.slice(
+            resized_image,
+            [y_start, x_start, 0],
+            [target_size, target_size, 3],
+        )
 
-            pad_top = (new_height - height) // 2
-            pad_bottom = new_height - height - pad_top
-            pad_left = (new_width - width) // 2
-            pad_right = new_width - width - pad_left
-
-            paddings = [(pad_top, pad_bottom), (pad_left, pad_right), (0, 0)]
-
-            padded_image = ops.pad(image, paddings, constant_values=0)
-            crop_y_start = (new_height - target_size) // 2
-            crop_x_start = (new_width - target_size) // 2
-
-            return ops.slice(
-                padded_image,
-                [crop_y_start, crop_x_start, 0],
-                [target_size, target_size, 3],
-            )
-
-        return ops.cond(can_crop, simple_crop, pad_and_crop)
+        return cropped_image
 
     def process_path(self, image_path: str) -> Any:
         image = keras.utils.load_img(image_path)

@@ -173,6 +173,18 @@ class SigLIPProcessor(keras.layers.Layer):
         images: Optional[Union[keras.KerasTensor, List]] = None,
         image_paths: Optional[Union[str, List[str]]] = None,
     ):
+        if text is None and images is None and image_paths is None:
+            raise ValueError(
+                "At least one of 'text', 'images', or 'image_paths' must be provided"
+            )
+
+        if images is not None and image_paths is not None:
+            raise ValueError("Cannot specify both 'images' and 'image_paths'")
+
+        if image_paths is not None:
+            if isinstance(image_paths, (list, tuple)) and len(image_paths) == 0:
+                raise ValueError("image_paths cannot be an empty list")
+
         encoding = {}
 
         if text is not None:

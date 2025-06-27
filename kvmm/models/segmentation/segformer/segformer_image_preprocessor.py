@@ -6,7 +6,7 @@ from PIL import Image
 
 
 def SegFormerImageProcessor(
-    image: Union[str, np.ndarray, Image.Image],
+    image: Union[str, np.ndarray, Image.Image, keras.KerasTensor],
     do_resize: bool = True,
     size: Dict[str, int] = None,
     resample: str = "bilinear",
@@ -22,7 +22,7 @@ def SegFormerImageProcessor(
     Implements functionality equivalent to HuggingFace's SegformerImageProcessor.
 
     Args:
-        image: Input image (file path, numpy array, or PIL Image)
+        image: Input image (file path, numpy array, PIL Image, or Keras tensor)
         do_resize: Whether to resize the image
         size: Dict with 'height' and 'width' keys for target size (default: {height: 512, width: 512})
         resample: Interpolation method ('nearest', 'bilinear', 'bicubic')
@@ -43,6 +43,13 @@ def SegFormerImageProcessor(
     if image_std is None:
         image_std = (0.229, 0.224, 0.225)
 
+    if size["height"] <= 0 or size["width"] <= 0:
+        raise ValueError("Size dimensions must be positive")
+    if resample not in ["nearest", "bilinear", "bicubic"]:
+        raise ValueError("Resample method must be 'nearest', 'bilinear', or 'bicubic'")
+    if rescale_factor < 0:
+        raise ValueError("Rescale factor must be non-negative")
+
     if isinstance(image, str):
         try:
             image = Image.open(image).convert("RGB")
@@ -61,8 +68,29 @@ def SegFormerImageProcessor(
             image = image[0]
         if len(image.shape) != 3:
             raise ValueError("Input array must have shape (H, W, C)")
+    elif hasattr(image, "shape") and hasattr(image, "dtype"):
+        if len(image.shape) == 4:
+            image = image[0]
+        if len(image.shape) != 3:
+            raise ValueError("Input tensor must have shape (H, W, C)")
+
+        image_float = keras.ops.cast(image, dtype="float32")
+        max_val = keras.ops.max(image_float)
+        min_val = keras.ops.min(image_float)
+
+        max_val_py = keras.ops.convert_to_numpy(max_val).item()
+        min_val_py = keras.ops.convert_to_numpy(min_val).item()
+
+        if max_val_py <= 1.0 and min_val_py >= 0.0:
+            image = image_float * 255.0
+        elif not (min_val_py >= 0 and max_val_py <= 255):
+            raise ValueError("Tensor values must be in [0,1] or [0,255] range")
+        else:
+            image = image_float
     else:
-        raise TypeError("Input must be a file path, numpy array, or PIL Image")
+        raise TypeError(
+            "Input must be a file path, numpy array, PIL Image, or Keras tensor"
+        )
 
     image = keras.ops.convert_to_tensor(image, dtype="float32")
     if len(image.shape) == 3:

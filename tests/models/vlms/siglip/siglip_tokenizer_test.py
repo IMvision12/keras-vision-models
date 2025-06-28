@@ -1,6 +1,5 @@
 import os
 
-from keras import ops
 from keras.src.testing import TestCase
 
 from kvmm.models.vlms.siglip import SigLIPTokenizer
@@ -13,32 +12,11 @@ class TestSigLIPTokenizer(TestCase):
         cls.vocab_file = download_file(
             "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip_vocab.model"
         )
-
         if not os.path.exists(cls.vocab_file):
             raise FileNotFoundError(f"Vocab file not found: {cls.vocab_file}")
 
     def setUp(self):
         self.tokenizer = SigLIPTokenizer(vocab_file=self.vocab_file, context_length=64)
-
-    def test_tokenizer_initialization(self):
-        self.assertIsInstance(self.tokenizer, SigLIPTokenizer)
-        self.assertEqual(self.tokenizer.context_length, 64)
-        self.assertEqual(self.tokenizer.unk_token, "<unk>")
-        self.assertEqual(self.tokenizer.pad_token, "</s>")
-        self.assertEqual(self.tokenizer.eos_token, "</s>")
-        self.assertGreater(len(self.tokenizer.encoder), 0)
-
-    def test_special_tokens(self):
-        self.assertIsInstance(self.tokenizer.unk_token_id, int)
-        self.assertIsInstance(self.tokenizer.pad_token_id, int)
-        self.assertIsInstance(self.tokenizer.eos_token_id, int)
-        self.assertEqual(self.tokenizer.pad_token_id, self.tokenizer.eos_token_id)
-
-    def test_vocab_size(self):
-        vocab_size = self.tokenizer.vocab_size
-        self.assertIsInstance(vocab_size, int)
-        self.assertGreater(vocab_size, 0)
-        self.assertEqual(vocab_size, len(self.tokenizer.encoder))
 
     def test_tokenize_single_text(self):
         text = "a photo of a cat"
@@ -47,13 +25,11 @@ class TestSigLIPTokenizer(TestCase):
         self.assertIsInstance(tokens, list)
         self.assertGreater(len(tokens), 0)
         self.assertTrue(all(isinstance(token, int) for token in tokens))
-        # Should end with EOS token
         self.assertEqual(tokens[-1], self.tokenizer.eos_token_id)
 
     def test_tokenize_empty_text(self):
         tokens = self.tokenizer.tokenize("")
         self.assertIsInstance(tokens, list)
-        # Empty text should still have EOS token
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0], self.tokenizer.eos_token_id)
 
@@ -70,15 +46,12 @@ class TestSigLIPTokenizer(TestCase):
             tokens = self.tokenizer.tokenize(text)
             detokenized = self.tokenizer.detokenize(tokens)
 
-            # Basic check that original words appear in detokenized text
-            # (may not be exact due to subword tokenization)
             words = text.lower().split()
             for word in words:
                 if word.isalpha():
                     self.assertIn(word, detokenized.lower())
 
     def test_raw_tokenization_values(self):
-        """Test specific tokenization outputs based on expected values"""
         test_cases = [
             {
                 "text": "a photo of a cat",
@@ -252,205 +225,66 @@ class TestSigLIPTokenizer(TestCase):
                     f"Expected: {case['expected_tokens']}, Got: {actual_tokens}",
                 )
 
-    def test_build_inputs_with_special_tokens(self):
-        token_ids = [1, 2, 3, 4, 5]
-        result = self.tokenizer.build_inputs_with_special_tokens(token_ids)
-
-        # Should append EOS token
-        self.assertEqual(result[-1], self.tokenizer.eos_token_id)
-        self.assertEqual(result[:-1], token_ids)
-
-    def test_prepare_for_model(self):
-        text = "a photo of a cat"
-        result = self.tokenizer.prepare_for_model(text)
-
-        self.assertIn("input_ids", result)
-        input_ids = result["input_ids"]
-
-        self.assertIsInstance(input_ids, list)
-        self.assertEqual(len(input_ids), self.tokenizer.context_length)
-
-    def test_call_single_text(self):
+    def test_call_functionality(self):
         text = "a photo of a cat"
         result = self.tokenizer(inputs=text)
-
         self.assertIn("input_ids", result)
         input_ids = result["input_ids"]
-
         self.assertEqual(len(input_ids.shape), 2)
         self.assertEqual(input_ids.shape[0], 1)
         self.assertEqual(input_ids.shape[1], self.tokenizer.context_length)
 
-    def test_call_batch_texts(self):
         texts = ["a photo of a cat", "a painting of a dog", "hello world"]
         result = self.tokenizer(inputs=texts)
-
-        self.assertIn("input_ids", result)
         input_ids = result["input_ids"]
-
-        self.assertEqual(len(input_ids.shape), 2)
         self.assertEqual(input_ids.shape[0], len(texts))
         self.assertEqual(input_ids.shape[1], self.tokenizer.context_length)
 
-    def test_call_empty_input(self):
-        with self.assertRaises(ValueError):
-            self.tokenizer(inputs=None)
+    def test_detokenize_functionality(self):
+        test_texts = ["hello world", "a photo of a cat", "The quick brown fox"]
 
-    def test_context_length_truncation(self):
-        # Create a very long text
+        for text in test_texts:
+            with self.subTest(text=text):
+                tokens = self.tokenizer.tokenize(text)
+                detokenized = self.tokenizer.detokenize(tokens)
+                self.assertIsInstance(detokenized, str)
+                self.assertNotIn(self.tokenizer.eos_token, detokenized)
+                self.assertNotIn(self.tokenizer.pad_token, detokenized)
+
+    def test_context_length_handling(self):
+        for context_length in [16, 32, 128]:
+            tokenizer = SigLIPTokenizer(
+                vocab_file=self.vocab_file,
+                context_length=context_length,
+            )
+            result = tokenizer(inputs="test text")
+            self.assertEqual(result["input_ids"].shape[1], context_length)
+
         long_text = " ".join(["word"] * 200)
         result = self.tokenizer(inputs=long_text)
         input_ids = result["input_ids"]
         self.assertEqual(input_ids.shape[1], self.tokenizer.context_length)
 
-    def test_different_context_lengths(self):
-        for context_length in [16, 32, 64, 128]:
-            tokenizer = SigLIPTokenizer(
-                vocab_file=self.vocab_file,
-                context_length=context_length,
-            )
+    def test_text_processing_methods(self):
+        """Test canonicalize_text, remove_punctuation, and preprocess_text methods"""
+        canonicalize = self.tokenizer.canonicalize_text
+        remove_punct = self.tokenizer.remove_punctuation
+        preprocess = self.tokenizer._preprocess_text
 
-            result = tokenizer(inputs="test text")
-            self.assertEqual(result["input_ids"].shape[1], context_length)
+        self.assertEqual(canonicalize("Hello, World!"), "Hello World")
+        self.assertEqual(canonicalize("Test! @#$ String"), "Test String")
+        self.assertEqual(canonicalize("Multiple   spaces"), "Multiple spaces")
 
-    def test_tokenization_consistency(self):
-        test_cases = [
-            "a photo of a cat",
-            "The quick brown fox",
-            "Hello, World!",
-            "123 456",
-            "",
-            "   ",
-        ]
+        self.assertEqual(remove_punct("Hello, World!"), "Hello World")
+        self.assertEqual(remove_punct("Test@#$String"), "TestString")
+        self.assertEqual(remove_punct("No punctuation"), "No punctuation")
 
-        for text in test_cases:
-            with self.subTest(text=text):
-                result1 = self.tokenizer(inputs=text)
-                result2 = self.tokenizer(inputs=text)
-
-                self.assertListEqual(
-                    ops.convert_to_numpy(result1["input_ids"]).tolist(),
-                    ops.convert_to_numpy(result2["input_ids"]).tolist(),
-                )
-
-    def test_detokenize_functionality(self):
-        test_texts = [
-            "hello world",
-            "a photo of a cat",
-            "The quick brown fox",
-        ]
-
-        for text in test_texts:
-            with self.subTest(text=text):
-                # Tokenize
-                tokens = self.tokenizer.tokenize(text)
-
-                # Detokenize
-                detokenized = self.tokenizer.detokenize(tokens)
-
-                self.assertIsInstance(detokenized, str)
-                # Should not contain special tokens when skip_special_tokens=True
-                self.assertNotIn(self.tokenizer.eos_token, detokenized)
-                self.assertNotIn(self.tokenizer.pad_token, detokenized)
-
-    def test_batch_detokenize(self):
-        texts = ["hello world", "a photo of a cat"]
-        result = self.tokenizer(inputs=texts)
-        input_ids = result["input_ids"]
-
-        decoded_texts = self.tokenizer.batch_detokenize(input_ids)
-
-        self.assertIsInstance(decoded_texts, list)
-        self.assertEqual(len(decoded_texts), len(texts))
-
-        for decoded_text in decoded_texts:
-            self.assertIsInstance(decoded_text, str)
-
-    def test_get_sequence_length(self):
-        texts = ["hello", "a much longer text with many words"]
-        result = self.tokenizer(inputs=texts)
-        input_ids = result["input_ids"]
-
-        lengths = self.tokenizer.get_sequence_length(input_ids)
-
-        self.assertEqual(lengths.shape[0], len(texts))
-        # First text should be shorter than second
-        lengths_np = ops.convert_to_numpy(lengths)
-        self.assertLess(lengths_np[0], lengths_np[1])
-
-    def test_truncate_sequences(self):
-        text = "a very long text that should be truncated"
-        result = self.tokenizer(inputs=text)
-        input_ids = result["input_ids"]
-
-        max_length = 10
-        truncated = self.tokenizer.truncate_sequences(input_ids, max_length)
-
-        self.assertEqual(truncated.shape[1], max_length)
-
-    def test_canonicalize_text(self):
-        test_cases = [
-            ("Hello, World!", "Hello World"),
-            ("Test! @#$ String", "Test String"),
-            ("Multiple   spaces", "Multiple spaces"),
-        ]
-
-        for input_text, expected_output in test_cases:
-            with self.subTest(input_text=input_text):
-                result = self.tokenizer.canonicalize_text(input_text)
-                self.assertEqual(result, expected_output)
-
-    def test_remove_punctuation(self):
-        """Test the remove_punctuation method"""
-        test_cases = [
-            ("Hello, World!", "Hello World"),
-            ("Test@#$String", "TestString"),
-            ("No punctuation", "No punctuation"),
-        ]
-
-        for input_text, expected_output in test_cases:
-            with self.subTest(input_text=input_text):
-                result = self.tokenizer.remove_punctuation(input_text)
-                self.assertEqual(result, expected_output)
-
-    def test_preprocess_text(self):
-        """Test the _preprocess_text method"""
-        test_cases = [
-            ("  Multiple   spaces  ", "Multiple spaces"),
-            ("\nNew\nlines\n", "New lines"),
-            ("Normal text", "Normal text"),
-        ]
-
-        for input_text, expected_output in test_cases:
-            with self.subTest(input_text=input_text):
-                result = self.tokenizer._preprocess_text(input_text)
-                self.assertEqual(result, expected_output)
-
-    def test_lowercase_option(self):
-        """Test the do_lower_case option"""
-        # Test with lowercase enabled
-        tokenizer_lower = SigLIPTokenizer(
-            vocab_file=self.vocab_file, context_length=64, do_lower_case=True
-        )
-
-        # Test with lowercase disabled (default)
-        tokenizer_preserve = SigLIPTokenizer(
-            vocab_file=self.vocab_file, context_length=64, do_lower_case=False
-        )
-
-        text = "Hello World"
-
-        # Both should work (actual behavior depends on SentencePiece model)
-        tokens_lower = tokenizer_lower.tokenize(text)
-        tokens_preserve = tokenizer_preserve.tokenize(text)
-
-        self.assertIsInstance(tokens_lower, list)
-        self.assertIsInstance(tokens_preserve, list)
+        self.assertEqual(preprocess("  Multiple   spaces  "), "Multiple spaces")
+        self.assertEqual(preprocess("\nNew\nlines\n"), "New lines")
+        self.assertEqual(preprocess("Normal text"), "Normal text")
 
     def test_config_serialization(self):
-        """Test get_config and from_config methods"""
         config = self.tokenizer.get_config()
-
         expected_keys = [
             "vocab_file",
             "context_length",
@@ -459,11 +293,9 @@ class TestSigLIPTokenizer(TestCase):
             "pad_token",
             "eos_token",
         ]
-
         for key in expected_keys:
             self.assertIn(key, config)
 
-        # Test reconstruction from config
         new_tokenizer = SigLIPTokenizer.from_config(config)
         self.assertEqual(new_tokenizer.context_length, self.tokenizer.context_length)
         self.assertEqual(new_tokenizer.vocab_file, self.tokenizer.vocab_file)

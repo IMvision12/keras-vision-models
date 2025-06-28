@@ -6,10 +6,10 @@ from keras import ops
 from keras.src.testing import TestCase
 from PIL import Image
 
-from kvmm.models import siglip
+from kvmm.models import siglip2
 
 
-class TestSigLIPImageProcessor(TestCase):
+class TestSigLIP2ImageProcessor(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sample_image_array = ops.cast(
@@ -31,28 +31,37 @@ class TestSigLIPImageProcessor(TestCase):
             os.remove(cls.sample_image_path)
 
     def setUp(self):
-        self.processor = siglip.SigLIPImageProcessor()
+        self.processor = siglip2.SigLIP2ImageProcessor()
 
-    def test_basic_functionality(self):
-        result = self.processor(self.sample_image_array)
-        self.assertEqual(len(ops.shape(result)), 4)
-        self.assertEqual(ops.shape(result)[0], 1)
-        self.assertEqual(tuple(ops.shape(result)[1:3]), (224, 224))
-        self.assertEqual(ops.shape(result)[3], 3)
-
-    def test_custom_image_resolution(self):
-        custom_processor = siglip.SigLIPImageProcessor(image_resolution=336)
+    def test_custom_resolution(self):
+        custom_processor = siglip2.SigLIP2ImageProcessor(image_resolution=336)
         result = custom_processor(self.sample_image_array)
         self.assertEqual(tuple(ops.shape(result)[1:3]), (336, 336))
 
+    def test_image_path_processing(self):
+        result_single = self.processor(image_paths=self.sample_image_path)
+        processed_single = result_single
+        self.assertEqual(ops.shape(processed_single)[0], 1)
+        self.assertEqual(tuple(ops.shape(processed_single)[1:3]), (224, 224))
+
+        result_multiple = self.processor(
+            image_paths=[
+                self.sample_image_path,
+                self.sample_image_path,
+                self.sample_image_path,
+            ]
+        )
+        processed_multiple = result_multiple
+        self.assertEqual(ops.shape(processed_multiple)[0], 3)
+        self.assertEqual(tuple(ops.shape(processed_multiple)[1:3]), (224, 224))
+
     def test_batch_processing(self):
-        batch_size = 4
         batch_images = ops.cast(
-            keras.random.randint(shape=(batch_size, 128, 128, 3), minval=0, maxval=256),
+            keras.random.randint(shape=(3, 128, 128, 3), minval=0, maxval=256),
             dtype="uint8",
         )
         result = self.processor(batch_images)
-        self.assertEqual(ops.shape(result)[0], batch_size)
+        self.assertEqual(ops.shape(result)[0], 3)
         self.assertEqual(tuple(ops.shape(result)[1:3]), (224, 224))
 
     def test_channel_handling(self):
@@ -71,31 +80,42 @@ class TestSigLIPImageProcessor(TestCase):
         self.assertEqual(ops.shape(result_rgba)[3], 3)
 
     def test_normalization_options(self):
-        processor_default = siglip.SigLIPImageProcessor()
+        processor_default = siglip2.SigLIP2ImageProcessor()
         result_default = processor_default(self.sample_image_array)
-        processor_no_norm = siglip.SigLIPImageProcessor(do_normalize=False)
-        result_no_norm = processor_no_norm(self.sample_image_array)
+
+        processor_custom = siglip2.SigLIP2ImageProcessor(
+            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        )
+        result_custom = processor_custom(self.sample_image_array)
 
         with self.assertRaises(AssertionError):
-            self.assertAllClose(result_default, result_no_norm, rtol=1e-4, atol=1e-4)
+            self.assertAllClose(result_default, result_custom, rtol=1e-4, atol=1e-4)
 
-    def test_resize_and_crop_functionality(self):
-        processor_resize = siglip.SigLIPImageProcessor(
-            do_resize=True, do_center_crop=False
+    def test_resize_and_center_crop_functionality(self):
+        processor_resize = siglip2.SigLIP2ImageProcessor(do_resize=True)
+        processor_no_resize = siglip2.SigLIP2ImageProcessor(
+            do_resize=False, do_center_crop=False
         )
-        result_resize = processor_resize(self.sample_image_array)
-        self.assertEqual(tuple(ops.shape(result_resize)[1:3]), (224, 224))
+        processor_crop = siglip2.SigLIP2ImageProcessor(do_center_crop=True)
+        processor_no_crop = siglip2.SigLIP2ImageProcessor(do_center_crop=False)
+
         large_image = ops.cast(
             keras.random.randint(shape=(400, 400, 3), minval=0, maxval=256),
             dtype="uint8",
         )
-        processor_crop = siglip.SigLIPImageProcessor(
-            do_center_crop=True, do_resize=False
-        )
-        result_crop = processor_crop(large_image)
-        self.assertEqual(tuple(ops.shape(result_crop)[1:3]), (224, 224))
 
-    def test_invalid_input_handling(self):
+        result_resize = processor_resize(self.sample_image_array)
+        result_no_resize = processor_no_resize(self.sample_image_array)
+
+        result_crop = processor_crop(large_image)
+        result_no_crop = processor_no_crop(large_image)
+
+        self.assertEqual(tuple(ops.shape(result_resize)[1:3]), (224, 224))
+        self.assertEqual(tuple(ops.shape(result_no_resize)[1:3]), (256, 256))
+        self.assertEqual(tuple(ops.shape(result_crop)[1:3]), (224, 224))
+        self.assertEqual(tuple(ops.shape(result_no_crop)[1:3]), (224, 224))
+
+    def test_error_handling(self):
         with self.assertRaises(ValueError):
             invalid_channels = ops.zeros((100, 100, 5))
             self.processor(invalid_channels)
@@ -107,30 +127,18 @@ class TestSigLIPImageProcessor(TestCase):
         with self.assertRaises(ValueError):
             self.processor()
 
-    def test_edge_cases(self):
-        small_image = ops.cast(
-            keras.random.randint(shape=(1, 1, 3), minval=0, maxval=256), dtype="uint8"
-        )
-        result_small = self.processor(small_image)
-        self.assertEqual(tuple(ops.shape(result_small)[1:3]), (224, 224))
-        square_image = ops.cast(
-            keras.random.randint(shape=(224, 224, 3), minval=0, maxval=256),
-            dtype="uint8",
-        )
-        result_square = self.processor(square_image)
-        self.assertEqual(tuple(ops.shape(result_square)[1:3]), (224, 224))
-
     def test_serialization(self):
-        processor = siglip.SigLIPImageProcessor(
+        processor = siglip2.SigLIP2ImageProcessor(
             image_resolution=336,
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225],
-            do_center_crop=False,
         )
+
         original_result = processor(self.sample_image_array)
         config = processor.get_config()
-        recreated_processor = siglip.SigLIPImageProcessor.from_config(config)
+        recreated_processor = siglip2.SigLIP2ImageProcessor.from_config(config)
         recreated_result = recreated_processor(self.sample_image_array)
+
         self.assertAllClose(original_result, recreated_result, rtol=1e-6, atol=1e-6)
 
     def test_layer_inheritance(self):

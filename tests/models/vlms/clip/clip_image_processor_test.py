@@ -127,3 +127,21 @@ class TestCLIPImageProcessor(TestCase):
         result1 = self.processor(inputs=self.sample_image_array)
         result2 = self.processor(inputs=self.sample_image_array)
         self.assertAllClose(result1["images"], result2["images"], rtol=1e-6, atol=1e-6)
+
+    def test_layer_inheritance(self):
+        self.assertIsInstance(self.processor, keras.layers.Layer)
+        inputs = keras.layers.Input(shape=(None, None, 3))
+        outputs = self.processor(inputs)
+        model = keras.Model(inputs=inputs, outputs=outputs)
+
+        test_input = ops.cast(
+            keras.random.randint(shape=(1, 128, 128, 3), minval=0, maxval=256),
+            dtype="uint8",
+        )
+        prediction = model.predict(test_input, verbose=0)
+        if isinstance(prediction, dict) and "images" in prediction:
+            prediction_tensor = prediction["images"]
+        else:
+            prediction_tensor = prediction
+
+        self.assertEqual(tuple(ops.shape(prediction_tensor)[1:3]), (224, 224))

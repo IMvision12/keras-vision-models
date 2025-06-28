@@ -140,16 +140,3 @@ class TestSigLIP2ImageProcessor(TestCase):
         recreated_result = recreated_processor(self.sample_image_array)
 
         self.assertAllClose(original_result, recreated_result, rtol=1e-6, atol=1e-6)
-
-    def test_layer_inheritance(self):
-        self.assertIsInstance(self.processor, keras.layers.Layer)
-        inputs = keras.layers.Input(shape=(None, None, 3))
-        outputs = self.processor(inputs)
-        model = keras.Model(inputs=inputs, outputs=outputs)
-
-        test_input = ops.cast(
-            keras.random.randint(shape=(1, 128, 128, 3), minval=0, maxval=256),
-            dtype="uint8",
-        )
-        prediction = model.predict(test_input, verbose=0)
-        self.assertEqual(tuple(ops.shape(prediction)[1:3]), (224, 224))

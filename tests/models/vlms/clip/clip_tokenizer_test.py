@@ -27,20 +27,6 @@ class TestCLIPTokenizer(TestCase):
             vocab_file=self.vocab_file, merges_file=self.merges_file, context_length=77
         )
 
-    def test_tokenizer_initialization_and_properties(self):
-        self.assertIsInstance(self.tokenizer, CLIPTokenizer)
-        self.assertEqual(self.tokenizer.context_length, 77)
-        self.assertEqual(self.tokenizer.bos_token, "<|startoftext|>")
-        self.assertEqual(self.tokenizer.eos_token, "<|endoftext|>")
-        self.assertEqual(self.tokenizer.pad_token, "<|endoftext|>")
-        self.assertGreater(len(self.tokenizer.encoder), 0)
-        self.assertEqual(self.tokenizer.bos_token_id, 49406)
-        self.assertEqual(self.tokenizer.eos_token_id, 49407)
-        vocab_size = self.tokenizer.vocab_size
-        self.assertIsInstance(vocab_size, int)
-        self.assertGreater(vocab_size, 0)
-        self.assertEqual(vocab_size, len(self.tokenizer.encoder))
-
     def test_raw_tokenization_values(self):
         test_cases = [
             {

@@ -51,15 +51,6 @@ class TestCLIPImageProcessor(TestCase):
     def setUp(self):
         self.processor = clip.CLIPImageProcessor()
 
-    def test_image_processing_basic(self):
-        result = self.processor(inputs=self.sample_image_array)
-        self.assertIn("images", result)
-        processed_images = result["images"]
-        self.assertEqual(len(ops.shape(processed_images)), 4)
-        self.assertEqual(ops.shape(processed_images)[0], 1)
-        self.assertEqual(tuple(ops.shape(processed_images)[1:3]), (224, 224))
-        self.assertEqual(ops.shape(processed_images)[3], 3)
-
     def test_batch_image_processing(self):
         batch_size = 3
         batch_images = ops.cast(

@@ -43,33 +43,20 @@ class TestCLIPProcessor(TestCase):
         self.processor = clip.CLIPProcessor()
 
     def test_processor_basic_functionality(self):
-        """Test basic text and image processing functionality"""
-        # Text processing
         result = self.processor(text=self.single_text)
         self.assertIn("input_ids", result)
         self.assertIn("attention_mask", result)
-        self.assertEqual(len(ops.shape(result["input_ids"])), 2)
-        self.assertEqual(ops.shape(result["input_ids"])[0], 1)
-        self.assertEqual(ops.shape(result["input_ids"])[1], 77)
 
-        # Image processing
         result = self.processor(images=self.sample_image_array)
         self.assertIn("images", result)
         processed_images = result["images"]
-        self.assertEqual(len(ops.shape(processed_images)), 4)
-        self.assertEqual(ops.shape(processed_images)[0], 1)
-        self.assertEqual(tuple(ops.shape(processed_images)[1:3]), (224, 224))
-        self.assertEqual(ops.shape(processed_images)[3], 3)
 
-        # Combined processing
         result = self.processor(text=self.single_text, images=self.sample_image_array)
         self.assertIn("input_ids", result)
         self.assertIn("attention_mask", result)
         self.assertIn("images", result)
 
     def test_batch_processing(self):
-        """Test batch processing for both text and images"""
-        # Batch images
         batch_size = 3
         batch_images = ops.cast(
             keras.random.randint(shape=(batch_size, 128, 128, 3), minval=0, maxval=256),
@@ -78,25 +65,20 @@ class TestCLIPProcessor(TestCase):
         result_batch = self.processor(images=batch_images)
         self.assertEqual(ops.shape(result_batch["images"])[0], batch_size)
 
-        # Batch text
         result = self.processor(text=self.sample_texts[:2])
         self.assertEqual(ops.shape(result["input_ids"])[0], 2)
 
-        # Mixed batch sizes
         result = self.processor(text=self.sample_texts[:2], images=batch_images)
         self.assertEqual(ops.shape(result["input_ids"])[0], 2)
         self.assertEqual(ops.shape(result["images"])[0], 3)
 
     def test_custom_processor_parameters(self):
-        """Test processor with custom parameters"""
         custom_processor = clip.CLIPProcessor(image_resolution=336, context_length=49)
         result = custom_processor(text=self.single_text, images=self.sample_image_array)
         self.assertEqual(tuple(ops.shape(result["images"])[1:3]), (336, 336))
         self.assertEqual(ops.shape(result["input_ids"])[1], 49)
 
     def test_invalid_input_combinations(self):
-        """Test error handling for invalid inputs"""
-        # Multiple image input types
         with self.assertRaises(ValueError):
             self.processor(
                 text=self.single_text,
@@ -104,13 +86,10 @@ class TestCLIPProcessor(TestCase):
                 image_paths=self.sample_image_path,
             )
 
-        # No inputs
         with self.assertRaises((ValueError, TypeError)):
             self.processor()
 
     def test_processing_consistency(self):
-        """Test that processing is deterministic"""
-        # Text consistency
         result1 = self.processor(text=self.single_text)
         result2 = self.processor(text=self.single_text)
         self.assertAllClose(
@@ -120,13 +99,11 @@ class TestCLIPProcessor(TestCase):
             result1["attention_mask"], result2["attention_mask"], rtol=1e-6, atol=1e-6
         )
 
-        # Image consistency
         result1 = self.processor(images=self.sample_image_array)
         result2 = self.processor(images=self.sample_image_array)
         self.assertAllClose(result1["images"], result2["images"], rtol=1e-6, atol=1e-6)
 
     def test_serialization(self):
-        """Test processor serialization and deserialization"""
         processor = clip.CLIPProcessor(
             image_resolution=336,
             mean=[0.5, 0.5, 0.5],

@@ -85,7 +85,7 @@ processor = kvmm.models.clip.CLIPProcessor()
 model = kvmm.models.clip.ClipVitBase16(weights="openai_224")
 
 # Process multiple images at once
-image_paths = ["/content/dog.jpg", "/content/cat1.jpg"]
+image_paths = ["dog.jpg", "cat1.jpg"]
 labels = ["a photo of a dog", "a photo of a car", "a photo of a flower", "a photo of a cat"]
 
 inputs = processor(text=labels, image_paths=image_paths)

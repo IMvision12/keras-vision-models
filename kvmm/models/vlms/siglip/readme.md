@@ -99,7 +99,7 @@ import kvmm
 
 # Use multilingual weights for non-English text
 processor = kvmm.models.siglip.SigLIPProcessor(multilingual=True)
-model = kvmm.models.siglip.SigLIPBaseP16(weights="google_multilingual_256")
+model = kvmm.models.siglip.SigLIPBaseP16(weights="google_multilingual_256", input_shape=(224, 224, 3))
 
 # Example with multiple languages
 multilingual_labels = [

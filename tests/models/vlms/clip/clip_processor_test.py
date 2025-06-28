@@ -49,7 +49,6 @@ class TestCLIPProcessor(TestCase):
 
         result = self.processor(images=self.sample_image_array)
         self.assertIn("images", result)
-        processed_images = result["images"]
 
         result = self.processor(text=self.single_text, images=self.sample_image_array)
         self.assertIn("input_ids", result)

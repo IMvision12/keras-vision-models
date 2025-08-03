@@ -1,6 +1,6 @@
 from kvmm.model_registry import register_model
-from kvmm.models.backbones.resnet.resnet_model import ResNet
-from kvmm.models.backbones.resnext.resnext_model import resnext_block
+from kvmm.models.resnet.resnet_model import ResNet
+from kvmm.models.resnext.resnext_model import resnext_block
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_CONFIG

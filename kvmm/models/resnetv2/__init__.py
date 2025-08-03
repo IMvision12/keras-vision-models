@@ -1,4 +1,4 @@
-from kvmm.models.backbones.resnetv2.resnetv2_model import (
+from kvmm.models.resnetv2.resnetv2_model import (
     ResNetV2_50x1,
     ResNetV2_50x3,
     ResNetV2_101x1,

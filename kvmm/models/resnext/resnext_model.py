@@ -3,7 +3,7 @@ from typing import Optional
 from keras import layers
 
 from kvmm.model_registry import register_model
-from kvmm.models.backbones.resnet.resnet_model import (
+from kvmm.models.resnet.resnet_model import (
     ResNet,
     conv_block,
     squeeze_excitation_block,

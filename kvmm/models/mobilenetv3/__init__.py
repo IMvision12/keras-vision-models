@@ -1,4 +1,4 @@
-from kvmm.models.backbones.mobilenetv3.mobilenetv3_model import (
+from kvmm.models.mobilenetv3.mobilenetv3_model import (
     MobileNetV3Large075,
     MobileNetV3Large100,
     MobileNetV3LargeMinimal100,

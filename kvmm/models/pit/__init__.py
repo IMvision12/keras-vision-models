@@ -1,4 +1,4 @@
-from kvmm.models.backbones.pit.pit_model import (
+from kvmm.models.pit.pit_model import (
     PiT_B,
     PiT_B_Distilled,
     PiT_S,

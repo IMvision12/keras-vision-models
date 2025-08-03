@@ -2,8 +2,8 @@ from typing import List, Optional, Union
 
 import keras
 
-from kvmm.models.vlms.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
-from kvmm.models.vlms.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
+from kvmm.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
+from kvmm.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
 from kvmm.utils import download_file
 
 

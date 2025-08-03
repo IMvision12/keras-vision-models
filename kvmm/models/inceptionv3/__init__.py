@@ -1,1 +1,1 @@
-from kvmm.models.backbones.inceptionv3.inceptionv3_model import InceptionV3
+from kvmm.models.inceptionv3.inceptionv3_model import InceptionV3

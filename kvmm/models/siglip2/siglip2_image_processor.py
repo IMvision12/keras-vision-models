@@ -2,7 +2,7 @@ from typing import List
 
 import keras
 
-from kvmm.models.vlms.siglip.siglip_image_processor import SigLIPImageProcessor
+from kvmm.models.siglip.siglip_image_processor import SigLIPImageProcessor
 
 
 @keras.saving.register_keras_serializable(package="kvmm")

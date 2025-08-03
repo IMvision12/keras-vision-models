@@ -1,4 +1,4 @@
-from kvmm.models.backbones.vit.vit_model import (
+from kvmm.models.vit.vit_model import (
     ViTBase16,
     ViTBase32,
     ViTLarge16,

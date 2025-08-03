@@ -1,4 +1,4 @@
-from kvmm.models.backbones.inception_next.inception_next_model import (
+from kvmm.models.inception_next.inception_next_model import (
     InceptionNeXtAtto,
     InceptionNeXtBase,
     InceptionNeXtSmall,

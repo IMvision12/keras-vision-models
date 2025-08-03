@@ -1,4 +1,4 @@
-from kvmm.models.backbones.mobilevitv2.mobilevitv2_model import (
+from kvmm.models.mobilevitv2.mobilevitv2_model import (
     MobileViTV2M050,
     MobileViTV2M075,
     MobileViTV2M100,

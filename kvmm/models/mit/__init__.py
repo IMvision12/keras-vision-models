@@ -1,4 +1,4 @@
-from kvmm.models.backbones.mit.mit_model import (
+from kvmm.models.mit.mit_model import (
     MiT_B0,
     MiT_B1,
     MiT_B2,

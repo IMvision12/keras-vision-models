@@ -1,4 +1,4 @@
-from kvmm.models.backbones.convnext.convnext_model import (
+from kvmm.models.convnext.convnext_model import (
     ConvNeXtAtto,
     ConvNeXtBase,
     ConvNeXtFemto,

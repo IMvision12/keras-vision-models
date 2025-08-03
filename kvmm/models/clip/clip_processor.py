@@ -1,7 +1,7 @@
 import keras
 
-from kvmm.models.vlms.clip.clip_image_processor import CLIPImageProcessor
-from kvmm.models.vlms.clip.clip_tokenizer import CLIPTokenizer
+from kvmm.models.clip.clip_image_processor import CLIPImageProcessor
+from kvmm.models.clip.clip_tokenizer import CLIPTokenizer
 from kvmm.utils import download_file
 
 

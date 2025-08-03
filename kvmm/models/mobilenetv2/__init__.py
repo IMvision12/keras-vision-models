@@ -1,4 +1,4 @@
-from kvmm.models.backbones.mobilenetv2.mobilenetv2_model import (
+from kvmm.models.mobilenetv2.mobilenetv2_model import (
     MobileNetV2WM50,
     MobileNetV2WM100,
     MobileNetV2WM110,

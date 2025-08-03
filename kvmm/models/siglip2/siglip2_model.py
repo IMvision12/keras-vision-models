@@ -1,5 +1,5 @@
 from kvmm.model_registry import register_model
-from kvmm.models.vlms.siglip.siglip_model import SigLIPModel
+from kvmm.models.siglip.siglip_model import SigLIPModel
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import SigLIP2_MODEL_CONFIG, SigLIP2_WEIGHTS_CONFIG

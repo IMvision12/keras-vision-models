@@ -1,4 +1,4 @@
-from kvmm.models.backbones.res2net.res2net_model import (
+from kvmm.models.res2net.res2net_model import (
     Res2Net50_14w_8s,
     Res2Net50_26w_4s,
     Res2Net50_26w_6s,

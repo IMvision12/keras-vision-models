@@ -1,1 +1,1 @@
-from kvmm.models.backbones.mlp_mixer.mlp_mixer_model import MLPMixerB16, MLPMixerL16
+from kvmm.models.mlp_mixer.mlp_mixer_model import MLPMixerB16, MLPMixerL16

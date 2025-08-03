@@ -1,4 +1,4 @@
-from kvmm.models.backbones.efficientnet.efficientnet_model import (
+from kvmm.models.efficientnet.efficientnet_model import (
     EfficientNetB0,
     EfficientNetB1,
     EfficientNetB2,

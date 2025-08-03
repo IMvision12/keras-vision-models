@@ -1,4 +1,4 @@
-from kvmm.models.backbones.deit.deit_model import (
+from kvmm.models.deit.deit_model import (
     DEiT3Base16,
     DEiT3Huge14,
     DEiT3Large16,

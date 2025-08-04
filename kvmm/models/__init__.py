@@ -1,5 +1,6 @@
 from kvmm.models import (
     cait,
+    clip,
     convmixer,
     convnext,
     convnextv2,
@@ -26,13 +27,12 @@ from kvmm.models import (
     resnet,
     resnetv2,
     resnext,
+    segformer,
     senet,
+    siglip,
+    siglip2,
     swin,
     vgg,
     vit,
     xception,
-    segformer,
-    clip,
-    siglip,
-    siglip2,
 )

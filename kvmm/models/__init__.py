@@ -1,5 +1,6 @@
-from kvmm.models.backbones import (
+from kvmm.models import (
     cait,
+    clip,
     convmixer,
     convnext,
     convnextv2,
@@ -26,11 +27,12 @@ from kvmm.models.backbones import (
     resnet,
     resnetv2,
     resnext,
+    segformer,
     senet,
+    siglip,
+    siglip2,
     swin,
     vgg,
     vit,
     xception,
 )
-from kvmm.models.segmentation import segformer
-from kvmm.models.vlms import clip, siglip, siglip2

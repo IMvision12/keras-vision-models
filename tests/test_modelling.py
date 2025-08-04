@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 from typing import Any, Dict, Tuple, Type, Union
+import gc
 
 import keras
 import tensorflow as tf
@@ -459,9 +460,17 @@ class ModelTestCase(TestCase):
 
         output = model(input_data)
         self.check_output_shape(output, self.expected_output_shape)
+        del output
+        gc.collect()
 
         output_train = model(input_data, training=True)
         output_infer = model(input_data, training=False)
 
+        del model
+        gc.collect()
+        
         if isinstance(output_train, dict) and isinstance(output_infer, dict):
             self.assertEqual(set(output_train.keys()), set(output_infer.keys()))
+
+        del output_train, output_infer
+        gc.collect()

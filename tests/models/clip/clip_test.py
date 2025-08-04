@@ -2,7 +2,7 @@ from keras import ops
 
 from kvmm.models import clip
 
-from ....test_modelling import ModelTestCase
+from ...test_modelling import ModelTestCase
 
 
 class TestCLIP(ModelTestCase):

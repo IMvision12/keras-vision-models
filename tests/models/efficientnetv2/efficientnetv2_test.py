@@ -2,7 +2,7 @@ from keras import ops
 
 from kvmm.models import efficientnetv2
 
-from ....test_modelling import ModelTestCase
+from ...test_modelling import ModelTestCase
 
 
 class TestEfficientNetV2(ModelTestCase):

@@ -2,7 +2,7 @@ from keras import ops
 
 from kvmm.models import inceptionv4
 
-from ....test_modelling import ModelTestCase
+from ...test_modelling import ModelTestCase
 
 
 class TestInceptionV4(ModelTestCase):

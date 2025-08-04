@@ -2,7 +2,7 @@ import os
 
 from keras.src.testing import TestCase
 
-from kvmm.models.vlms.siglip import SigLIPTokenizer
+from kvmm.models.siglip import SigLIPTokenizer
 from kvmm.utils import download_file
 
 

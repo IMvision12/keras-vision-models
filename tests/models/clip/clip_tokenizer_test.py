@@ -3,7 +3,7 @@ import os
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.models.vlms.clip import CLIPTokenizer
+from kvmm.models.clip import CLIPTokenizer
 from kvmm.utils import download_file
 
 

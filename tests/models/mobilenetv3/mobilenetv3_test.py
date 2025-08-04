@@ -2,7 +2,7 @@ from keras import ops
 
 from kvmm.models import mobilenetv3
 
-from ....test_modelling import ModelTestCase
+from ...test_modelling import ModelTestCase
 
 
 class TestMobileNetV3(ModelTestCase):

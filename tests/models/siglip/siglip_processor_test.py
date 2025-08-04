@@ -2,7 +2,7 @@ import keras
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.models.vlms.siglip.siglip_processor import SigLIPProcessor
+from kvmm.models.siglip.siglip_processor import SigLIPProcessor
 
 
 class TestSigLIPProcessor(TestCase):

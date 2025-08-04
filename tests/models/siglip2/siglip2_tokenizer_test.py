@@ -3,7 +3,7 @@ import os
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.models.vlms.siglip2 import SigLIP2Tokenizer
+from kvmm.models.siglip2 import SigLIP2Tokenizer
 from kvmm.utils import download_file
 
 

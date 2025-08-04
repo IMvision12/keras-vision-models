@@ -197,7 +197,7 @@ visualize_segmentation(outs, image)
 ![output](images/seg_output.png)
 
 
-<h3><b>VLMS 🚧 </b></h3>
+<h3><b>VLMS</b></h3>
 
 #### 🛠️ Basic Usage
 

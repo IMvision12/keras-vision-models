@@ -1,17 +1,9 @@
-tensorflow-cpu~=2.18.1;sys_platform != 'darwin'
-tensorflow~=2.18.1;sys_platform == 'darwin'
-tf_keras
-tf2onnx
+tensorflow-cpu>=2.19.0
 
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.6.0;sys_platform != 'darwin'
-torch==2.6.0;sys_platform == 'darwin'
-torch-xla==2.6.0;sys_platform != 'darwin'
+torch>=2.5.0
+torchvision>=0.20.0
 
-jax[cpu]==0.5.0
-flax
+jax[cpu]
 
-keras>=3.10.0
-pillow
-
-sentencepiece 
+keras>=3.11.0

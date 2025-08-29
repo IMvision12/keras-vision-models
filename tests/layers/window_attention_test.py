@@ -425,7 +425,7 @@ class TestWindowAttention(TestCase):
         )
         original_bias = ops.convert_to_tensor(layer.relative_bias)  # Option 1
 
-        extreme_bias = ops.ones_like(layer.relative_bias) * 1000.0
+        extreme_bias = ops.ones_like(layer.relative_bias, dtype="float32") * 1000.0
         layer.relative_bias.assign(extreme_bias)
 
         output_extreme_bias = layer(

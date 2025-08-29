@@ -44,7 +44,7 @@ jobs:
           
           # Install additional dependencies
           pip install pytest pytest-cov timm
-          pip install -r requirements.txt
+          pip install -r dev-requirements.txt
           pip install -e .
       
       - name: Run tests

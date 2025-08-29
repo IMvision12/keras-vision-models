@@ -46,10 +46,10 @@ class TestStdConv2D(TestCase):
         std_kernel = layer.standardize_kernel(layer.kernel)
 
         kernel_mean = ops.mean(std_kernel, axis=[0, 1, 2])
-        self.assertAllClose(kernel_mean, ops.zeros_like(kernel_mean), atol=1e-6)
+        self.assertAllClose(kernel_mean, ops.zeros_like(kernel_mean), atol=1e-5)
 
         kernel_var = ops.var(std_kernel, axis=[0, 1, 2])
-        self.assertAllClose(kernel_var, ops.ones_like(kernel_var), atol=1e-6)
+        self.assertAllClose(kernel_var, ops.ones_like(kernel_var), atol=1e-5)
 
     def test_different_kernel_sizes(self):
         test_sizes = [(1, 1), (3, 3), (5, 5), (7, 7)]

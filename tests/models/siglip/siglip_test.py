@@ -15,7 +15,7 @@ class TestSigLIP(ModelTestCase):
         super().setUp()
 
         batch_size = 2
-        image_size = 224
+        image_size = 128
         context_length = 64
 
         images = ops.ones((batch_size, image_size, image_size, 3))

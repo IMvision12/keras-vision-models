@@ -40,11 +40,13 @@ jobs:
           fi
           
           # Install Keras
-          pip install -U keras
+          pip install -U keras>=3.11.0
           
           # Install additional dependencies
           pip install pytest pytest-cov timm
-          pip install -r dev-requirements.txt
+          pip install torch>=2.5.0 torchvision>=0.20.0
+          pip install jax[cpu]
+          pip install tensorflow-cpu>=2.19.0
           pip install -e .
       
       - name: Run tests

@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import ops
 
 
@@ -74,41 +73,20 @@ class Letterbox(keras.layers.Layer):
         self.scaleup = scaleup
         self.stride = stride
 
-        self.color_norm = [c / 255.0 for c in color]
+        self.color_norm = ops.convert_to_tensor([c / 255.0 for c in color], dtype="float32")
 
-    def call(self, inputs, training=None):
-        input_shape = ops.shape(inputs)
-        is_batched = len(input_shape) == 4
-
-        if is_batched:
-            batch_size = input_shape[0]
-            processed_images = []
-            all_ratios = []
-            all_paddings = []
-
-            for i in range(batch_size):
-                img = inputs[i]
-                processed_img, ratio, padding = self._process_single_image(img)
-                processed_images.append(processed_img)
-                all_ratios.append(ratio)
-                all_paddings.append(padding)
-
-            letterboxed_images = ops.stack(processed_images, axis=0)
-            ratios = ops.stack(all_ratios, axis=0)
-            paddings = ops.stack(all_paddings, axis=0)
-
+    def call(self, inputs):
+        inputs = ops.convert_to_tensor(inputs, dtype="float32")        
+        if len(inputs.shape) == 3:
+            inputs = ops.expand_dims(inputs, axis=0)
+            was_single_image = True
         else:
-            letterboxed_images, ratios, paddings = self._process_single_image(inputs)
+            was_single_image = False
 
-        return letterboxed_images, ratios, paddings
-
-    def _process_single_image(self, im):
-        if isinstance(im, np.ndarray):
-            im = ops.convert_to_tensor(im, dtype="float32")
-
-        shape = ops.shape(im)
-        current_h, current_w = shape[0], shape[1]
-
+        batch_size = ops.shape(inputs)[0]
+        current_h = ops.shape(inputs)[1]
+        current_w = ops.shape(inputs)[2]
+        
         target_h, target_w = self.new_shape[0], self.new_shape[1]
 
         r_h = ops.cast(target_h, "float32") / ops.cast(current_h, "float32")
@@ -135,15 +113,20 @@ class Letterbox(keras.layers.Layer):
         dw_half = ops.cast(dw, "float32") / 2.0
         dh_half = ops.cast(dh, "float32") / 2.0
 
-        if ops.any(ops.not_equal([current_h, current_w], [new_unpad_h, new_unpad_w])):
+        need_resize = ops.logical_or(
+            ops.not_equal(current_h, new_unpad_h),
+            ops.not_equal(current_w, new_unpad_w)
+        )
+        
+        if need_resize:
             im_resized = ops.image.resize(
-                ops.expand_dims(im, 0),
+                inputs,
                 size=[new_unpad_h, new_unpad_w],
                 interpolation="bilinear",
                 antialias=False,
-            )[0]
+            )
         else:
-            im_resized = im
+            im_resized = inputs
 
         top = ops.cast(ops.round(dh_half - 0.1), "int32")
         bottom = ops.cast(ops.round(dh_half + 0.1), "int32")
@@ -155,14 +138,29 @@ class Letterbox(keras.layers.Layer):
         left = ops.maximum(left, 0)
         right = ops.maximum(right, 0)
 
-        color_tensor = ops.convert_to_tensor(self.color_norm, dtype=im.dtype)
         paddings = ops.convert_to_tensor(
-            [[top, bottom], [left, right], [0, 0]], dtype="int32"
+            [[0, 0], [top, bottom], [left, right], [0, 0]], dtype="int32"
         )
         im_padded = ops.pad(im_resized, paddings, mode="constant", constant_values=0.0)
 
-        final_shape = ops.shape(im_padded)
-        final_h, final_w = final_shape[0], final_shape[1]
+        im_final = self._apply_letterbox_color(im_padded, top, bottom, left, right)
+        im_final = ops.flip(im_final, axis=-1)
+
+        ratios = ops.stack([r, r], axis=0)
+        padding_values = ops.stack([dw_half, dh_half], axis=0)
+
+        ratios = ops.broadcast_to(ops.expand_dims(ratios, 0), [batch_size, 2])
+        padding_values = ops.broadcast_to(ops.expand_dims(padding_values, 0), [batch_size, 2])
+
+        if was_single_image:
+            im_final = ops.squeeze(im_final, axis=0)
+            ratios = ops.squeeze(ratios, axis=0)
+            padding_values = ops.squeeze(padding_values, axis=0)
+
+        return im_final, ratios, padding_values
+
+    def _apply_letterbox_color(self, im_padded, top, bottom, left, right):
+        batch_size, final_h, final_w, channels = ops.shape(im_padded)
 
         y_coords = ops.arange(final_h, dtype="int32")
         x_coords = ops.arange(final_w, dtype="int32")
@@ -180,30 +178,32 @@ class Letterbox(keras.layers.Layer):
         border_mask_h = ops.logical_or(top_mask_2d, bottom_mask_2d)
         border_mask_w = ops.logical_or(left_mask_2d, right_mask_2d)
         border_mask_2d = ops.logical_or(border_mask_h, border_mask_w)
-        border_mask_3d = ops.expand_dims(border_mask_2d, -1)
+        
+        border_mask = ops.expand_dims(ops.expand_dims(border_mask_2d, 0), -1)
+        border_mask = ops.broadcast_to(border_mask, [batch_size, final_h, final_w, channels])
 
         color_broadcast = ops.broadcast_to(
-            ops.reshape(color_tensor, [1, 1, 3]), [final_h, final_w, 3]
+            ops.reshape(self.color_norm, [1, 1, 1, 3]),
+            [batch_size, final_h, final_w, 3]
         )
 
-        im_final = ops.where(border_mask_3d, color_broadcast, im_padded)
-        im_final = ops.flip(im_final, axis=-1)
-
-        ratio = ops.stack([r, r])
-        padding = ops.stack([dw_half, dh_half])
-
-        return im_final, ratio, padding
+        im_final = ops.where(border_mask, color_broadcast, im_padded)
+        
+        return im_final
 
     def compute_output_shape(self, input_shape):
         if len(input_shape) == 4:
-            return (
-                input_shape[0],
-                self.new_shape[0],
-                self.new_shape[1],
-                input_shape[-1],
-            )
+            return [
+                (input_shape[0], self.new_shape[0], self.new_shape[1], input_shape[-1]),
+                (input_shape[0], 2),
+                (input_shape[0], 2),
+            ]
         else:
-            return (self.new_shape[0], self.new_shape[1], input_shape[-1])
+            return [
+                (self.new_shape[0], self.new_shape[1], input_shape[-1]),
+                (2,),
+                (2,),
+            ]
 
     def get_config(self):
         config = super().get_config()

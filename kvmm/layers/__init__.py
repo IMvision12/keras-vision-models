@@ -18,3 +18,5 @@ from kvmm.layers.talking_head_attention import TalkingHeadAttention
 from kvmm.layers.window_attention import WindowAttention
 from kvmm.layers.window_partition import WindowPartition
 from kvmm.layers.window_reverse import WindowReverse
+from kvmm.layers.non_max_suppression import NonMaxSuppression
+from kvmm.layers.intersection_over_union import IntersectionOverUnion

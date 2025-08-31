@@ -9,6 +9,259 @@ from kvmm.utils import get_all_weight_names, load_weights_from_config
 from .config import YOLOV5_MODEL_CONFIG, YOLOV5_WEIGHTS_CONFIG
 
 
+def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_format):
+    """
+    Build the backbone and neck architecture of YOLOv5.
+    
+    Args:
+        images_input: Input tensor for images
+        width_multiple: Width scaling factor
+        depth_multiple: Depth scaling factor  
+        data_format: Data format ('channels_last' or 'channels_first')
+        
+    Returns:
+        tuple: (p3_features, p4_features, p5_features) - Feature maps at different scales
+    """
+    # Backbone architecture
+    x = conv_block(
+        images_input,
+        scale_channels(64, width_multiple),
+        k=6,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_0",
+    )
+
+    x = conv_block(
+        x,
+        scale_channels(128, width_multiple),
+        k=3,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_1",
+    )
+
+    x = c3_block(
+        x,
+        scale_channels(128, width_multiple),
+        n=scale_depth(3, depth_multiple),
+        shortcut=True,
+        data_format=data_format,
+        name_prefix="c3_block_2",
+    )
+
+    x = conv_block(
+        x,
+        scale_channels(256, width_multiple),
+        k=3,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_3",
+    )
+
+    x = c3_block(
+        x,
+        scale_channels(256, width_multiple),
+        n=scale_depth(6, depth_multiple),
+        shortcut=True,
+        data_format=data_format,
+        name_prefix="c3_block_4",
+    )
+    p3_features = x
+
+    x = conv_block(
+        x,
+        scale_channels(512, width_multiple),
+        k=3,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_5",
+    )
+
+    x = c3_block(
+        x,
+        scale_channels(512, width_multiple),
+        n=scale_depth(9, depth_multiple),
+        shortcut=True,
+        data_format=data_format,
+        name_prefix="c3_block_6",
+    )
+    p4_features = x
+
+    x = conv_block(
+        x,
+        scale_channels(1024, width_multiple),
+        k=3,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_7",
+    )
+
+    x = c3_block(
+        x,
+        scale_channels(1024, width_multiple),
+        n=scale_depth(3, depth_multiple),
+        shortcut=True,
+        data_format=data_format,
+        name_prefix="c3_block_8",
+    )
+
+    x = sppf_block(
+        x,
+        scale_channels(1024, width_multiple),
+        k=5,
+        data_format=data_format,
+        name_prefix="sppf_block_9",
+    )
+    p5_features = x
+
+    return p3_features, p4_features, p5_features
+
+
+def build_fpn(p3_features, p4_features, p5_features, width_multiple, depth_multiple, data_format):
+    """
+    Build Feature Pyramid Network (FPN) - Top-down pathway.
+    
+    Args:
+        p3_features: P3 feature map from backbone
+        p4_features: P4 feature map from backbone
+        p5_features: P5 feature map from backbone
+        width_multiple: Width scaling factor
+        depth_multiple: Depth scaling factor
+        data_format: Data format ('channels_last' or 'channels_first')
+        
+    Returns:
+        tuple: (p3_out, p4_reduced) - Processed feature maps and intermediate results
+    """
+    if data_format == "channels_last":
+        concat_axis = -1
+    else:
+        concat_axis = 1
+
+    # Top-down pathway
+    p5_reduced = conv_block(
+        p5_features,
+        scale_channels(512, width_multiple),
+        k=1,
+        s=1,
+        data_format=data_format,
+        name_prefix="conv_block_10",
+    )
+
+    p5_upsampled = layers.UpSampling2D(
+        size=2, data_format=data_format, interpolation="nearest", name="upsample_1"
+    )(p5_reduced)
+
+    p4_concat = layers.Concatenate(axis=concat_axis, name="concat_1")(
+        [p5_upsampled, p4_features]
+    )
+
+    p4_processed = c3_block(
+        p4_concat,
+        scale_channels(512, width_multiple),
+        n=scale_depth(3, depth_multiple),
+        shortcut=False,
+        data_format=data_format,
+        name_prefix="c3_block_13",
+    )
+
+    p4_reduced = conv_block(
+        p4_processed,
+        scale_channels(256, width_multiple),
+        k=1,
+        s=1,
+        data_format=data_format,
+        name_prefix="conv_block_14",
+    )
+
+    p4_upsampled = layers.UpSampling2D(
+        size=2, data_format=data_format, interpolation="nearest", name="upsample_2"
+    )(p4_reduced)
+
+    p3_concat = layers.Concatenate(axis=concat_axis, name="concat_2")(
+        [p4_upsampled, p3_features]
+    )
+
+    p3_out = c3_block(
+        p3_concat,
+        scale_channels(256, width_multiple),
+        n=scale_depth(3, depth_multiple),
+        shortcut=False,
+        data_format=data_format,
+        name_prefix="c3_block_17",
+    )
+
+    return p3_out, p4_reduced, p5_reduced
+
+
+def build_pan(p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, data_format):
+    """
+    Build Path Aggregation Network (PAN) - Bottom-up pathway.
+    
+    Args:
+        p3_out: P3 output from FPN
+        p4_reduced: P4 reduced features from FPN
+        p5_reduced: P5 reduced features from FPN
+        width_multiple: Width scaling factor
+        depth_multiple: Depth scaling factor
+        data_format: Data format ('channels_last' or 'channels_first')
+        
+    Returns:
+        list: [p3_out, p4_out, p5_out] - Final feature maps for detection heads
+    """
+    if data_format == "channels_last":
+        concat_axis = -1
+    else:
+        concat_axis = 1
+
+    # Bottom-up pathway
+    p3_downsampled = conv_block(
+        p3_out,
+        scale_channels(256, width_multiple),
+        k=3,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_18",
+    )
+
+    p4_final_concat = layers.Concatenate(axis=concat_axis, name="concat_3")(
+        [p3_downsampled, p4_reduced]
+    )
+
+    p4_out = c3_block(
+        p4_final_concat,
+        scale_channels(512, width_multiple),
+        n=scale_depth(3, depth_multiple),
+        shortcut=False,
+        data_format=data_format,
+        name_prefix="c3_block_20",
+    )
+
+    p4_downsampled = conv_block(
+        p4_out,
+        scale_channels(512, width_multiple),
+        k=3,
+        s=2,
+        data_format=data_format,
+        name_prefix="conv_block_21",
+    )
+
+    p5_final_concat = layers.Concatenate(axis=concat_axis, name="concat_4")(
+        [p4_downsampled, p5_reduced]
+    )
+
+    p5_out = c3_block(
+        p5_final_concat,
+        scale_channels(1024, width_multiple),
+        n=scale_depth(3, depth_multiple),
+        shortcut=False,
+        data_format=data_format,
+        name_prefix="c3_block_23",
+    )
+
+    return [p3_out, p4_out, p5_out]
+
+
 class YOLOv5(keras.Model):
     def __init__(
         self,
@@ -77,203 +330,20 @@ class YOLOv5(keras.Model):
         else:
             inputs = images_input
 
-        # Backbone and neck architecture (same as before)
-        x = conv_block(
-            images_input,
-            scale_channels(64, width_multiple),
-            k=6,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_0",
+        # Build architecture using modular functions
+        p3_features, p4_features, p5_features = build_backbone_and_neck(
+            images_input, width_multiple, depth_multiple, data_format
+        )
+        
+        p3_out, p4_reduced, p5_reduced = build_fpn(
+            p3_features, p4_features, p5_features, width_multiple, depth_multiple, data_format
+        )
+        
+        feature_maps = build_pan(
+            p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, data_format
         )
 
-        x = conv_block(
-            x,
-            scale_channels(128, width_multiple),
-            k=3,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_1",
-        )
-
-        x = c3_block(
-            x,
-            scale_channels(128, width_multiple),
-            n=scale_depth(3, depth_multiple),
-            shortcut=True,
-            data_format=data_format,
-            name_prefix="c3_block_2",
-        )
-
-        x = conv_block(
-            x,
-            scale_channels(256, width_multiple),
-            k=3,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_3",
-        )
-
-        x = c3_block(
-            x,
-            scale_channels(256, width_multiple),
-            n=scale_depth(6, depth_multiple),
-            shortcut=True,
-            data_format=data_format,
-            name_prefix="c3_block_4",
-        )
-        p3_features = x
-
-        x = conv_block(
-            x,
-            scale_channels(512, width_multiple),
-            k=3,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_5",
-        )
-
-        x = c3_block(
-            x,
-            scale_channels(512, width_multiple),
-            n=scale_depth(9, depth_multiple),
-            shortcut=True,
-            data_format=data_format,
-            name_prefix="c3_block_6",
-        )
-        p4_features = x
-
-        x = conv_block(
-            x,
-            scale_channels(1024, width_multiple),
-            k=3,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_7",
-        )
-
-        x = c3_block(
-            x,
-            scale_channels(1024, width_multiple),
-            n=scale_depth(3, depth_multiple),
-            shortcut=True,
-            data_format=data_format,
-            name_prefix="c3_block_8",
-        )
-
-        x = sppf_block(
-            x,
-            scale_channels(1024, width_multiple),
-            k=5,
-            data_format=data_format,
-            name_prefix="sppf_block_9",
-        )
-        p5_features = x
-
-        # Feature Pyramid Network (FPN) - Top-down pathway
-        p5_reduced = conv_block(
-            p5_features,
-            scale_channels(512, width_multiple),
-            k=1,
-            s=1,
-            data_format=data_format,
-            name_prefix="conv_block_10",
-        )
-
-        p5_upsampled = layers.UpSampling2D(
-            size=2, data_format=data_format, interpolation="nearest", name="upsample_1"
-        )(p5_reduced)
-
-        if data_format == "channels_last":
-            concat_axis = -1
-        else:
-            concat_axis = 1
-
-        p4_concat = layers.Concatenate(axis=concat_axis, name="concat_1")(
-            [p5_upsampled, p4_features]
-        )
-
-        p4_processed = c3_block(
-            p4_concat,
-            scale_channels(512, width_multiple),
-            n=scale_depth(3, depth_multiple),
-            shortcut=False,
-            data_format=data_format,
-            name_prefix="c3_block_13",
-        )
-
-        p4_reduced = conv_block(
-            p4_processed,
-            scale_channels(256, width_multiple),
-            k=1,
-            s=1,
-            data_format=data_format,
-            name_prefix="conv_block_14",
-        )
-
-        p4_upsampled = layers.UpSampling2D(
-            size=2, data_format=data_format, interpolation="nearest", name="upsample_2"
-        )(p4_reduced)
-
-        p3_concat = layers.Concatenate(axis=concat_axis, name="concat_2")(
-            [p4_upsampled, p3_features]
-        )
-
-        p3_out = c3_block(
-            p3_concat,
-            scale_channels(256, width_multiple),
-            n=scale_depth(3, depth_multiple),
-            shortcut=False,
-            data_format=data_format,
-            name_prefix="c3_block_17",
-        )
-
-        # Path Aggregation Network (PAN) - Bottom-up pathway
-        p3_downsampled = conv_block(
-            p3_out,
-            scale_channels(256, width_multiple),
-            k=3,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_18",
-        )
-
-        p4_final_concat = layers.Concatenate(axis=concat_axis, name="concat_3")(
-            [p3_downsampled, p4_reduced]
-        )
-
-        p4_out = c3_block(
-            p4_final_concat,
-            scale_channels(512, width_multiple),
-            n=scale_depth(3, depth_multiple),
-            shortcut=False,
-            data_format=data_format,
-            name_prefix="c3_block_20",
-        )
-
-        p4_downsampled = conv_block(
-            p4_out,
-            scale_channels(512, width_multiple),
-            k=3,
-            s=2,
-            data_format=data_format,
-            name_prefix="conv_block_21",
-        )
-
-        p5_final_concat = layers.Concatenate(axis=concat_axis, name="concat_4")(
-            [p4_downsampled, p5_reduced]
-        )
-
-        p5_out = c3_block(
-            p5_final_concat,
-            scale_channels(1024, width_multiple),
-            n=scale_depth(3, depth_multiple),
-            shortcut=False,
-            data_format=data_format,
-            name_prefix="c3_block_23",
-        )
-
-        feature_maps = [p3_out, p4_out, p5_out]
+        # Detection head
         detection_outputs = detect_head(
             feature_maps,
             nc=nc,
@@ -300,6 +370,13 @@ class YOLOv5(keras.Model):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
+        # Store configuration attributes
+        self.nc = nc
+        self.data_format = data_format
+        self.depth_multiple = depth_multiple
+        self.width_multiple = width_multiple
+        self.training_mode = training
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -317,7 +394,6 @@ class YOLOv5(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
 
 def YoloV5s(
     weights="coco",

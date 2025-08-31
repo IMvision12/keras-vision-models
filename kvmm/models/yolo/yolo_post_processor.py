@@ -3,6 +3,8 @@ from keras import ops
 from yolo.layers import DFL
 from yolo.utils import decode_bboxes, make_anchors
 
+from kvmm.layers import NonMaxSuppression
+
 
 class YoloPostProcessor(keras.layers.Layer):
     """

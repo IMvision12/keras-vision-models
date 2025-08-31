@@ -12,37 +12,37 @@ from .config import YOLOV5_MODEL_CONFIG, YOLOV5_WEIGHTS_CONFIG
 def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_format):
     """
     Build the backbone and neck architecture of YOLOv5.
-    
+
     Args:
         images_input: Input tensor for images
         width_multiple: Width scaling factor
-        depth_multiple: Depth scaling factor  
+        depth_multiple: Depth scaling factor
         data_format: Data format ('channels_last' or 'channels_first')
-        
+
     Returns:
         tuple: (p3_features, p4_features, p5_features) - Feature maps at different scales
     """
     # Backbone architecture
-    x = conv_block(
+    inputs = conv_block(
         images_input,
         scale_channels(64, width_multiple),
-        k=6,
-        s=2,
+        kernel_size=6,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_0",
     )
 
-    x = conv_block(
-        x,
+    inputs = conv_block(
+        inputs,
         scale_channels(128, width_multiple),
-        k=3,
-        s=2,
+        kernel_size=3,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_1",
     )
 
-    x = c3_block(
-        x,
+    inputs = c3_block(
+        inputs,
         scale_channels(128, width_multiple),
         n=scale_depth(3, depth_multiple),
         shortcut=True,
@@ -50,55 +50,55 @@ def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_f
         name_prefix="c3_block_2",
     )
 
-    x = conv_block(
-        x,
+    inputs = conv_block(
+        inputs,
         scale_channels(256, width_multiple),
-        k=3,
-        s=2,
+        kernel_size=3,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_3",
     )
 
-    x = c3_block(
-        x,
+    inputs = c3_block(
+        inputs,
         scale_channels(256, width_multiple),
         n=scale_depth(6, depth_multiple),
         shortcut=True,
         data_format=data_format,
         name_prefix="c3_block_4",
     )
-    p3_features = x
+    p3_features = inputs
 
-    x = conv_block(
-        x,
+    inputs = conv_block(
+        inputs,
         scale_channels(512, width_multiple),
-        k=3,
-        s=2,
+        kernel_size=3,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_5",
     )
 
-    x = c3_block(
-        x,
+    inputs = c3_block(
+        inputs,
         scale_channels(512, width_multiple),
         n=scale_depth(9, depth_multiple),
         shortcut=True,
         data_format=data_format,
         name_prefix="c3_block_6",
     )
-    p4_features = x
+    p4_features = inputs
 
-    x = conv_block(
-        x,
+    inputs = conv_block(
+        inputs,
         scale_channels(1024, width_multiple),
-        k=3,
-        s=2,
+        kernel_size=3,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_7",
     )
 
-    x = c3_block(
-        x,
+    inputs = c3_block(
+        inputs,
         scale_channels(1024, width_multiple),
         n=scale_depth(3, depth_multiple),
         shortcut=True,
@@ -106,22 +106,24 @@ def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_f
         name_prefix="c3_block_8",
     )
 
-    x = sppf_block(
-        x,
+    inputs = sppf_block(
+        inputs,
         scale_channels(1024, width_multiple),
-        k=5,
+        kernel_size=5,
         data_format=data_format,
         name_prefix="sppf_block_9",
     )
-    p5_features = x
+    p5_features = inputs
 
     return p3_features, p4_features, p5_features
 
 
-def build_fpn(p3_features, p4_features, p5_features, width_multiple, depth_multiple, data_format):
+def build_fpn(
+    p3_features, p4_features, p5_features, width_multiple, depth_multiple, data_format
+):
     """
     Build Feature Pyramid Network (FPN) - Top-down pathway.
-    
+
     Args:
         p3_features: P3 feature map from backbone
         p4_features: P4 feature map from backbone
@@ -129,7 +131,7 @@ def build_fpn(p3_features, p4_features, p5_features, width_multiple, depth_multi
         width_multiple: Width scaling factor
         depth_multiple: Depth scaling factor
         data_format: Data format ('channels_last' or 'channels_first')
-        
+
     Returns:
         tuple: (p3_out, p4_reduced) - Processed feature maps and intermediate results
     """
@@ -142,8 +144,8 @@ def build_fpn(p3_features, p4_features, p5_features, width_multiple, depth_multi
     p5_reduced = conv_block(
         p5_features,
         scale_channels(512, width_multiple),
-        k=1,
-        s=1,
+        kernel_size=1,
+        strides=1,
         data_format=data_format,
         name_prefix="conv_block_10",
     )
@@ -168,8 +170,8 @@ def build_fpn(p3_features, p4_features, p5_features, width_multiple, depth_multi
     p4_reduced = conv_block(
         p4_processed,
         scale_channels(256, width_multiple),
-        k=1,
-        s=1,
+        kernel_size=1,
+        strides=1,
         data_format=data_format,
         name_prefix="conv_block_14",
     )
@@ -194,10 +196,12 @@ def build_fpn(p3_features, p4_features, p5_features, width_multiple, depth_multi
     return p3_out, p4_reduced, p5_reduced
 
 
-def build_pan(p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, data_format):
+def build_pan(
+    p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, data_format
+):
     """
     Build Path Aggregation Network (PAN) - Bottom-up pathway.
-    
+
     Args:
         p3_out: P3 output from FPN
         p4_reduced: P4 reduced features from FPN
@@ -205,7 +209,7 @@ def build_pan(p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, da
         width_multiple: Width scaling factor
         depth_multiple: Depth scaling factor
         data_format: Data format ('channels_last' or 'channels_first')
-        
+
     Returns:
         list: [p3_out, p4_out, p5_out] - Final feature maps for detection heads
     """
@@ -218,8 +222,8 @@ def build_pan(p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, da
     p3_downsampled = conv_block(
         p3_out,
         scale_channels(256, width_multiple),
-        k=3,
-        s=2,
+        kernel_size=3,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_18",
     )
@@ -240,8 +244,8 @@ def build_pan(p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, da
     p4_downsampled = conv_block(
         p4_out,
         scale_channels(512, width_multiple),
-        k=3,
-        s=2,
+        kernel_size=3,
+        strides=2,
         data_format=data_format,
         name_prefix="conv_block_21",
     )
@@ -334,11 +338,16 @@ class YOLOv5(keras.Model):
         p3_features, p4_features, p5_features = build_backbone_and_neck(
             images_input, width_multiple, depth_multiple, data_format
         )
-        
+
         p3_out, p4_reduced, p5_reduced = build_fpn(
-            p3_features, p4_features, p5_features, width_multiple, depth_multiple, data_format
+            p3_features,
+            p4_features,
+            p5_features,
+            width_multiple,
+            depth_multiple,
+            data_format,
         )
-        
+
         feature_maps = build_pan(
             p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, data_format
         )
@@ -394,6 +403,7 @@ class YOLOv5(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
 
 def YoloV5s(
     weights="coco",

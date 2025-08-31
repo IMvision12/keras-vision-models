@@ -9,22 +9,41 @@ from .blocks import conv_block
 def detect_head(
     feature_maps, nc=80, reg_max=16, data_format="channels_last", name_prefix="detect"
 ):
+    """
+    YOLO detection head for object detection.
+
+    Creates separate regression and classification branches for each feature map level.
+    The regression branch predicts bounding box coordinates and the classification
+    branch predicts class probabilities. Both branches use two 3x3 convolutions
+    followed by a 1x1 output layer.
+
+    Args:
+        feature_maps: List of feature map tensors from different scales/levels
+        nc: Number of classes for classification (default: 80)
+        reg_max: Maximum value for regression encoding, affects output channels (default: 16)
+        data_format: Data format, either 'channels_last' or 'channels_first' (default: 'channels_last')
+        name_prefix: Prefix for layer names (default: 'detect')
+
+    Returns:
+        List of output tensors, one for each input feature map, with regression
+        and classification outputs concatenated along the channel axis
+    """
     if data_format == "channels_last":
-        ch = [x.shape[-1] for x in feature_maps]
+        ch = [inputs.shape[-1] for inputs in feature_maps]
     else:
-        ch = [x.shape[1] for x in feature_maps]
+        ch = [inputs.shape[1] for inputs in feature_maps]
 
     c2 = max((16, ch[0] // 4, reg_max * 4))
     c3 = max(ch[0], min(nc, 100))
 
     outputs = []
 
-    for i, x in enumerate(feature_maps):
+    for i, inputs in enumerate(feature_maps):
         reg_branch = conv_block(
-            x,
+            inputs,
             c2,
-            k=3,
-            s=1,
+            kernel_size=3,
+            strides=1,
             act=True,
             data_format=data_format,
             name_prefix=f"{name_prefix}_cv2_{i}_0",
@@ -33,8 +52,8 @@ def detect_head(
         reg_branch = conv_block(
             reg_branch,
             c2,
-            k=3,
-            s=1,
+            kernel_size=3,
+            strides=1,
             act=True,
             data_format=data_format,
             name_prefix=f"{name_prefix}_cv2_{i}_1",
@@ -53,10 +72,10 @@ def detect_head(
         )(reg_branch)
 
         cls_branch = conv_block(
-            x,
+            inputs,
             c3,
-            k=3,
-            s=1,
+            kernel_size=3,
+            strides=1,
             act=True,
             data_format=data_format,
             name_prefix=f"{name_prefix}_cv3_{i}_0",
@@ -65,8 +84,8 @@ def detect_head(
         cls_branch = conv_block(
             cls_branch,
             c3,
-            k=3,
-            s=1,
+            kernel_size=3,
+            strides=1,
             act=True,
             data_format=data_format,
             name_prefix=f"{name_prefix}_cv3_{i}_1",

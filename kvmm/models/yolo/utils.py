@@ -1,5 +1,5 @@
 from keras import ops
-
+import math
 
 def make_anchors(feats, strides, grid_cell_offset=0.5):
     """
@@ -122,3 +122,116 @@ def decode_bboxes(bboxes, anchors, xywh=True):
         >>> print(decoded)  # Decoded bounding boxes in [x_center, y_center, width, height] format
     """
     return dist2bbox(bboxes, anchors, xywh=xywh, dim=1)
+
+
+def make_divisible(x, divisor=8):
+    """
+    Make a number divisible by a given divisor.
+    
+    This function is commonly used in neural network architectures to ensure
+    channel numbers are divisible by specific values (typically 8 or 16) for
+    optimal hardware performance and memory alignment. Many accelerators and
+    GPU architectures perform better when tensor dimensions are multiples of
+    certain values.
+    
+    Args:
+        x (float or int): The input number to make divisible.
+        divisor (int, optional): The divisor to make x divisible by. Default is 8.
+                                Common values are 8, 16, or 32 depending on the
+                                target hardware architecture.
+    
+    Returns:
+        int: The smallest integer greater than or equal to x that is divisible by divisor.
+    
+    Examples:
+        >>> make_divisible(23, 8)
+        24
+        >>> make_divisible(32, 8)  
+        32
+        >>> make_divisible(15.7, 16)
+        16
+        >>> make_divisible(100, 8)
+        104
+    
+    Note:
+        This function always rounds up to ensure the result is at least as large as
+        the input value, which is important for maintaining model capacity when
+        scaling channel dimensions.
+    """
+    return math.ceil(x / divisor) * divisor
+
+
+def scale_channels(channels, width_multiple):
+    """
+    Scale the number of channels by a width multiplier.
+    
+    This function is used in model scaling strategies (like EfficientNet scaling)
+    to adjust the width (number of channels) of neural network layers. The scaled
+    value is made divisible by 8 to ensure optimal hardware performance.
+    
+    Args:
+        channels (int): The base number of channels to scale.
+        width_multiple (float): The scaling factor for channel width.
+                               Values > 1.0 increase channels (wider model),
+                               values < 1.0 decrease channels (narrower model).
+                               Common values: 0.25, 0.5, 0.75, 1.0, 1.25, 1.5.
+    
+    Returns:
+        int: The scaled number of channels, made divisible by 8.
+    
+    Examples:
+        >>> scale_channels(64, 1.0)    # No scaling
+        64
+        >>> scale_channels(64, 1.5)    # 1.5x wider
+        96
+        >>> scale_channels(64, 0.5)    # 0.5x narrower  
+        32
+        >>> scale_channels(48, 1.25)   # 1.25x wider, rounded to divisible by 8
+        64
+    
+    Note:
+        This function is typically used when creating different variants of a model
+        architecture (e.g., YOLOv8n, YOLOv8s, YOLOv8m, YOLOv8l, YOLOv8x) where
+        each variant has different channel widths but the same overall structure.
+    """
+    return make_divisible(channels * width_multiple)
+
+
+def scale_depth(depth, depth_multiple):
+    """
+    Scale the depth (number of layers/repeats) by a depth multiplier.
+    
+    This function is used in model scaling strategies to adjust the depth
+    of neural network components, such as the number of repeated blocks
+    in a layer. The result is always at least 1 to ensure valid layer construction.
+    
+    Args:
+        depth (int): The base depth (number of layer repeats) to scale.
+        depth_multiple (float): The scaling factor for depth.
+                               Values > 1.0 increase depth (deeper model),
+                               values < 1.0 decrease depth (shallower model).
+                               Common values: 0.33, 0.67, 1.0, 1.33, 1.67.
+    
+    Returns:
+        int: The scaled depth, guaranteed to be at least 1.
+    
+    Examples:
+        >>> scale_depth(3, 1.0)     # No scaling
+        3
+        >>> scale_depth(3, 1.33)    # 1.33x deeper
+        4
+        >>> scale_depth(6, 0.67)    # 0.67x shallower
+        4
+        >>> scale_depth(2, 0.33)    # Very shallow, but at least 1
+        1
+        >>> scale_depth(1, 0.1)     # Always at least 1
+        1
+    
+    Note:
+        The function uses rounding to convert float results to integers, and
+        ensures the minimum value is 1. This is important because having 0
+        layers would break the model architecture. This scaling is commonly
+        used in compound scaling methods where model depth is scaled alongside
+        width and resolution.
+    """
+    return max(round(depth * depth_multiple), 1)

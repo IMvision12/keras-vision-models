@@ -7,9 +7,11 @@ from kvmm.layers.efficient_multi_head_self_attention import (
 from kvmm.layers.global_response_norm import GlobalResponseNorm
 from kvmm.layers.image_normalization import ImageNormalizationLayer
 from kvmm.layers.images_to_patches import ImageToPatchesLayer
+from kvmm.layers.intersection_over_union import IntersectionOverUnion
 from kvmm.layers.layer_scale import LayerScale
 from kvmm.layers.letterbox import Letterbox
 from kvmm.layers.multi_head_self_attention import MultiHeadSelfAttention
+from kvmm.layers.non_max_suppression import NonMaxSuppression
 from kvmm.layers.patches_to_images import PatchesToImageLayer
 from kvmm.layers.pos_embedding import AddPositionEmbs
 from kvmm.layers.std_conv2d import StdConv2D
@@ -18,5 +20,3 @@ from kvmm.layers.talking_head_attention import TalkingHeadAttention
 from kvmm.layers.window_attention import WindowAttention
 from kvmm.layers.window_partition import WindowPartition
 from kvmm.layers.window_reverse import WindowReverse
-from kvmm.layers.non_max_suppression import NonMaxSuppression
-from kvmm.layers.intersection_over_union import IntersectionOverUnion

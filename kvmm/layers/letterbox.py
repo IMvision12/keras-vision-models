@@ -73,10 +73,12 @@ class Letterbox(keras.layers.Layer):
         self.scaleup = scaleup
         self.stride = stride
 
-        self.color_norm = ops.convert_to_tensor([c / 255.0 for c in color], dtype="float32")
+        self.color_norm = ops.convert_to_tensor(
+            [c / 255.0 for c in color], dtype="float32"
+        )
 
     def call(self, inputs):
-        inputs = ops.convert_to_tensor(inputs, dtype="float32")        
+        inputs = ops.convert_to_tensor(inputs, dtype="float32")
         if len(inputs.shape) == 3:
             inputs = ops.expand_dims(inputs, axis=0)
             was_single_image = True
@@ -86,7 +88,7 @@ class Letterbox(keras.layers.Layer):
         batch_size = ops.shape(inputs)[0]
         current_h = ops.shape(inputs)[1]
         current_w = ops.shape(inputs)[2]
-        
+
         target_h, target_w = self.new_shape[0], self.new_shape[1]
 
         r_h = ops.cast(target_h, "float32") / ops.cast(current_h, "float32")
@@ -114,10 +116,9 @@ class Letterbox(keras.layers.Layer):
         dh_half = ops.cast(dh, "float32") / 2.0
 
         need_resize = ops.logical_or(
-            ops.not_equal(current_h, new_unpad_h),
-            ops.not_equal(current_w, new_unpad_w)
+            ops.not_equal(current_h, new_unpad_h), ops.not_equal(current_w, new_unpad_w)
         )
-        
+
         if need_resize:
             im_resized = ops.image.resize(
                 inputs,
@@ -150,7 +151,9 @@ class Letterbox(keras.layers.Layer):
         padding_values = ops.stack([dw_half, dh_half], axis=0)
 
         ratios = ops.broadcast_to(ops.expand_dims(ratios, 0), [batch_size, 2])
-        padding_values = ops.broadcast_to(ops.expand_dims(padding_values, 0), [batch_size, 2])
+        padding_values = ops.broadcast_to(
+            ops.expand_dims(padding_values, 0), [batch_size, 2]
+        )
 
         if was_single_image:
             im_final = ops.squeeze(im_final, axis=0)
@@ -178,17 +181,19 @@ class Letterbox(keras.layers.Layer):
         border_mask_h = ops.logical_or(top_mask_2d, bottom_mask_2d)
         border_mask_w = ops.logical_or(left_mask_2d, right_mask_2d)
         border_mask_2d = ops.logical_or(border_mask_h, border_mask_w)
-        
+
         border_mask = ops.expand_dims(ops.expand_dims(border_mask_2d, 0), -1)
-        border_mask = ops.broadcast_to(border_mask, [batch_size, final_h, final_w, channels])
+        border_mask = ops.broadcast_to(
+            border_mask, [batch_size, final_h, final_w, channels]
+        )
 
         color_broadcast = ops.broadcast_to(
             ops.reshape(self.color_norm, [1, 1, 1, 3]),
-            [batch_size, final_h, final_w, 3]
+            [batch_size, final_h, final_w, 3],
         )
 
         im_final = ops.where(border_mask, color_broadcast, im_padded)
-        
+
         return im_final
 
     def compute_output_shape(self, input_shape):

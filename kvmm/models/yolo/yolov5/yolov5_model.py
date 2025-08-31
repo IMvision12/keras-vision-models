@@ -196,6 +196,7 @@ def YoloV5s(
     input_tensor=None,
     nc=80,
     input_shape=(None, None, 3),
+    training=False,  # Default to inference mode
     name="YoloV5s",
     **kwargs,
 ):
@@ -204,8 +205,8 @@ def YoloV5s(
         input_shape=input_shape,
         nc=nc,
         input_tensor=input_tensor,
+        training=training,
         name=name,
-        weights=weights,
         **kwargs,
     )
 
@@ -217,4 +218,3 @@ def YoloV5s(
         print("No weights loaded.")
 
     return model
-

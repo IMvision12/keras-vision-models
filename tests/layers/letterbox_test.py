@@ -31,7 +31,7 @@ class TestLetterbox(TestCase):
         assert layer.scaleFill is False
         assert layer.scaleup is True
         assert layer.stride == 32
-        
+
         expected_color_norm = [114 / 255.0, 114 / 255.0, 114 / 255.0]
         assert ops.all(ops.isclose(layer.color_norm, expected_color_norm))
 

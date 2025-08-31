@@ -3,28 +3,34 @@ from typing import Dict
 import keras
 import torch
 from tqdm import tqdm
+from ultralytics import YOLO
 
+from kvmm.models import yolo
 from kvmm.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kvmm.utils.weight_split_torch_and_keras import split_model_weights
 from kvmm.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )
-from ultralytics import YOLO
-from kvmm.models import yolo
 
 weight_name_mapping: Dict[str, str] = {
-    "cv2_new_conv":"cv2",
-    "cv3_new_conv":"cv3",
-    "_bias":".bias",
-    "_kernel": ".weight",
-    "_gamma": ".weight",
-    "_beta": ".bias",
-    "_moving_mean": ".running_mean",
-    "_moving_variance": ".running_var",
+    "_": ".",
+    "conv.block": "model.model",
+    "sppf.block": "model.model",
+    "c3.block": "model.model",
+    "detect.head": "model.model",
+    "cv2.head.conv": "cv2",
+    "cv3.head.conv": "cv3",
+    "batchnorm": "bn",
+    "bias": "bias",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+    "moving.mean": "running_mean",
+    "moving.variance": "running_var",
 }
 
-keras_model = yolo.YoloV5s(input_shape=(640, 640, 3), nc=80)
+keras_model = yolo.YoloV5s(input_shape=(640, 640, 3), nc=80, weights=None)
 torch_model = YOLO("yolov5su.pt").eval()
 
 trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(

@@ -31,7 +31,9 @@ class TestLetterbox(TestCase):
         assert layer.scaleFill is False
         assert layer.scaleup is True
         assert layer.stride == 32
-        assert layer.color_norm == [114 / 255.0, 114 / 255.0, 114 / 255.0]
+        
+        expected_color_norm = [114 / 255.0, 114 / 255.0, 114 / 255.0]
+        assert ops.all(ops.isclose(layer.color_norm, expected_color_norm))
 
     def test_init_custom_parameters(self):
         layer = Letterbox(
@@ -81,7 +83,7 @@ class TestLetterbox(TestCase):
 
         for target_shape in test_shapes:
             layer = Letterbox(new_shape=target_shape, auto=False)
-            letterboxed, ratios, paddings = layer(self.test_inputs_single)
+            letterboxed, _, _ = layer(self.test_inputs_single)
 
             assert len(ops.shape(letterboxed)) == 3
 
@@ -98,7 +100,7 @@ class TestLetterbox(TestCase):
 
         for input_shape in test_input_shapes:
             test_input = keras.random.uniform(input_shape, minval=0.0, maxval=1.0)
-            letterboxed, ratios, paddings = layer(test_input)
+            letterboxed, _, _ = layer(test_input)
 
             assert len(ops.shape(letterboxed)) == 3
 
@@ -144,7 +146,7 @@ class TestLetterbox(TestCase):
             assert len(ops.shape(letterboxed)) == 3
 
             expected_color_norm = [c / 255.0 for c in color]
-            assert layer.color_norm == expected_color_norm
+            assert ops.all(ops.isclose(layer.color_norm, expected_color_norm))
 
     def test_different_batch_sizes(self):
         layer = Letterbox()
@@ -167,11 +169,15 @@ class TestLetterbox(TestCase):
     def test_compute_output_shape(self):
         layer = Letterbox(new_shape=(416, 416))
 
-        output_shape = layer.compute_output_shape((480, 640, 3))
-        assert output_shape == (416, 416, 3)
+        output_shapes = layer.compute_output_shape((480, 640, 3))
+        assert output_shapes[0] == (416, 416, 3)
+        assert output_shapes[1] == (2,)
+        assert output_shapes[2] == (2,)
 
-        output_shape = layer.compute_output_shape((4, 480, 640, 3))
-        assert output_shape == (4, 416, 416, 3)
+        output_shapes = layer.compute_output_shape((4, 480, 640, 3))
+        assert output_shapes[0] == (4, 416, 416, 3)
+        assert output_shapes[1] == (4, 2)
+        assert output_shapes[2] == (4, 2)
 
     def test_get_config(self):
         layer = Letterbox(
@@ -204,7 +210,7 @@ class TestLetterbox(TestCase):
         rect_image = keras.random.uniform((300, 600, 3), minval=0.0, maxval=1.0)
 
         layer = Letterbox(new_shape=(640, 640))
-        letterboxed, ratios, paddings = layer(rect_image)
+        _, ratios, paddings = layer(rect_image)
 
         assert ops.abs(ratios[0] - ratios[1]) < 1e-6
 

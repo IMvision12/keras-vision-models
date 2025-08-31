@@ -1,8 +1,11 @@
 import keras
 from keras import layers, ops
-from yolo.blocks import conv_block, c3_block, sppf_block
-from yolo.head import detect_head
-from yolo.utils import scale_channels, scale_depth
+from kvmm.models.yolo.blocks import conv_block, c3_block, sppf_block
+from kvmm.models.yolo.head import detect_head
+from kvmm.models.yolo.utils import scale_channels, scale_depth
+from .config import YOLOV5_MODEL_CONFIG, YOLOV5_WEIGHTS_CONFIG
+from kvmm.utils import get_all_weight_names, load_weights_from_config
+
 
 class YOLOv5(keras.Model):
     def __init__(
@@ -14,6 +17,7 @@ class YOLOv5(keras.Model):
         depth_multiple=0.33,
         width_multiple=0.50,
         input_tensor=None,
+        training=True,  # Add training flag
         name="YOLOv5",
         **kwargs,
     ):
@@ -41,22 +45,35 @@ class YOLOv5(keras.Model):
         else:
             image_input_shape = [image_size, image_size, channels]
 
+        # Define 3 separate inputs
         if isinstance(input_tensor, dict):
             images_input = input_tensor.get("images") or layers.Input(
                 shape=image_input_shape, name="images"
             )
-            bboxes_input = input_tensor.get("bboxes") or layers.Input(
-                shape=[max_boxes, 5], name="bboxes"  # 5 = [x1, y1, x2, y2, label]
-            )
+            if training:
+                bbox_input = input_tensor.get("bbox") or layers.Input(
+                    shape=[max_boxes, 4], name="bbox"  # [x1, y1, x2, y2]
+                )
+                labels_input = input_tensor.get("labels") or layers.Input(
+                    shape=[max_boxes], name="labels"  # class labels
+                )
         else:
             images_input = layers.Input(shape=image_input_shape, name="images")
-            bboxes_input = layers.Input(shape=[max_boxes, 5], name="bboxes")  # 5 = [x1, y1, x2, y2, label]
+            if training:
+                bbox_input = layers.Input(shape=[max_boxes, 4], name="bbox")
+                labels_input = layers.Input(shape=[max_boxes], name="labels")
 
-        inputs = {
-            "images": images_input,
-            "bboxes": bboxes_input
-        }
+        # Set up inputs
+        if training:
+            inputs = {
+                "images": images_input,
+                "bbox": bbox_input,
+                "labels": labels_input
+            }
+        else:
+            inputs = images_input
 
+        # Backbone and neck architecture (same as before)
         x = conv_block(images_input, scale_channels(64, width_multiple), k=6, s=2,
                        data_format=data_format, name_prefix="model.model.0")
 
@@ -94,7 +111,6 @@ class YOLOv5(keras.Model):
         p5_reduced = conv_block(p5_features, scale_channels(512, width_multiple), k=1, s=1,
                                data_format=data_format, name_prefix="model.model.10")
 
-        # Upsample by factor of 2 (since p4 is 2x larger than p5)
         p5_upsampled = layers.UpSampling2D(size=2, data_format=data_format,
                                           interpolation='nearest', name="model_model_11_upsample")(p5_reduced)
 
@@ -111,7 +127,6 @@ class YOLOv5(keras.Model):
         p4_reduced = conv_block(p4_processed, scale_channels(256, width_multiple), k=1, s=1,
                                data_format=data_format, name_prefix="model.model.14")
 
-        # Upsample by factor of 2 (since p3 is 2x larger than p4)
         p4_upsampled = layers.UpSampling2D(size=2, data_format=data_format,
                                           interpolation='nearest', name="model_model_15_upsample")(p4_reduced)
 
@@ -141,37 +156,65 @@ class YOLOv5(keras.Model):
         detection_outputs = detect_head(feature_maps, nc=nc, reg_max=16,
                                       data_format=data_format, name_prefix="model.model.24")
         
-        boxes = bboxes_input[:, :, :4]  # Extract [x1, y1, x2, y2]
-        labels = bboxes_input[:, :, 4]  # Extract label
+        # Handle outputs based on training mode
+        if training:
+            # Create valid mask: valid if label >= 0 (assuming -1 for padding)
+            valid_mask = ops.cast(labels_input >= 0, "float32")
 
-        # Create valid mask: valid if label >= 0 (assuming -1 for padding)
-        valid_mask = ops.cast(labels >= 0, "float32")
-
-        outputs = {
-            "predictions": detection_outputs,
-            "targets": {
-                "boxes": boxes,
-                "labels": labels,
-                "valid_mask": valid_mask
+            outputs = {
+                "predictions": detection_outputs,
+                "targets": {
+                    "boxes": bbox_input,
+                    "labels": labels_input,
+                    "valid_mask": valid_mask
+                }
             }
-        }
+        else:
+            outputs = detection_outputs
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
     def get_config(self):
         config = super().get_config()
         config.update({
-            "input_shape": self.input_shape[:1],
-            "nc": self.nc,
-            "data_format": self.data_format,
-            "depth_multiple": self.depth_multiple,
-            "width_multiple": self.width_multiple,
-            "input_tensor": self.input_tensor,
-            "name": self.name,
-            "trainable": self.trainable,
+            "input_shape": getattr(self, 'input_shape', None),
+            "nc": getattr(self, 'nc', 80),
+            "data_format": getattr(self, 'data_format', "channels_last"),
+            "depth_multiple": getattr(self, 'depth_multiple', 0.33),
+            "width_multiple": getattr(self, 'width_multiple', 0.50),
+            "training": getattr(self, 'training_mode', True),
         })
         return config
 
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+    
+
+def YoloV5s(
+    weights="coco",
+    input_tensor=None,
+    nc=80,
+    input_shape=(None, None, 3),
+    name="YoloV5s",
+    **kwargs,
+):
+    model = YOLOv5(
+        **YOLOV5_MODEL_CONFIG["YoloV5s"],
+        input_shape=input_shape,
+        nc=nc,
+        input_tensor=input_tensor,
+        name=name,
+        weights=weights,
+        **kwargs,
+    )
+
+    if weights in get_all_weight_names(YOLOV5_WEIGHTS_CONFIG):
+        load_weights_from_config("YoloV5s", weights, model, YOLOV5_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
+

@@ -1,4 +1,4 @@
-from yolo.blocks import conv_block
+from .blocks import conv_block
 from keras import layers
 import keras
 import math

@@ -540,3 +540,193 @@ def visualize_yolo_detections(
     plt.savefig("results.png")
     plt.tight_layout()
     plt.show()
+
+
+def to_dense(inputs, max_boxes=None, pad_value=-1, dtype=None):
+    """
+    Convert variable-length sequences to dense tensors with padding.
+
+    This function is similar to KerasCV's to_dense functionality and is essential
+    for Keras 3 compatibility since it doesn't support ragged tensors. It converts
+    lists of variable-length arrays or tensors into fixed-size dense tensors by
+    padding shorter sequences.
+
+    Args:
+        inputs: Input data in one of the following formats:
+               - List of arrays/tensors with shape (num_objects, features)
+               - Single array/tensor with shape (num_objects, features)
+               - Nested list structure
+        max_boxes (int, optional): Maximum number of boxes/objects to pad to.
+                                  If None, uses the maximum length in the batch.
+        pad_value (float): Value to use for padding. Default is -1.
+        dtype (str, optional): Data type for the output tensor. If None, infers from input.
+
+    Returns:
+        tuple: (dense_tensor, valid_mask)
+            - dense_tensor: Dense tensor of shape (batch_size, max_boxes, features)
+            - valid_mask: Boolean mask of shape (batch_size, max_boxes) indicating valid entries
+
+    Examples:
+        >>> # Example 1: List of bounding boxes with different numbers per image
+        >>> boxes = [
+        ...     [[10, 20, 30, 40], [50, 60, 70, 80]],  # 2 boxes
+        ...     [[15, 25, 35, 45]],                     # 1 box
+        ...     [[5, 15, 25, 35], [45, 55, 65, 75], [85, 95, 105, 115]]  # 3 boxes
+        ... ]
+        >>> dense_boxes, mask = to_dense(boxes, max_boxes=5)
+        >>> print(dense_boxes.shape)  # (3, 5, 4)
+        >>> print(mask.shape)         # (3, 5)
+
+        >>> # Example 2: List of class labels
+        >>> labels = [[0, 1], [2], [0, 1, 2]]
+        >>> dense_labels, mask = to_dense(labels, max_boxes=5, pad_value=-1)
+        >>> print(dense_labels.shape)  # (3, 5)
+
+        >>> # Example 3: Single sequence (will be treated as batch of 1)
+        >>> single_boxes = [[10, 20, 30, 40], [50, 60, 70, 80]]
+        >>> dense_single, mask_single = to_dense(single_boxes, max_boxes=3)
+        >>> print(dense_single.shape)  # (1, 3, 4)
+    """
+
+    if inputs is None or len(inputs) == 0:
+        if max_boxes is None:
+            max_boxes = 1
+        return ops.full((1, max_boxes, 1), pad_value), ops.zeros(
+            (1, max_boxes), dtype="bool"
+        )
+
+    if isinstance(inputs, (np.ndarray, keras.KerasTensor)) or hasattr(inputs, "numpy"):
+        if len(inputs.shape) == 2:
+            inputs = [inputs]
+        elif len(inputs.shape) == 3:
+            inputs = [inputs[i] for i in range(inputs.shape[0])]
+
+    if not isinstance(inputs, list):
+        inputs = list(inputs)
+
+    if len(inputs) == 0:
+        if max_boxes is None:
+            max_boxes = 1
+        return ops.full((0, max_boxes, 1), pad_value), ops.zeros(
+            (0, max_boxes), dtype="bool"
+        )
+
+    batch_tensors = []
+    batch_lengths = []
+    feature_dims = None
+
+    for item in inputs:
+        if item is None or (hasattr(item, "__len__") and len(item) == 0):
+            if feature_dims is None:
+                feature_dims = 1
+            tensor_item = ops.zeros((0, feature_dims))
+        else:
+            if not isinstance(item, (keras.KerasTensor, np.ndarray)) and not hasattr(
+                item, "numpy"
+            ):
+                tensor_item = ops.convert_to_tensor(item)
+            else:
+                tensor_item = item
+
+            if len(tensor_item.shape) == 1:
+                tensor_item = ops.expand_dims(tensor_item, axis=-1)
+            elif len(tensor_item.shape) == 0:
+                tensor_item = ops.expand_dims(
+                    ops.expand_dims(tensor_item, axis=0), axis=-1
+                )
+
+            if feature_dims is None:
+                feature_dims = tensor_item.shape[-1]
+
+        batch_tensors.append(tensor_item)
+        batch_lengths.append(tensor_item.shape[0] if len(tensor_item.shape) > 0 else 0)
+
+    if max_boxes is None:
+        max_boxes = max(batch_lengths) if batch_lengths else 1
+
+    max_boxes = max(max_boxes, 1)
+
+    if dtype is None:
+        for tensor in batch_tensors:
+            if tensor.shape[0] > 0:
+                dtype = tensor.dtype
+                break
+        if dtype is None:
+            dtype = "float32"
+
+    batch_size = len(batch_tensors)
+    dense_shape = (batch_size, max_boxes, feature_dims)
+
+    dense_tensor = ops.full(dense_shape, pad_value, dtype=dtype)
+    valid_mask = ops.zeros((batch_size, max_boxes), dtype="bool")
+
+    for i, (tensor, length) in enumerate(zip(batch_tensors, batch_lengths)):
+        if length > 0:
+            actual_length = min(length, max_boxes)
+
+            if actual_length > 0:
+                data_to_copy = tensor[:actual_length]
+
+                if len(data_to_copy.shape) == 1:
+                    data_to_copy = ops.expand_dims(data_to_copy, axis=-1)
+
+                indices = [[i, j] for j in range(actual_length)]
+                if len(indices) > 0:
+                    flat_data = ops.reshape(data_to_copy, (actual_length, feature_dims))
+
+                    for j in range(actual_length):
+                        dense_tensor = ops.scatter_update(
+                            dense_tensor,
+                            [[i, j]],
+                            ops.expand_dims(flat_data[j], axis=0),
+                        )
+
+                mask_indices = [[i, j] for j in range(actual_length)]
+                if len(mask_indices) > 0:
+                    mask_updates = ops.ones((actual_length,), dtype="bool")
+                    for j in range(actual_length):
+                        valid_mask = ops.scatter_update(valid_mask, [[i, j]], [True])
+
+    return dense_tensor, valid_mask
+
+
+def from_dense(dense_tensor, valid_mask):
+    """
+    Convert dense tensors back to variable-length sequences.
+
+    This is the inverse operation of to_dense, extracting only the valid
+    (non-padded) elements from dense tensors using the valid mask.
+
+    Args:
+        dense_tensor: Dense tensor of shape (batch_size, max_boxes, features)
+        valid_mask: Boolean mask of shape (batch_size, max_boxes) indicating valid entries
+
+    Returns:
+        list: List of tensors, each containing only the valid elements for that batch item
+
+    Example:
+        >>> dense_boxes = ops.array([
+        ...     [[10, 20, 30, 40], [50, 60, 70, 80], [-1, -1, -1, -1]],
+        ...     [[15, 25, 35, 45], [-1, -1, -1, -1], [-1, -1, -1, -1]]
+        ... ])
+        >>> mask = ops.array([[True, True, False], [True, False, False]])
+        >>> variable_boxes = from_dense(dense_boxes, mask)
+        >>> print(len(variable_boxes))  # 2
+        >>> print(variable_boxes[0].shape)  # (2, 4)
+        >>> print(variable_boxes[1].shape)  # (1, 4)
+    """
+    batch_size = dense_tensor.shape[0]
+    result = []
+
+    for i in range(batch_size):
+        batch_mask = valid_mask[i]
+        valid_indices = ops.where(batch_mask)
+
+        if len(valid_indices) > 0:
+            valid_elements = ops.take(dense_tensor[i], valid_indices[:, 0], axis=0)
+            result.append(valid_elements)
+        else:
+            empty_shape = (0,) + dense_tensor.shape[2:]
+            result.append(ops.zeros(empty_shape, dtype=dense_tensor.dtype))
+
+    return result

@@ -537,5 +537,6 @@ def visualize_yolo_detections(
         fig, ax = plt.subplots(1, 1, figsize=(12, 8))
         plot_single_detection(processed_img, processed_det, ax, title_prefix)
 
+    plt.savefig("results.png")
     plt.tight_layout()
     plt.show()

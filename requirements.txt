@@ -4,6 +4,7 @@ tensorflow-cpu>=2.19.0
 torch>=2.5.0
 torchvision>=0.20.0
 sentencepiece
+matplotlib>=3.8.0
 
 jax[cpu]
 

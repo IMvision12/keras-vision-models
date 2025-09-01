@@ -1,6 +1,5 @@
 from typing import Dict
 
-import keras
 import torch
 from tqdm import tqdm
 from ultralytics import YOLO
@@ -64,3 +63,7 @@ for keras_weight, keras_weight_name in tqdm(
             keras_weight_name, keras_weight.shape, torch_weight_name, torch_weight.shape
         )
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+model_filename: str = f"{torch_model.model_name}.weights.h5"
+keras_model.save_weights(model_filename)
+print(f"Model saved successfully as {model_filename}")

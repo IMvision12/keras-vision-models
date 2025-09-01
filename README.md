@@ -332,7 +332,7 @@ yolo.visualize_yolo_detections(result["images"].numpy().squeeze()[:, :, ::-1], o
 
 ## 📜 License
 
-This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
+This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license) and [Ultralytics](https://github.com/ultralytics/ultralytics) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
 
 - 🔖 **kvmm Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
 
@@ -342,6 +342,7 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 - The [Keras](https://github.com/keras-team/keras) team for their powerful and user-friendly deep learning framework
 - The [Transformers](https://github.com/huggingface/transformers) library for its robust tools for loading and adapting pretrained models  
 - The [pytorch-image-models (timm)](https://github.com/huggingface/pytorch-image-models) project for pioneering many computer vision model implementations
+- The [Ultralytics](https://github.com/ultralytics/ultralytics) project for making object detection accessible and efficient
 - All contributors to the original papers and architectures implemented in this library
 
 ## Citing
@@ -356,5 +357,4 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/IMvision12/keras-vision-models}}
-}
 ```

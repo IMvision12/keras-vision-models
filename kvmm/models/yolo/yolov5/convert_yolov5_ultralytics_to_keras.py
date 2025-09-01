@@ -64,6 +64,7 @@ for keras_weight, keras_weight_name in tqdm(
         )
     transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-model_filename: str = f"{torch_model.model_name}.weights.h5"
+model_name = torch_model.model_name.split(".")[0]
+model_filename: str = f"{model_name}.weights.h5"
 keras_model.save_weights(model_filename)
 print(f"Model saved successfully as {model_filename}")

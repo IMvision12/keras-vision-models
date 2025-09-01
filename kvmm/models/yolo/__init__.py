@@ -11,6 +11,7 @@ from .utils import (
     make_divisible,
     scale_channels,
     scale_depth,
+    visualize_yolo_detections,
 )
 from .yolo_post_processor import YoloPostProcessor
 from .yolo_pre_processor import YoloPreProcessor

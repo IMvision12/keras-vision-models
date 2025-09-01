@@ -16,25 +16,14 @@ class BCELoss(keras.losses.Loss):
         self.label_smoothing = label_smoothing
         self.pos_weight = pos_weight
 
-        # Use Keras built-in BCE
         self.bce = keras.losses.BinaryCrossentropy(
             from_logits=True, label_smoothing=label_smoothing, reduction="none"
         )
 
     def call(self, y_true, y_pred):
-        """
-        Args:
-            y_true: Ground truth labels [batch_size, max_boxes, num_classes]
-            y_pred: Predicted logits [batch_size, max_boxes, num_classes]
-
-        Returns:
-            BCE loss value
-        """
         loss = self.bce(y_true, y_pred)
 
-        # Apply positive weight if specified
         if self.pos_weight != 1.0:
-            # Weight positive examples more heavily
             pos_weight_tensor = ops.where(y_true > 0.5, self.pos_weight, 1.0)
             loss = loss * pos_weight_tensor
 

@@ -12,6 +12,8 @@ from .utils import (
     scale_channels,
     scale_depth,
 )
+from .yolo_post_processor import YoloPostProcessor
+from .yolo_pre_processor import YoloPreProcessor
 
 # For backward compatibility, also expose YoloV5s directly
 from .yolov5 import YoloV5s

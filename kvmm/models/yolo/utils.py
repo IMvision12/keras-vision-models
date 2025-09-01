@@ -459,7 +459,7 @@ def visualize_yolo_detections(
                     color=color,
                     fontsize=10,
                     weight="bold",
-                    bbox=dict(facecolor="white", alpha=0.8, pad=2),
+                    bbox={"facecolor": "white", "alpha": 0.8, "pad": 2},
                 )
 
         ax.set_title(f"{title}: {len(det_np)} objects found", fontsize=12)

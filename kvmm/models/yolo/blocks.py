@@ -1,4 +1,4 @@
-from keras import layers
+from keras import layers, ops
 
 
 def conv_block(
@@ -296,4 +296,88 @@ def c3_block(
         data_format=data_format,
         name_prefix=f"{name_prefix}_cv3",
     )
+    return output
+
+
+def c2f_block(
+    inputs,
+    c2,
+    n=1,
+    shortcut=False,
+    groups=1,
+    e=0.5,
+    data_format="channels_last",
+    name_prefix="c2f",
+):
+    """
+    C2f block - Faster Implementation of CSP Bottleneck with 2 convolutions.
+
+    This is an optimized version of the CSP bottleneck that uses fewer convolutions
+    and a more efficient concatenation strategy. It splits the input into two parts,
+    processes one part through n bottleneck blocks, and concatenates all intermediate
+    results for better gradient flow.
+
+    Args:
+        inputs: Input tensor
+        c2: Number of output filters
+        n: Number of bottleneck blocks (default: 1)
+        shortcut: Whether to use shortcut connections in bottleneck blocks (default: False)
+        groups: Number of groups for grouped convolution (default: 1)
+        e: Expansion factor for hidden channels (default: 0.5)
+        data_format: Data format, either 'channels_last' or 'channels_first' (default: 'channels_last')
+        name_prefix: Prefix for layer names (default: 'c2f')
+
+    Returns:
+        Output tensor after C2f processing
+    """
+    c_ = int(c2 * e)
+
+    y = conv_block(
+        inputs,
+        2 * c_,
+        kernel_size=1,
+        strides=1,
+        act=True,
+        data_format=data_format,
+        name_prefix=f"{name_prefix}_cv1",
+    )
+
+    if data_format == "channels_last":
+        split_axis = -1
+        concat_axis = -1
+    else:
+        split_axis = 1
+        concat_axis = 1
+
+    y1, y2 = ops.split(y, 2, axis=split_axis)
+    y_list = [y1, y2]
+
+    current = y2
+    for i in range(n):
+        current = bottleneck_block(
+            current,
+            c_,
+            shortcut=shortcut,
+            groups=groups,
+            kernel_size=(3, 3),
+            e=1.0,
+            data_format=data_format,
+            name_prefix=f"{name_prefix}_m_{i}",
+        )
+        y_list.append(current)
+
+    concatenated = layers.Concatenate(axis=concat_axis, name=f"{name_prefix}_concat")(
+        y_list
+    )
+
+    output = conv_block(
+        concatenated,
+        c2,
+        kernel_size=1,
+        strides=1,
+        act=True,
+        data_format=data_format,
+        name_prefix=f"{name_prefix}_cv2",
+    )
+
     return output

@@ -1,5 +1,5 @@
 from . import yolov5
-from .blocks import bottleneck_block, c3_block, conv_block, sppf_block
+from .blocks import bottleneck_block, c2f_block, c3_block, conv_block, sppf_block
 from .head import detect_head
 from .layers import DFL
 from .utils import (
@@ -15,4 +15,4 @@ from .utils import (
 )
 from .yolo_post_processor import YoloPostProcessor
 from .yolo_pre_processor import YoloPreProcessor
-from .yolov5 import YoloV5s
+from .yolov5 import YoloV5l, YoloV5m, YoloV5n, YoloV5s, YoloV5x

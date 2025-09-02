@@ -683,7 +683,6 @@ def to_dense(inputs, max_boxes=None, pad_value=-1, dtype=None):
 
                 mask_indices = [[i, j] for j in range(actual_length)]
                 if len(mask_indices) > 0:
-                    mask_updates = ops.ones((actual_length,), dtype="bool")
                     for j in range(actual_length):
                         valid_mask = ops.scatter_update(valid_mask, [[i, j]], [True])
 

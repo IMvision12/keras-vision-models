@@ -240,6 +240,12 @@ Prediction probabilities:
 
 <h3><b>🧩 Object Detection </b></h3>
 
+> **Note on Pretrained for YOLO Weights:**  
+> This library (`kvmm`) is licensed under **Apache-2.0**.  
+> We provide pure Keras implementations of vision models such as YOLO.  
+> **We do not redistribute Ultralytics weights.**  
+> Instead, a conversion script is included so users may port official Ultralytics weights for personal or research use, subject to the [Ultralytics AGPL-3.0 license](https://github.com/ultralytics/ultralytics/blob/main/LICENSE).
+> 
 #### 🛠️ Basic Usage
 
 ```python

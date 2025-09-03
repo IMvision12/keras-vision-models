@@ -256,7 +256,7 @@ def build_pan(
     p3_out, p4_reduced, p5_reduced, width_multiple, depth_multiple, data_format
 ):
     """
-    Build Path Aggregation Network (PAN) - Bottom-up pathway for YOLOv5 using Keras 3.
+    Build Path Aggregation Network (PAN) - Bottom-up pathway for YOLOv5.
     
     This function implements the bottom-up pathway of the Path Aggregation Network,
     which is the second part of the YOLOv5 neck architecture after the FPN. The PAN

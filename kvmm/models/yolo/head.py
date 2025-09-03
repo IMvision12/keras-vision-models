@@ -10,23 +10,43 @@ def detect_head(
     feature_maps, nc=80, reg_max=16, data_format="channels_last", name_prefix="detect"
 ):
     """
-    YOLO detection head for object detection.
+    YOLO detection head for multi-scale object detection using Keras 3.
 
-    Creates separate regression and classification branches for each feature map level.
-    The regression branch predicts bounding box coordinates and the classification
-    branch predicts class probabilities. Both branches use two 3x3 convolutions
-    followed by a 1x1 output layer.
+    Creates separate regression and classification branches for each feature map level
+    in a YOLO-style object detection network. The detection head processes feature maps
+    from different scales to predict bounding boxes and class probabilities.
+
+    The architecture consists of:
+    - Regression branch: Two 3x3 convolutions + 1x1 output layer for bbox coordinates
+    - Classification branch: Two 3x3 convolutions + 1x1 output layer for class scores
+    - Both branches are applied independently to each feature map scale
 
     Args:
-        feature_maps: List of feature map tensors from different scales/levels
-        nc: Number of classes for classification (default: 80)
-        reg_max: Maximum value for regression encoding, affects output channels (default: 16)
-        data_format: Data format, either 'channels_last' or 'channels_first' (default: 'channels_last')
-        name_prefix: Prefix for layer names (default: 'detect')
+        feature_maps (List[keras.KerasTensor]): List of feature map tensors from
+            different scales/levels of the network backbone. Each tensor should have
+            shape [batch_size, height, width, channels] for channels_last format or
+            [batch_size, channels, height, width] for channels_first format.
+        nc (int, optional): Number of classes for classification. Defaults to 80
+            (COCO dataset classes).
+        reg_max (int, optional): Maximum value for regression encoding, affects
+            the number of output channels in regression branch (4 * reg_max).
+            Defaults to 16.
+        data_format (str, optional): Data format specification. Either
+            'channels_last' (NHWC) or 'channels_first' (NCHW). Defaults to
+            'channels_last'.
+        name_prefix (str, optional): Prefix for layer names to ensure uniqueness
+            in the Keras model graph. Defaults to 'detect'.
 
     Returns:
-        List of output tensors, one for each input feature map, with regression
-        and classification outputs concatenated along the channel axis
+        List[keras.KerasTensor]: List of output tensors, one for each input feature
+            map. Each output tensor contains regression and classification predictions
+            concatenated along the channel axis. The channel dimension contains:
+            - First 4*reg_max channels: regression outputs (bbox coordinates)
+            - Last nc channels: classification outputs (class probabilities)
+
+            Output shapes:
+            - channels_last: [batch_size, height, width, 4*reg_max + nc]
+            - channels_first: [batch_size, 4*reg_max + nc, height, width]
     """
     if data_format == "channels_last":
         ch = [inputs.shape[-1] for inputs in feature_maps]

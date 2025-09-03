@@ -8,7 +8,8 @@ This implementation provides Keras/TensorFlow models for various YOLO architectu
 
 ## 🏗️ Available YOLO Versions
 
-- **YOLOv5** - Efficient and accurate object detection with various model sizes
+- **YOLOv8** 
+- **YOLOv5**
 - More YOLO versions coming soon...
 
 ## 🔧 Core Components
@@ -26,7 +27,7 @@ This implementation provides Keras/TensorFlow models for various YOLO architectu
 - Supports multiple detection heads and anchor-free architectures
 
 ### Architecture Components
-- **Blocks** - Core building blocks (C3, Conv, SPPF, Bottleneck)
+- **Blocks** - Core building blocks (C3, Conv, SPPF, Bottleneck, c2f)
 - **Head** - Detection head for multi-scale feature processing
 - **Layers** - Specialized layers like DFL (Distribution Focal Loss)
 - **Utils** - Helper functions for bbox operations, anchor generation, and scaling
@@ -46,7 +47,7 @@ image_path = "path/to/image.jpg"
 processed = preprocessor(image_paths=image_path)
 detections = model(processed["images"])
 
-print("Raw detections shape:", detections.shape)
+print("YOLOv5 detections shape:", detections.shape)
 ```
 
 ## Batch Processing Multiple Images

@@ -1,29 +1,30 @@
 import keras
 from keras import layers, ops
 
+from kvmm.model_registry import register_model
 from kvmm.models.yolo.blocks import c3_block, conv_block, sppf_block
 from kvmm.models.yolo.head import detect_head
 from kvmm.models.yolo.utils import scale_channels, scale_depth
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import YOLOV5_MODEL_CONFIG, YOLOV5_WEIGHTS_CONFIG
-from kvmm.model_registry import register_model
+
 
 def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_format):
     """
     Build the backbone and neck architecture of YOLOv5.
-    
+
     This function constructs the feature extraction backbone of YOLOv5, which consists of
     a series of convolutional blocks and C3 blocks that progressively downsample the input
     while increasing the number of channels. The backbone extracts multi-scale features
     that are essential for object detection at different scales.
-    
+
     The architecture follows the YOLOv5 design:
     - Initial conv blocks for feature extraction and downsampling
     - C3 blocks for efficient feature learning with residual connections
     - SPPF block for spatial pyramid pooling to capture multi-scale context
     - Three feature maps (P3, P4, P5) are extracted at different scales for the neck
-    
+
     Args:
         images_input (keras.KerasTensor): Input tensor containing batch of images with shape
             [batch_size, height, width, channels] for 'channels_last' format or
@@ -34,17 +35,17 @@ def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_f
             of repeated blocks in C3 layers (e.g., 0.33 for YOLOv5s, 1.0 for YOLOv5m).
         data_format (str): Data format specification, either 'channels_last' (NHWC)
             or 'channels_first' (NCHW). Determines the arrangement of tensor dimensions.
-    
+
     Returns:
-        tuple[keras.KerasTensor, keras.KerasTensor, keras.KerasTensor]: A tuple containing 
+        tuple[keras.KerasTensor, keras.KerasTensor, keras.KerasTensor]: A tuple containing
         three feature tensors:
             - p3_features: Feature map from P3 level (1/8 scale) with shape corresponding
               to 256 * width_multiple channels
             - p4_features: Feature map from P4 level (1/16 scale) with shape corresponding
-              to 512 * width_multiple channels  
+              to 512 * width_multiple channels
             - p5_features: Feature map from P5 level (1/32 scale) with shape corresponding
               to 1024 * width_multiple channels
-            
+
             These feature maps are used by the neck network for feature fusion and
             final detection head processing.
     """
@@ -148,12 +149,12 @@ def build_fpn(
 ):
     """
     Build Feature Pyramid Network (FPN) - Top-down pathway for YOLOv5.
-    
+
     This function implements the top-down pathway of the Feature Pyramid Network,
     which is a crucial component of the YOLOv5 neck architecture. The FPN enables
     the model to detect objects at multiple scales by combining high-resolution,
     low-level features with low-resolution, high-level semantic features.
-    
+
     The FPN process:
     1. Reduces P5 features to 512 channels and upsamples by 2x
     2. Concatenates upsampled P5 with P4 features along channel dimension
@@ -161,11 +162,11 @@ def build_fpn(
     4. Reduces processed P4 features to 256 channels and upsamples by 2x
     5. Concatenates upsampled P4 with P3 features along channel dimension
     6. Processes final concatenated features through C3 block
-    
+
     This top-down information flow allows higher-level semantic information from
     deeper layers to enhance the feature representation at shallower layers,
     improving detection accuracy for objects of various sizes.
-    
+
     Args:
         p3_features (keras.KerasTensor): Feature map from P3 level (1/8 scale) of the
             backbone network with shape corresponding to 256 * width_multiple channels.
@@ -180,7 +181,7 @@ def build_fpn(
         data_format (str): Data format specification, either 'channels_last' (NHWC)
             or 'channels_first' (NCHW). Determines the arrangement of tensor dimensions
             and concatenation axis.
-    
+
     Returns:
         tuple[keras.KerasTensor, keras.KerasTensor, keras.KerasTensor]: A tuple containing
         three processed feature tensors:
@@ -257,25 +258,25 @@ def build_pan(
 ):
     """
     Build Path Aggregation Network (PAN) - Bottom-up pathway for YOLOv5.
-    
+
     This function implements the bottom-up pathway of the Path Aggregation Network,
     which is the second part of the YOLOv5 neck architecture after the FPN. The PAN
     enhances feature propagation by adding a bottom-up path that allows low-level
     features to be directly propagated to higher levels, improving localization
     accuracy for small objects.
-    
+
     The PAN process:
     1. Downsamples P3 features by 2x using stride-2 convolution
     2. Concatenates downsampled P3 with reduced P4 features from FPN
     3. Processes concatenated features through C3 block for feature fusion
-    4. Downsamples processed P4 features by 2x using stride-2 convolution  
+    4. Downsamples processed P4 features by 2x using stride-2 convolution
     5. Concatenates downsampled P4 with reduced P5 features from FPN
     6. Processes final concatenated features through C3 block
-    
+
     This bottom-up information flow creates stronger feature pyramids by shortening
     the information path between lower and higher pyramid levels, which is especially
     beneficial for detecting small objects that require fine-grained localization.
-    
+
     Args:
         p3_out (keras.KerasTensor): Enhanced P3 features from FPN top-down pathway
             with shape corresponding to 256 * width_multiple channels at 1/8 scale.
@@ -290,7 +291,7 @@ def build_pan(
         data_format (str): Data format specification, either 'channels_last' (NHWC)
             or 'channels_first' (NCHW). Determines the arrangement of tensor dimensions
             and concatenation axis.
-    
+
     Returns:
         list[keras.KerasTensor]: A list containing three final feature tensors ready
         for detection heads:
@@ -492,6 +493,7 @@ class YOLOv5(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
+
 @register_model
 def YoloV5n(
     weights="coco",
@@ -520,6 +522,7 @@ def YoloV5n(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def YoloV5s(
@@ -550,6 +553,7 @@ def YoloV5s(
 
     return model
 
+
 @register_model
 def YoloV5m(
     weights="coco",
@@ -579,6 +583,7 @@ def YoloV5m(
 
     return model
 
+
 @register_model
 def YoloV5l(
     weights="coco",
@@ -607,6 +612,7 @@ def YoloV5l(
         print("No weights loaded.")
 
     return model
+
 
 @register_model
 def YoloV5x(

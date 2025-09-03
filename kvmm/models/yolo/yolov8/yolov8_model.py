@@ -1,36 +1,37 @@
 import keras
 from keras import layers, ops
 
-from kvmm.models.yolo.blocks import conv_block, sppf_block, c2f_block
+from kvmm.model_registry import register_model
+from kvmm.models.yolo.blocks import c2f_block, conv_block, sppf_block
 from kvmm.models.yolo.head import detect_head
 from kvmm.models.yolo.utils import scale_channels, scale_depth
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import YOLOV8_MODEL_CONFIG, YOLOV8_WEIGHTS_CONFIG
-from kvmm.model_registry import register_model
+
 
 def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_format):
     """
     Build the backbone and neck architecture of YOLOv8.
-    
+
     This function constructs the feature extraction backbone of YOLOv8, which represents
     an evolution from YOLOv5 with improved architectural components. The backbone consists
     of convolutional blocks and C2f blocks (Cross Stage Partial with 2 convolutions + more
     shortcut connections) that progressively downsample the input while increasing channel
     depth for hierarchical feature learning.
-    
+
     Key improvements in YOLOv8 architecture:
     - C2f blocks replace C3 blocks for better gradient flow and feature reuse
     - More balanced channel progression (512->512 instead of 512->1024 at the end)
     - Enhanced spatial pyramid pooling with SPPF for multi-scale context
     - Three feature maps (P3, P4, P5) extracted at different scales for the neck
-    
+
     The architecture follows this pattern:
     - Initial conv blocks for feature extraction and progressive downsampling
     - C2f blocks for efficient feature learning with enhanced skip connections
     - SPPF block for spatial pyramid pooling to capture multi-scale context
     - Feature extraction at 1/8, 1/16, and 1/32 scales for multi-scale detection
-    
+
     Args:
         images_input (keras.KerasTensor): Input tensor containing batch of images with shape
             [batch_size, height, width, channels] for 'channels_last' format or
@@ -41,9 +42,9 @@ def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_f
             of repeated blocks in C2f layers (e.g., 0.33 for YOLOv8n, 0.5 for YOLOv8s, 1.0 for YOLOv8m).
         data_format (str): Data format specification, either 'channels_last' (NHWC)
             or 'channels_first' (NCHW). Determines the arrangement of tensor dimensions.
-    
+
     Returns:
-        tuple[keras.KerasTensor, keras.KerasTensor, keras.KerasTensor]: A tuple containing 
+        tuple[keras.KerasTensor, keras.KerasTensor, keras.KerasTensor]: A tuple containing
         three feature tensors:
             - p3_features: Feature map from P3 level (1/8 scale) with shape corresponding
               to 256 * width_multiple channels
@@ -51,7 +52,7 @@ def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_f
               to 512 * width_multiple channels
             - p5_features: Feature map from P5 level (1/32 scale) with shape corresponding
               to 512 * width_multiple channels
-              
+
             These feature maps are used by the neck network (FPN + PAN) for feature
             fusion and final detection head processing.
     """
@@ -154,18 +155,18 @@ def build_fpn(
 ):
     """
     Build Feature Pyramid Network (FPN) - Top-down pathway for YOLOv8.
-    
+
     This function implements the top-down pathway of the Feature Pyramid Network,
     which is a crucial component of the YOLOv8 neck architecture. The FPN enables
     the model to detect objects at multiple scales by combining high-resolution,
     low-level features with low-resolution, high-level semantic features.
-    
+
     Key differences from YOLOv5 FPN:
     - Uses C2f blocks instead of C3 blocks for better feature fusion
     - Simplified architecture with direct upsampling and concatenation
     - More efficient feature flow without intermediate channel reduction
     - Enhanced gradient propagation through C2f block design
-    
+
     The FPN process:
     1. Upsamples P5 features by 2x using nearest neighbor interpolation
     2. Concatenates upsampled P5 with P4 features along channel dimension
@@ -173,11 +174,11 @@ def build_fpn(
     4. Upsamples processed P4 features by 2x using nearest neighbor interpolation
     5. Concatenates upsampled P4 with P3 features along channel dimension
     6. Processes final concatenated features through C2f block
-    
+
     This top-down information flow allows higher-level semantic information from
     deeper layers to enhance the feature representation at shallower layers,
     improving detection accuracy for objects of various sizes.
-    
+
     Args:
         p3_features (keras.KerasTensor): Feature map from P3 level (1/8 scale) of the
             backbone network with shape corresponding to 256 * width_multiple channels.
@@ -192,7 +193,7 @@ def build_fpn(
         data_format (str): Data format specification, either 'channels_last' (NHWC)
             or 'channels_first' (NCHW). Determines the arrangement of tensor dimensions
             and concatenation axis.
-    
+
     Returns:
         tuple[keras.KerasTensor, keras.KerasTensor, keras.KerasTensor]: A tuple containing
         three processed feature tensors:
@@ -250,19 +251,19 @@ def build_pan(
 ):
     """
     Build Path Aggregation Network (PAN) - Bottom-up pathway for YOLOv8.
-    
+
     This function implements the bottom-up pathway of the Path Aggregation Network,
     which is the second part of the YOLOv8 neck architecture after the FPN. The PAN
     enhances feature propagation by adding a bottom-up path that allows low-level
     features to be directly propagated to higher levels, improving localization
     accuracy for small objects.
-    
+
     Key differences from YOLOv5 PAN:
     - Uses C2f blocks instead of C3 blocks for better gradient flow and feature reuse
     - More balanced channel progression (512 channels for P5 instead of 1024)
     - Enhanced feature fusion through improved architectural components
     - Better preservation of fine-grained details from lower levels
-    
+
     The PAN process:
     1. Downsamples P3 features by 2x using stride-2 convolution (256 channels)
     2. Concatenates downsampled P3 with processed P4 features from FPN
@@ -270,11 +271,11 @@ def build_pan(
     4. Downsamples processed P4 features by 2x using stride-2 convolution (512 channels)
     5. Concatenates downsampled P4 with original P5 features from backbone
     6. Processes final concatenated features through C2f block (512 channels)
-    
+
     This bottom-up information flow creates stronger feature pyramids by shortening
     the information path between lower and higher pyramid levels, which is especially
     beneficial for detecting small objects that require fine-grained localization.
-    
+
     Args:
         p3_out (keras.KerasTensor): Enhanced P3 features from FPN top-down pathway
             with shape corresponding to 256 * width_multiple channels at 1/8 scale.
@@ -289,7 +290,7 @@ def build_pan(
         data_format (str): Data format specification, either 'channels_last' (NHWC)
             or 'channels_first' (NCHW). Determines the arrangement of tensor dimensions
             and concatenation axis.
-    
+
     Returns:
         list[keras.KerasTensor]: A list containing three final feature tensors ready
         for detection heads:
@@ -433,7 +434,12 @@ class YOLOv8(keras.Model):
         )
 
         feature_maps = build_pan(
-            p3_out, p4_processed, p5_features, width_multiple, depth_multiple, data_format
+            p3_out,
+            p4_processed,
+            p5_features,
+            width_multiple,
+            depth_multiple,
+            data_format,
         )
 
         detection_outputs = detect_head(
@@ -485,7 +491,8 @@ class YOLOv8(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
+
+
 @register_model
 def YoloV8n(
     weights="coco",
@@ -512,6 +519,7 @@ def YoloV8n(
     else:
         print("No weights loaded.")
     return model
+
 
 @register_model
 def YoloV8s(
@@ -540,6 +548,7 @@ def YoloV8s(
         print("No weights loaded.")
     return model
 
+
 @register_model
 def YoloV8m(
     weights="coco",
@@ -567,6 +576,7 @@ def YoloV8m(
         print("No weights loaded.")
     return model
 
+
 @register_model
 def YoloV8l(
     weights="coco",
@@ -593,6 +603,7 @@ def YoloV8l(
     else:
         print("No weights loaded.")
     return model
+
 
 @register_model
 def YoloV8x(

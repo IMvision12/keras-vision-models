@@ -326,6 +326,7 @@ yolo.visualize_yolo_detections(result["images"].numpy().squeeze()[:, :, ::-1], o
     | 🏷️ Model Name | 📜 Reference | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | YoloV5 | [Ultralytics Official Github](https://github.com/ultralytics/ultralytics) | `ultralytics`|
+    | YoloV8 | [Ultralytics Official Github](https://github.com/ultralytics/ultralytics) | `ultralytics`|
 
 <br>
 

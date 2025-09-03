@@ -7,7 +7,7 @@ from kvmm.models.yolo.utils import scale_channels, scale_depth
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import YOLOV5_MODEL_CONFIG, YOLOV5_WEIGHTS_CONFIG
-
+from kvmm.model_registry import register_model
 
 def build_backbone_and_neck(images_input, width_multiple, depth_multiple, data_format):
     """
@@ -404,7 +404,7 @@ class YOLOv5(keras.Model):
     def from_config(cls, config):
         return cls(**config)
 
-
+@register_model
 def YoloV5n(
     weights="coco",
     input_tensor=None,
@@ -433,7 +433,7 @@ def YoloV5n(
 
     return model
 
-
+@register_model
 def YoloV5s(
     weights="coco",
     input_tensor=None,
@@ -462,7 +462,7 @@ def YoloV5s(
 
     return model
 
-
+@register_model
 def YoloV5m(
     weights="coco",
     input_tensor=None,
@@ -491,7 +491,7 @@ def YoloV5m(
 
     return model
 
-
+@register_model
 def YoloV5l(
     weights="coco",
     input_tensor=None,
@@ -520,7 +520,7 @@ def YoloV5l(
 
     return model
 
-
+@register_model
 def YoloV5x(
     weights="coco",
     input_tensor=None,

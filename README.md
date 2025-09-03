@@ -252,8 +252,8 @@ Prediction probabilities:
 import keras
 from kvmm.models import yolo
 
-model = yolo.YoloV5s(input_shape=(None, None, 3), weights="coco")
-
+model = yolo.YoloV5s(input_shape=(None, None, 3))
+model.load("yolov5s.weights.h5")
 processor = yolo.YoloPreProcessor()
 image = keras.utils.load_img("images/bird.png")
 image_array = keras.utils.img_to_array(image)

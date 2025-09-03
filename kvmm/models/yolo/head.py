@@ -22,28 +22,28 @@ def detect_head(
     - Both branches are applied independently to each feature map scale
 
     Args:
-        feature_maps (List[keras.KerasTensor]): List of feature map tensors from 
-            different scales/levels of the network backbone. Each tensor should have 
+        feature_maps (List[keras.KerasTensor]): List of feature map tensors from
+            different scales/levels of the network backbone. Each tensor should have
             shape [batch_size, height, width, channels] for channels_last format or
             [batch_size, channels, height, width] for channels_first format.
         nc (int, optional): Number of classes for classification. Defaults to 80
             (COCO dataset classes).
-        reg_max (int, optional): Maximum value for regression encoding, affects 
-            the number of output channels in regression branch (4 * reg_max). 
+        reg_max (int, optional): Maximum value for regression encoding, affects
+            the number of output channels in regression branch (4 * reg_max).
             Defaults to 16.
-        data_format (str, optional): Data format specification. Either 
-            'channels_last' (NHWC) or 'channels_first' (NCHW). Defaults to 
+        data_format (str, optional): Data format specification. Either
+            'channels_last' (NHWC) or 'channels_first' (NCHW). Defaults to
             'channels_last'.
         name_prefix (str, optional): Prefix for layer names to ensure uniqueness
             in the Keras model graph. Defaults to 'detect'.
 
     Returns:
-        List[keras.KerasTensor]: List of output tensors, one for each input feature 
+        List[keras.KerasTensor]: List of output tensors, one for each input feature
             map. Each output tensor contains regression and classification predictions
             concatenated along the channel axis. The channel dimension contains:
             - First 4*reg_max channels: regression outputs (bbox coordinates)
             - Last nc channels: classification outputs (class probabilities)
-            
+
             Output shapes:
             - channels_last: [batch_size, height, width, 4*reg_max + nc]
             - channels_first: [batch_size, 4*reg_max + nc, height, width]

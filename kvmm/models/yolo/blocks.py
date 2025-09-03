@@ -14,22 +14,22 @@ def conv_block(
 ):
     """
     Standard convolutional block: Conv2D → BatchNormalization → Activation.
-    
+
     Fundamental building block that applies convolution with automatic padding handling
     for stride > 1, followed by batch normalization and configurable activation.
-    
+
     Args:
-        inputs (keras.KerasTensor): Input tensor 
+        inputs (keras.KerasTensor): Input tensor
         c2 (int): Number of output filters
         kernel_size (int, optional): Kernel size. Defaults to 1.
         strides (int, optional): Stride size. Auto-pads if > 1. Defaults to 1.
         groups (int, optional): Groups for grouped convolution. Defaults to 1.
         dilation (int, optional): Dilation rate. Defaults to 1.
-        act (bool|str|callable, optional): Activation - True='swish', str=name, 
+        act (bool|str|callable, optional): Activation - True='swish', str=name,
             callable=custom, False/None=none. Defaults to True.
         data_format (str, optional): 'channels_last' or 'channels_first'. Defaults to 'channels_last'.
         name_prefix (str, optional): Layer name prefix. Defaults to 'conv'.
-    
+
     Returns:
         keras.KerasTensor: Processed tensor with applied conv → batchnorm → activation
     """
@@ -84,18 +84,18 @@ def sppf_block(
 ):
     """
     Spatial Pyramid Pooling Fast (SPPF) block for multi-scale feature extraction.
-    
+
     Efficiently creates multi-scale representations by applying sequential max pooling
     operations (kernel_size x 3) and concatenating results. More efficient than
     parallel SPP by reusing pooled features.
-    
+
     Args:
         inputs (keras.KerasTensor): Input feature tensor
         c2 (int): Number of output channels
         kernel_size (int, optional): Pooling kernel size. Defaults to 5.
         data_format (str, optional): 'channels_last' or 'channels_first'. Defaults to 'channels_last'.
         name_prefix (str, optional): Layer name prefix. Defaults to 'sppf'.
-    
+
     Returns:
         keras.KerasTensor: Multi-scale pooled features with 4x channel expansion then reduced to c2
     """
@@ -171,10 +171,10 @@ def bottleneck_block(
 ):
     """
     Bottleneck block with optional residual connection.
-    
+
     Two-stage convolution: 1x1 expansion → kxk processing with optional residual
     shortcut when input/output channels match. Core component of ResNet-style architectures.
-    
+
     Args:
         inputs (keras.KerasTensor): Input tensor
         c2 (int): Output channels
@@ -184,7 +184,7 @@ def bottleneck_block(
         e (float, optional): Channel expansion factor for intermediate layer. Defaults to 1.0.
         data_format (str, optional): 'channels_last' or 'channels_first'. Defaults to 'channels_last'.
         name_prefix (str, optional): Layer name prefix. Defaults to 'bottleneck'.
-    
+
     Returns:
         keras.KerasTensor: Output with optional residual connection applied
     """
@@ -233,21 +233,21 @@ def c3_block(
 ):
     """
     Cross Stage Partial (CSP) bottleneck with 3 convolutions - C3 block.
-    
+
     CSP architecture that splits processing into two branches: main branch with n bottlenecks
     and bypass branch with single conv, then concatenates and processes results.
     Improves gradient flow and reduces parameters.
-    
+
     Args:
         inputs (keras.KerasTensor): Input tensor
-        c2 (int): Output channels  
+        c2 (int): Output channels
         n (int, optional): Number of bottleneck blocks in main branch. Defaults to 1.
         shortcut (bool, optional): Enable shortcuts in bottlenecks. Defaults to True.
         groups (int, optional): Groups for bottleneck convolutions. Defaults to 1.
         e (float, optional): Channel reduction factor (0.5 = half channels). Defaults to 0.5.
         data_format (str, optional): 'channels_last' or 'channels_first'. Defaults to 'channels_last'.
         name_prefix (str, optional): Layer name prefix. Defaults to 'c3'.
-    
+
     Returns:
         keras.KerasTensor: CSP-processed output combining both branches
     """
@@ -316,11 +316,11 @@ def c2f_block(
 ):
     """
     C2f block - Faster CSP implementation with 2 convolutions and gradient concatenation.
-    
+
     Optimized CSP variant that splits input, processes one half through n bottlenecks
     while concatenating all intermediate features for enhanced gradient flow.
     More efficient than C3 with better feature reuse.
-    
+
     Args:
         inputs (keras.KerasTensor): Input tensor
         c2 (int): Output channels
@@ -330,7 +330,7 @@ def c2f_block(
         e (float, optional): Hidden channel expansion factor. Defaults to 0.5.
         data_format (str, optional): 'channels_last' or 'channels_first'. Defaults to 'channels_last'.
         name_prefix (str, optional): Layer name prefix. Defaults to 'c2f'.
-    
+
     Returns:
         keras.KerasTensor: Enhanced feature representation with improved gradient flow
     """

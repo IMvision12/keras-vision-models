@@ -238,35 +238,6 @@ Prediction probabilities:
 {'mountains': np.float32(0.0006278555), 'tortoise': np.float32(0.000326458), 'cat': np.float32(0.99904567)}"""
 ```
 
-<h3><b>🧩 Object Detection </b></h3>
-
-Note For YOLO Weights:
-
-We do **not** redistribute Ultralytics pretrained weights.  
-If you wish to use official Ultralytics weights, you can convert them with the provided script.  
-Such weights remain under the Ultralytics [AGPL-3.0 license](https://github.com/ultralytics/ultralytics/blob/main/LICENSE).  
-#### 🛠️ Basic Usage
-
-```python
-import keras
-from kvmm.models import yolo
-
-model = yolo.YoloV5s(input_shape=(None, None, 3))
-model.load("yolov5s.weights.h5")
-processor = yolo.YoloPreProcessor()
-image = keras.utils.load_img("images/bird.png")
-image_array = keras.utils.img_to_array(image)
-result = processor(image_array)
-
-keras_raw_output = model(result)
-
-post_processor = yolo.YoloPostProcessor()
-output = post_processor(keras_raw_output)
-
-yolo.visualize_yolo_detections(result["images"].numpy().squeeze()[:, :, ::-1], output)
-```
-<img src="images/obj_det.png" width="500" height="500" alt="Object Detection Result">
-
 ## 📑 Models
 
 - Backbones:
@@ -326,18 +297,9 @@ yolo.visualize_yolo_detections(result["images"].numpy().squeeze()[:, :, ::-1], o
 
 <br>
 
-- Object-Detection
-
-    | 🏷️ Model Name | 📜 Reference | 📦 Source of Weights |
-    |---------------|-------------------|---------------------|
-    | YoloV5 | [Ultralytics Official Github](https://github.com/ultralytics/ultralytics) | `ultralytics (Only Script)`|
-    | YoloV8 | [Ultralytics Official Github](https://github.com/ultralytics/ultralytics) | `ultralytics (Only Script)`|
-
-<br>
-
 ## 📜 License
 
-This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses), [transformers](https://github.com/huggingface/transformers#license) and [Ultralytics](https://github.com/ultralytics/ultralytics) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
+This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
 
 - 🔖 **kvmm Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
 
@@ -347,7 +309,6 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 - The [Keras](https://github.com/keras-team/keras) team for their powerful and user-friendly deep learning framework
 - The [Transformers](https://github.com/huggingface/transformers) library for its robust tools for loading and adapting pretrained models  
 - The [pytorch-image-models (timm)](https://github.com/huggingface/pytorch-image-models) project for pioneering many computer vision model implementations
-- The [Ultralytics](https://github.com/ultralytics/ultralytics) project for making object detection accessible and efficient
 - All contributors to the original papers and architectures implemented in this library
 
 ## Citing

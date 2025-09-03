@@ -35,5 +35,4 @@ from kvmm.models import (
     vgg,
     vit,
     xception,
-    yolo,
 )

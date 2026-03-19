@@ -242,7 +242,6 @@ def DETRPostProcessor(
     boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
 
     batch_size = logits.shape[0]
-    num_classes = logits.shape[-1]
 
     # Softmax over classes; last class is "no object"
     probs = _softmax(logits)

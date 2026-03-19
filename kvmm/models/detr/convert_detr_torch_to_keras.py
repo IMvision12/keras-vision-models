@@ -3,6 +3,7 @@ from typing import Dict, List, Union
 import keras
 import numpy as np
 import torch
+import torchvision.transforms as T
 from tqdm import tqdm
 from transformers import DetrForObjectDetection
 
@@ -217,8 +218,6 @@ print("\nVerifying model equivalence...")
 
 np.random.seed(42)
 test_input = np.random.rand(1, 800, 800, 3).astype(np.float32)
-
-import torchvision.transforms as T
 
 hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
 normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])

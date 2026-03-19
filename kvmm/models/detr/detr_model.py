@@ -3,7 +3,6 @@ import math
 import keras
 from keras import layers, ops, utils
 
-from kvmm.layers import ImageNormalizationLayer
 from kvmm.model_registry import register_model
 from kvmm.utils import load_weights_from_config
 
@@ -709,7 +708,6 @@ class DETR(keras.Model):
         )
 
         # --- Input projection ---
-        backbone_channels = backbone_features.shape[-1]  # 2048 for ResNet50/101
         projected = layers.Conv2D(
             hidden_dim,
             1,

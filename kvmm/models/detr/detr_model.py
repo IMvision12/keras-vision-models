@@ -243,9 +243,7 @@ class DETRMultiHeadAttention(layers.Layer):
 
         attn_output = ops.matmul(attn_weights, v)
         attn_output = ops.transpose(attn_output, [0, 2, 1, 3])
-        attn_output = ops.reshape(
-            attn_output, [batch_size, seq_len_q, self.hidden_dim]
-        )
+        attn_output = ops.reshape(attn_output, [batch_size, seq_len_q, self.hidden_dim])
         attn_output = self.out_proj(attn_output)
 
         return attn_output
@@ -555,9 +553,7 @@ def build_detr_backbone(
 
             # Conv 3x3
             if strides > 1:
-                x = layers.ZeroPadding2D(
-                    padding=1, data_format=data_format
-                )(x)
+                x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
                 x = layers.Conv2D(
                     filters,
                     3,
@@ -607,9 +603,9 @@ def build_detr_backbone(
             out_channels = filters * 4
             if strides != 1 or in_channels != out_channels:
                 if strides > 1:
-                    residual = layers.ZeroPadding2D(
-                        padding=0, data_format=data_format
-                    )(residual)
+                    residual = layers.ZeroPadding2D(padding=0, data_format=data_format)(
+                        residual
+                    )
                 residual = layers.Conv2D(
                     out_channels,
                     1,

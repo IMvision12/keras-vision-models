@@ -7,20 +7,97 @@ from PIL import Image
 # COCO 2017 class labels (91 categories). Index 0..90 are object classes,
 # the model's last logit (index 91) is the "no object" class.
 COCO_CLASSES = [
-    "N/A", "person", "bicycle", "car", "motorcycle", "airplane", "bus",
-    "train", "truck", "boat", "traffic light", "fire hydrant", "N/A",
-    "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse",
-    "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "N/A",
-    "backpack", "umbrella", "N/A", "N/A", "handbag", "tie", "suitcase",
-    "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
-    "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
-    "N/A", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana",
-    "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza",
-    "donut", "cake", "chair", "couch", "potted plant", "bed", "N/A",
-    "dining table", "N/A", "N/A", "toilet", "N/A", "tv", "laptop", "mouse",
-    "remote", "keyboard", "cell phone", "microwave", "oven", "toaster",
-    "sink", "refrigerator", "N/A", "book", "clock", "vase", "scissors",
-    "teddy bear", "hair drier", "toothbrush",
+    "N/A",
+    "person",
+    "bicycle",
+    "car",
+    "motorcycle",
+    "airplane",
+    "bus",
+    "train",
+    "truck",
+    "boat",
+    "traffic light",
+    "fire hydrant",
+    "N/A",
+    "stop sign",
+    "parking meter",
+    "bench",
+    "bird",
+    "cat",
+    "dog",
+    "horse",
+    "sheep",
+    "cow",
+    "elephant",
+    "bear",
+    "zebra",
+    "giraffe",
+    "N/A",
+    "backpack",
+    "umbrella",
+    "N/A",
+    "N/A",
+    "handbag",
+    "tie",
+    "suitcase",
+    "frisbee",
+    "skis",
+    "snowboard",
+    "sports ball",
+    "kite",
+    "baseball bat",
+    "baseball glove",
+    "skateboard",
+    "surfboard",
+    "tennis racket",
+    "bottle",
+    "N/A",
+    "wine glass",
+    "cup",
+    "fork",
+    "knife",
+    "spoon",
+    "bowl",
+    "banana",
+    "apple",
+    "sandwich",
+    "orange",
+    "broccoli",
+    "carrot",
+    "hot dog",
+    "pizza",
+    "donut",
+    "cake",
+    "chair",
+    "couch",
+    "potted plant",
+    "bed",
+    "N/A",
+    "dining table",
+    "N/A",
+    "N/A",
+    "toilet",
+    "N/A",
+    "tv",
+    "laptop",
+    "mouse",
+    "remote",
+    "keyboard",
+    "cell phone",
+    "microwave",
+    "oven",
+    "toaster",
+    "sink",
+    "refrigerator",
+    "N/A",
+    "book",
+    "clock",
+    "vase",
+    "scissors",
+    "teddy bear",
+    "hair drier",
+    "toothbrush",
 ]
 
 
@@ -89,9 +166,7 @@ def DETRImageProcessor(
         if image.ndim == 4:
             image = image[0]
     else:
-        raise TypeError(
-            "Input must be a file path (str), numpy array, or PIL Image."
-        )
+        raise TypeError("Input must be a file path (str), numpy array, or PIL Image.")
 
     if image.ndim != 3 or image.shape[-1] != 3:
         raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
@@ -186,7 +261,12 @@ def DETRPostProcessor(
         kept_boxes = boxes[i][keep]  # (num_kept, 4) in (cx, cy, w, h)
 
         # Convert (cx, cy, w, h) -> (x_min, y_min, x_max, y_max)
-        cx, cy, w, h = kept_boxes[:, 0], kept_boxes[:, 1], kept_boxes[:, 2], kept_boxes[:, 3]
+        cx, cy, w, h = (
+            kept_boxes[:, 0],
+            kept_boxes[:, 1],
+            kept_boxes[:, 2],
+            kept_boxes[:, 3],
+        )
         x_min = cx - w / 2
         y_min = cy - h / 2
         x_max = cx + w / 2
@@ -201,8 +281,7 @@ def DETRPostProcessor(
 
         # Map label indices to COCO names
         label_names = [
-            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}"
-            for l in labels
+            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}" for l in labels
         ]
 
         results.append(

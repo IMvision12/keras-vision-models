@@ -48,14 +48,10 @@ torch_model: torch.nn.Module = DetrForObjectDetection.from_pretrained(
     model_config["hf_model_name"]
 ).eval()
 
-pytorch_state_dict = {
-    k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
-}
+pytorch_state_dict = {k: v.cpu().numpy() for k, v in torch_model.state_dict().items()}
 
 backbone_layers = [
-    layer
-    for layer in keras_model.layers
-    if layer.name.startswith("backbone_")
+    layer for layer in keras_model.layers if layer.name.startswith("backbone_")
 ]
 
 backbone_trainable = []
@@ -106,8 +102,12 @@ for i in tqdm(range(6), desc="Transferring encoder weights"):
     enc_layer = keras_model.get_layer(f"encoder_layers_{i}")
 
     # Self attention: q_proj, k_proj, v_proj, o_proj (out_proj in keras)
-    for proj, hf_proj in [("q_proj", "q_proj"), ("k_proj", "k_proj"),
-                          ("v_proj", "v_proj"), ("out_proj", "o_proj")]:
+    for proj, hf_proj in [
+        ("q_proj", "q_proj"),
+        ("k_proj", "k_proj"),
+        ("v_proj", "v_proj"),
+        ("out_proj", "o_proj"),
+    ]:
         dense = getattr(enc_layer.self_attn, proj)
         w = pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.weight"]
         dense.weights[0].assign(w.T)
@@ -140,8 +140,12 @@ for i in tqdm(range(6), desc="Transferring decoder weights"):
     dec_layer = keras_model.get_layer(f"decoder_layers_{i}")
 
     # Self attention
-    for proj, hf_proj in [("q_proj", "q_proj"), ("k_proj", "k_proj"),
-                          ("v_proj", "v_proj"), ("out_proj", "o_proj")]:
+    for proj, hf_proj in [
+        ("q_proj", "q_proj"),
+        ("k_proj", "k_proj"),
+        ("v_proj", "v_proj"),
+        ("out_proj", "o_proj"),
+    ]:
         dense = getattr(dec_layer.self_attn, proj)
         w = pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.weight"]
         dense.weights[0].assign(w.T)
@@ -154,8 +158,12 @@ for i in tqdm(range(6), desc="Transferring decoder weights"):
     ln.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.self_attn_layer_norm.bias"])
 
     # Cross attention (encoder_attn)
-    for proj, hf_proj in [("q_proj", "q_proj"), ("k_proj", "k_proj"),
-                          ("v_proj", "v_proj"), ("out_proj", "o_proj")]:
+    for proj, hf_proj in [
+        ("q_proj", "q_proj"),
+        ("k_proj", "k_proj"),
+        ("v_proj", "v_proj"),
+        ("out_proj", "o_proj"),
+    ]:
         dense = getattr(dec_layer.cross_attn, proj)
         w = pytorch_state_dict[f"{hf_prefix}.encoder_attn.{hf_proj}.weight"]
         dense.weights[0].assign(w.T)
@@ -164,8 +172,12 @@ for i in tqdm(range(6), desc="Transferring decoder weights"):
         )
 
     ln = dec_layer.cross_attn_layer_norm
-    ln.weights[0].assign(pytorch_state_dict[f"{hf_prefix}.encoder_attn_layer_norm.weight"])
-    ln.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.encoder_attn_layer_norm.bias"])
+    ln.weights[0].assign(
+        pytorch_state_dict[f"{hf_prefix}.encoder_attn_layer_norm.weight"]
+    )
+    ln.weights[1].assign(
+        pytorch_state_dict[f"{hf_prefix}.encoder_attn_layer_norm.bias"]
+    )
 
     # FFN
     fc1_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc1.weight"]
@@ -188,12 +200,8 @@ dec_ln.weights[1].assign(pytorch_state_dict["model.decoder.layernorm.bias"])
 
 # Class head
 cls_layer = keras_model.get_layer("class_labels_classifier")
-cls_layer.weights[0].assign(
-    pytorch_state_dict["class_labels_classifier.weight"].T
-)
-cls_layer.weights[1].assign(
-    pytorch_state_dict["class_labels_classifier.bias"]
-)
+cls_layer.weights[0].assign(pytorch_state_dict["class_labels_classifier.weight"].T)
+cls_layer.weights[1].assign(pytorch_state_dict["class_labels_classifier.bias"])
 
 # BBox head (3-layer MLP)
 for layer_idx in range(3):

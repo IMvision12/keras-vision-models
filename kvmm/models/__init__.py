@@ -5,6 +5,7 @@ from kvmm.models import (
     convnext,
     convnextv2,
     deit,
+    detr,
     densenet,
     efficientnet,
     efficientnet_lite,

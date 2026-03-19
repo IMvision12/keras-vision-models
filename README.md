@@ -15,7 +15,7 @@
 
 ## 📖 Introduction
 
-Keras Vision Models (KVMM) is a collection of vision models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including segmentation, object detection, vision-language modeling (VLMs), and classification. KVMM includes custom layers and backbone support, providing flexibility and efficiency across various vision applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Vision Models (KVMM) is a collection of vision models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR), segmentation (SegFormer), and vision-language modeling (CLIP, SigLIP, SigLIP2). KVMM includes custom layers and backbone support, providing flexibility and efficiency across various vision applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡Installation 
 
@@ -196,6 +196,59 @@ visualize_segmentation(outs, image)
 ```
 ![output](images/seg_output.png)
 
+<h3><b>🎯 Object Detection (DETR)</b></h3>
+
+#### 🛠️ Basic Usage
+
+```python
+import kvmm
+
+# Load DETR with ResNet-50 backbone (COCO pre-trained)
+model = kvmm.models.detr.DETRResNet50(
+    weights="detr_resnet50_coco.weights.h5",
+    input_shape=(800, 800, 3),
+    include_normalization=False,
+)
+
+# Without pre-trained weights
+model = kvmm.models.detr.DETRResNet50(weights=None, input_shape=(800, 800, 3))
+
+# ResNet-101 variant
+model = kvmm.models.detr.DETRResNet101(weights=None, input_shape=(800, 800, 3))
+```
+
+#### 🚀 Example Inference
+
+```python
+import kvmm
+from kvmm.models.detr import DETRImageProcessor, DETRPostProcessor
+from PIL import Image
+
+model = kvmm.models.detr.DETRResNet50(
+    weights="detr_resnet50_coco.weights.h5",
+    input_shape=(800, 800, 3),
+    include_normalization=False,
+)
+
+image = Image.open("image.jpg")
+original_size = image.size[::-1]  # (H, W)
+
+# Preprocess: resize, rescale, ImageNet normalize
+processed = DETRImageProcessor(image, size={"height": 800, "width": 800})
+
+# Inference
+output = model(processed, training=False)
+# output["logits"]:     (1, 100, 92) — class logits per query
+# output["pred_boxes"]: (1, 100, 4)  — normalized (cx, cy, w, h)
+
+# Post-process: filter by confidence, convert boxes to pixel coords
+results = DETRPostProcessor(output, threshold=0.7, target_sizes=[original_size])
+for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
+    print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
+
+# Output:
+# bird: 0.97 at [209, 44, 430, 393]
+```
 
 <h3><b>VLMS</b></h3>
 
@@ -276,6 +329,14 @@ Prediction probabilities:
     | VGG | [Very Deep Convolutional Networks for Large-Scale Image Recognition](https://arxiv.org/abs/1409.1556) | `timm` |
     | ViT | [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929) | `timm` |
     | Xception | [Xception: Deep Learning with Depthwise Separable Convolutions](https://arxiv.org/abs/1610.02357) | `keras` |
+
+<br>
+
+- Object Detection
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | DETR | [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872) | `transformers`|
 
 <br>
 

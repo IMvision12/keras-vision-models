@@ -19,9 +19,8 @@ Key Features:
 
 Dependencies:
 - numpy
-- tensorflow
 - torch
-- keras
+- keras (>=3.0)
 - transformers (optional, for HuggingFace comparisons)
 - typing
 - time
@@ -107,7 +106,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import keras
 import numpy as np
-import tensorflow as tf
 import torch
 from keras import ops, utils
 from keras.src.applications.imagenet_utils import decode_predictions
@@ -400,7 +398,6 @@ def verify_cls_model_equivalence(
             "torch_to_keras",
             "hf_to_keras",
         ] else None
-        tf.random.set_seed(seed)
         keras.utils.set_random_seed(seed)
 
         input_a, input_b = prepare_input(batch_size=1)
@@ -451,7 +448,6 @@ def verify_cls_model_equivalence(
                 "torch_to_keras",
                 "hf_to_keras",
             ] else None
-            tf.random.set_seed(seed)
             keras.utils.set_random_seed(seed)
 
             input_a, input_b = prepare_input(batch_size)

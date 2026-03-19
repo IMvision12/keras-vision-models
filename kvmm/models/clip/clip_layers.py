@@ -1,7 +1,7 @@
 import keras
 from keras import ops
 
-from kvmm.layers import AddPositionEmbs
+from kvmm.models.vit.vit_model import AddPositionEmbs
 
 
 @keras.saving.register_keras_serializable(package="kvmm")

@@ -2,14 +2,9 @@ import keras
 from keras import InputSpec, layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from kvmm.layers import (
-    AddPositionEmbs,
-    ClassDistToken,
-    ImageNormalizationLayer,
-    LayerScale,
-    StochasticDepth,
-)
+from kvmm.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kvmm.model_registry import register_model
+from kvmm.models.vit.vit_model import AddPositionEmbs, ClassDistToken
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import CAIT_MODEL_CONFIG, CAIT_WEIGHTS_CONFIG

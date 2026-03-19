@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import MultiHeadSelfAttention
+from kvmm.models.vit.vit_model import MultiHeadSelfAttention
 
 
 class TestMultiHeadSelfAttention(TestCase):

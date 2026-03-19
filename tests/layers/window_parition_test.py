@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import WindowPartition
+from kvmm.models.swin.swin_model import WindowPartition
 
 
 class TestWindowPartition(TestCase):

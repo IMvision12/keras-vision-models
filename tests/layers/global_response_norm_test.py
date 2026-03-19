@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import GlobalResponseNorm
+from kvmm.models.convnext.convnext_model import GlobalResponseNorm
 
 
 class TestGlobalResponseNorm(TestCase):

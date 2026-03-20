@@ -12,7 +12,6 @@ from kmodels.models.swin.swin_layers import (
     RollLayer,
     WindowAttention,
     WindowPartition,
-    WindowReverse,
 )
 from kmodels.utils import get_all_weight_names, load_weights_from_config
 

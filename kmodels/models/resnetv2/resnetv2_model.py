@@ -1,6 +1,6 @@
 import keras
 import numpy as np
-from keras import layers, ops, utils
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kmodels.layers import ImageNormalizationLayer, StochasticDepth

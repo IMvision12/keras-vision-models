@@ -240,8 +240,8 @@ if __name__ == "__main__":
     ]
 
     for cfg in configs:
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Converting {cfg['hf_model_name']}...")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
         convert_model(**cfg)
         print()

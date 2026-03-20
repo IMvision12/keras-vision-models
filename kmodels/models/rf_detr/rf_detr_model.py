@@ -1,5 +1,3 @@
-import math
-
 import keras
 from keras import layers, ops, utils
 
@@ -38,7 +36,6 @@ class UnwindowFeatures(layers.Layer):
         if self.num_windows > 1:
             nw2 = self.num_windows**2
             shape = ops.shape(hidden_state)
-            B_win = shape[0]
             HW_win = shape[1]
             C = shape[2]
 
@@ -363,8 +360,6 @@ class RFDETR(keras.Model):
         concat_feat = layers.Concatenate(axis=-1, name="concat_features")(
             unwindowed_features
         )
-        num_scales = len(out_feature_indexes)
-        c2f_in_channels = backbone_hidden_size * num_scales
         projected = C2f(
             hidden_dim,
             num_blocks=3,

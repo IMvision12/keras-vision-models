@@ -93,16 +93,12 @@ def get_keras_weight_dict(model):
 def transfer_weights(variant, torch_sd, keras_model):
     """Map PyTorch state_dict keys to Keras weights and assign values."""
     config = RF_DETR_MODEL_CONFIG[variant]
-    hidden_dim = config["hidden_dim"]
-    backbone_hidden_size = config["backbone_hidden_size"]
     num_layers = max(config["out_feature_indexes"]) + 1
     dec_layers = config["dec_layers"]
-    group_detr = config["group_detr"]
 
     kw = get_keras_weight_dict(keras_model)
 
     assigned = set()
-    unmatched_torch = []
 
     def assign(keras_path, torch_tensor, transpose=False):
         if keras_path not in kw:

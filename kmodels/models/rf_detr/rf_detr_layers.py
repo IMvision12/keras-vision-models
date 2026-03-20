@@ -221,7 +221,6 @@ class C2f(layers.Layer):
         self.use_layer_norm = use_layer_norm
 
     def build(self, input_shape):
-        in_channels = input_shape[-1]
         self.c = int(self.out_channels * self.expansion)
         self.cv1 = ConvBN(
             2 * self.c,
@@ -425,7 +424,6 @@ class DinoV2Embeddings(layers.Layer):
         super().build(input_shape)
 
     def _interpolate_pos_encoding(self, embeddings, height, width):
-        num_patches = ops.shape(embeddings)[1] - 1
         num_positions = self.num_patches
 
         class_pos_embed = self.position_embeddings[:, :1, :]

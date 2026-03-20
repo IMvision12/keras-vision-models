@@ -26,6 +26,7 @@ from kmodels.models import (
     pit,
     poolformer,
     res2net,
+    rf_detr,
     resmlp,
     resnet,
     resnetv2,

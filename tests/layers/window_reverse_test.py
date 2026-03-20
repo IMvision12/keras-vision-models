@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kmodels.models.swin.swin_model import WindowReverse
+from kmodels.models.swin.swin_layers import WindowReverse
 
 
 class TestWindowReverse(TestCase):

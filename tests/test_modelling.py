@@ -88,10 +88,7 @@ class ModelTestCase(TestCase):
             tensor_types = (keras.KerasTensor,)
             if tf is not None:
                 tensor_types = tensor_types + (tf.Tensor,)
-            if (
-                isinstance(value, tensor_types)
-                and len(value.shape) == 4
-            ):
+            if isinstance(value, tensor_types) and len(value.shape) == 4:
                 if (value.shape[-1] <= 4 and value.shape[-1] >= 1) or (
                     value.shape[1] <= 4 and value.shape[1] >= 1
                 ):
@@ -442,9 +439,7 @@ class ModelTestCase(TestCase):
         larger_output = larger_model(larger_input)
 
         if isinstance(larger_output, dict):
-            self.skipTest(
-                "Spatial dimension check not applicable for dict outputs"
-            )
+            self.skipTest("Spatial dimension check not applicable for dict outputs")
 
         if isinstance(larger_output, list):
             main_output = larger_output[-1]
@@ -479,9 +474,7 @@ class ModelTestCase(TestCase):
 
         for key, value in output.items():
             has_nans = ops.any(ops.isnan(value))
-            self.assertFalse(
-                has_nans, f"Output '{key}' contains NaN values"
-            )
+            self.assertFalse(has_nans, f"Output '{key}' contains NaN values")
 
     def test_segmentation_outputs(self):
         if self.model_type != "segmentation":
@@ -495,9 +488,7 @@ class ModelTestCase(TestCase):
             self.check_output_shape(output, self.expected_output_shape)
             for key, value in output.items():
                 has_nans = ops.any(ops.isnan(value))
-                self.assertFalse(
-                    has_nans, f"Output '{key}' contains NaN values"
-                )
+                self.assertFalse(has_nans, f"Output '{key}' contains NaN values")
         else:
             self.check_output_shape(output, self.expected_output_shape)
             has_nans = ops.any(ops.isnan(output))

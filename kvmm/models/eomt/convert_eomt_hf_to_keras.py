@@ -67,12 +67,8 @@ def convert_model(
         keras_layer = keras_model.get_layer(f"layers_{i}")
 
         # Layer norm 1
-        keras_layer.norm1.gamma.assign(
-            hf_state_dict[f"{hf_prefix}.norm1.weight"]
-        )
-        keras_layer.norm1.beta.assign(
-            hf_state_dict[f"{hf_prefix}.norm1.bias"]
-        )
+        keras_layer.norm1.gamma.assign(hf_state_dict[f"{hf_prefix}.norm1.weight"])
+        keras_layer.norm1.beta.assign(hf_state_dict[f"{hf_prefix}.norm1.bias"])
 
         # Attention: q_proj, k_proj, v_proj, out_proj
         for proj in ["q_proj", "k_proj", "v_proj", "out_proj"]:
@@ -87,12 +83,8 @@ def convert_model(
         )
 
         # Layer norm 2
-        keras_layer.norm2.gamma.assign(
-            hf_state_dict[f"{hf_prefix}.norm2.weight"]
-        )
-        keras_layer.norm2.beta.assign(
-            hf_state_dict[f"{hf_prefix}.norm2.bias"]
-        )
+        keras_layer.norm2.gamma.assign(hf_state_dict[f"{hf_prefix}.norm2.weight"])
+        keras_layer.norm2.beta.assign(hf_state_dict[f"{hf_prefix}.norm2.bias"])
 
         # MLP
         if hasattr(keras_layer.mlp, "fc1"):
@@ -100,15 +92,11 @@ def convert_model(
             keras_layer.mlp.fc1.kernel.assign(
                 hf_state_dict[f"{hf_prefix}.mlp.fc1.weight"].T
             )
-            keras_layer.mlp.fc1.bias.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.fc1.bias"]
-            )
+            keras_layer.mlp.fc1.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
             keras_layer.mlp.fc2.kernel.assign(
                 hf_state_dict[f"{hf_prefix}.mlp.fc2.weight"].T
             )
-            keras_layer.mlp.fc2.bias.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.fc2.bias"]
-            )
+            keras_layer.mlp.fc2.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
         else:
             # SwiGLU FFN
             keras_layer.mlp.weights_in.kernel.assign(
@@ -163,9 +151,7 @@ def convert_model(
 
         # DepthwiseConv2d: PyTorch (channels, 1, kH, kW) -> Keras (kH, kW, channels, 1)
         conv2_w = hf_state_dict[f"{hf_block_prefix}.conv2.weight"]
-        keras_block.conv2.kernel.assign(
-            np.transpose(conv2_w, (2, 3, 0, 1))
-        )
+        keras_block.conv2.kernel.assign(np.transpose(conv2_w, (2, 3, 0, 1)))
 
         # LayerNorm2d
         keras_block.layernorm2d.norm.gamma.assign(

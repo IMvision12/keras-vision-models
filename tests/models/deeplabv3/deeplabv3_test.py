@@ -30,9 +30,7 @@ class TestDeepLabV3(ModelTestCase):
         )
 
     def test_weight_initialization(self):
-        self.skipTest(
-            "Skipped: BatchNorm beta is initialized to zeros by design"
-        )
+        self.skipTest("Skipped: BatchNorm beta is initialized to zeros by design")
 
     def test_different_num_classes(self):
         for num_classes in [10, 150]:

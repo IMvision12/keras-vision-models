@@ -213,7 +213,9 @@ def convert_model(
         )
         # Compare single channel
         diff = np.max(np.abs(torch_output_np[0, :, :, 0] - keras_resized))
-        print(f"Note: Comparing at different resolutions (torch: {torch_h}x{torch_w}, keras: {keras_h}x{keras_w})")
+        print(
+            f"Note: Comparing at different resolutions (torch: {torch_h}x{torch_w}, keras: {keras_h}x{keras_w})"
+        )
         print(f"Max diff (channel 0, resized): {diff:.6f}")
 
         # Also build a model without upsampling for exact comparison
@@ -240,7 +242,9 @@ def convert_model(
     print("Model equivalence test passed!")
 
     # Save weights
-    model_filename = f"deeplabv3_{variant.replace('DeepLabV3', '').lower()}_coco_voc.weights.h5"
+    model_filename = (
+        f"deeplabv3_{variant.replace('DeepLabV3', '').lower()}_coco_voc.weights.h5"
+    )
     keras_model.save_weights(model_filename)
     print(f"Model saved as {model_filename}")
 

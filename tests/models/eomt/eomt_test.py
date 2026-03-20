@@ -34,9 +34,7 @@ class TestEoMT(ModelTestCase):
         )
 
     def test_weight_initialization(self):
-        self.skipTest(
-            "Skipped: register_tokens is initialized to zeros by design"
-        )
+        self.skipTest("Skipped: register_tokens is initialized to zeros by design")
 
     def test_different_num_queries(self):
         for num_queries in [50, 200]:

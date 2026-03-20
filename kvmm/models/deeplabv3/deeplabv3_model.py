@@ -147,9 +147,9 @@ def build_dilated_resnet_backbone(
             else:
                 if block_dilation > 1:
                     pad_size = block_dilation
-                    x = layers.ZeroPadding2D(
-                        padding=pad_size, data_format=data_format
-                    )(x)
+                    x = layers.ZeroPadding2D(padding=pad_size, data_format=data_format)(
+                        x
+                    )
                     x = layers.Conv2D(
                         filters,
                         3,
@@ -201,9 +201,9 @@ def build_dilated_resnet_backbone(
             out_channels = filters * 4
             if block_stride != 1 or in_channels != out_channels:
                 if block_stride > 1:
-                    residual = layers.ZeroPadding2D(
-                        padding=0, data_format=data_format
-                    )(residual)
+                    residual = layers.ZeroPadding2D(padding=0, data_format=data_format)(
+                        residual
+                    )
                 residual = layers.Conv2D(
                     out_channels,
                     1,
@@ -551,7 +551,9 @@ def _create_deeplabv3_model(
     if num_classes is None:
         if weights in valid_model_weights:
             num_classes = config["num_classes"]
-            print(f"No num_classes specified. Using default {num_classes} (Pascal VOC).")
+            print(
+                f"No num_classes specified. Using default {num_classes} (Pascal VOC)."
+            )
         else:
             raise ValueError(
                 "num_classes must be specified when not using pretrained weights."

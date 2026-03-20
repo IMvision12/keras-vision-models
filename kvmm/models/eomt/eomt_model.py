@@ -144,17 +144,13 @@ class EoMTEmbeddings(layers.Layer):
         embeddings = self.patch_embeddings(pixel_values)
         embeddings = embeddings + self.position_embeddings
 
-        cls_tokens = ops.broadcast_to(
-            self.cls_token, (batch_size, 1, self.hidden_size)
-        )
+        cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_size))
         register_tokens = ops.broadcast_to(
             self.register_tokens,
             (batch_size, self.num_register_tokens, self.hidden_size),
         )
 
-        embeddings = ops.concatenate(
-            [cls_tokens, register_tokens, embeddings], axis=1
-        )
+        embeddings = ops.concatenate([cls_tokens, register_tokens, embeddings], axis=1)
         return embeddings
 
     def get_config(self):
@@ -229,7 +225,9 @@ class EoMTAttention(layers.Layer):
 
         attn_output = ops.matmul(attn_weights, values)
         attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
-        attn_output = ops.reshape(attn_output, (batch_size, seq_length, self.hidden_size))
+        attn_output = ops.reshape(
+            attn_output, (batch_size, seq_length, self.hidden_size)
+        )
         attn_output = self.out_proj(attn_output)
 
         return attn_output
@@ -359,9 +357,7 @@ class EoMTLayer(layers.Layer):
         self.use_swiglu_ffn = use_swiglu_ffn
         self.layer_norm_eps = layer_norm_eps
 
-        self.norm1 = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name="norm1"
-        )
+        self.norm1 = layers.LayerNormalization(epsilon=layer_norm_eps, name="norm1")
         self.attention = EoMTAttention(
             hidden_size, num_heads, attention_dropout, name="attention"
         )
@@ -374,9 +370,7 @@ class EoMTLayer(layers.Layer):
             else layers.Identity()
         )
 
-        self.norm2 = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name="norm2"
-        )
+        self.norm2 = layers.LayerNormalization(epsilon=layer_norm_eps, name="norm2")
 
         if use_swiglu_ffn:
             self.mlp = EoMTSwiGLUFFN(hidden_size, mlp_ratio, name="mlp")
@@ -478,9 +472,7 @@ class EoMTLayerNorm2d(layers.Layer):
         super().__init__(**kwargs)
         self.num_channels = num_channels
         self.epsilon = epsilon
-        self.norm = layers.LayerNormalization(
-            epsilon=epsilon, name="norm"
-        )
+        self.norm = layers.LayerNormalization(epsilon=epsilon, name="norm")
 
     def call(self, hidden_states):
         # hidden_states: (B, H, W, C) in channels_last
@@ -704,9 +696,7 @@ class EoMT(keras.Model):
         hidden_states = embeddings_layer(img_input)
 
         # Query injection layer
-        query_injection = EoMTQueryInjection(
-            num_queries, hidden_size, name="query"
-        )
+        query_injection = EoMTQueryInjection(num_queries, hidden_size, name="query")
 
         # Transformer layers
         query_injection_idx = num_hidden_layers - num_blocks
@@ -728,9 +718,7 @@ class EoMT(keras.Model):
             )(hidden_states)
 
         # Final layer norm
-        layernorm = layers.LayerNormalization(
-            epsilon=layer_norm_eps, name="layernorm"
-        )
+        layernorm = layers.LayerNormalization(epsilon=layer_norm_eps, name="layernorm")
         sequence_output = layernorm(hidden_states)
 
         # Predict masks and classes
@@ -739,9 +727,7 @@ class EoMT(keras.Model):
         patch_output = sequence_output[:, num_queries + num_prefix_tokens :, :]
 
         # Class prediction
-        class_predictor = layers.Dense(
-            num_labels + 1, name="class_predictor"
-        )
+        class_predictor = layers.Dense(num_labels + 1, name="class_predictor")
         class_logits = class_predictor(query_output)
 
         # Mask prediction
@@ -749,9 +735,7 @@ class EoMT(keras.Model):
         query_mask_tokens = mask_head(query_output)
 
         # Reshape patch tokens to spatial grid
-        patch_spatial = ops.reshape(
-            patch_output, (-1, grid_h, grid_w, hidden_size)
-        )
+        patch_spatial = ops.reshape(patch_output, (-1, grid_h, grid_w, hidden_size))
 
         # Upscale
         upscale_block = EoMTScaleBlock(
@@ -760,9 +744,7 @@ class EoMT(keras.Model):
         upscaled_features = upscale_block(patch_spatial)
 
         # Mask logits via einsum: (B, Q, C) x (B, H, W, C) -> (B, Q, H, W)
-        mask_logits = ops.einsum(
-            "bqc,bhwc->bqhw", query_mask_tokens, upscaled_features
-        )
+        mask_logits = ops.einsum("bqc,bhwc->bqhw", query_mask_tokens, upscaled_features)
 
         super().__init__(
             inputs=img_input,

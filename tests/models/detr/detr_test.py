@@ -35,9 +35,7 @@ class TestDETR(ModelTestCase):
         )
 
     def test_weight_initialization(self):
-        self.skipTest(
-            "Skipped: BatchNorm beta is initialized to zeros by design"
-        )
+        self.skipTest("Skipped: BatchNorm beta is initialized to zeros by design")
 
     def test_different_num_queries(self):
         for num_queries in [5, 20]:

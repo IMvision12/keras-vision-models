@@ -1,4 +1,4 @@
-# KVMM: Keras Vision Models 🚀
+# Keras Models 🚀
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Keras](https://img.shields.io/badge/keras-v3.5.0+-success.svg)](https://github.com/keras-team/keras)
@@ -15,7 +15,7 @@
 
 ## 📖 Introduction
 
-Keras Vision Models (KVMM) is a collection of vision models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR), segmentation (SegFormer), and vision-language modeling (CLIP, SigLIP, SigLIP2). KVMM includes custom layers and backbone support, providing flexibility and efficiency across various vision applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR), segmentation (SegFormer, DeepLabV3, EoMT), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡Installation 
 
@@ -73,7 +73,7 @@ SwinTinyP4W7 : ms_in1k, ms_in22k
 ```
 
 <h3><b>⚙️ Layers </b></h3>
-KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
+kmodels provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
 
 ```python
 import kmodels
@@ -344,6 +344,8 @@ Prediction probabilities:
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
+    | DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
+    | EoMT | [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957) | `transformers` |
     | SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers`|
 
 <br>
@@ -379,7 +381,7 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 ```bash
 @misc{gc2025kmodels,
   author = {Gitesh Chawda},
-  title = {Keras Vision Models},
+  title = {Keras Models},
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},

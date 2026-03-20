@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import xception
+from kmodels.models import xception
 
 from ...test_modelling import ModelTestCase
 

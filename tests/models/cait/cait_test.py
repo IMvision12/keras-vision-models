@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import cait
+from kmodels.models import cait
 
 from ...test_modelling import ModelTestCase
 

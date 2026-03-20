@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops
 from keras.src.testing import TestCase
 
-from kvmm.models.mobilevit.mobilevit_model import PatchesToImageLayer
+from kmodels.models.mobilevit.mobilevit_model import PatchesToImageLayer
 
 
 class TestPatchesToImageLayer(TestCase):

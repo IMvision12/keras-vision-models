@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import resnet
+from kmodels.models import resnet
 
 from ...test_modelling import ModelTestCase
 

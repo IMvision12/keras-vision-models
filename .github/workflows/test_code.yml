@@ -65,7 +65,7 @@ jobs:
           echo ""
           
           # Run layer tests
-          pytest tests/layers/*_test.py -v --cov=kvmm --cov=tests --cov-append
+          pytest tests/layers/*_test.py -v --cov=kmodels --cov=tests --cov-append
           
           # Print large message for model tests
           echo ""
@@ -79,7 +79,7 @@ jobs:
           # Run model tests if they exist
           TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
           if [ -n "$TEST_FILES" ]; then
-            pytest $TEST_FILES -v --cov=kvmm --cov=tests --cov-append
+            pytest $TEST_FILES -v --cov=kmodels --cov=tests --cov-append
           else
             echo "No model test files found. Skipping model tests."
           fi

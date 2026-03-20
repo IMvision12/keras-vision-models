@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import deeplabv3
+from kmodels.models import deeplabv3
 
 from ...test_modelling import ModelTestCase
 

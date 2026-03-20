@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import siglip2
+from kmodels.models import siglip2
 
 from ...test_modelling import ModelTestCase
 

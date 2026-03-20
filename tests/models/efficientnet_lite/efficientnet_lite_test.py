@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import efficientnet_lite
+from kmodels.models import efficientnet_lite
 
 from ...test_modelling import ModelTestCase
 

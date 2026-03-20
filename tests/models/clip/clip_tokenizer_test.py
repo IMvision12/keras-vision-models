@@ -3,18 +3,18 @@ import os
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.models.clip import CLIPTokenizer
-from kvmm.utils import download_file
+from kmodels.models.clip import CLIPTokenizer
+from kmodels.utils import download_file
 
 
 class TestCLIPTokenizer(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.vocab_file = download_file(
-            "https://github.com/IMvision12/keras-vision-models/releases/download/clip/vocab.json"
+            "https://github.com/IMvision12/keras-models/releases/download/clip/vocab.json"
         )
         cls.merges_file = download_file(
-            "https://github.com/IMvision12/keras-vision-models/releases/download/clip/merges.txt"
+            "https://github.com/IMvision12/keras-models/releases/download/clip/merges.txt"
         )
 
         if not os.path.exists(cls.vocab_file):

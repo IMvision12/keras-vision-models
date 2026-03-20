@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import mobilenetv2
+from kmodels.models import mobilenetv2
 
 from ...test_modelling import ModelTestCase
 

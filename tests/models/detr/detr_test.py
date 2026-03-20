@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import detr
+from kmodels.models import detr
 
 from ...test_modelling import ModelTestCase
 

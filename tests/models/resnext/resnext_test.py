@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import resnext
+from kmodels.models import resnext
 
 from ...test_modelling import ModelTestCase
 

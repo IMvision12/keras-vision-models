@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import convmixer
+from kmodels.models import convmixer
 
 from ...test_modelling import ModelTestCase
 

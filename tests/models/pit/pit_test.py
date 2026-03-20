@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import pit
+from kmodels.models import pit
 
 from ...test_modelling import ModelTestCase
 

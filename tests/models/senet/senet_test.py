@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import senet
+from kmodels.models import senet
 
 from ...test_modelling import ModelTestCase
 

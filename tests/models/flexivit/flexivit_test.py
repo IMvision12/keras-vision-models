@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import flexivit
+from kmodels.models import flexivit
 
 from ...test_modelling import ModelTestCase
 

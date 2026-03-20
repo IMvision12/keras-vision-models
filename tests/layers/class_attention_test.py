@@ -2,7 +2,7 @@ import keras
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.models.cait.cait_model import ClassAttention
+from kmodels.models.cait.cait_model import ClassAttention
 
 
 class TestClassAttention(TestCase):

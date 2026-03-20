@@ -7,7 +7,7 @@ from keras import ops
 from keras.src.testing import TestCase
 from PIL import Image
 
-from kvmm.models import segformer
+from kmodels.models import segformer
 
 
 class TestSegFormerImageProcessor(TestCase):

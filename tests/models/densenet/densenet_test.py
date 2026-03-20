@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import densenet
+from kmodels.models import densenet
 
 from ...test_modelling import ModelTestCase
 

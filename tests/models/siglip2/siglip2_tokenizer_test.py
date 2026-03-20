@@ -3,15 +3,15 @@ import os
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.models.siglip2 import SigLIP2Tokenizer
-from kvmm.utils import download_file
+from kmodels.models.siglip2 import SigLIP2Tokenizer
+from kmodels.utils import download_file
 
 
 class TestSigLIP2Tokenizer(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.vocab_file = download_file(
-            "https://github.com/IMvision12/keras-vision-models/releases/download/SigLIP/siglip2_vocab.model"
+            "https://github.com/IMvision12/keras-models/releases/download/SigLIP/siglip2_vocab.model"
         )
         if not os.path.exists(cls.vocab_file):
             raise FileNotFoundError(f"Vocab file not found: {cls.vocab_file}")

@@ -22,13 +22,13 @@ Keras Vision Models (KVMM) is a collection of vision models with pretrained weig
 From PyPI (recommended)
 
 ```shell
-pip install -U kvmm
+pip install -U kmodels
 ```
 
 From Source
 
 ```shell
-pip install -U git+https://github.com/IMvision12/keras-vision-models
+pip install -U git+https://github.com/IMvision12/keras-models
 ```
 
 ## 🛠️ Usage
@@ -38,8 +38,8 @@ pip install -U git+https://github.com/IMvision12/keras-vision-models
 Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
     
 ```python
-import kvmm
-print(kvmm.list_models())
+import kmodels
+print(kmodels.list_models())
 
 ## Output:
 """
@@ -58,8 +58,8 @@ ConvNeXtBase : fb_in1k, fb_in22k, fb_in22k_ft_in1k, fb_in22k_ft_in1k_384
 <h3><b>🔎 List Specific Model Variant</b></h3>
 
 ```python
-import kvmm
-print(kvmm.list_models("swin"))
+import kmodels
+print(kmodels.list_models("swin"))
 
 # Output:
 """
@@ -76,10 +76,10 @@ SwinTinyP4W7 : ms_in1k, ms_in22k
 KVMM provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
 
 ```python
-import kvmm
+import kmodels
 
 # Example 1
-layer = kvmm.layers.StochasticDepth(drop_path_rate=0.1)
+layer = kmodels.layers.StochasticDepth(drop_path_rate=0.1)
 output = layer(input_tensor, training=True)
 
 # Example 2
@@ -91,19 +91,19 @@ windowed_features = window_partition(features, height=28, width=28)
 
 #### 🛠️ Basic Usage
 ```python
-import kvmm
+import kmodels
 import numpy as np
 
 # default configuration
-model = kvmm.models.vit.ViTTiny16()
+model = kmodels.models.vit.ViTTiny16()
 
 # For Fine-Tuning (default weight)
-model = kvmm.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3))
+model = kmodels.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3))
 # Custom Weight
-model = kvmm.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3), weights="augreg_in21k_224")
+model = kmodels.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3), weights="augreg_in21k_224")
 
 # Backbone Support
-model = kvmm.models.vit.ViTTiny16(include_top=False, as_backbone=True, input_shape=(224,224,3), weights="augreg_in21k_224")
+model = kmodels.models.vit.ViTTiny16(include_top=False, as_backbone=True, input_shape=(224,224,3), weights="augreg_in21k_224")
 random_input = np.random.rand(1, 224, 224, 3).astype(np.float32)
 features = model(random_input)
 print(f"Number of feature maps: {len(features)}")
@@ -126,10 +126,10 @@ Feature 2 shape: (1, 197, 192)
 ```python
 from keras import ops
 from keras.applications.imagenet_utils import decode_predictions
-import kvmm
+import kmodels
 from PIL import Image
 
-model = kvmm.models.swin.SwinTinyP4W7(input_shape=[224, 224, 3])
+model = kmodels.models.swin.SwinTinyP4W7(input_shape=[224, 224, 3])
 
 image = Image.open("bird.png").resize((224, 224))
 x = ops.convert_to_tensor(image)
@@ -148,44 +148,44 @@ Predicted: [('n01537544', 'indigo_bunting', np.float32(0.9135666)), ('n01806143'
 #### 🛠️ Basic Usage
  
 ```python
-import kvmm
+import kmodels
 
 # Pre-Trained weights (cityscapes or ade20kor mit(in1k))
 # ade20k and cityscapes can be used for fine-tuning by giving custom `num_classes`
 # If `num_classes` is not specified by default for ade20k it will be 150 and for cityscapes it will be 19
-model = kvmm.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
-model = kvmm.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
+model = kmodels.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
+model = kmodels.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
 
 # Fine-Tune using `MiT` backbone (This will load `in1k` weights)
-model = kvmm.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
+model = kmodels.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
 ```
 
 #### 🚀 Custom Backbone Support
 
 ```python
-import kvmm
+import kmodels
 
 # With no backbone weights
-backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
-segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
+segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
 
 # With backbone weights
-import kvmm
-backbone = kvmm.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
-segformer = kvmm.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
+import kmodels
+backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
+segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
 ```
 
 #### 🚀 Example Inference
 
 ```python
-import kvmm
+import kmodels
 from PIL import Image
 import numpy as np
 
-model = kvmm.models.segformer.SegFormerB0(weights="ade20k_512")
+model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512")
 
 image = Image.open("ADE_train_00000586.jpg")
-processed_img = kvmm.models.segformer.SegFormerImageProcessor(image=image,
+processed_img = kmodels.models.segformer.SegFormerImageProcessor(image=image,
     do_resize=True,
     size={"height": 512, "width": 512},
     do_rescale=True,
@@ -201,30 +201,30 @@ visualize_segmentation(outs, image)
 #### 🛠️ Basic Usage
 
 ```python
-import kvmm
+import kmodels
 
 # Load DETR with ResNet-50 backbone (COCO pre-trained)
-model = kvmm.models.detr.DETRResNet50(
+model = kmodels.models.detr.DETRResNet50(
     weights="detr_resnet50_coco.weights.h5",
     input_shape=(800, 800, 3),
     include_normalization=False,
 )
 
 # Without pre-trained weights
-model = kvmm.models.detr.DETRResNet50(weights=None, input_shape=(800, 800, 3))
+model = kmodels.models.detr.DETRResNet50(weights=None, input_shape=(800, 800, 3))
 
 # ResNet-101 variant
-model = kvmm.models.detr.DETRResNet101(weights=None, input_shape=(800, 800, 3))
+model = kmodels.models.detr.DETRResNet101(weights=None, input_shape=(800, 800, 3))
 ```
 
 #### 🚀 Example Inference
 
 ```python
-import kvmm
-from kvmm.models.detr import DETRImageProcessor, DETRPostProcessor
+import kmodels
+from kmodels.models.detr import DETRImageProcessor, DETRPostProcessor
 from PIL import Image
 
-model = kvmm.models.detr.DETRResNet50(
+model = kmodels.models.detr.DETRResNet50(
     weights="detr_resnet50_coco.weights.h5",
     input_shape=(800, 800, 3),
     include_normalization=False,
@@ -257,10 +257,10 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
 ```python
 import keras
 
-import kvmm
+import kmodels
 
-processor = kvmm.models.clip.CLIPProcessor()
-model = kvmm.models.clip.ClipVitBase16(
+processor = kmodels.models.clip.CLIPProcessor()
+model = kmodels.models.clip.ClipVitBase16(
     weights="openai_224",
     input_shape=(224, 224, 3), # You can fine-tune or infer with variable size 
 )
@@ -362,7 +362,7 @@ Prediction probabilities:
 
 This project leverages [timm](https://github.com/huggingface/pytorch-image-models#licenses) and [transformers](https://github.com/huggingface/transformers#license) for converting pretrained weights from PyTorch to Keras. For licensing details, please refer to the respective repositories.
 
-- 🔖 **kvmm Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
+- 🔖 **kmodels Code**: This repository is licensed under the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0).
 
 
 ## 🌟 Credits
@@ -377,11 +377,11 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 ### BibTeX
 
 ```bash
-@misc{gc2025kvmm,
+@misc{gc2025kmodels,
   author = {Gitesh Chawda},
   title = {Keras Vision Models},
   year = {2025},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/IMvision12/keras-vision-models}}
+  howpublished = {\url{https://github.com/IMvision12/keras-models}}
 ```

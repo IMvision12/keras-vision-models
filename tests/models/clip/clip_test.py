@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import clip
+from kmodels.models import clip
 
 from ...test_modelling import ModelTestCase
 

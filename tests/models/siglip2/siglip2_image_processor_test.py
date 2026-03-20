@@ -6,7 +6,7 @@ from keras import ops
 from keras.src.testing import TestCase
 from PIL import Image
 
-from kvmm.models import siglip2
+from kmodels.models import siglip2
 
 
 class TestSigLIP2ImageProcessor(TestCase):

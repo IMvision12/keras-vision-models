@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import segformer
+from kmodels.models import segformer
 
 from ...test_modelling import ModelTestCase
 

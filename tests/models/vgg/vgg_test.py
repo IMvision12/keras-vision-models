@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import vgg
+from kmodels.models import vgg
 
 from ...test_modelling import ModelTestCase
 

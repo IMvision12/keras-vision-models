@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import inception_resnetv2
+from kmodels.models import inception_resnetv2
 
 from ...test_modelling import ModelTestCase
 

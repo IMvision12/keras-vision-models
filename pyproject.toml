@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "kvmm"
+name = "kmodels"
 authors = [{ name = "Gitesh Chawda", email = "gitesh.ch.0912@gmail.com" }]
 description = "Pretrained keras 3 vision models"
 readme = "README.md"
@@ -49,20 +49,20 @@ dynamic = ["version"]
 dependencies = ["keras"]
 
 [project.urls]
-homepage = "https://github.com/IMvision12/keras-vision-models"
-documentation = "https://github.com/IMvision12/keras-vision-models"
-repository = "https://github.com/IMvision12/keras-vision-models.git"
+homepage = "https://github.com/IMvision12/keras-models"
+documentation = "https://github.com/IMvision12/keras-models"
+repository = "https://github.com/IMvision12/keras-models.git"
 
 [tool.setuptools.packages]
-find = { include = ["kvmm*"] }
+find = { include = ["kmodels*"] }
 
 [tool.setuptools.dynamic]
-version = { attr = "kvmm.__version__" }
+version = { attr = "kmodels.__version__" }
 
 [tool.coverage.run]
-source = ["kvmm", "tests"]
+source = ["kmodels", "tests"]
 omit = [
-    "kvmm/models/*/convert_*.py",
+    "kmodels/models/*/convert_*.py",
 ]
 
 [tool.coverage.report]

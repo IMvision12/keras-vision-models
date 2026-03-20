@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import resmlp
+from kmodels.models import resmlp
 
 from ...test_modelling import ModelTestCase
 

@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import mlp_mixer
+from kmodels.models import mlp_mixer
 
 from ...test_modelling import ModelTestCase
 

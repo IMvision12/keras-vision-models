@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import poolformer
+from kmodels.models import poolformer
 
 from ...test_modelling import ModelTestCase
 

@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import convnextv2
+from kmodels.models import convnextv2
 
 from ...test_modelling import ModelTestCase
 

@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import vit
+from kmodels.models import vit
 
 from ...test_modelling import ModelTestCase
 

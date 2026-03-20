@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import eomt
+from kmodels.models import eomt
 
 from ...test_modelling import ModelTestCase
 

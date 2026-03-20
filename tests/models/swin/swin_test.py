@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import swin
+from kmodels.models import swin
 
 from ...test_modelling import ModelTestCase
 

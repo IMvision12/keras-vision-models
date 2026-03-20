@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import inceptionv3
+from kmodels.models import inceptionv3
 
 from ...test_modelling import ModelTestCase
 

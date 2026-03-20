@@ -1,6 +1,6 @@
 from keras import ops
 
-from kvmm.models import deit
+from kmodels.models import deit
 
 from ...test_modelling import ModelTestCase
 

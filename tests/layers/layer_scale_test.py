@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import LayerScale
+from kmodels.layers import LayerScale
 
 
 class TestLayerScale(TestCase):

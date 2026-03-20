@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kmodels.models.vit.vit_model import AddPositionEmbs
+from kmodels.models.vit.vit_layers import AddPositionEmbs
 
 
 class TestAddPositionEmbs(TestCase):

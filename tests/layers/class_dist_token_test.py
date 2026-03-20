@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kmodels.models.vit.vit_model import ClassDistToken
+from kmodels.models.vit.vit_layers import ClassDistToken
 
 
 class TestClassDistToken(TestCase):

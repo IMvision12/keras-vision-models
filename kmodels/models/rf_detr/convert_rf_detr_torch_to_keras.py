@@ -93,7 +93,7 @@ def get_keras_weight_dict(model):
 def transfer_weights(variant, torch_sd, keras_model):
     """Map PyTorch state_dict keys to Keras weights and assign values."""
     config = RF_DETR_MODEL_CONFIG[variant]
-    num_layers = max(config["out_feature_indexes"]) + 1
+    num_layers = max(config["out_feature_indexes"])
     dec_layers = config["dec_layers"]
 
     kw = get_keras_weight_dict(keras_model)

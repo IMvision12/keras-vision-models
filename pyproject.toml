@@ -59,6 +59,25 @@ find = { include = ["kvmm*"] }
 [tool.setuptools.dynamic]
 version = { attr = "kvmm.__version__" }
 
+[tool.coverage.run]
+source = ["kvmm", "tests"]
+omit = [
+    "kvmm/models/*/convert_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:importlib._bootstrap",
+    "ignore:__array__ implementation doesn't accept a copy keyword:DeprecationWarning",
+    "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+]
+
 [tool.ruff.lint]
 ignore = ["C901", "E501", "E741", "F402", "F823"]
 select = ["C", "E", "F", "I", "W"]

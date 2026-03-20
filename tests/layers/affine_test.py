@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import Affine
+from kvmm.models.resmlp.resmlp_model import Affine
 
 
 class TestAffine(TestCase):

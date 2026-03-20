@@ -2,12 +2,12 @@ import keras
 from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
-from kvmm.layers import (
-    ImageNormalizationLayer,
+from kvmm.layers import ImageNormalizationLayer
+from kvmm.model_registry import register_model
+from kvmm.models.mobilevit.mobilevit_model import (
     ImageToPatchesLayer,
     PatchesToImageLayer,
 )
-from kvmm.model_registry import register_model
 from kvmm.utils import get_all_weight_names, load_weights_from_config
 
 from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHTS_CONFIG

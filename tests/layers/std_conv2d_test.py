@@ -1,7 +1,7 @@
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import StdConv2D
+from kvmm.models.resnetv2.resnetv2_model import StdConv2D
 
 
 class TestStdConv2D(TestCase):

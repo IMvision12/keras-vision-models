@@ -2,7 +2,7 @@ import keras
 from keras import ops
 from keras.src.testing import TestCase
 
-from kvmm.layers import WindowAttention
+from kvmm.models.swin.swin_model import WindowAttention
 
 
 class TestWindowAttention(TestCase):

@@ -48,9 +48,9 @@ model_configs: List[Dict[str, Union[type, str, List[int], int, bool]]] = [
 ]
 
 for model_config in model_configs:
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Converting {model_config['hf_model_name']}...")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     keras_model: keras.Model = model_config["keras_model_cls"](
         weights=None,
@@ -64,7 +64,9 @@ for model_config in model_configs:
         model_config["hf_model_name"]
     ).eval()
 
-    pytorch_state_dict = {k: v.cpu().numpy() for k, v in torch_model.state_dict().items()}
+    pytorch_state_dict = {
+        k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
+    }
 
     backbone_layers = [
         layer for layer in keras_model.layers if layer.name.startswith("backbone_")
@@ -145,23 +147,17 @@ for model_config in model_configs:
 
         fc1_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc1.weight"]
         enc_layer.fc1.weights[0].assign(fc1_w.T)
-        enc_layer.fc1.weights[1].assign(
-            pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"]
-        )
+        enc_layer.fc1.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
 
         fc2_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc2.weight"]
         enc_layer.fc2.weights[0].assign(fc2_w.T)
-        enc_layer.fc2.weights[1].assign(
-            pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"]
-        )
+        enc_layer.fc2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
 
         ln2 = enc_layer.final_layer_norm
         ln2.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.final_layer_norm.weight"]
         )
-        ln2.weights[1].assign(
-            pytorch_state_dict[f"{hf_prefix}.final_layer_norm.bias"]
-        )
+        ln2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.final_layer_norm.bias"])
 
     for i in tqdm(range(6), desc="Transferring decoder weights"):
         hf_prefix = f"model.decoder.layers.{i}"
@@ -211,32 +207,24 @@ for model_config in model_configs:
 
         fc1_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc1.weight"]
         dec_layer.fc1.weights[0].assign(fc1_w.T)
-        dec_layer.fc1.weights[1].assign(
-            pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"]
-        )
+        dec_layer.fc1.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
 
         fc2_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc2.weight"]
         dec_layer.fc2.weights[0].assign(fc2_w.T)
-        dec_layer.fc2.weights[1].assign(
-            pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"]
-        )
+        dec_layer.fc2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
 
         ln2 = dec_layer.final_layer_norm
         ln2.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.final_layer_norm.weight"]
         )
-        ln2.weights[1].assign(
-            pytorch_state_dict[f"{hf_prefix}.final_layer_norm.bias"]
-        )
+        ln2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.final_layer_norm.bias"])
 
     dec_ln = keras_model.get_layer("decoder_layernorm")
     dec_ln.weights[0].assign(pytorch_state_dict["model.decoder.layernorm.weight"])
     dec_ln.weights[1].assign(pytorch_state_dict["model.decoder.layernorm.bias"])
 
     cls_layer = keras_model.get_layer("class_labels_classifier")
-    cls_layer.weights[0].assign(
-        pytorch_state_dict["class_labels_classifier.weight"].T
-    )
+    cls_layer.weights[0].assign(pytorch_state_dict["class_labels_classifier.weight"].T)
     cls_layer.weights[1].assign(pytorch_state_dict["class_labels_classifier.bias"])
 
     for layer_idx in range(3):

@@ -8,14 +8,13 @@ from kmodels.layers import (
     StochasticDepth,
 )
 from kmodels.model_registry import register_model
-from kmodels.utils import get_all_weight_names, load_weights_from_config
-
 from kmodels.models.swin.swin_layers import (
+    RollLayer,
     WindowAttention,
     WindowPartition,
     WindowReverse,
-    RollLayer,
 )
+from kmodels.utils import get_all_weight_names, load_weights_from_config
 
 from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_CONFIG
 

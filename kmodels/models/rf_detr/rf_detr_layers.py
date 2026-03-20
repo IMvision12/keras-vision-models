@@ -3,7 +3,6 @@ import math
 import keras
 from keras import initializers, layers, ops
 
-
 # ---------------------------------------------------------------------------
 # Utility helpers
 # ---------------------------------------------------------------------------
@@ -78,7 +77,11 @@ class ConvBN(layers.Layer):
     ):
         super().__init__(**kwargs)
         self.filters = filters
-        self.kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
+        self.kernel_size = (
+            kernel_size
+            if isinstance(kernel_size, tuple)
+            else (kernel_size, kernel_size)
+        )
         self.strides = strides
         self.groups = groups
         self.activation_name = activation
@@ -100,7 +103,9 @@ class ConvBN(layers.Layer):
         if self.use_layer_norm:
             self.norm = ChannelLayerNorm(name="ln")
         else:
-            self.norm = layers.BatchNormalization(axis=-1, epsilon=1e-5, momentum=0.1, name="bn")
+            self.norm = layers.BatchNormalization(
+                axis=-1, epsilon=1e-5, momentum=0.1, name="bn"
+            )
         self.act = _get_activation(self.activation_name)
         super().build(input_shape)
 
@@ -116,14 +121,16 @@ class ConvBN(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "filters": self.filters,
-            "kernel_size": self.kernel_size,
-            "strides": self.strides,
-            "groups": self.groups,
-            "activation": self.activation_name,
-            "use_layer_norm": self.use_layer_norm,
-        })
+        config.update(
+            {
+                "filters": self.filters,
+                "kernel_size": self.kernel_size,
+                "strides": self.strides,
+                "groups": self.groups,
+                "activation": self.activation_name,
+                "use_layer_norm": self.use_layer_norm,
+            }
+        )
         return config
 
 
@@ -134,8 +141,15 @@ class ConvBN(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Bottleneck(layers.Layer):
-    def __init__(self, out_channels, shortcut=True, expansion=1.0,
-                 activation="silu", use_layer_norm=False, **kwargs):
+    def __init__(
+        self,
+        out_channels,
+        shortcut=True,
+        expansion=1.0,
+        activation="silu",
+        use_layer_norm=False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.out_channels = out_channels
         self.shortcut = shortcut
@@ -146,10 +160,20 @@ class Bottleneck(layers.Layer):
     def build(self, input_shape):
         hidden = int(self.out_channels * self.expansion)
         in_channels = input_shape[-1]
-        self.cv1 = ConvBN(hidden, 3, activation=self.activation_name,
-                          use_layer_norm=self.use_layer_norm, name="cv1")
-        self.cv2 = ConvBN(self.out_channels, 3, activation=self.activation_name,
-                          use_layer_norm=self.use_layer_norm, name="cv2")
+        self.cv1 = ConvBN(
+            hidden,
+            3,
+            activation=self.activation_name,
+            use_layer_norm=self.use_layer_norm,
+            name="cv1",
+        )
+        self.cv2 = ConvBN(
+            self.out_channels,
+            3,
+            activation=self.activation_name,
+            use_layer_norm=self.use_layer_norm,
+            name="cv2",
+        )
         self.add_shortcut = self.shortcut and in_channels == self.out_channels
         super().build(input_shape)
 
@@ -162,13 +186,15 @@ class Bottleneck(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "out_channels": self.out_channels,
-            "shortcut": self.shortcut,
-            "expansion": self.expansion,
-            "activation": self.activation_name,
-            "use_layer_norm": self.use_layer_norm,
-        })
+        config.update(
+            {
+                "out_channels": self.out_channels,
+                "shortcut": self.shortcut,
+                "expansion": self.expansion,
+                "activation": self.activation_name,
+                "use_layer_norm": self.use_layer_norm,
+            }
+        )
         return config
 
 
@@ -176,8 +202,16 @@ class Bottleneck(layers.Layer):
 class C2f(layers.Layer):
     """CSP Bottleneck with 2 convolutions (faster implementation)."""
 
-    def __init__(self, out_channels, num_blocks=1, shortcut=False,
-                 expansion=0.5, activation="silu", use_layer_norm=False, **kwargs):
+    def __init__(
+        self,
+        out_channels,
+        num_blocks=1,
+        shortcut=False,
+        expansion=0.5,
+        activation="silu",
+        use_layer_norm=False,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.out_channels = out_channels
         self.num_blocks = num_blocks
@@ -189,17 +223,31 @@ class C2f(layers.Layer):
     def build(self, input_shape):
         in_channels = input_shape[-1]
         self.c = int(self.out_channels * self.expansion)
-        self.cv1 = ConvBN(2 * self.c, 1, activation=self.activation_name,
-                          use_layer_norm=self.use_layer_norm, name="cv1")
-        self.cv2 = ConvBN(self.out_channels, 1, activation=self.activation_name,
-                          use_layer_norm=self.use_layer_norm, name="cv2")
+        self.cv1 = ConvBN(
+            2 * self.c,
+            1,
+            activation=self.activation_name,
+            use_layer_norm=self.use_layer_norm,
+            name="cv1",
+        )
+        self.cv2 = ConvBN(
+            self.out_channels,
+            1,
+            activation=self.activation_name,
+            use_layer_norm=self.use_layer_norm,
+            name="cv2",
+        )
         self.bottlenecks = []
         for i in range(self.num_blocks):
             self.bottlenecks.append(
-                Bottleneck(self.c, shortcut=self.shortcut, expansion=1.0,
-                           activation=self.activation_name,
-                           use_layer_norm=self.use_layer_norm,
-                           name=f"bottleneck_{i}")
+                Bottleneck(
+                    self.c,
+                    shortcut=self.shortcut,
+                    expansion=1.0,
+                    activation=self.activation_name,
+                    use_layer_norm=self.use_layer_norm,
+                    name=f"bottleneck_{i}",
+                )
             )
         super().build(input_shape)
 
@@ -213,20 +261,27 @@ class C2f(layers.Layer):
 
     def compute_output_spec(self, input_spec, **kwargs):
         return keras.KerasTensor(
-            shape=(input_spec.shape[0], input_spec.shape[1], input_spec.shape[2], self.out_channels),
+            shape=(
+                input_spec.shape[0],
+                input_spec.shape[1],
+                input_spec.shape[2],
+                self.out_channels,
+            ),
             dtype=input_spec.dtype,
         )
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "out_channels": self.out_channels,
-            "num_blocks": self.num_blocks,
-            "shortcut": self.shortcut,
-            "expansion": self.expansion,
-            "activation": self.activation_name,
-            "use_layer_norm": self.use_layer_norm,
-        })
+        config.update(
+            {
+                "out_channels": self.out_channels,
+                "num_blocks": self.num_blocks,
+                "shortcut": self.shortcut,
+                "expansion": self.expansion,
+                "activation": self.activation_name,
+                "use_layer_norm": self.use_layer_norm,
+            }
+        )
         return config
 
 
@@ -245,10 +300,12 @@ class SimpleProjector(layers.Layer):
 
     def build(self, input_shape):
         in_dim = input_shape[-1]
-        self.convx1 = ConvBN(in_dim * 2, 3, activation="silu",
-                             use_layer_norm=True, name="convx1")
-        self.convx2 = ConvBN(self.out_channels, 3, activation="silu",
-                             use_layer_norm=True, name="convx2")
+        self.convx1 = ConvBN(
+            in_dim * 2, 3, activation="silu", use_layer_norm=True, name="convx1"
+        )
+        self.convx2 = ConvBN(
+            self.out_channels, 3, activation="silu", use_layer_norm=True, name="convx2"
+        )
         self.ln = ChannelLayerNorm(name="ln")
         super().build(input_shape)
 
@@ -260,7 +317,12 @@ class SimpleProjector(layers.Layer):
 
     def compute_output_spec(self, input_spec, **kwargs):
         return keras.KerasTensor(
-            shape=(input_spec.shape[0], input_spec.shape[1], input_spec.shape[2], self.out_channels),
+            shape=(
+                input_spec.shape[0],
+                input_spec.shape[1],
+                input_spec.shape[2],
+                self.out_channels,
+            ),
             dtype=input_spec.dtype,
         )
 
@@ -304,11 +366,13 @@ class DinoV2PatchEmbeddings(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "hidden_size": self.hidden_size,
-            "patch_size": self.patch_size,
-            "num_channels": self.num_channels,
-        })
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "patch_size": self.patch_size,
+                "num_channels": self.num_channels,
+            }
+        )
         return config
 
 
@@ -316,9 +380,16 @@ class DinoV2PatchEmbeddings(layers.Layer):
 class DinoV2Embeddings(layers.Layer):
     """CLS token, register tokens, patch embeddings, position embeddings, windowing."""
 
-    def __init__(self, hidden_size, patch_size, num_channels=3,
-                 num_register_tokens=4, num_windows=1,
-                 positional_encoding_size=37, **kwargs):
+    def __init__(
+        self,
+        hidden_size,
+        patch_size,
+        num_channels=3,
+        num_register_tokens=4,
+        num_windows=1,
+        positional_encoding_size=37,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
         self.patch_size = patch_size
@@ -330,7 +401,8 @@ class DinoV2Embeddings(layers.Layer):
 
     def build(self, input_shape):
         self.cls_token = self.add_weight(
-            name="cls_token", shape=(1, 1, self.hidden_size),
+            name="cls_token",
+            shape=(1, 1, self.hidden_size),
             initializer=initializers.TruncatedNormal(stddev=0.02),
         )
         self.position_embeddings = self.add_weight(
@@ -345,7 +417,9 @@ class DinoV2Embeddings(layers.Layer):
                 initializer="zeros",
             )
         self.patch_embeddings = DinoV2PatchEmbeddings(
-            self.hidden_size, self.patch_size, self.num_channels,
+            self.hidden_size,
+            self.patch_size,
+            self.num_channels,
             name="patch_embeddings",
         )
         super().build(input_shape)
@@ -379,9 +453,7 @@ class DinoV2Embeddings(layers.Layer):
 
         embeddings = self.patch_embeddings(pixel_values)
 
-        cls_tokens = ops.broadcast_to(
-            self.cls_token, (batch_size, 1, self.hidden_size)
-        )
+        cls_tokens = ops.broadcast_to(self.cls_token, (batch_size, 1, self.hidden_size))
         embeddings = ops.concatenate([cls_tokens, embeddings], axis=1)
 
         pos_embed = self._interpolate_pos_encoding(embeddings, height, width)
@@ -392,13 +464,19 @@ class DinoV2Embeddings(layers.Layer):
             num_w = width // self.patch_size
             cls_tok = embeddings[:, :1, :]
             patch_tok = embeddings[:, 1:, :]
-            patch_tok = ops.reshape(patch_tok, [batch_size, num_h, num_w, self.hidden_size])
+            patch_tok = ops.reshape(
+                patch_tok, [batch_size, num_h, num_w, self.hidden_size]
+            )
             nw = self.num_windows
             h_pw = num_h // nw
             w_pw = num_w // nw
-            patch_tok = ops.reshape(patch_tok, [batch_size * nw, h_pw, nw, w_pw, self.hidden_size])
+            patch_tok = ops.reshape(
+                patch_tok, [batch_size * nw, h_pw, nw, w_pw, self.hidden_size]
+            )
             patch_tok = ops.transpose(patch_tok, [0, 2, 1, 3, 4])
-            patch_tok = ops.reshape(patch_tok, [batch_size * nw * nw, h_pw * w_pw, self.hidden_size])
+            patch_tok = ops.reshape(
+                patch_tok, [batch_size * nw * nw, h_pw * w_pw, self.hidden_size]
+            )
             cls_tok = ops.tile(cls_tok, [nw * nw, 1, 1])
             embeddings = ops.concatenate([cls_tok, patch_tok], axis=1)
 
@@ -416,7 +494,11 @@ class DinoV2Embeddings(layers.Layer):
     def compute_output_spec(self, input_spec, **kwargs):
         h = input_spec.shape[1] // self.patch_size
         w = input_spec.shape[2] // self.patch_size
-        tokens_per_window = (h // self.num_windows) * (w // self.num_windows) if self.num_windows > 1 else h * w
+        tokens_per_window = (
+            (h // self.num_windows) * (w // self.num_windows)
+            if self.num_windows > 1
+            else h * w
+        )
         seq_len = tokens_per_window + 1 + self.num_register_tokens
         batch = input_spec.shape[0]
         if self.num_windows > 1:
@@ -428,14 +510,16 @@ class DinoV2Embeddings(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "hidden_size": self.hidden_size,
-            "patch_size": self.patch_size,
-            "num_channels": self.num_channels,
-            "num_register_tokens": self.num_register_tokens,
-            "num_windows": self.num_windows,
-            "positional_encoding_size": self.positional_encoding_size,
-        })
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "patch_size": self.patch_size,
+                "num_channels": self.num_channels,
+                "num_register_tokens": self.num_register_tokens,
+                "num_windows": self.num_windows,
+                "positional_encoding_size": self.positional_encoding_size,
+            }
+        )
         return config
 
 
@@ -490,11 +574,13 @@ class DinoV2MLP(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "hidden_size": self.hidden_size,
-            "mlp_ratio": self.mlp_ratio,
-            "hidden_act": self.hidden_act,
-        })
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "mlp_ratio": self.mlp_ratio,
+                "hidden_act": self.hidden_act,
+            }
+        )
         return config
 
 
@@ -596,9 +682,17 @@ class DinoV2DropPath(layers.Layer):
 class WindowedDinoV2Block(layers.Layer):
     """Single DINOv2 transformer block with windowed attention support."""
 
-    def __init__(self, hidden_size, num_heads, mlp_ratio=4,
-                 use_swiglu=False, drop_path_rate=0.0,
-                 layer_scale_init=1.0, num_windows=1, **kwargs):
+    def __init__(
+        self,
+        hidden_size,
+        num_heads,
+        mlp_ratio=4,
+        use_swiglu=False,
+        drop_path_rate=0.0,
+        layer_scale_init=1.0,
+        num_windows=1,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
         self.num_heads = num_heads
@@ -632,19 +726,15 @@ class WindowedDinoV2Block(layers.Layer):
         shortcut = hidden_states
 
         if run_full_attention and self.num_windows > 1:
-            nw2 = self.num_windows ** 2
+            nw2 = self.num_windows**2
             shape = ops.shape(hidden_states)
-            hidden_states = ops.reshape(
-                hidden_states, [-1, nw2 * shape[1], shape[2]]
-            )
+            hidden_states = ops.reshape(hidden_states, [-1, nw2 * shape[1], shape[2]])
 
         attn_out = self.attention(self.norm1(hidden_states))
 
         if run_full_attention and self.num_windows > 1:
             full_shape = ops.shape(attn_out)
-            attn_out = ops.reshape(
-                attn_out, [-1, full_shape[1] // nw2, full_shape[2]]
-            )
+            attn_out = ops.reshape(attn_out, [-1, full_shape[1] // nw2, full_shape[2]])
 
         attn_out = self.layer_scale1(attn_out)
         hidden_states = self.drop_path(attn_out, training=training) + shortcut
@@ -663,15 +753,17 @@ class WindowedDinoV2Block(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "hidden_size": self.hidden_size,
-            "num_heads": self.num_heads,
-            "mlp_ratio": self.mlp_ratio,
-            "use_swiglu": self.use_swiglu,
-            "drop_path_rate": self.drop_path_rate,
-            "layer_scale_init": self.layer_scale_init,
-            "num_windows": self.num_windows,
-        })
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "num_heads": self.num_heads,
+                "mlp_ratio": self.mlp_ratio,
+                "use_swiglu": self.use_swiglu,
+                "drop_path_rate": self.drop_path_rate,
+                "layer_scale_init": self.layer_scale_init,
+                "num_windows": self.num_windows,
+            }
+        )
         return config
 
 
@@ -679,11 +771,20 @@ class WindowedDinoV2Block(layers.Layer):
 class WindowedDinoV2Encoder(layers.Layer):
     """Stack of windowed DINOv2 blocks with multi-scale feature extraction."""
 
-    def __init__(self, hidden_size, num_heads, num_layers, mlp_ratio=4,
-                 use_swiglu=False, drop_path_rate=0.0,
-                 layer_scale_init=1.0, num_windows=1,
-                 out_feature_indexes=None,
-                 window_block_indexes=None, **kwargs):
+    def __init__(
+        self,
+        hidden_size,
+        num_heads,
+        num_layers,
+        mlp_ratio=4,
+        use_swiglu=False,
+        drop_path_rate=0.0,
+        layer_scale_init=1.0,
+        num_windows=1,
+        out_feature_indexes=None,
+        window_block_indexes=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
         self.num_heads = num_heads
@@ -695,18 +796,30 @@ class WindowedDinoV2Encoder(layers.Layer):
         self.num_windows = num_windows
         self.out_feature_indexes = out_feature_indexes or []
         if window_block_indexes is None:
-            all_indexes = set(range(max(self.out_feature_indexes) + 1 if self.out_feature_indexes else num_layers))
+            all_indexes = set(
+                range(
+                    max(self.out_feature_indexes) + 1
+                    if self.out_feature_indexes
+                    else num_layers
+                )
+            )
             all_indexes.difference_update(set(self.out_feature_indexes))
             self.window_block_indexes = sorted(all_indexes)
         else:
             self.window_block_indexes = window_block_indexes
 
     def build(self, input_shape):
-        max_layer = max(self.out_feature_indexes) + 1 if self.out_feature_indexes else self.num_layers
+        max_layer = (
+            max(self.out_feature_indexes) + 1
+            if self.out_feature_indexes
+            else self.num_layers
+        )
         self.blocks = []
         for i in range(max_layer):
             block = WindowedDinoV2Block(
-                self.hidden_size, self.num_heads, self.mlp_ratio,
+                self.hidden_size,
+                self.num_heads,
+                self.mlp_ratio,
                 use_swiglu=self.use_swiglu,
                 drop_path_rate=self.drop_path_rate,
                 layer_scale_init=self.layer_scale_init,
@@ -721,7 +834,9 @@ class WindowedDinoV2Encoder(layers.Layer):
         features = []
         for i, block in enumerate(self.blocks):
             run_full = i not in self.window_block_indexes
-            hidden_states = block(hidden_states, run_full_attention=run_full, training=training)
+            hidden_states = block(
+                hidden_states, run_full_attention=run_full, training=training
+            )
             if (i + 1) in self.out_feature_indexes:
                 features.append(self.layernorm(hidden_states))
         return features
@@ -740,18 +855,20 @@ class WindowedDinoV2Encoder(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "hidden_size": self.hidden_size,
-            "num_heads": self.num_heads,
-            "num_layers": self.num_layers,
-            "mlp_ratio": self.mlp_ratio,
-            "use_swiglu": self.use_swiglu,
-            "drop_path_rate": self.drop_path_rate,
-            "layer_scale_init": self.layer_scale_init,
-            "num_windows": self.num_windows,
-            "out_feature_indexes": self.out_feature_indexes,
-            "window_block_indexes": self.window_block_indexes,
-        })
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "num_heads": self.num_heads,
+                "num_layers": self.num_layers,
+                "mlp_ratio": self.mlp_ratio,
+                "use_swiglu": self.use_swiglu,
+                "drop_path_rate": self.drop_path_rate,
+                "layer_scale_init": self.layer_scale_init,
+                "num_windows": self.num_windows,
+                "out_feature_indexes": self.out_feature_indexes,
+                "window_block_indexes": self.window_block_indexes,
+            }
+        )
         return config
 
 
@@ -795,15 +912,13 @@ class PositionEmbeddingSine(layers.Layer):
         pos_x_sin = ops.sin(pos_x[:, 0::2])
         pos_x_cos = ops.cos(pos_x[:, 1::2])
         pos_x = ops.reshape(
-            ops.stack([pos_x_sin, pos_x_cos], axis=-1),
-            [w, self.num_pos_feats]
+            ops.stack([pos_x_sin, pos_x_cos], axis=-1), [w, self.num_pos_feats]
         )
 
         pos_y_sin = ops.sin(pos_y[:, 0::2])
         pos_y_cos = ops.cos(pos_y[:, 1::2])
         pos_y = ops.reshape(
-            ops.stack([pos_y_sin, pos_y_cos], axis=-1),
-            [h, self.num_pos_feats]
+            ops.stack([pos_y_sin, pos_y_cos], axis=-1), [h, self.num_pos_feats]
         )
 
         pos_y = ops.expand_dims(pos_y, axis=1)
@@ -816,11 +931,13 @@ class PositionEmbeddingSine(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "num_pos_feats": self.num_pos_feats,
-            "temperature": self.temperature,
-            "normalize": self.normalize,
-        })
+        config.update(
+            {
+                "num_pos_feats": self.num_pos_feats,
+                "temperature": self.temperature,
+                "normalize": self.normalize,
+            }
+        )
         return config
 
 
@@ -829,7 +946,9 @@ class PositionEmbeddingSine(layers.Layer):
 # ---------------------------------------------------------------------------
 
 
-def _ms_deform_attn_core(value, value_spatial_shapes, sampling_locations, attention_weights):
+def _ms_deform_attn_core(
+    value, value_spatial_shapes, sampling_locations, attention_weights
+):
     """Pure implementation of multi-scale deformable attention core.
 
     Args:
@@ -918,7 +1037,9 @@ def _ms_deform_attn_core(value, value_spatial_shapes, sampling_locations, attent
         sampling_value_list.append(sampled)
 
     sampling_values = ops.stack(sampling_value_list, axis=-2)
-    sampling_values = ops.reshape(sampling_values, [B * n_heads, head_dim, Len_q, L * P])
+    sampling_values = ops.reshape(
+        sampling_values, [B * n_heads, head_dim, Len_q, L * P]
+    )
 
     attn = ops.transpose(attention_weights, [0, 2, 1, 3])
     attn = ops.reshape(attn, [B * n_heads, 1, Len_q, L * P])
@@ -933,8 +1054,16 @@ def _ms_deform_attn_core(value, value_spatial_shapes, sampling_locations, attent
 class MSDeformableAttention(layers.Layer):
     """Multi-Scale Deformable Attention Module."""
 
-    def __init__(self, d_model=256, n_levels=1, n_heads=8, n_points=4,
-                 spatial_shapes=None, level_start_index=None, **kwargs):
+    def __init__(
+        self,
+        d_model=256,
+        n_levels=1,
+        n_heads=8,
+        n_points=4,
+        spatial_shapes=None,
+        level_start_index=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.d_model = d_model
         self.n_levels = n_levels
@@ -956,8 +1085,7 @@ class MSDeformableAttention(layers.Layer):
         self.output_proj = layers.Dense(self.d_model, name="output_proj")
         super().build(input_shape)
 
-    def call(self, query, reference_points, input_flatten,
-             input_padding_mask=None):
+    def call(self, query, reference_points, input_flatten, input_padding_mask=None):
         input_spatial_shapes = self.spatial_shapes
         N = ops.shape(query)[0]
         Len_q = ops.shape(query)[1]
@@ -970,14 +1098,12 @@ class MSDeformableAttention(layers.Layer):
 
         sampling_offsets = self.sampling_offsets(query)
         sampling_offsets = ops.reshape(
-            sampling_offsets,
-            [N, Len_q, self.n_heads, self.n_levels, self.n_points, 2]
+            sampling_offsets, [N, Len_q, self.n_heads, self.n_levels, self.n_points, 2]
         )
 
         attention_weights = self.attention_weights_proj(query)
         attention_weights = ops.reshape(
-            attention_weights,
-            [N, Len_q, self.n_heads, self.n_levels * self.n_points]
+            attention_weights, [N, Len_q, self.n_heads, self.n_levels * self.n_points]
         )
         attention_weights = ops.softmax(attention_weights, axis=-1)
 
@@ -994,7 +1120,8 @@ class MSDeformableAttention(layers.Layer):
         elif reference_points.shape[-1] == 4:
             sampling_locations = (
                 reference_points[:, :, None, :, None, :2]
-                + sampling_offsets / self.n_points
+                + sampling_offsets
+                / self.n_points
                 * reference_points[:, :, None, :, None, 2:]
                 * 0.5
             )
@@ -1021,14 +1148,16 @@ class MSDeformableAttention(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "d_model": self.d_model,
-            "n_levels": self.n_levels,
-            "n_heads": self.n_heads,
-            "n_points": self.n_points,
-            "spatial_shapes": self.spatial_shapes,
-            "level_start_index": self.level_start_index,
-        })
+        config.update(
+            {
+                "d_model": self.d_model,
+                "n_levels": self.n_levels,
+                "n_heads": self.n_heads,
+                "n_points": self.n_points,
+                "spatial_shapes": self.spatial_shapes,
+                "level_start_index": self.level_start_index,
+            }
+        )
         return config
 
 
@@ -1039,9 +1168,19 @@ class MSDeformableAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class RFDETRDecoderLayer(layers.Layer):
-    def __init__(self, d_model, sa_nhead, ca_nhead, dim_feedforward=2048,
-                 dropout=0.0, num_feature_levels=1, dec_n_points=4,
-                 spatial_shapes=None, level_start_index=None, **kwargs):
+    def __init__(
+        self,
+        d_model,
+        sa_nhead,
+        ca_nhead,
+        dim_feedforward=2048,
+        dropout=0.0,
+        num_feature_levels=1,
+        dec_n_points=4,
+        spatial_shapes=None,
+        level_start_index=None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.d_model = d_model
         self.sa_nhead = sa_nhead
@@ -1106,8 +1245,15 @@ class RFDETRDecoderLayer(layers.Layer):
         out = ops.reshape(out, [batch, seq_len, self.d_model])
         return self.self_attn_out(out)
 
-    def call(self, tgt, memory, query_pos, reference_points,
-             memory_key_padding_mask=None, training=None):
+    def call(
+        self,
+        tgt,
+        memory,
+        query_pos,
+        reference_points,
+        memory_key_padding_mask=None,
+        training=None,
+    ):
         q = k = tgt + query_pos
         v = tgt
 
@@ -1140,17 +1286,19 @@ class RFDETRDecoderLayer(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "d_model": self.d_model,
-            "sa_nhead": self.sa_nhead,
-            "ca_nhead": self.ca_nhead,
-            "dim_feedforward": self.dim_feedforward,
-            "dropout": self.dropout_rate,
-            "num_feature_levels": self.num_feature_levels,
-            "dec_n_points": self.dec_n_points,
-            "spatial_shapes": self.spatial_shapes,
-            "level_start_index": self.level_start_index,
-        })
+        config.update(
+            {
+                "d_model": self.d_model,
+                "sa_nhead": self.sa_nhead,
+                "ca_nhead": self.ca_nhead,
+                "dim_feedforward": self.dim_feedforward,
+                "dropout": self.dropout_rate,
+                "num_feature_levels": self.num_feature_levels,
+                "dec_n_points": self.dec_n_points,
+                "spatial_shapes": self.spatial_shapes,
+                "level_start_index": self.level_start_index,
+            }
+        )
         return config
 
 

@@ -530,6 +530,7 @@ def verify_equivalence(variant, keras_model, torch_sd):
     pt_input_norm = normalize(pt_input)
 
     import rfdetr as rfdetr_pkg
+
     pt_wrapper = getattr(rfdetr_pkg, variant.replace("RFDETR", "RFDETR"))()
     pt_model = pt_wrapper.model.model
     pt_model.eval()
@@ -552,9 +553,10 @@ def verify_equivalence(variant, keras_model, torch_sd):
 
     pt_flat = pt_logits.flatten()
     k_flat = keras_logits.flatten()
-    logits_cos = float(np.dot(pt_flat, k_flat) / (
-        np.linalg.norm(pt_flat) * np.linalg.norm(k_flat) + 1e-8
-    ))
+    logits_cos = float(
+        np.dot(pt_flat, k_flat)
+        / (np.linalg.norm(pt_flat) * np.linalg.norm(k_flat) + 1e-8)
+    )
 
     print(f"Max logits diff:  {logits_diff:.6f}")
     print(f"Max boxes diff:   {boxes_diff:.6f}")

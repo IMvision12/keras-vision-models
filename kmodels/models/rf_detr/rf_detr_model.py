@@ -22,8 +22,9 @@ from .rf_detr_layers import (
 class UnwindowFeatures(layers.Layer):
     """Remove register/CLS tokens, undo windowing, reshape to spatial (B, H, W, C)."""
 
-    def __init__(self, num_h, num_w, num_windows, hidden_size,
-                 num_register_tokens, **kwargs):
+    def __init__(
+        self, num_h, num_w, num_windows, hidden_size, num_register_tokens, **kwargs
+    ):
         super().__init__(**kwargs)
         self.num_h = num_h
         self.num_w = num_w
@@ -32,10 +33,10 @@ class UnwindowFeatures(layers.Layer):
         self.num_register_tokens = num_register_tokens
 
     def call(self, hidden_state):
-        hidden_state = hidden_state[:, self.num_register_tokens + 1:, :]
+        hidden_state = hidden_state[:, self.num_register_tokens + 1 :, :]
 
         if self.num_windows > 1:
-            nw2 = self.num_windows ** 2
+            nw2 = self.num_windows**2
             shape = ops.shape(hidden_state)
             B_win = shape[0]
             HW_win = shape[1]
@@ -45,12 +46,13 @@ class UnwindowFeatures(layers.Layer):
             h_pw = self.num_h // self.num_windows
             w_pw = self.num_w // self.num_windows
             hidden_state = ops.reshape(
-                hidden_state,
-                [-1, self.num_windows, h_pw, w_pw, C]
+                hidden_state, [-1, self.num_windows, h_pw, w_pw, C]
             )
             hidden_state = ops.transpose(hidden_state, [0, 2, 1, 3, 4])
 
-        hidden_state = ops.reshape(hidden_state, [-1, self.num_h, self.num_w, self.hidden_size])
+        hidden_state = ops.reshape(
+            hidden_state, [-1, self.num_h, self.num_w, self.hidden_size]
+        )
         return hidden_state
 
     def compute_output_spec(self, input_spec, **kwargs):
@@ -61,13 +63,15 @@ class UnwindowFeatures(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "num_h": self.num_h,
-            "num_w": self.num_w,
-            "num_windows": self.num_windows,
-            "hidden_size": self.hidden_size,
-            "num_register_tokens": self.num_register_tokens,
-        })
+        config.update(
+            {
+                "num_h": self.num_h,
+                "num_w": self.num_w,
+                "num_windows": self.num_windows,
+                "hidden_size": self.hidden_size,
+                "num_register_tokens": self.num_register_tokens,
+            }
+        )
         return config
 
 
@@ -93,7 +97,7 @@ class EncoderOutputProposals(layers.Layer):
             scale = ops.reshape(scale, [1, 1, 2])
             grid = (grid + 0.5) / scale
 
-            wh = ops.ones_like(grid) * 0.05 * (2.0 ** lvl)
+            wh = ops.ones_like(grid) * 0.05 * (2.0**lvl)
             proposal = ops.concatenate([grid, wh], axis=-1)
             proposals.append(proposal)
 
@@ -105,11 +109,14 @@ class EncoderOutputProposals(layers.Layer):
 
         valid = ops.all(
             (output_proposals > 0.01) & (output_proposals < 0.99),
-            axis=-1, keepdims=True,
+            axis=-1,
+            keepdims=True,
         )
 
         if self.bbox_reparam:
-            output_proposals = ops.where(valid, output_proposals, ops.zeros_like(output_proposals))
+            output_proposals = ops.where(
+                valid, output_proposals, ops.zeros_like(output_proposals)
+            )
         else:
             eps = 1e-7
             clamped = ops.clip(output_proposals, eps, 1.0 - eps)
@@ -124,15 +131,19 @@ class EncoderOutputProposals(layers.Layer):
         total = sum(h * w for h, w in self.spatial_shapes)
         return (
             keras.KerasTensor(shape=memory_spec.shape, dtype=memory_spec.dtype),
-            keras.KerasTensor(shape=(memory_spec.shape[0], total, 4), dtype=memory_spec.dtype),
+            keras.KerasTensor(
+                shape=(memory_spec.shape[0], total, 4), dtype=memory_spec.dtype
+            ),
         )
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "spatial_shapes": self.spatial_shapes,
-            "bbox_reparam": self.bbox_reparam,
-        })
+        config.update(
+            {
+                "spatial_shapes": self.spatial_shapes,
+                "bbox_reparam": self.bbox_reparam,
+            }
+        )
         return config
 
 
@@ -156,9 +167,7 @@ class LearnedEmbedding(layers.Layer):
 
     def call(self, x):
         batch_size = ops.shape(x)[0]
-        return ops.repeat(
-            ops.expand_dims(self.weight, axis=0), batch_size, axis=0
-        )
+        return ops.repeat(ops.expand_dims(self.weight, axis=0), batch_size, axis=0)
 
     def compute_output_spec(self, input_spec, **kwargs):
         return keras.KerasTensor(
@@ -168,11 +177,13 @@ class LearnedEmbedding(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "num_embeddings": self.num_embeddings,
-            "embedding_dim": self.embedding_dim,
-            "initializer": self.initializer,
-        })
+        config.update(
+            {
+                "num_embeddings": self.num_embeddings,
+                "embedding_dim": self.embedding_dim,
+                "initializer": self.initializer,
+            }
+        )
         return config
 
 
@@ -187,7 +198,7 @@ class TwoStageRefineRefpoints(layers.Layer):
 
     def call(self, inputs):
         refpoint_embed, refpoint_embed_ts = inputs
-        refpoint_embed_subset = refpoint_embed[:, :self.num_queries, :]
+        refpoint_embed_subset = refpoint_embed[:, : self.num_queries, :]
         if self.bbox_reparam:
             ref_cxcy = (
                 refpoint_embed_subset[..., :2] * refpoint_embed_ts[..., 2:]
@@ -208,10 +219,12 @@ class TwoStageRefineRefpoints(layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "bbox_reparam": self.bbox_reparam,
-            "num_queries": self.num_queries,
-        })
+        config.update(
+            {
+                "bbox_reparam": self.bbox_reparam,
+                "num_queries": self.num_queries,
+            }
+        )
         return config
 
 
@@ -337,8 +350,12 @@ class RFDETR(keras.Model):
         unwindowed_features = []
         for i, feat in enumerate(encoder_features):
             uw = UnwindowFeatures(
-                num_h, num_w, num_windows, backbone_hidden_size,
-                num_register_tokens, name=f"unwindow_{i}",
+                num_h,
+                num_w,
+                num_windows,
+                backbone_hidden_size,
+                num_register_tokens,
+                name=f"unwindow_{i}",
             )(feat)
             unwindowed_features.append(uw)
 
@@ -349,8 +366,12 @@ class RFDETR(keras.Model):
         num_scales = len(out_feature_indexes)
         c2f_in_channels = backbone_hidden_size * num_scales
         projected = C2f(
-            hidden_dim, num_blocks=3, shortcut=False, expansion=0.5,
-            activation="silu", use_layer_norm=True,
+            hidden_dim,
+            num_blocks=3,
+            shortcut=False,
+            expansion=0.5,
+            activation="silu",
+            use_layer_norm=True,
             name="projector_c2f",
         )(concat_feat)
         projected = ChannelLayerNorm(name="projector_ln")(projected)
@@ -368,65 +389,94 @@ class RFDETR(keras.Model):
         level_start_index = [0]
 
         # Flatten to (B, H*W, C)
-        src_flat = ops.reshape(projected, [-1, proj_shape[0] * proj_shape[1], hidden_dim])
-        pos_flat = ops.reshape(pos_embed, [1, proj_shape[0] * proj_shape[1], hidden_dim])
+        src_flat = ops.reshape(
+            projected, [-1, proj_shape[0] * proj_shape[1], hidden_dim]
+        )
+        pos_flat = ops.reshape(
+            pos_embed, [1, proj_shape[0] * proj_shape[1], hidden_dim]
+        )
         pos_flat = ops.broadcast_to(pos_flat, ops.shape(src_flat))
 
         memory = src_flat
 
         # --- Learned query embeddings (used in both two-stage and single-stage) ---
         tgt = LearnedEmbedding(
-            num_queries, hidden_dim, initializer="glorot_uniform",
+            num_queries,
+            hidden_dim,
+            initializer="glorot_uniform",
             name="query_feat_embed",
         )(memory)
         refpoint_embed = LearnedEmbedding(
-            num_queries, 4, initializer="zeros",
+            num_queries,
+            4,
+            initializer="zeros",
             name="refpoint_embed_layer",
         )(memory)
 
         # --- Two-Stage Query Initialization ---
         if two_stage:
             output_memory_filtered, output_proposals = EncoderOutputProposals(
-                spatial_shapes=spatial_shapes, bbox_reparam=bbox_reparam,
+                spatial_shapes=spatial_shapes,
+                bbox_reparam=bbox_reparam,
                 name="encoder_proposals",
             )(memory)
 
-            enc_output_proj = layers.Dense(hidden_dim, name="enc_output_0")(output_memory_filtered)
-            enc_output_norm = layers.LayerNormalization(epsilon=1e-5, name="enc_output_norm_0")
+            enc_output_proj = layers.Dense(hidden_dim, name="enc_output_0")(
+                output_memory_filtered
+            )
+            enc_output_norm = layers.LayerNormalization(
+                epsilon=1e-5, name="enc_output_norm_0"
+            )
             output_memory_proj = enc_output_norm(enc_output_proj)
 
-            enc_cls = layers.Dense(num_classes, name="enc_out_class_embed_0")(output_memory_proj)
+            enc_cls = layers.Dense(num_classes, name="enc_out_class_embed_0")(
+                output_memory_proj
+            )
 
-            bbox_embed_enc_0 = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_0")
-            bbox_embed_enc_1 = layers.Dense(hidden_dim, activation="relu", name="enc_bbox_1")
+            bbox_embed_enc_0 = layers.Dense(
+                hidden_dim, activation="relu", name="enc_bbox_0"
+            )
+            bbox_embed_enc_1 = layers.Dense(
+                hidden_dim, activation="relu", name="enc_bbox_1"
+            )
             bbox_embed_enc_2 = layers.Dense(4, name="enc_bbox_2")
 
-            enc_bbox_delta = bbox_embed_enc_2(bbox_embed_enc_1(bbox_embed_enc_0(output_memory_proj)))
+            enc_bbox_delta = bbox_embed_enc_2(
+                bbox_embed_enc_1(bbox_embed_enc_0(output_memory_proj))
+            )
 
             if bbox_reparam:
-                enc_coord_cxcy = enc_bbox_delta[..., :2] * output_proposals[..., 2:] + output_proposals[..., :2]
-                enc_coord_wh = ops.exp(enc_bbox_delta[..., 2:]) * output_proposals[..., 2:]
+                enc_coord_cxcy = (
+                    enc_bbox_delta[..., :2] * output_proposals[..., 2:]
+                    + output_proposals[..., :2]
+                )
+                enc_coord_wh = (
+                    ops.exp(enc_bbox_delta[..., 2:]) * output_proposals[..., 2:]
+                )
                 enc_coords = ops.concatenate([enc_coord_cxcy, enc_coord_wh], axis=-1)
             else:
                 enc_coords = enc_bbox_delta + output_proposals
 
             enc_cls_max = ops.max(enc_cls, axis=-1)
-            topk_indices = ops.top_k(enc_cls_max, k=min(num_queries, proj_shape[0] * proj_shape[1]))[1]
-            topk_idx_4 = ops.repeat(
-                ops.expand_dims(topk_indices, axis=-1), 4, axis=-1
-            )
+            topk_indices = ops.top_k(
+                enc_cls_max, k=min(num_queries, proj_shape[0] * proj_shape[1])
+            )[1]
+            topk_idx_4 = ops.repeat(ops.expand_dims(topk_indices, axis=-1), 4, axis=-1)
             refpoint_embed_ts = ops.take_along_axis(enc_coords, topk_idx_4, axis=1)
             refpoint_embed_ts = ops.stop_gradient(refpoint_embed_ts)
 
             refpoints_unsigmoid = TwoStageRefineRefpoints(
-                bbox_reparam=bbox_reparam, num_queries=num_queries,
+                bbox_reparam=bbox_reparam,
+                num_queries=num_queries,
                 name="refine_refpoints",
             )([refpoint_embed, refpoint_embed_ts])
         else:
             refpoints_unsigmoid = refpoint_embed
 
         # --- Ref point head ---
-        ref_point_head_0 = layers.Dense(hidden_dim, activation="relu", name="ref_point_head_0")
+        ref_point_head_0 = layers.Dense(
+            hidden_dim, activation="relu", name="ref_point_head_0"
+        )
         ref_point_head_1 = layers.Dense(hidden_dim, name="ref_point_head_1")
 
         # --- Decoder ---
@@ -486,14 +536,20 @@ class RFDETR(keras.Model):
                 ref_input = sig_ref[:, :, None, :]
 
             output = dec_layer(
-                output, memory, query_pos, ref_input,
+                output,
+                memory,
+                query_pos,
+                ref_input,
                 training=False,
             )
 
             if not lite_refpoint_refine:
                 new_delta = bbox_embed_2(bbox_embed_1(bbox_embed_0(output)))
                 if bbox_reparam:
-                    new_cxcy = new_delta[..., :2] * refpoints_unsigmoid[..., 2:] + refpoints_unsigmoid[..., :2]
+                    new_cxcy = (
+                        new_delta[..., :2] * refpoints_unsigmoid[..., 2:]
+                        + refpoints_unsigmoid[..., :2]
+                    )
                     new_wh = ops.exp(new_delta[..., 2:]) * refpoints_unsigmoid[..., 2:]
                     refpoints_unsigmoid = ops.concatenate([new_cxcy, new_wh], axis=-1)
                 else:
@@ -508,7 +564,10 @@ class RFDETR(keras.Model):
 
         pred_bbox_delta = bbox_embed_2(bbox_embed_1(bbox_embed_0(output)))
         if bbox_reparam:
-            pred_cxcy = pred_bbox_delta[..., :2] * refpoints_unsigmoid[..., 2:] + refpoints_unsigmoid[..., :2]
+            pred_cxcy = (
+                pred_bbox_delta[..., :2] * refpoints_unsigmoid[..., 2:]
+                + refpoints_unsigmoid[..., :2]
+            )
             pred_wh = ops.exp(pred_bbox_delta[..., 2:]) * refpoints_unsigmoid[..., 2:]
             pred_boxes = ops.concatenate([pred_cxcy, pred_wh], axis=-1)
         else:
@@ -545,34 +604,36 @@ class RFDETR(keras.Model):
 
     def get_config(self):
         config = super().get_config()
-        config.update({
-            "hidden_dim": self.hidden_dim,
-            "backbone_hidden_size": self.backbone_hidden_size,
-            "backbone_num_heads": self.backbone_num_heads,
-            "backbone_num_layers": self.backbone_num_layers,
-            "backbone_mlp_ratio": self.backbone_mlp_ratio,
-            "backbone_use_swiglu": self.backbone_use_swiglu,
-            "num_register_tokens": self.num_register_tokens,
-            "out_feature_indexes": self.out_feature_indexes,
-            "patch_size": self.patch_size,
-            "num_windows": self.num_windows,
-            "positional_encoding_size": self.positional_encoding_size,
-            "resolution": self.resolution,
-            "dec_layers": self.dec_layers,
-            "sa_nheads": self.sa_nheads,
-            "ca_nheads": self.ca_nheads,
-            "dec_n_points": self.dec_n_points,
-            "num_queries": self.num_queries,
-            "num_classes": self.num_classes,
-            "two_stage": self.two_stage,
-            "bbox_reparam": self.bbox_reparam,
-            "lite_refpoint_refine": self.lite_refpoint_refine,
-            "group_detr": self.group_detr,
-            "dim_feedforward": self.dim_feedforward,
-            "input_shape": self.input_shape[1:],
-            "input_tensor": self._input_tensor,
-            "name": self.name,
-        })
+        config.update(
+            {
+                "hidden_dim": self.hidden_dim,
+                "backbone_hidden_size": self.backbone_hidden_size,
+                "backbone_num_heads": self.backbone_num_heads,
+                "backbone_num_layers": self.backbone_num_layers,
+                "backbone_mlp_ratio": self.backbone_mlp_ratio,
+                "backbone_use_swiglu": self.backbone_use_swiglu,
+                "num_register_tokens": self.num_register_tokens,
+                "out_feature_indexes": self.out_feature_indexes,
+                "patch_size": self.patch_size,
+                "num_windows": self.num_windows,
+                "positional_encoding_size": self.positional_encoding_size,
+                "resolution": self.resolution,
+                "dec_layers": self.dec_layers,
+                "sa_nheads": self.sa_nheads,
+                "ca_nheads": self.ca_nheads,
+                "dec_n_points": self.dec_n_points,
+                "num_queries": self.num_queries,
+                "num_classes": self.num_classes,
+                "two_stage": self.two_stage,
+                "bbox_reparam": self.bbox_reparam,
+                "lite_refpoint_refine": self.lite_refpoint_refine,
+                "group_detr": self.group_detr,
+                "dim_feedforward": self.dim_feedforward,
+                "input_shape": self.input_shape[1:],
+                "input_tensor": self._input_tensor,
+                "name": self.name,
+            }
+        )
         return config
 
     @classmethod
@@ -675,9 +736,14 @@ def RFDETRNano(
         ```
     """
     return _create_rf_detr_model(
-        "RFDETRNano", num_queries=num_queries, num_classes=num_classes,
-        weights=weights, input_shape=input_shape, input_tensor=input_tensor,
-        name=name, **kwargs,
+        "RFDETRNano",
+        num_queries=num_queries,
+        num_classes=num_classes,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        **kwargs,
     )
 
 
@@ -707,9 +773,14 @@ def RFDETRSmall(
         RF-DETR Small model.
     """
     return _create_rf_detr_model(
-        "RFDETRSmall", num_queries=num_queries, num_classes=num_classes,
-        weights=weights, input_shape=input_shape, input_tensor=input_tensor,
-        name=name, **kwargs,
+        "RFDETRSmall",
+        num_queries=num_queries,
+        num_classes=num_classes,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        **kwargs,
     )
 
 
@@ -739,9 +810,14 @@ def RFDETRMedium(
         RF-DETR Medium model.
     """
     return _create_rf_detr_model(
-        "RFDETRMedium", num_queries=num_queries, num_classes=num_classes,
-        weights=weights, input_shape=input_shape, input_tensor=input_tensor,
-        name=name, **kwargs,
+        "RFDETRMedium",
+        num_queries=num_queries,
+        num_classes=num_classes,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        **kwargs,
     )
 
 
@@ -771,9 +847,14 @@ def RFDETRBase(
         RF-DETR Base model.
     """
     return _create_rf_detr_model(
-        "RFDETRBase", num_queries=num_queries, num_classes=num_classes,
-        weights=weights, input_shape=input_shape, input_tensor=input_tensor,
-        name=name, **kwargs,
+        "RFDETRBase",
+        num_queries=num_queries,
+        num_classes=num_classes,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        **kwargs,
     )
 
 
@@ -804,7 +885,12 @@ def RFDETRLarge(
         RF-DETR Large model.
     """
     return _create_rf_detr_model(
-        "RFDETRLarge", num_queries=num_queries, num_classes=num_classes,
-        weights=weights, input_shape=input_shape, input_tensor=input_tensor,
-        name=name, **kwargs,
+        "RFDETRLarge",
+        num_queries=num_queries,
+        num_classes=num_classes,
+        weights=weights,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        name=name,
+        **kwargs,
     )

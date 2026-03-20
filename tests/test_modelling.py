@@ -4,9 +4,13 @@ import tempfile
 from typing import Any, Dict, Tuple, Type, Union
 
 import keras
-import tensorflow as tf
 from keras import Model, ops
 from keras.src.testing import TestCase
+
+try:
+    import tensorflow as tf
+except ImportError:
+    tf = None
 
 
 class ModelTestCase(TestCase):
@@ -59,7 +63,10 @@ class ModelTestCase(TestCase):
     def convert_data_format(
         self, data: keras.KerasTensor, to_format: str
     ) -> keras.KerasTensor:
-        if not isinstance(data, (keras.KerasTensor, tf.Tensor)):
+        tensor_types = (keras.KerasTensor,)
+        if tf is not None:
+            tensor_types = tensor_types + (tf.Tensor,)
+        if not isinstance(data, tensor_types):
             return data
 
         if len(data.shape) == 4:
@@ -78,8 +85,11 @@ class ModelTestCase(TestCase):
 
         result = {}
         for key, value in data_dict.items():
+            tensor_types = (keras.KerasTensor,)
+            if tf is not None:
+                tensor_types = tensor_types + (tf.Tensor,)
             if (
-                isinstance(value, (keras.KerasTensor, tf.Tensor))
+                isinstance(value, tensor_types)
                 and len(value.shape) == 4
             ):
                 if (value.shape[-1] <= 4 and value.shape[-1] >= 1) or (
@@ -179,6 +189,7 @@ class ModelTestCase(TestCase):
 
             if (
                 keras.config.backend() == "tensorflow"
+                and tf is not None
                 and tf.config.list_physical_devices("GPU")
             ):
                 keras.config.set_image_data_format("channels_first")
@@ -430,6 +441,11 @@ class ModelTestCase(TestCase):
         larger_model = self.create_model(**model_kwargs)
         larger_output = larger_model(larger_input)
 
+        if isinstance(larger_output, dict):
+            self.skipTest(
+                "Spatial dimension check not applicable for dict outputs"
+            )
+
         if isinstance(larger_output, list):
             main_output = larger_output[-1]
         else:
@@ -447,6 +463,45 @@ class ModelTestCase(TestCase):
                 (larger_height, larger_width),
                 "Output spatial dimensions don't match input dimensions",
             )
+
+    def test_object_detection_outputs(self):
+        if self.model_type != "object_detection":
+            self.skipTest("This test is only for object detection models")
+
+        model = self.create_model()
+        input_data = self.get_input_data()
+        output = model(input_data)
+
+        self.assertIsInstance(
+            output, dict, "Object detection output should be a dictionary"
+        )
+        self.check_output_shape(output, self.expected_output_shape)
+
+        for key, value in output.items():
+            has_nans = ops.any(ops.isnan(value))
+            self.assertFalse(
+                has_nans, f"Output '{key}' contains NaN values"
+            )
+
+    def test_segmentation_outputs(self):
+        if self.model_type != "segmentation":
+            self.skipTest("This test is only for segmentation models")
+
+        model = self.create_model()
+        input_data = self.get_input_data()
+        output = model(input_data)
+
+        if isinstance(output, dict):
+            self.check_output_shape(output, self.expected_output_shape)
+            for key, value in output.items():
+                has_nans = ops.any(ops.isnan(value))
+                self.assertFalse(
+                    has_nans, f"Output '{key}' contains NaN values"
+                )
+        else:
+            self.check_output_shape(output, self.expected_output_shape)
+            has_nans = ops.any(ops.isnan(output))
+            self.assertFalse(has_nans, "Segmentation output contains NaN values")
 
     def test_vlm_text_image_inputs(self):
         if self.model_type != "vlm":

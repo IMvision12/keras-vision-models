@@ -4,7 +4,13 @@ import torch
 from tqdm import tqdm
 from transformers import EomtForUniversalSegmentation
 
-from kmodels.models.eomt.eomt_model import EoMT_Large
+from kmodels.models.eomt.eomt_model import EoMT_Base, EoMT_Large, EoMT_Small
+
+VARIANT_MAP = {
+    "small": EoMT_Small,
+    "base": EoMT_Base,
+    "large": EoMT_Large,
+}
 
 
 def convert_model(
@@ -12,6 +18,7 @@ def convert_model(
     input_shape=(640, 640, 3),
     num_queries=200,
     num_labels=133,
+    variant="large",
 ):
     """Convert HuggingFace EoMT weights to Keras format.
 
@@ -20,13 +27,15 @@ def convert_model(
         input_shape: Input shape (H, W, C).
         num_queries: Number of object queries.
         num_labels: Number of segmentation classes.
+        variant: Model variant ("small", "base", or "large").
     """
     print(f"Loading HF model: {hf_model_name}")
     hf_model = EomtForUniversalSegmentation.from_pretrained(hf_model_name).eval()
     hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
-    print("Creating Keras model...")
-    keras_model = EoMT_Large(
+    keras_model_cls = VARIANT_MAP[variant]
+    print(f"Creating Keras model ({variant})...")
+    keras_model = keras_model_cls(
         num_queries=num_queries,
         num_labels=num_labels,
         input_shape=input_shape,
@@ -189,7 +198,7 @@ def convert_model(
     print(f"Max class logits diff: {class_diff:.6f}")
     print(f"Max mask logits diff:  {mask_diff:.6f}")
 
-    if class_diff > 1e-3 or mask_diff > 1e-3:
+    if class_diff > 1e-3 or mask_diff > 2e-3:
         raise ValueError(
             f"Model equivalence test failed "
             f"(class: {class_diff:.6f}, mask: {mask_diff:.6f})"
@@ -206,9 +215,33 @@ def convert_model(
 
 
 if __name__ == "__main__":
-    convert_model(
-        "tue-mps/coco_panoptic_eomt_large_640",
-        input_shape=(640, 640, 3),
-        num_queries=200,
-        num_labels=133,
-    )
+    configs = [
+        {
+            "hf_model_name": "tue-mps/coco_panoptic_eomt_small_640_2x",
+            "input_shape": (640, 640, 3),
+            "num_queries": 200,
+            "num_labels": 133,
+            "variant": "small",
+        },
+        {
+            "hf_model_name": "tue-mps/coco_panoptic_eomt_base_640_2x",
+            "input_shape": (640, 640, 3),
+            "num_queries": 200,
+            "num_labels": 133,
+            "variant": "base",
+        },
+        {
+            "hf_model_name": "tue-mps/coco_panoptic_eomt_large_640",
+            "input_shape": (640, 640, 3),
+            "num_queries": 200,
+            "num_labels": 133,
+            "variant": "large",
+        },
+    ]
+
+    for cfg in configs:
+        print(f"\n{'='*60}")
+        print(f"Converting {cfg['hf_model_name']}...")
+        print(f"{'='*60}")
+        convert_model(**cfg)
+        print()

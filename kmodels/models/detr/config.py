@@ -22,12 +22,12 @@ DETR_MODEL_CONFIG = {
 DETR_WEIGHTS_CONFIG = {
     "DETRResNet50": {
         "coco": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DeTR/detr_resnet_50_coco.weights.h5",
         },
     },
     "DETRResNet101": {
         "coco": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DeTR/detr_resnet_101_coco.weights.h5",
         },
     },
 }

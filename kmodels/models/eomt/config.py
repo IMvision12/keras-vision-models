@@ -40,23 +40,23 @@ EOMT_MODEL_CONFIG = {
 EOMT_WEIGHTS_CONFIG = {
     "EoMT_Small": {
         "coco_panoptic_640": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/EoMT/coco_panoptic_eomt_small_640_2x.weights.h5",
         },
     },
     "EoMT_Base": {
         "coco_panoptic_640": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/EoMT/coco_panoptic_eomt_base_640_2x.weights.h5",
         },
     },
     "EoMT_Large": {
         "coco_panoptic_640": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/EoMT/coco_panoptic_eomt_large_640.weights.h5",
         },
         "coco_instance_640": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/EoMT/coco_instance_eomt_large_640.weights.h5",
         },
         "ade20k_semantic_512": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/EoMT/ade20k_semantic_eomt_large_512.weights.h5",
         },
     },
 }

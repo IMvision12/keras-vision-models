@@ -4,20 +4,11 @@
 [![Keras](https://img.shields.io/badge/keras-v3.5.0+-success.svg)](https://github.com/keras-team/keras)
 ![Python](https://img.shields.io/badge/python-v3.10.0+-success.svg)
 
-## 📌 Table of Contents
-
-- 📖 [Introduction](#introduction)
-- ⚡ [Installation](#installation)
-- 🛠️ [Usage](#usage)
-- 📑 [Models](#models)
-- 📜 [License](#license)
-- 🌟 [Credits](#Credits)
-
 ## 📖 Introduction
 
 Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR), segmentation (SegFormer, DeepLabV3, EoMT), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
-## ⚡Installation 
+## ⚡ Installation
 
 From PyPI (recommended)
 
@@ -31,322 +22,19 @@ From Source
 pip install -U git+https://github.com/IMvision12/keras-models
 ```
 
-## 🛠️ Usage
-
-<h3><b>🔎 Listing Available Models</b></h3>
-
-Shows all available models, including backbones, segmentation models, object detection models, and vision-language models (VLMs). It also includes the names of the weights available for each specific model variant.
-    
-```python
-import kmodels
-print(kmodels.list_models())
-
-## Output:
-"""
-CaiTM36 : fb_dist_in1k_384
-CaiTM48 : fb_dist_in1k_448
-CaiTS24 : fb_dist_in1k_224, fb_dist_in1k_384
-...
-ConvMixer1024D20 : in1k
-ConvMixer1536D20 : in1k
-...
-ConvNeXtAtto : d2_in1k
-ConvNeXtBase : fb_in1k, fb_in22k, fb_in22k_ft_in1k, fb_in22k_ft_in1k_384
-...
-"""
-```
-<h3><b>🔎 List Specific Model Variant</b></h3>
-
-```python
-import kmodels
-print(kmodels.list_models("swin"))
-
-# Output:
-"""
-SwinBaseP4W12 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
-SwinBaseP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
-SwinLargeP4W12 : ms_in22k, ms_in22k_ft_in1k
-SwinLargeP4W7 : ms_in22k, ms_in22k_ft_in1k
-SwinSmallP4W7 : ms_in1k, ms_in22k, ms_in22k_ft_in1k
-SwinTinyP4W7 : ms_in1k, ms_in22k
-"""
-```
-
-<h3><b>⚙️ Layers </b></h3>
-kmodels provides various custom layers like StochasticDepth, LayerScale, EfficientMultiheadSelfAttention, and more. These layers can be seamlessly integrated into your custom models and workflows 🚀
-
-```python
-import kmodels
-
-# Example 1
-layer = kmodels.layers.StochasticDepth(drop_path_rate=0.1)
-output = layer(input_tensor, training=True)
-
-# Example 2
-window_partition = WindowPartition(window_size=7)
-windowed_features = window_partition(features, height=28, width=28)
-```
-
-<h3><b>🏗️ Backbone Usage (Classification) </b></h3>
-
-#### 🛠️ Basic Usage
-```python
-import kmodels
-import numpy as np
-
-# default configuration
-model = kmodels.models.vit.ViTTiny16()
-
-# For Fine-Tuning (default weight)
-model = kmodels.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3))
-# Custom Weight
-model = kmodels.models.vit.ViTTiny16(include_top=False, input_shape=(224,224,3), weights="augreg_in21k_224")
-
-# Backbone Support
-model = kmodels.models.vit.ViTTiny16(include_top=False, as_backbone=True, input_shape=(224,224,3), weights="augreg_in21k_224")
-random_input = np.random.rand(1, 224, 224, 3).astype(np.float32)
-features = model(random_input)
-print(f"Number of feature maps: {len(features)}")
-for i, feature in enumerate(features):
-    print(f"Feature {i} shape: {feature.shape}")
-
-"""
-Output:
-
-Number of feature maps: 13
-Feature 0 shape: (1, 197, 192)
-Feature 1 shape: (1, 197, 192)
-Feature 2 shape: (1, 197, 192)
-...
-"""    
-```
-
-#### Example Inference
-
-```python
-from keras import ops
-from keras.applications.imagenet_utils import decode_predictions
-import kmodels
-from PIL import Image
-
-model = kmodels.models.swin.SwinTinyP4W7(input_shape=[224, 224, 3])
-
-image = Image.open("bird.png").resize((224, 224))
-x = ops.convert_to_tensor(image)
-x = ops.expand_dims(x, axis=0)
-
-# Predict
-preds = model.predict(x)
-print("Predicted:", decode_predictions(preds, top=3)[0])
-
-#output:
-Predicted: [('n01537544', 'indigo_bunting', np.float32(0.9135666)), ('n01806143', 'peacock', np.float32(0.0003379386)), ('n02017213', 'European_gallinule', np.float32(0.00027174334))]
-```
-
-<h3><b>🧩 Segmentation </b></h3>
-
-#### 🛠️ Basic Usage
- 
-```python
-import kmodels
-
-# Pre-Trained weights (cityscapes or ade20kor mit(in1k))
-# ade20k and cityscapes can be used for fine-tuning by giving custom `num_classes`
-# If `num_classes` is not specified by default for ade20k it will be 150 and for cityscapes it will be 19
-model = kmodels.models.segformer.SegFormerB0(weights="ade20k", input_shape=(512,512,3))
-model = kmodels.models.segformer.SegFormerB0(weights="cityscapes", input_shape=(512,512,3))
-
-# Fine-Tune using `MiT` backbone (This will load `in1k` weights)
-model = kmodels.models.segformer.SegFormerB0(weights="mit", input_shape=(512,512,3))
-```
-
-#### 🚀 Custom Backbone Support
-
-```python
-import kmodels
-
-# With no backbone weights
-backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights=None, include_top=False, input_shape=(224,224,3))
-segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
-
-# With backbone weights
-import kmodels
-backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
-segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
-```
-
-#### 🚀 Example Inference
-
-```python
-import kmodels
-from PIL import Image
-import numpy as np
-
-model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512")
-
-image = Image.open("ADE_train_00000586.jpg")
-processed_img = kmodels.models.segformer.SegFormerImageProcessor(image=image,
-    do_resize=True,
-    size={"height": 512, "width": 512},
-    do_rescale=True,
-    do_normalize=True)
-outs = model.predict(processed_img)
-outs = np.argmax(outs[0], axis=-1)
-visualize_segmentation(outs, image)
-```
-![output](images/seg_output.png)
-
-<h3><b>🎯 Object Detection (DETR)</b></h3>
-
-#### 🛠️ Basic Usage
-
-```python
-import kmodels
-
-# Load DETR with ResNet-50 backbone (COCO pre-trained)
-model = kmodels.models.detr.DETRResNet50(
-    weights="detr_resnet50_coco.weights.h5",
-    input_shape=(800, 800, 3),
-    include_normalization=False,
-)
-
-# Without pre-trained weights
-model = kmodels.models.detr.DETRResNet50(weights=None, input_shape=(800, 800, 3))
-
-# ResNet-101 variant
-model = kmodels.models.detr.DETRResNet101(weights=None, input_shape=(800, 800, 3))
-```
-
-#### 🚀 Example Inference
-
-```python
-import kmodels
-from kmodels.models.detr import DETRImageProcessor, DETRPostProcessor
-from PIL import Image
-
-model = kmodels.models.detr.DETRResNet50(
-    weights="detr_resnet50_coco.weights.h5",
-    input_shape=(800, 800, 3),
-    include_normalization=False,
-)
-
-image = Image.open("image.jpg")
-original_size = image.size[::-1]  # (H, W)
-
-# Preprocess: resize, rescale, ImageNet normalize
-processed = DETRImageProcessor(image, size={"height": 800, "width": 800})
-
-# Inference
-output = model(processed, training=False)
-# output["logits"]:     (1, 100, 92) — class logits per query
-# output["pred_boxes"]: (1, 100, 4)  — normalized (cx, cy, w, h)
-
-# Post-process: filter by confidence, convert boxes to pixel coords
-results = DETRPostProcessor(output, threshold=0.7, target_sizes=[original_size])
-for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
-    print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
-
-# Output:
-# bird: 0.97 at [209, 44, 430, 393]
-```
-
-<h3><b>🎯 Object Detection (RF-DETR)</b></h3>
-
-#### 🛠️ Basic Usage
-
-```python
-import kmodels
-
-# RF-DETR Base (29M params, 560px, COCO pre-trained)
-model = kmodels.models.rf_detr.RFDETRBase(weights="coco")
-
-# Available variants: Nano (384px), Small (512px), Medium (576px), Base (560px), Large (704px)
-model = kmodels.models.rf_detr.RFDETRNano(weights="coco")
-model = kmodels.models.rf_detr.RFDETRSmall(weights="coco")
-model = kmodels.models.rf_detr.RFDETRMedium(weights="coco")
-model = kmodels.models.rf_detr.RFDETRLarge(weights="coco")
-
-# Without pre-trained weights
-model = kmodels.models.rf_detr.RFDETRBase(weights=None)
-```
-
-#### 🚀 Example Inference
-
-```python
-import kmodels
-from kmodels.models.rf_detr import RFDETRImageProcessor, RFDETRPostProcessor
-from PIL import Image
-
-model = kmodels.models.rf_detr.RFDETRBase(weights="coco")
-
-image = Image.open("image.jpg")
-original_size = image.size[::-1]  # (H, W)
-
-# Preprocess: rescale, ImageNet normalize, resize to model resolution
-processed = RFDETRImageProcessor(image, size={"height": 560, "width": 560})
-
-# Inference
-output = model(processed, training=False)
-# output["pred_logits"]: (1, 300, 91) — class logits per query
-# output["pred_boxes"]:  (1, 300, 4)  — normalized (cx, cy, w, h)
-
-# Post-process: sigmoid, top-K selection, convert boxes to pixel coords
-results = RFDETRPostProcessor(output, threshold=0.5, target_sizes=[original_size])
-for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
-    print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
-
-# Output:
-# cat: 0.96 at [7, 55, 318, 472]
-# cat: 0.93 at [343, 24, 639, 372]
-# remote: 0.90 at [41, 73, 176, 118]
-# remote: 0.73 at [334, 77, 370, 187]
-# couch: 0.67 at [1, 2, 640, 475]
-```
-
-<h3><b>VLMS</b></h3>
-
-#### 🛠️ Basic Usage
-
-```python
-import keras
-
-import kmodels
-
-processor = kmodels.models.clip.CLIPProcessor()
-model = kmodels.models.clip.ClipVitBase16(
-    weights="openai_224",
-    input_shape=(224, 224, 3), # You can fine-tune or infer with variable size 
-)
-inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
-output = model(
-    {
-        "images": inputs["images"],
-        "token_ids": inputs["input_ids"],
-        "padding_mask": inputs["attention_mask"],
-    }
-)
-
-print("Raw Model Output:")
-print(output)
-
-preds = keras.ops.softmax(output["image_logits"]).numpy().squeeze()
-result = dict(zip(["mountains", "tortoise", "cat"], preds))
-print("\nPrediction probabilities:")
-print(result)
-
-#output:
-"""{'image_logits': <tf.Tensor: shape=(1, 3), dtype=float32, numpy=array([[11.042501, 10.388493, 18.414747]], dtype=float32)>, 'text_logits': <tf.Tensor: shape=(3, 1), dtype=float32, numpy=
-array([[11.042501],
-       [10.388493],
-       [18.414747]], dtype=float32)>}
-
-Prediction probabilities:
-{'mountains': np.float32(0.0006278555), 'tortoise': np.float32(0.000326458), 'cat': np.float32(0.99904567)}"""
-```
+## 📑 Documentation
+
+| Topic | Description |
+|-------|-------------|
+| [Backbone Models](docs/backbones.md) | Classification backbones (ViT, ResNet, Swin, ConvNeXt, EfficientNet, and more) with usage examples and model listing |
+| [Segmentation](docs/segmentation.md) | Semantic segmentation models (SegFormer, DeepLabV3, EoMT) with custom backbone support |
+| [Object Detection](docs/object_detection.md) | Object detection models (DETR, RF-DETR) with inference examples |
+| [Vision-Language Models](docs/vlms.md) | VLMs (CLIP, SigLIP, SigLIP2) for zero-shot classification and image-text similarity |
+| [Custom Layers](docs/layers.md) | Custom layers like StochasticDepth, LayerScale, and more |
 
 ## 📑 Models
 
-- Backbones:
+- Backbones
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
@@ -424,7 +112,7 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 ## 🌟 Credits
 
 - The [Keras](https://github.com/keras-team/keras) team for their powerful and user-friendly deep learning framework
-- The [Transformers](https://github.com/huggingface/transformers) library for its robust tools for loading and adapting pretrained models  
+- The [Transformers](https://github.com/huggingface/transformers) library for its robust tools for loading and adapting pretrained models
 - The [pytorch-image-models (timm)](https://github.com/huggingface/pytorch-image-models) project for pioneering many computer vision model implementations
 - All contributors to the original papers and architectures implemented in this library
 

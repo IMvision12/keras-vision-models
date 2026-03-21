@@ -236,7 +236,7 @@ if __name__ == "__main__":
         {
             "hf_model_name": "tue-mps/ade20k_semantic_eomt_large_512",
             "input_shape": (512, 512, 3),
-            "num_queries": 200,
+            "num_queries": 100,
             "num_labels": 150,
             "variant": "large",
         },

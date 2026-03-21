@@ -122,22 +122,23 @@ for model_config in model_configs:
 
     for i in tqdm(range(6), desc="Transferring encoder weights"):
         hf_prefix = f"model.encoder.layers.{i}"
-        enc_layer = keras_model.get_layer(f"encoder_layers_{i}")
+        k_prefix = f"encoder_layers_{i}"
 
+        self_attn = keras_model.get_layer(f"{k_prefix}_self_attn")
         for proj, hf_proj in [
             ("q_proj", "q_proj"),
             ("k_proj", "k_proj"),
             ("v_proj", "v_proj"),
             ("out_proj", "o_proj"),
         ]:
-            dense = getattr(enc_layer.self_attn, proj)
+            dense = getattr(self_attn, proj)
             w = pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.weight"]
             dense.weights[0].assign(w.T)
             dense.weights[1].assign(
                 pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.bias"]
             )
 
-        ln = enc_layer.self_attn_layer_norm
+        ln = keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm")
         ln.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.self_attn_layer_norm.weight"]
         )
@@ -145,15 +146,17 @@ for model_config in model_configs:
             pytorch_state_dict[f"{hf_prefix}.self_attn_layer_norm.bias"]
         )
 
+        fc1 = keras_model.get_layer(f"{k_prefix}_fc1")
         fc1_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc1.weight"]
-        enc_layer.fc1.weights[0].assign(fc1_w.T)
-        enc_layer.fc1.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
+        fc1.weights[0].assign(fc1_w.T)
+        fc1.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
 
+        fc2 = keras_model.get_layer(f"{k_prefix}_fc2")
         fc2_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc2.weight"]
-        enc_layer.fc2.weights[0].assign(fc2_w.T)
-        enc_layer.fc2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
+        fc2.weights[0].assign(fc2_w.T)
+        fc2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
 
-        ln2 = enc_layer.final_layer_norm
+        ln2 = keras_model.get_layer(f"{k_prefix}_final_layer_norm")
         ln2.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.final_layer_norm.weight"]
         )
@@ -161,22 +164,23 @@ for model_config in model_configs:
 
     for i in tqdm(range(6), desc="Transferring decoder weights"):
         hf_prefix = f"model.decoder.layers.{i}"
-        dec_layer = keras_model.get_layer(f"decoder_layers_{i}")
+        k_prefix = f"decoder_layers_{i}"
 
+        self_attn = keras_model.get_layer(f"{k_prefix}_self_attn")
         for proj, hf_proj in [
             ("q_proj", "q_proj"),
             ("k_proj", "k_proj"),
             ("v_proj", "v_proj"),
             ("out_proj", "o_proj"),
         ]:
-            dense = getattr(dec_layer.self_attn, proj)
+            dense = getattr(self_attn, proj)
             w = pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.weight"]
             dense.weights[0].assign(w.T)
             dense.weights[1].assign(
                 pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.bias"]
             )
 
-        ln = dec_layer.self_attn_layer_norm
+        ln = keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm")
         ln.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.self_attn_layer_norm.weight"]
         )
@@ -184,20 +188,21 @@ for model_config in model_configs:
             pytorch_state_dict[f"{hf_prefix}.self_attn_layer_norm.bias"]
         )
 
+        cross_attn = keras_model.get_layer(f"{k_prefix}_encoder_attn")
         for proj, hf_proj in [
             ("q_proj", "q_proj"),
             ("k_proj", "k_proj"),
             ("v_proj", "v_proj"),
             ("out_proj", "o_proj"),
         ]:
-            dense = getattr(dec_layer.cross_attn, proj)
+            dense = getattr(cross_attn, proj)
             w = pytorch_state_dict[f"{hf_prefix}.encoder_attn.{hf_proj}.weight"]
             dense.weights[0].assign(w.T)
             dense.weights[1].assign(
                 pytorch_state_dict[f"{hf_prefix}.encoder_attn.{hf_proj}.bias"]
             )
 
-        ln = dec_layer.cross_attn_layer_norm
+        ln = keras_model.get_layer(f"{k_prefix}_encoder_attn_layer_norm")
         ln.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.encoder_attn_layer_norm.weight"]
         )
@@ -205,15 +210,17 @@ for model_config in model_configs:
             pytorch_state_dict[f"{hf_prefix}.encoder_attn_layer_norm.bias"]
         )
 
+        fc1 = keras_model.get_layer(f"{k_prefix}_fc1")
         fc1_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc1.weight"]
-        dec_layer.fc1.weights[0].assign(fc1_w.T)
-        dec_layer.fc1.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
+        fc1.weights[0].assign(fc1_w.T)
+        fc1.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
 
+        fc2 = keras_model.get_layer(f"{k_prefix}_fc2")
         fc2_w = pytorch_state_dict[f"{hf_prefix}.mlp.fc2.weight"]
-        dec_layer.fc2.weights[0].assign(fc2_w.T)
-        dec_layer.fc2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
+        fc2.weights[0].assign(fc2_w.T)
+        fc2.weights[1].assign(pytorch_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
 
-        ln2 = dec_layer.final_layer_norm
+        ln2 = keras_model.get_layer(f"{k_prefix}_final_layer_norm")
         ln2.weights[0].assign(
             pytorch_state_dict[f"{hf_prefix}.final_layer_norm.weight"]
         )

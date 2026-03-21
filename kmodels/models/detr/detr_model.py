@@ -3,15 +3,167 @@ from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
 from kmodels.models.detr.detr_layers import (
-    DETRDecoderLayer,
-    DETREncoderLayer,
     DETRExpandQueryEmbedding,
     DETRFlattenFeatures,
+    DETRMultiHeadAttention,
     DETRPositionEmbeddingSine,
 )
 from kmodels.utils import load_weights_from_config
 
 from .config import DETR_MODEL_CONFIG, DETR_WEIGHTS_CONFIG
+
+
+def _detr_encoder_layer(
+    x,
+    pos_embed,
+    hidden_dim,
+    num_heads,
+    dim_feedforward,
+    dropout_rate=0.1,
+    block_prefix="encoder_layers_0",
+):
+    """Single DETR transformer encoder layer (functional).
+
+    Implements self-attention + feedforward with residual connections and
+    layer normalization, matching the HuggingFace DETR encoder layer structure.
+
+    Args:
+        x: Input tensor of shape ``(B, seq_len, hidden_dim)``.
+        pos_embed: Positional embedding tensor of same shape as ``x``.
+        hidden_dim: Model dimension.
+        num_heads: Number of attention heads.
+        dim_feedforward: FFN intermediate dimension.
+        dropout_rate: Dropout rate.
+        block_prefix: Name prefix for sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, seq_len, hidden_dim)``.
+    """
+    self_attn = DETRMultiHeadAttention(
+        hidden_dim=hidden_dim,
+        num_heads=num_heads,
+        dropout_rate=dropout_rate,
+        block_prefix=f"{block_prefix}_self_attn",
+        name=f"{block_prefix}_self_attn",
+    )
+
+    q = k = layers.Add(name=f"{block_prefix}_sa_qk_add")([x, pos_embed])
+    attn_output = self_attn(q, k, x)
+    attn_output = layers.Dropout(dropout_rate, name=f"{block_prefix}_sa_drop")(
+        attn_output
+    )
+    x = layers.Add(name=f"{block_prefix}_sa_residual")([x, attn_output])
+    x = layers.LayerNormalization(
+        epsilon=1e-5,
+        name=f"{block_prefix}_self_attn_layer_norm",
+    )(x)
+
+    ff_output = layers.Dense(
+        dim_feedforward,
+        activation="relu",
+        name=f"{block_prefix}_fc1",
+    )(x)
+    ff_output = layers.Dropout(dropout_rate, name=f"{block_prefix}_ff_drop")(ff_output)
+    ff_output = layers.Dense(
+        hidden_dim,
+        name=f"{block_prefix}_fc2",
+    )(ff_output)
+    x = layers.Add(name=f"{block_prefix}_ff_residual")([x, ff_output])
+    x = layers.LayerNormalization(
+        epsilon=1e-5,
+        name=f"{block_prefix}_final_layer_norm",
+    )(x)
+
+    return x
+
+
+def _detr_decoder_layer(
+    x,
+    memory,
+    pos_embed,
+    query_pos,
+    hidden_dim,
+    num_heads,
+    dim_feedforward,
+    dropout_rate=0.1,
+    block_prefix="decoder_layers_0",
+):
+    """Single DETR transformer decoder layer (functional).
+
+    Implements self-attention on object queries, cross-attention with encoder
+    output, and a feedforward block, each with residual connections and
+    layer normalization.
+
+    Args:
+        x: Decoder input tensor of shape ``(B, num_queries, hidden_dim)``.
+        memory: Encoder output tensor of shape ``(B, seq_len, hidden_dim)``.
+        pos_embed: Encoder positional embedding tensor.
+        query_pos: Object query positional embedding tensor.
+        hidden_dim: Model dimension.
+        num_heads: Number of attention heads.
+        dim_feedforward: FFN intermediate dimension.
+        dropout_rate: Dropout rate.
+        block_prefix: Name prefix for sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, num_queries, hidden_dim)``.
+    """
+    self_attn = DETRMultiHeadAttention(
+        hidden_dim=hidden_dim,
+        num_heads=num_heads,
+        dropout_rate=dropout_rate,
+        block_prefix=f"{block_prefix}_self_attn",
+        name=f"{block_prefix}_self_attn",
+    )
+
+    q = k = layers.Add(name=f"{block_prefix}_sa_qk_add")([x, query_pos])
+    attn_output = self_attn(q, k, x)
+    attn_output = layers.Dropout(dropout_rate, name=f"{block_prefix}_sa_drop")(
+        attn_output
+    )
+    x = layers.Add(name=f"{block_prefix}_sa_residual")([x, attn_output])
+    x = layers.LayerNormalization(
+        epsilon=1e-5,
+        name=f"{block_prefix}_self_attn_layer_norm",
+    )(x)
+
+    cross_attn = DETRMultiHeadAttention(
+        hidden_dim=hidden_dim,
+        num_heads=num_heads,
+        dropout_rate=dropout_rate,
+        block_prefix=f"{block_prefix}_encoder_attn",
+        name=f"{block_prefix}_encoder_attn",
+    )
+
+    q_cross = layers.Add(name=f"{block_prefix}_ca_q_add")([x, query_pos])
+    k_cross = layers.Add(name=f"{block_prefix}_ca_k_add")([memory, pos_embed])
+    cross_output = cross_attn(q_cross, k_cross, memory)
+    cross_output = layers.Dropout(dropout_rate, name=f"{block_prefix}_ca_drop")(
+        cross_output
+    )
+    x = layers.Add(name=f"{block_prefix}_ca_residual")([x, cross_output])
+    x = layers.LayerNormalization(
+        epsilon=1e-5,
+        name=f"{block_prefix}_encoder_attn_layer_norm",
+    )(x)
+
+    ff_output = layers.Dense(
+        dim_feedforward,
+        activation="relu",
+        name=f"{block_prefix}_fc1",
+    )(x)
+    ff_output = layers.Dropout(dropout_rate, name=f"{block_prefix}_ff_drop")(ff_output)
+    ff_output = layers.Dense(
+        hidden_dim,
+        name=f"{block_prefix}_fc2",
+    )(ff_output)
+    x = layers.Add(name=f"{block_prefix}_ff_residual")([x, ff_output])
+    x = layers.LayerNormalization(
+        epsilon=1e-5,
+        name=f"{block_prefix}_final_layer_norm",
+    )(x)
+
+    return x
 
 
 def build_detr_backbone(
@@ -284,14 +436,15 @@ class DETR(keras.Model):
         # --- Transformer Encoder ---
         encoder_output = src
         for i in range(num_encoder_layers):
-            encoder_output = DETREncoderLayer(
+            encoder_output = _detr_encoder_layer(
+                encoder_output,
+                pos,
                 hidden_dim=hidden_dim,
                 num_heads=num_heads,
                 dim_feedforward=dim_feedforward,
                 dropout_rate=dropout_rate,
                 block_prefix=f"encoder_layers_{i}",
-                name=f"encoder_layers_{i}",
-            )(encoder_output, pos)
+            )
 
         # --- Object queries (learned embeddings) ---
         query_embed_layer = DETRExpandQueryEmbedding(
@@ -307,14 +460,17 @@ class DETR(keras.Model):
         # --- Transformer Decoder ---
         decoder_output = decoder_input
         for i in range(num_decoder_layers):
-            decoder_output = DETRDecoderLayer(
+            decoder_output = _detr_decoder_layer(
+                decoder_output,
+                encoder_output,
+                pos,
+                query_embed,
                 hidden_dim=hidden_dim,
                 num_heads=num_heads,
                 dim_feedforward=dim_feedforward,
                 dropout_rate=dropout_rate,
                 block_prefix=f"decoder_layers_{i}",
-                name=f"decoder_layers_{i}",
-            )(decoder_output, encoder_output, pos, query_embed)
+            )
 
         decoder_output = layers.LayerNormalization(
             epsilon=1e-5,
@@ -322,14 +478,11 @@ class DETR(keras.Model):
         )(decoder_output)
 
         # --- Prediction heads ---
-        # Class prediction: (B, num_queries, num_classes)
-        # For COCO: num_classes=92 (91 object categories + 1 "no object")
         logits = layers.Dense(
             num_classes,
             name="class_labels_classifier",
         )(decoder_output)
 
-        # Bbox prediction: (B, num_queries, 4) with sigmoid
         bbox = layers.Dense(hidden_dim, activation="relu", name="bbox_predictor_0")(
             decoder_output
         )

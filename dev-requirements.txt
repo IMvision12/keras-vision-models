@@ -4,7 +4,7 @@ tensorflow-cpu>=2.18.0
 jax
 ruff
 timm
-transformers
+transformers>=5.0.0
 accelerate
 pytest
 sentencepiece 

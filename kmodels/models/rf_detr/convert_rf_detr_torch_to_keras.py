@@ -518,13 +518,9 @@ def verify_equivalence(variant, keras_model, torch_sd):
     config = RF_DETR_MODEL_CONFIG[variant]
     res = config["resolution"]
 
-    test_input = keras.random.uniform(
-        (1, res, res, 3), dtype="float32", seed=42
-    )
+    test_input = keras.random.uniform((1, res, res, 3), dtype="float32", seed=42)
 
-    pt_input = torch.tensor(keras.ops.convert_to_numpy(test_input)).permute(
-        0, 3, 1, 2
-    )
+    pt_input = torch.tensor(keras.ops.convert_to_numpy(test_input)).permute(0, 3, 1, 2)
     normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     pt_input_norm = normalize(pt_input)
 
@@ -547,17 +543,11 @@ def verify_equivalence(variant, keras_model, torch_sd):
         keras.ops.convert_to_tensor([0.229, 0.224, 0.225], dtype="float32"),
         (1, 1, 1, 3),
     )
-    keras_input_norm = keras.ops.cast(
-        (test_input - mean) / std, dtype="float32"
-    )
+    keras_input_norm = keras.ops.cast((test_input - mean) / std, dtype="float32")
 
     keras_out = keras_model(keras_input_norm, training=False)
-    keras_logits = keras.ops.convert_to_tensor(
-        keras_out["pred_logits"].detach().cpu()
-    )
-    keras_boxes = keras.ops.convert_to_tensor(
-        keras_out["pred_boxes"].detach().cpu()
-    )
+    keras_logits = keras.ops.convert_to_tensor(keras_out["pred_logits"].detach().cpu())
+    keras_boxes = keras.ops.convert_to_tensor(keras_out["pred_boxes"].detach().cpu())
 
     logits_diff = float(keras.ops.max(keras.ops.abs(pt_logits - keras_logits)))
     boxes_diff = float(keras.ops.max(keras.ops.abs(pt_boxes - keras_boxes)))

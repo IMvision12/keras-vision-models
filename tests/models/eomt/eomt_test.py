@@ -35,9 +35,9 @@ class TestEoMT(ModelTestCase):
 
     def test_weight_initialization(self):
         custom_model = eomt.EoMT_Small(
-            input_shape=(64, 64, 3),
+            input_shape=(640, 640, 3),
             weights="coco_panoptic_640",
-            num_queries=100,
+            num_queries=200,
             num_labels=133,
         )
         return super().test_weight_initialization(custom_model)

@@ -11,7 +11,7 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
-import numpy as np
+import keras
 import torch
 
 from kmodels.models.rf_detr.config import RF_DETR_MODEL_CONFIG
@@ -76,7 +76,7 @@ def build_keras_model(variant):
         input_shape=(res, res, 3),
         name=variant,
     )
-    dummy = np.random.rand(1, res, res, 3).astype("float32")
+    dummy = keras.random.uniform((1, res, res, 3), dtype="float32")
     _ = model(dummy)
     return model
 
@@ -104,9 +104,9 @@ def transfer_weights(variant, torch_sd, keras_model):
         if keras_path not in kw:
             print(f"  WARN: Keras path not found: {keras_path}")
             return
-        tensor = torch_tensor.detach().cpu().numpy()
+        tensor = keras.ops.convert_to_tensor(torch_tensor.detach().cpu())
         if transpose:
-            tensor = tensor.T
+            tensor = keras.ops.transpose(tensor)
         target = kw[keras_path]
         if tensor.shape != tuple(target.shape):
             print(
@@ -518,10 +518,13 @@ def verify_equivalence(variant, keras_model, torch_sd):
     config = RF_DETR_MODEL_CONFIG[variant]
     res = config["resolution"]
 
-    np.random.seed(42)
-    test_input = np.random.rand(1, res, res, 3).astype(np.float32)
+    test_input = keras.random.uniform(
+        (1, res, res, 3), dtype="float32", seed=42
+    )
 
-    pt_input = torch.tensor(test_input).permute(0, 3, 1, 2)
+    pt_input = torch.tensor(keras.ops.convert_to_numpy(test_input)).permute(
+        0, 3, 1, 2
+    )
     normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     pt_input_norm = normalize(pt_input)
 
@@ -533,25 +536,37 @@ def verify_equivalence(variant, keras_model, torch_sd):
 
     with torch.no_grad():
         pt_out = pt_model(pt_input_norm)
-    pt_logits = pt_out["pred_logits"].cpu().numpy()
-    pt_boxes = pt_out["pred_boxes"].cpu().numpy()
+    pt_logits = keras.ops.convert_to_tensor(pt_out["pred_logits"].cpu())
+    pt_boxes = keras.ops.convert_to_tensor(pt_out["pred_boxes"].cpu())
 
-    mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
-    std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
-    keras_input_norm = ((test_input - mean) / std).astype(np.float32)
+    mean = keras.ops.reshape(
+        keras.ops.convert_to_tensor([0.485, 0.456, 0.406], dtype="float32"),
+        (1, 1, 1, 3),
+    )
+    std = keras.ops.reshape(
+        keras.ops.convert_to_tensor([0.229, 0.224, 0.225], dtype="float32"),
+        (1, 1, 1, 3),
+    )
+    keras_input_norm = keras.ops.cast(
+        (test_input - mean) / std, dtype="float32"
+    )
 
     keras_out = keras_model(keras_input_norm, training=False)
-    keras_logits = keras_out["pred_logits"].detach().cpu().numpy()
-    keras_boxes = keras_out["pred_boxes"].detach().cpu().numpy()
+    keras_logits = keras.ops.convert_to_tensor(
+        keras_out["pred_logits"].detach().cpu()
+    )
+    keras_boxes = keras.ops.convert_to_tensor(
+        keras_out["pred_boxes"].detach().cpu()
+    )
 
-    logits_diff = np.max(np.abs(pt_logits - keras_logits))
-    boxes_diff = np.max(np.abs(pt_boxes - keras_boxes))
+    logits_diff = float(keras.ops.max(keras.ops.abs(pt_logits - keras_logits)))
+    boxes_diff = float(keras.ops.max(keras.ops.abs(pt_boxes - keras_boxes)))
 
-    pt_flat = pt_logits.flatten()
-    k_flat = keras_logits.flatten()
+    pt_flat = keras.ops.reshape(pt_logits, (-1,))
+    k_flat = keras.ops.reshape(keras_logits, (-1,))
     logits_cos = float(
-        np.dot(pt_flat, k_flat)
-        / (np.linalg.norm(pt_flat) * np.linalg.norm(k_flat) + 1e-8)
+        keras.ops.dot(pt_flat, k_flat)
+        / (keras.ops.norm(pt_flat) * keras.ops.norm(k_flat) + 1e-8)
     )
 
     print(f"Max logits diff:  {logits_diff:.6f}")
@@ -570,7 +585,7 @@ def main():
     parser.add_argument(
         "--variant",
         type=str,
-        default="RFDETRBase",
+        default="RFDETRNano",
         choices=list(RF_DETR_MODEL_CONFIG.keys()),
     )
     parser.add_argument("--output", type=str, default=None)

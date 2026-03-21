@@ -9,7 +9,7 @@ jobs:
     name: Test weight loading
     runs-on: ubuntu-latest
     env:
-      KERAS_BACKEND: jax
+      KERAS_BACKEND: torch
 
     steps:
       - uses: actions/checkout@v4

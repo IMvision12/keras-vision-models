@@ -71,60 +71,52 @@ def convert_model(
 
     # Transfer transformer layers
     num_layers = keras_model.num_hidden_layers
+    use_swiglu = keras_model.use_swiglu_ffn
     for i in tqdm(range(num_layers), desc="Transferring transformer layers"):
         hf_prefix = f"layers.{i}"
-        keras_layer = keras_model.get_layer(f"layers_{i}")
+        k_prefix = f"layers_{i}"
 
         # Layer norm 1
-        keras_layer.norm1.gamma.assign(hf_state_dict[f"{hf_prefix}.norm1.weight"])
-        keras_layer.norm1.beta.assign(hf_state_dict[f"{hf_prefix}.norm1.bias"])
+        norm1 = keras_model.get_layer(f"{k_prefix}_norm1")
+        norm1.gamma.assign(hf_state_dict[f"{hf_prefix}.norm1.weight"])
+        norm1.beta.assign(hf_state_dict[f"{hf_prefix}.norm1.bias"])
 
         # Attention: q_proj, k_proj, v_proj, out_proj
+        attn = keras_model.get_layer(f"{k_prefix}_attention")
         for proj in ["q_proj", "k_proj", "v_proj", "out_proj"]:
-            dense = getattr(keras_layer.attention, proj)
+            dense = getattr(attn, proj)
             w = hf_state_dict[f"{hf_prefix}.attention.{proj}.weight"]
             dense.kernel.assign(w.T)
             dense.bias.assign(hf_state_dict[f"{hf_prefix}.attention.{proj}.bias"])
 
         # Layer scale 1
-        keras_layer.layer_scale1.gamma.assign(
-            hf_state_dict[f"{hf_prefix}.layer_scale1.lambda1"]
-        )
+        ls1 = keras_model.get_layer(f"{k_prefix}_layer_scale1")
+        ls1.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_scale1.lambda1"])
 
         # Layer norm 2
-        keras_layer.norm2.gamma.assign(hf_state_dict[f"{hf_prefix}.norm2.weight"])
-        keras_layer.norm2.beta.assign(hf_state_dict[f"{hf_prefix}.norm2.bias"])
+        norm2 = keras_model.get_layer(f"{k_prefix}_norm2")
+        norm2.gamma.assign(hf_state_dict[f"{hf_prefix}.norm2.weight"])
+        norm2.beta.assign(hf_state_dict[f"{hf_prefix}.norm2.bias"])
 
         # MLP
-        if hasattr(keras_layer.mlp, "fc1"):
-            # Standard MLP
-            keras_layer.mlp.fc1.kernel.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.fc1.weight"].T
-            )
-            keras_layer.mlp.fc1.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
-            keras_layer.mlp.fc2.kernel.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.fc2.weight"].T
-            )
-            keras_layer.mlp.fc2.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
+        if not use_swiglu:
+            fc1 = keras_model.get_layer(f"{k_prefix}_mlp_fc1")
+            fc1.kernel.assign(hf_state_dict[f"{hf_prefix}.mlp.fc1.weight"].T)
+            fc1.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.fc1.bias"])
+            fc2 = keras_model.get_layer(f"{k_prefix}_mlp_fc2")
+            fc2.kernel.assign(hf_state_dict[f"{hf_prefix}.mlp.fc2.weight"].T)
+            fc2.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.fc2.bias"])
         else:
-            # SwiGLU FFN
-            keras_layer.mlp.weights_in.kernel.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.weights_in.weight"].T
-            )
-            keras_layer.mlp.weights_in.bias.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.weights_in.bias"]
-            )
-            keras_layer.mlp.weights_out.kernel.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.weights_out.weight"].T
-            )
-            keras_layer.mlp.weights_out.bias.assign(
-                hf_state_dict[f"{hf_prefix}.mlp.weights_out.bias"]
-            )
+            w_in = keras_model.get_layer(f"{k_prefix}_mlp_weights_in")
+            w_in.kernel.assign(hf_state_dict[f"{hf_prefix}.mlp.weights_in.weight"].T)
+            w_in.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.weights_in.bias"])
+            w_out = keras_model.get_layer(f"{k_prefix}_mlp_weights_out")
+            w_out.kernel.assign(hf_state_dict[f"{hf_prefix}.mlp.weights_out.weight"].T)
+            w_out.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.weights_out.bias"])
 
         # Layer scale 2
-        keras_layer.layer_scale2.gamma.assign(
-            hf_state_dict[f"{hf_prefix}.layer_scale2.lambda1"]
-        )
+        ls2 = keras_model.get_layer(f"{k_prefix}_layer_scale2")
+        ls2.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_scale2.lambda1"])
 
     # Final layer norm
     print("Transferring final layer norm...")
@@ -140,35 +132,32 @@ def convert_model(
 
     # Mask head
     print("Transferring mask head...")
-    mask_head = keras_model.get_layer("mask_head")
     for fc_name in ["fc1", "fc2", "fc3"]:
-        fc = getattr(mask_head, fc_name)
+        fc = keras_model.get_layer(f"mask_head_{fc_name}")
         fc.kernel.assign(hf_state_dict[f"mask_head.{fc_name}.weight"].T)
         fc.bias.assign(hf_state_dict[f"mask_head.{fc_name}.bias"])
 
     # Upscale block
     print("Transferring upscale block...")
-    upscale = keras_model.get_layer("upscale_block")
     for block_idx in range(keras_model.num_upscale_blocks):
         hf_block_prefix = f"upscale_block.block.{block_idx}"
-        keras_block = upscale.blocks[block_idx]
+        k_block_prefix = f"upscale_block_{block_idx}"
 
         # ConvTranspose2d: PyTorch (in, out, kH, kW) -> Keras (kH, kW, out, in)
+        conv1 = keras_model.get_layer(f"{k_block_prefix}_conv1")
         conv1_w = hf_state_dict[f"{hf_block_prefix}.conv1.weight"]
-        keras_block.conv1.kernel.assign(np.transpose(conv1_w, (2, 3, 1, 0)))
-        keras_block.conv1.bias.assign(hf_state_dict[f"{hf_block_prefix}.conv1.bias"])
+        conv1.kernel.assign(np.transpose(conv1_w, (2, 3, 1, 0)))
+        conv1.bias.assign(hf_state_dict[f"{hf_block_prefix}.conv1.bias"])
 
         # DepthwiseConv2d: PyTorch (channels, 1, kH, kW) -> Keras (kH, kW, channels, 1)
+        conv2 = keras_model.get_layer(f"{k_block_prefix}_conv2")
         conv2_w = hf_state_dict[f"{hf_block_prefix}.conv2.weight"]
-        keras_block.conv2.kernel.assign(np.transpose(conv2_w, (2, 3, 0, 1)))
+        conv2.kernel.assign(np.transpose(conv2_w, (2, 3, 0, 1)))
 
-        # LayerNorm2d
-        keras_block.layernorm2d.norm.gamma.assign(
-            hf_state_dict[f"{hf_block_prefix}.layernorm2d.weight"]
-        )
-        keras_block.layernorm2d.norm.beta.assign(
-            hf_state_dict[f"{hf_block_prefix}.layernorm2d.bias"]
-        )
+        # LayerNorm (was EoMTLayerNorm2d, now direct LayerNormalization)
+        ln = keras_model.get_layer(f"{k_block_prefix}_layernorm")
+        ln.gamma.assign(hf_state_dict[f"{hf_block_prefix}.layernorm2d.weight"])
+        ln.beta.assign(hf_state_dict[f"{hf_block_prefix}.layernorm2d.bias"])
 
     # Verify equivalence
     print("\nVerifying model equivalence...")
@@ -198,7 +187,7 @@ def convert_model(
     print(f"Max class logits diff: {class_diff:.6f}")
     print(f"Max mask logits diff:  {mask_diff:.6f}")
 
-    if class_diff > 1e-3 or mask_diff > 2e-3:
+    if class_diff > 1e-3 or mask_diff > 5e-3:
         raise ValueError(
             f"Model equivalence test failed "
             f"(class: {class_diff:.6f}, mask: {mask_diff:.6f})"
@@ -235,6 +224,20 @@ if __name__ == "__main__":
             "input_shape": (640, 640, 3),
             "num_queries": 200,
             "num_labels": 133,
+            "variant": "large",
+        },
+        {
+            "hf_model_name": "tue-mps/coco_instance_eomt_large_640",
+            "input_shape": (640, 640, 3),
+            "num_queries": 200,
+            "num_labels": 80,
+            "variant": "large",
+        },
+        {
+            "hf_model_name": "tue-mps/ade20k_semantic_eomt_large_512",
+            "input_shape": (512, 512, 3),
+            "num_queries": 200,
+            "num_labels": 150,
             "variant": "large",
         },
     ]

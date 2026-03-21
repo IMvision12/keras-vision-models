@@ -1,17 +1,190 @@
 import keras
 from keras import layers, ops, utils
 
+from kmodels.layers import StochasticDepth
 from kmodels.model_registry import register_model
 from kmodels.utils import load_weights_from_config
 
 from .config import EOMT_MODEL_CONFIG, EOMT_WEIGHTS_CONFIG
 from .eomt_layers import (
+    EoMTAttention,
     EoMTEmbeddings,
-    EoMTLayer,
-    EoMTMaskHead,
+    EoMTLayerScale,
     EoMTQueryInjection,
-    EoMTScaleBlock,
 )
+
+
+def mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
+    """Standard MLP with GELU activation (functional).
+
+    Args:
+        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
+        hidden_size: Input/output dimension.
+        mlp_ratio: Ratio for hidden dimension.
+        block_prefix: Name prefix for sub-layers.
+
+    Returns:
+        Output tensor of same shape as ``x``.
+    """
+    hidden_features = int(hidden_size * mlp_ratio)
+    x = layers.Dense(hidden_features, name=f"{block_prefix}_mlp_fc1")(x)
+    x = layers.Activation("gelu", name=f"{block_prefix}_mlp_gelu")(x)
+    x = layers.Dense(hidden_size, name=f"{block_prefix}_mlp_fc2")(x)
+    return x
+
+
+def swiglu_ffn(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
+    """SwiGLU feed-forward network (functional).
+
+    Args:
+        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
+        hidden_size: Input/output dimension.
+        mlp_ratio: Ratio for computing hidden dimension.
+        block_prefix: Name prefix for sub-layers.
+
+    Returns:
+        Output tensor of same shape as ``x``.
+    """
+    hidden_features = int(hidden_size * mlp_ratio)
+    hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
+    x = layers.Dense(2 * hidden_features, name=f"{block_prefix}_mlp_weights_in")(x)
+    x1 = x[..., :hidden_features]
+    x2 = x[..., hidden_features:]
+    hidden = layers.Activation("silu", name=f"{block_prefix}_mlp_silu")(x1)
+    hidden = layers.Multiply(name=f"{block_prefix}_mlp_gate")([hidden, x2])
+    return layers.Dense(hidden_size, name=f"{block_prefix}_mlp_weights_out")(hidden)
+
+
+def encoder_layer(
+    hidden_states,
+    hidden_size,
+    num_heads,
+    mlp_ratio=4,
+    layerscale_value=1.0,
+    drop_path_rate=0.0,
+    attention_dropout=0.0,
+    use_swiglu_ffn=False,
+    layer_norm_eps=1e-6,
+    block_prefix="layers_0",
+):
+    """Single transformer encoder layer with LayerScale and DropPath (functional).
+
+    Args:
+        hidden_states: Input tensor of shape ``(B, seq_len, hidden_size)``.
+        hidden_size: Hidden dimension.
+        num_heads: Number of attention heads.
+        mlp_ratio: MLP expansion ratio.
+        layerscale_value: Initial LayerScale value.
+        drop_path_rate: Stochastic depth rate.
+        attention_dropout: Attention dropout rate.
+        use_swiglu_ffn: Whether to use SwiGLU FFN.
+        layer_norm_eps: Epsilon for LayerNorm.
+        block_prefix: Name prefix for sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, seq_len, hidden_size)``.
+    """
+    residual = hidden_states
+    hidden_states = layers.LayerNormalization(
+        epsilon=layer_norm_eps, name=f"{block_prefix}_norm1"
+    )(hidden_states)
+    hidden_states = EoMTAttention(
+        hidden_size, num_heads, attention_dropout, name=f"{block_prefix}_attention"
+    )(hidden_states)
+    hidden_states = EoMTLayerScale(
+        init_value=layerscale_value, name=f"{block_prefix}_layer_scale1"
+    )(hidden_states)
+    drop_path = (
+        StochasticDepth(drop_path_rate, name=f"{block_prefix}_drop_path")
+        if drop_path_rate > 0.0
+        else layers.Identity(name=f"{block_prefix}_identity")
+    )
+    hidden_states = layers.Add(name=f"{block_prefix}_attn_residual")(
+        [drop_path(hidden_states), residual]
+    )
+
+    residual = hidden_states
+    hidden_states = layers.LayerNormalization(
+        epsilon=layer_norm_eps, name=f"{block_prefix}_norm2"
+    )(hidden_states)
+
+    if use_swiglu_ffn:
+        hidden_states = swiglu_ffn(hidden_states, hidden_size, mlp_ratio, block_prefix)
+    else:
+        hidden_states = mlp(hidden_states, hidden_size, mlp_ratio, block_prefix)
+
+    hidden_states = EoMTLayerScale(
+        init_value=layerscale_value, name=f"{block_prefix}_layer_scale2"
+    )(hidden_states)
+    hidden_states = layers.Add(name=f"{block_prefix}_mlp_residual")(
+        [drop_path(hidden_states), residual]
+    )
+
+    return hidden_states
+
+
+def scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
+    """Single upscaling layer: ConvTranspose2d(2x) + GELU + DepthwiseConv2d + LayerNorm (functional).
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C)``.
+        hidden_size: Number of channels.
+        block_prefix: Name prefix for sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, 2*H, 2*W, C)``.
+    """
+    x = layers.Conv2DTranspose(
+        hidden_size,
+        kernel_size=2,
+        strides=2,
+        padding="valid",
+        use_bias=True,
+        name=f"{block_prefix}_conv1",
+    )(x)
+    x = layers.Activation("gelu", name=f"{block_prefix}_gelu")(x)
+    x = layers.DepthwiseConv2D(
+        kernel_size=3,
+        padding="same",
+        use_bias=False,
+        name=f"{block_prefix}_conv2",
+    )(x)
+    x = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm")(x)
+    return x
+
+
+def scale_block(x, hidden_size, num_upscale_blocks=2):
+    """Stack of upscaling layers (functional).
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C)``.
+        hidden_size: Number of channels.
+        num_upscale_blocks: Number of upscaling layers.
+
+    Returns:
+        Upscaled output tensor.
+    """
+    for i in range(num_upscale_blocks):
+        x = scale_layer(x, hidden_size, block_prefix=f"upscale_block_{i}")
+    return x
+
+
+def mask_head(x, hidden_size):
+    """Mask prediction head: 3 Dense layers with GELU activations (functional).
+
+    Args:
+        x: Input tensor of shape ``(B, num_queries, hidden_size)``.
+        hidden_size: Hidden dimension.
+
+    Returns:
+        Mask embedding tensor of same shape.
+    """
+    x = layers.Dense(hidden_size, name="mask_head_fc1")(x)
+    x = layers.Activation("gelu", name="mask_head_gelu1")(x)
+    x = layers.Dense(hidden_size, name="mask_head_fc2")(x)
+    x = layers.Activation("gelu", name="mask_head_gelu2")(x)
+    x = layers.Dense(hidden_size, name="mask_head_fc3")(x)
+    return x
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -121,7 +294,8 @@ class EoMT(keras.Model):
             if i == query_injection_idx:
                 hidden_states = query_injection(hidden_states)
 
-            hidden_states = EoMTLayer(
+            hidden_states = encoder_layer(
+                hidden_states,
                 hidden_size=hidden_size,
                 num_heads=num_attention_heads,
                 mlp_ratio=mlp_ratio,
@@ -130,34 +304,31 @@ class EoMT(keras.Model):
                 attention_dropout=attention_dropout,
                 use_swiglu_ffn=use_swiglu_ffn,
                 layer_norm_eps=layer_norm_eps,
-                name=f"layers_{i}",
-            )(hidden_states)
+                block_prefix=f"layers_{i}",
+            )
 
         # Final layer norm
-        layernorm = layers.LayerNormalization(epsilon=layer_norm_eps, name="layernorm")
-        sequence_output = layernorm(hidden_states)
+        sequence_output = layers.LayerNormalization(
+            epsilon=layer_norm_eps, name="layernorm"
+        )(hidden_states)
 
-        # Predict masks and classes
         # Extract query tokens and patch tokens
         query_output = sequence_output[:, :num_queries, :]
         patch_output = sequence_output[:, num_queries + num_prefix_tokens :, :]
 
         # Class prediction
-        class_predictor = layers.Dense(num_labels + 1, name="class_predictor")
-        class_logits = class_predictor(query_output)
+        class_logits = layers.Dense(num_labels + 1, name="class_predictor")(
+            query_output
+        )
 
         # Mask prediction
-        mask_head = EoMTMaskHead(hidden_size, name="mask_head")
-        query_mask_tokens = mask_head(query_output)
+        query_mask_tokens = mask_head(query_output, hidden_size)
 
         # Reshape patch tokens to spatial grid
         patch_spatial = ops.reshape(patch_output, (-1, grid_h, grid_w, hidden_size))
 
         # Upscale
-        upscale_block = EoMTScaleBlock(
-            hidden_size, num_upscale_blocks, name="upscale_block"
-        )
-        upscaled_features = upscale_block(patch_spatial)
+        upscaled_features = scale_block(patch_spatial, hidden_size, num_upscale_blocks)
 
         # Mask logits via einsum: (B, Q, C) x (B, H, W, C) -> (B, Q, H, W)
         mask_logits = ops.einsum("bqc,bhwc->bqhw", query_mask_tokens, upscaled_features)

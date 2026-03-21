@@ -15,7 +15,7 @@ class TestCLIP(ModelTestCase):
         super().setUp()
 
         batch_size = 2
-        image_size = 224
+        image_size = 64
         context_length = 77
 
         images = ops.ones((batch_size, image_size, image_size, 3))

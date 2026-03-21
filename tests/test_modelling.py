@@ -15,6 +15,8 @@ except ImportError:
 
 class ModelTestCase(TestCase):
     __test__ = False
+    _default_model_cache = None
+    _default_model_cache_key = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -51,6 +53,21 @@ class ModelTestCase(TestCase):
 
         combined_kwargs = self.init_kwargs.copy()
         combined_kwargs.update({k: v for k, v in kwargs.items() if v is not None})
+
+        if not kwargs:
+            cache_key = (
+                self.model_cls,
+                json.dumps(combined_kwargs, sort_keys=True, default=str),
+            )
+            if (
+                self.__class__._default_model_cache is not None
+                and self.__class__._default_model_cache_key == cache_key
+            ):
+                return self.__class__._default_model_cache
+            model = self.model_cls(**combined_kwargs)
+            self.__class__._default_model_cache = model
+            self.__class__._default_model_cache_key = cache_key
+            return model
 
         return self.model_cls(**combined_kwargs)
 

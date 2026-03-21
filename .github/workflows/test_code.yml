@@ -5,29 +5,93 @@ on:
     types: [created]
 jobs:
 
-  test-matrix-backend:
-    name: Test the code (${{ matrix.backend }})
+  test-weight-loading:
+    name: Test weight loading
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        backend: [tensorflow, jax, torch, numpy]
-    
     env:
-      KERAS_BACKEND: ${{ matrix.backend }}
-    
+      KERAS_BACKEND: torch
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-weights-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-weights-
+
+      - name: Cache Keras weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.keras
+          key: keras-weights-${{ hashFiles('kmodels/models/*/config.py') }}
+          restore-keys: keras-weights-
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools
-          
+          pip install jax jaxlib
+          pip install -U keras>=3.11.0
+          pip install pytest pytest-cov timm
+          pip install torch>=2.5.0 torchvision>=0.20.0
+          pip install jax[cpu]
+          pip install tensorflow-cpu>=2.19.0
+          pip install sentencepiece
+          pip install matplotlib>=3.8.0
+          pip install -e .
+
+      - name: Run weight initialization tests
+        run: |
+          TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
+          if [ -n "$TEST_FILES" ]; then
+            pytest $TEST_FILES -v -k "test_weight_initialization" --durations=20 --cov=kmodels --cov=tests
+          fi
+          coverage xml -o coverage.xml
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: keras-weight-loading
+          fail_ci_if_error: false
+
+  test-matrix-backend:
+    name: Test the code (${{ matrix.backend }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [tensorflow, jax, torch, numpy]
+
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-${{ matrix.backend }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+
           # Install backend-specific dependencies
           if [ "${{ matrix.backend }}" == "tensorflow" ]; then
             pip install tensorflow
@@ -38,10 +102,10 @@ jobs:
           elif [ "${{ matrix.backend }}" == "numpy" ]; then
             pip install numpy
           fi
-          
+
           # Install Keras
           pip install -U keras>=3.11.0
-          
+
           # Install additional dependencies
           pip install pytest pytest-cov timm
           pip install torch>=2.5.0 torchvision>=0.20.0
@@ -50,43 +114,25 @@ jobs:
           pip install sentencepiece
           pip install matplotlib>=3.8.0
           pip install -e .
-      
+
       - name: Run tests
         run: |
           echo "Running tests with backend: $KERAS_BACKEND"
-          
-          # Print large message for layer tests
-          echo ""
-          echo "================================================================"
-          echo "=                                                              ="
-          echo "=                   RUNNING LAYER TESTS                        ="
-          echo "=                                                              ="
-          echo "================================================================"
-          echo ""
-          
+
           # Run layer tests
-          pytest tests/layers/*_test.py -v --cov=kmodels --cov=tests --cov-append
-          
-          # Print large message for model tests
-          echo ""
-          echo "================================================================"
-          echo "=                                                              ="
-          echo "=                   RUNNING MODEL TESTS                        ="
-          echo "=                                                              ="
-          echo "================================================================"
-          echo ""
-          
-          # Run model tests if they exist
+          pytest tests/layers/*_test.py -v --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
+
+          # Run model tests (skip weight initialization — covered by dedicated job)
           TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
           if [ -n "$TEST_FILES" ]; then
-            pytest $TEST_FILES -v --cov=kmodels --cov=tests --cov-append
+            pytest $TEST_FILES -v --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
           else
             echo "No model test files found. Skipping model tests."
           fi
-          
+
           # Generate coverage report
           coverage xml -o coverage.xml
-      
+
       - name: Upload coverage report
         uses: codecov/codecov-action@v5
         with:

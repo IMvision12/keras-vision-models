@@ -64,6 +64,7 @@ jobs:
   test-matrix-backend:
     name: Test the code (${{ matrix.backend }})
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -106,7 +107,7 @@ jobs:
           pip install -U keras>=3.11.0
 
           # Install additional dependencies
-          pip install pytest pytest-cov pytest-xdist timm
+          pip install pytest pytest-cov timm
           pip install torch>=2.5.0 torchvision>=0.20.0
           pip install jax[cpu]
           pip install tensorflow-cpu>=2.19.0
@@ -119,12 +120,12 @@ jobs:
           echo "Running tests with backend: $KERAS_BACKEND"
 
           # Run layer tests
-          pytest tests/layers/*_test.py -v -n auto --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
+          pytest tests/layers/*_test.py -v --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
 
           # Run model tests (skip weight initialization — covered by dedicated job)
           TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
           if [ -n "$TEST_FILES" ]; then
-            pytest $TEST_FILES -v -n auto --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
+            pytest $TEST_FILES -v --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
           else
             echo "No model test files found. Skipping model tests."
           fi

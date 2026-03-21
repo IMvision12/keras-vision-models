@@ -30,7 +30,10 @@ class TestDeepLabV3(ModelTestCase):
         )
 
     def test_weight_initialization(self):
-        self.skipTest("Skipped: BatchNorm beta is initialized to zeros by design")
+        custom_model = deeplabv3.DeepLabV3ResNet50(
+            input_shape=(64, 64, 3), weights="coco_voc", num_classes=21
+        )
+        return super().test_weight_initialization(custom_model)
 
     def test_different_num_classes(self):
         for num_classes in [10, 150]:

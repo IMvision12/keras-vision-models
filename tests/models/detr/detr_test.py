@@ -35,7 +35,10 @@ class TestDETR(ModelTestCase):
         )
 
     def test_weight_initialization(self):
-        self.skipTest("Skipped: BatchNorm beta is initialized to zeros by design")
+        custom_model = detr.DETRResNet50(
+            input_shape=(32, 32, 3), weights="coco", num_classes=92
+        )
+        return super().test_weight_initialization(custom_model)
 
     def test_different_num_queries(self):
         for num_queries in [5, 20]:

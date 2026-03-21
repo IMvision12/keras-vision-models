@@ -34,7 +34,13 @@ class TestEoMT(ModelTestCase):
         )
 
     def test_weight_initialization(self):
-        self.skipTest("Skipped: register_tokens is initialized to zeros by design")
+        custom_model = eomt.EoMT_Small(
+            input_shape=(64, 64, 3),
+            weights="coco_panoptic_640",
+            num_queries=100,
+            num_labels=133,
+        )
+        return super().test_weight_initialization(custom_model)
 
     def test_different_num_queries(self):
         for num_queries in [50, 200]:

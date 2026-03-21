@@ -1,4 +1,28 @@
-# Segmentation Models
+# SegFormer
+
+**Paper**: [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203)
+
+SegFormer is a simple, efficient yet powerful semantic segmentation framework which unifies Transformers with lightweight multilayer perceptron (MLP) decoders. It comprises a hierarchically structured Transformer encoder which outputs multiscale features, and a lightweight All-MLP decoder which aggregates information from different layers.
+
+## Model Variants
+
+- **SegFormerB0** — Lightweight (embed_dim: 256, dropout_rate: 0.1)
+- **SegFormerB1** — Small (embed_dim: 256, dropout_rate: 0.1)
+- **SegFormerB2** — Medium (embed_dim: 768, dropout_rate: 0.1)
+- **SegFormerB3** — Large (embed_dim: 768, dropout_rate: 0.1)
+- **SegFormerB4** — Extra Large (embed_dim: 768, dropout_rate: 0.1)
+- **SegFormerB5** — XXL (embed_dim: 768, dropout_rate: 0.1)
+
+## Available Weights
+
+| Variant | cityscapes_1024 | cityscapes_768 | ade20k_512 |
+|---------|:-:|:-:|:-:|
+| SegFormerB0 | ✅ | ✅ | ✅ |
+| SegFormerB1 | ✅ | | ✅ |
+| SegFormerB2 | ✅ | | ✅ |
+| SegFormerB3 | ✅ | | ✅ |
+| SegFormerB4 | ✅ | | ✅ |
+| SegFormerB5 | ✅ | | ✅ |
 
 ## Basic Usage
 
@@ -25,7 +49,6 @@ backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights=None, includ
 segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
 
 # With backbone weights
-import kmodels
 backbone = kmodels.models.resnet.ResNet50(as_backbone=True, weights="tv_in1k", include_top=False, input_shape=(224,224,3))
 segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone, num_classes=10, input_shape=(224,224,3))
 ```
@@ -50,11 +73,3 @@ outs = np.argmax(outs[0], axis=-1)
 visualize_segmentation(outs, image)
 ```
 ![output](../images/seg_output.png)
-
-## Available Segmentation Models
-
-| Model Name | Reference Paper | Source of Weights |
-|------------|----------------|-------------------|
-| DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
-| EoMT | [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957) | `transformers` |
-| SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers` |

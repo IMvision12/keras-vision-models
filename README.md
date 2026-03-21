@@ -27,10 +27,29 @@ pip install -U git+https://github.com/IMvision12/keras-models
 | Topic | Description |
 |-------|-------------|
 | [Backbone Models](docs/backbones.md) | Classification backbones (ViT, ResNet, Swin, ConvNeXt, EfficientNet, and more) with usage examples and model listing |
-| [Segmentation](docs/segmentation.md) | Semantic segmentation models (SegFormer, DeepLabV3, EoMT) with custom backbone support |
-| [Object Detection](docs/object_detection.md) | Object detection models (DETR, RF-DETR) with inference examples |
-| [Vision-Language Models](docs/vlms.md) | VLMs (CLIP, SigLIP, SigLIP2) for zero-shot classification and image-text similarity |
-| [Custom Layers](docs/layers.md) | Custom layers like StochasticDepth, LayerScale, and more |
+
+**Segmentation**
+
+| Model | Description |
+|-------|-------------|
+| [SegFormer](docs/segformer.md) | Transformer-based semantic segmentation with MLP decoder, Cityscapes & ADE20K weights |
+| [DeepLabV3](docs/deeplabv3.md) | Atrous convolution-based semantic segmentation |
+| [EoMT](docs/eomt.md) | Encoder-only Mask Transformer for panoptic segmentation |
+
+**Object Detection**
+
+| Model | Description |
+|-------|-------------|
+| [DETR](docs/detr.md) | End-to-end object detection with Transformers (ResNet-50/101 backbones) |
+| [RF-DETR](docs/rf_detr.md) | Real-time detection transformer (Nano, Small, Medium, Base, Large variants) |
+
+**Vision-Language Models**
+
+| Model | Description |
+|-------|-------------|
+| [CLIP](docs/clip.md) | Contrastive Language-Image Pre-training for zero-shot classification |
+| [SigLIP](docs/siglip.md) | Sigmoid loss-based language-image pre-training with multilingual support |
+| [SigLIP2](docs/siglip2.md) | Next-gen SigLIP with improved semantic understanding and 256K vocabulary |
 
 ## 📑 Models
 

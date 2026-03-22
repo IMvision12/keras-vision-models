@@ -20,7 +20,7 @@ This implementation provides Keras/TensorFlow models for SigLIP with various Vis
 
 ### SigLIPBaseP16
 - **google_224**: Google weights for 224×224 resolution
-- **google_256**: Google weights for 256×256 resolution  
+- **google_256**: Google weights for 256×256 resolution
 - **google_multilingual_256**: Google multilingual weights for 256×256 resolution
 - **google_384**: Google weights for 384×384 resolution
 - **google_512**: Google weights for 512×512 resolution
@@ -42,7 +42,7 @@ import kmodels
 processor = kmodels.models.siglip.SigLIPProcessor()
 model = kmodels.models.siglip.SigLIPBaseP16(
    weights="google_224",
-   input_shape=(224, 224, 3), # You can fine-tune or infer with variable size 
+   input_shape=(224, 224, 3), # You can fine-tune or infer with variable size
 )
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
 output = model(

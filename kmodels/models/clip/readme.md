@@ -11,7 +11,7 @@ This implementation provides Keras/TensorFlow models for CLIP with various Visio
 ## 🏗️ Model Variants
 
 - **ClipVitBase16** - Base model with 16×16 patch size
-- **ClipVitBase32** - Base model with 32×32 patch size  
+- **ClipVitBase32** - Base model with 32×32 patch size
 - **ClipVitLarge14** - Large model with 14×14 patch size
 - **ClipVitG14** - Giant model with 14×14 patch size
 - **ClipVitBigG14** - Biggest Giant model with 14×14 patch size
@@ -45,7 +45,7 @@ import kmodels
 processor = kmodels.models.clip.CLIPProcessor()
 model = kmodels.models.clip.ClipVitBase16(
     weights="openai_224",
-    input_shape=(224, 224, 3), # You can fine-tune or infer with variable size 
+    input_shape=(224, 224, 3), # You can fine-tune or infer with variable size
 )
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
 output = model(

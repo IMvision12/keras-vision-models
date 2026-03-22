@@ -17,13 +17,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Get version
         id: get_version
         run: |
           VERSION=$(grep -o '"[0-9]*\.[0-9]*\.[0-9]*"' kmodels/version.py | tr -d '"')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-      
+
       - name: Create release
         id: create_release
         env:

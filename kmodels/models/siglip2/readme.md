@@ -53,7 +53,7 @@ import kmodels
 processor = kmodels.models.siglip2.SigLIP2Processor()
 model = kmodels.models.siglip2.SigLIP2BaseP16(
    weights="google_224",
-   input_shape=(224, 224, 3), # You can fine-tune or infer with variable size 
+   input_shape=(224, 224, 3), # You can fine-tune or infer with variable size
 )
 inputs = processor(text=["mountains", "tortoise", "cat"], image_paths="cat1.jpg")
 output = model(

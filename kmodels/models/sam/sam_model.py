@@ -15,15 +15,14 @@ from .sam_layers import (
 )
 
 
-def sam_vision_neck(inputs, hidden_size, output_channels, name="vision_encoder_neck"):
+def sam_vision_neck(inputs, output_channels, name="vision_encoder_neck"):
     """Neck that projects vision encoder output to the mask decoder dimension.
 
-    Two Conv2D layers (1x1 then 3x3) with LayerNorm between, converting from
-    ``hidden_size`` to ``output_channels``.
+    Two Conv2D layers (1x1 then 3x3) with LayerNorm between, projecting the
+    input channels to ``output_channels``.
 
     Args:
         inputs: Input tensor from the vision encoder.
-        hidden_size: Vision encoder hidden dimension.
         output_channels: Output channel dimension (mask decoder hidden size).
         name: Name prefix for the layers.
 
@@ -46,13 +45,12 @@ def sam_vision_neck(inputs, hidden_size, output_channels, name="vision_encoder_n
 
 
 def sam_feed_forward(
-    inputs, input_dim, hidden_dim, output_dim, num_layers, sigmoid_output=False, name=""
+    inputs, hidden_dim, output_dim, num_layers, sigmoid_output=False, name=""
 ):
     """Multi-layer perceptron used in the mask decoder for iou/mask heads.
 
     Args:
         inputs: Input tensor.
-        input_dim: Input dimension.
         hidden_dim: Hidden dimension.
         output_dim: Output dimension.
         num_layers: Total number of linear layers.
@@ -128,24 +126,7 @@ class SAM(keras.Model):
         vision_num_hidden_layers: Number of vision encoder transformer layers.
         vision_num_attention_heads: Number of attention heads in vision encoder.
         vision_mlp_dim: MLP hidden dimension in vision encoder.
-        vision_output_channels: Output channels of the vision neck.
-        vision_patch_size: Patch size for patch embeddings.
-        vision_image_size: Expected input image resolution.
-        vision_window_size: Window size for windowed attention.
         vision_global_attn_indexes: Layer indices that use global attention.
-        vision_layer_norm_eps: LayerNorm epsilon for vision encoder.
-        vision_qkv_bias: Whether QKV projections have bias.
-        vision_use_abs_pos: Whether to use absolute position embeddings.
-        vision_use_rel_pos: Whether to use relative position embeddings.
-        mask_decoder_hidden_size: Mask decoder hidden dimension.
-        mask_decoder_num_hidden_layers: Number of two-way transformer layers.
-        mask_decoder_num_attention_heads: Attention heads in mask decoder.
-        mask_decoder_mlp_dim: MLP dim in mask decoder.
-        mask_decoder_iou_head_depth: Depth of the IoU prediction MLP.
-        mask_decoder_iou_head_hidden_dim: Hidden dim of the IoU prediction MLP.
-        prompt_encoder_hidden_size: Prompt encoder hidden dimension.
-        prompt_encoder_mask_input_channels: Intermediate channels in mask embedding CNN.
-        prompt_encoder_num_point_embeddings: Number of point embedding types.
         num_multimask_outputs: Number of mask outputs (default 3).
         input_shape: Input image shape ``(H, W, C)``.
         input_tensor: Optional input tensor.
@@ -161,30 +142,29 @@ class SAM(keras.Model):
         ```
     """
 
+    # Constants shared across all SAM variants
+    VISION_OUTPUT_CHANNELS = 256
+    VISION_PATCH_SIZE = 16
+    VISION_IMAGE_SIZE = 1024
+    VISION_WINDOW_SIZE = 14
+    VISION_LAYER_NORM_EPS = 1e-6
+    MASK_DECODER_HIDDEN_SIZE = 256
+    MASK_DECODER_NUM_HIDDEN_LAYERS = 2
+    MASK_DECODER_NUM_ATTENTION_HEADS = 8
+    MASK_DECODER_MLP_DIM = 2048
+    MASK_DECODER_IOU_HEAD_DEPTH = 3
+    MASK_DECODER_IOU_HEAD_HIDDEN_DIM = 256
+    PROMPT_ENCODER_HIDDEN_SIZE = 256
+    PROMPT_ENCODER_MASK_INPUT_CHANNELS = 16
+    PROMPT_ENCODER_NUM_POINT_EMBEDDINGS = 4
+
     def __init__(
         self,
         vision_hidden_size=768,
         vision_num_hidden_layers=12,
         vision_num_attention_heads=12,
         vision_mlp_dim=3072,
-        vision_output_channels=256,
-        vision_patch_size=16,
-        vision_image_size=1024,
-        vision_window_size=14,
         vision_global_attn_indexes=(2, 5, 8, 11),
-        vision_layer_norm_eps=1e-6,
-        vision_qkv_bias=True,
-        vision_use_abs_pos=True,
-        vision_use_rel_pos=True,
-        mask_decoder_hidden_size=256,
-        mask_decoder_num_hidden_layers=2,
-        mask_decoder_num_attention_heads=8,
-        mask_decoder_mlp_dim=2048,
-        mask_decoder_iou_head_depth=3,
-        mask_decoder_iou_head_hidden_dim=256,
-        prompt_encoder_hidden_size=256,
-        prompt_encoder_mask_input_channels=16,
-        prompt_encoder_num_point_embeddings=4,
         num_multimask_outputs=3,
         input_shape=None,
         input_tensor=None,
@@ -192,7 +172,7 @@ class SAM(keras.Model):
         **kwargs,
     ):
         if input_shape is None:
-            input_shape = (vision_image_size, vision_image_size, 3)
+            input_shape = (self.VISION_IMAGE_SIZE, self.VISION_IMAGE_SIZE, 3)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
@@ -204,7 +184,7 @@ class SAM(keras.Model):
         else:
             pixel_values = layers.Input(shape=input_shape, name="pixel_values")
 
-        image_embedding_size = vision_image_size // vision_patch_size
+        image_embedding_size = self.VISION_IMAGE_SIZE // self.VISION_PATCH_SIZE
 
         # Prompt inputs
         input_points = layers.Input(
@@ -216,39 +196,39 @@ class SAM(keras.Model):
         # ─── Vision Encoder ───
         hidden_states = layers.Conv2D(
             vision_hidden_size,
-            kernel_size=vision_patch_size,
-            strides=vision_patch_size,
+            kernel_size=self.VISION_PATCH_SIZE,
+            strides=self.VISION_PATCH_SIZE,
             padding="valid",
             use_bias=True,
             name="vision_encoder_patch_embed_projection",
         )(pixel_values)
 
-        if vision_use_abs_pos:
-            pos_embed_layer = SAMAbsolutePositionEmbedding(
-                vision_hidden_size,
-                image_embedding_size,
-                name="vision_encoder_pos_embed",
-            )
-            hidden_states = pos_embed_layer(hidden_states)
+        pos_embed_layer = SAMAbsolutePositionEmbedding(
+            vision_hidden_size,
+            image_embedding_size,
+            name="vision_encoder_pos_embed",
+        )
+        hidden_states = pos_embed_layer(hidden_states)
 
         for i in range(vision_num_hidden_layers):
-            win_size = vision_window_size if i not in vision_global_attn_indexes else 0
+            win_size = (
+                self.VISION_WINDOW_SIZE if i not in vision_global_attn_indexes else 0
+            )
             hidden_states = SAMVisionLayer(
                 vision_hidden_size,
                 vision_num_attention_heads,
                 vision_mlp_dim,
-                qkv_bias=vision_qkv_bias,
-                use_rel_pos=vision_use_rel_pos,
+                qkv_bias=True,
+                use_rel_pos=True,
                 window_size=win_size,
                 image_size=image_embedding_size,
-                layer_norm_eps=vision_layer_norm_eps,
+                layer_norm_eps=self.VISION_LAYER_NORM_EPS,
                 name=f"vision_encoder_layers_{i}",
             )(hidden_states)
 
         image_embeddings = sam_vision_neck(
             hidden_states,
-            vision_hidden_size,
-            vision_output_channels,
+            self.VISION_OUTPUT_CHANNELS,
             name="vision_encoder_neck",
         )
 
@@ -269,10 +249,10 @@ class SAM(keras.Model):
 
         # ─── Prompt Encoder ───
         prompt_results = SAMPromptEncoderLayer(
-            hidden_size=prompt_encoder_hidden_size,
+            hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
             image_embedding_size=image_embedding_size,
-            image_size=vision_image_size,
-            num_point_embeddings=prompt_encoder_num_point_embeddings,
+            image_size=self.VISION_IMAGE_SIZE,
+            num_point_embeddings=self.PROMPT_ENCODER_NUM_POINT_EMBEDDINGS,
             shared_embedding=shared_image_embedding,
             name="prompt_encoder",
         )([input_points, input_labels])
@@ -282,13 +262,13 @@ class SAM(keras.Model):
 
         # ─── Mask Decoder ───
         decoder_output = SAMMaskDecoderLayer(
-            hidden_size=mask_decoder_hidden_size,
-            num_hidden_layers=mask_decoder_num_hidden_layers,
-            num_attention_heads=mask_decoder_num_attention_heads,
-            mlp_dim=mask_decoder_mlp_dim,
+            hidden_size=self.MASK_DECODER_HIDDEN_SIZE,
+            num_hidden_layers=self.MASK_DECODER_NUM_HIDDEN_LAYERS,
+            num_attention_heads=self.MASK_DECODER_NUM_ATTENTION_HEADS,
+            mlp_dim=self.MASK_DECODER_MLP_DIM,
             num_multimask_outputs=num_multimask_outputs,
-            iou_head_depth=mask_decoder_iou_head_depth,
-            iou_head_hidden_dim=mask_decoder_iou_head_hidden_dim,
+            iou_head_depth=self.MASK_DECODER_IOU_HEAD_DEPTH,
+            iou_head_hidden_dim=self.MASK_DECODER_IOU_HEAD_HIDDEN_DIM,
             name="mask_decoder",
         )(
             [
@@ -317,24 +297,7 @@ class SAM(keras.Model):
         self.vision_num_hidden_layers = vision_num_hidden_layers
         self.vision_num_attention_heads = vision_num_attention_heads
         self.vision_mlp_dim = vision_mlp_dim
-        self.vision_output_channels = vision_output_channels
-        self.vision_patch_size = vision_patch_size
-        self.vision_image_size = vision_image_size
-        self.vision_window_size = vision_window_size
         self.vision_global_attn_indexes = list(vision_global_attn_indexes)
-        self.vision_layer_norm_eps = vision_layer_norm_eps
-        self.vision_qkv_bias = vision_qkv_bias
-        self.vision_use_abs_pos = vision_use_abs_pos
-        self.vision_use_rel_pos = vision_use_rel_pos
-        self.mask_decoder_hidden_size = mask_decoder_hidden_size
-        self.mask_decoder_num_hidden_layers = mask_decoder_num_hidden_layers
-        self.mask_decoder_num_attention_heads = mask_decoder_num_attention_heads
-        self.mask_decoder_mlp_dim = mask_decoder_mlp_dim
-        self.mask_decoder_iou_head_depth = mask_decoder_iou_head_depth
-        self.mask_decoder_iou_head_hidden_dim = mask_decoder_iou_head_hidden_dim
-        self.prompt_encoder_hidden_size = prompt_encoder_hidden_size
-        self.prompt_encoder_mask_input_channels = prompt_encoder_mask_input_channels
-        self.prompt_encoder_num_point_embeddings = prompt_encoder_num_point_embeddings
         self.num_multimask_outputs = num_multimask_outputs
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
@@ -347,24 +310,7 @@ class SAM(keras.Model):
                 "vision_num_hidden_layers": self.vision_num_hidden_layers,
                 "vision_num_attention_heads": self.vision_num_attention_heads,
                 "vision_mlp_dim": self.vision_mlp_dim,
-                "vision_output_channels": self.vision_output_channels,
-                "vision_patch_size": self.vision_patch_size,
-                "vision_image_size": self.vision_image_size,
-                "vision_window_size": self.vision_window_size,
                 "vision_global_attn_indexes": self.vision_global_attn_indexes,
-                "vision_layer_norm_eps": self.vision_layer_norm_eps,
-                "vision_qkv_bias": self.vision_qkv_bias,
-                "vision_use_abs_pos": self.vision_use_abs_pos,
-                "vision_use_rel_pos": self.vision_use_rel_pos,
-                "mask_decoder_hidden_size": self.mask_decoder_hidden_size,
-                "mask_decoder_num_hidden_layers": self.mask_decoder_num_hidden_layers,
-                "mask_decoder_num_attention_heads": self.mask_decoder_num_attention_heads,
-                "mask_decoder_mlp_dim": self.mask_decoder_mlp_dim,
-                "mask_decoder_iou_head_depth": self.mask_decoder_iou_head_depth,
-                "mask_decoder_iou_head_hidden_dim": self.mask_decoder_iou_head_hidden_dim,
-                "prompt_encoder_hidden_size": self.prompt_encoder_hidden_size,
-                "prompt_encoder_mask_input_channels": self.prompt_encoder_mask_input_channels,
-                "prompt_encoder_num_point_embeddings": self.prompt_encoder_num_point_embeddings,
                 "num_multimask_outputs": self.num_multimask_outputs,
                 "input_shape": self._input_shape_val,
             }
@@ -412,7 +358,7 @@ def _create_sam_model(
         )
 
     if input_shape is None:
-        image_size = config["vision_image_size"]
+        image_size = SAM.VISION_IMAGE_SIZE
         input_shape = (image_size, image_size, 3)
         print(f"Using default input shape {input_shape}.")
 
@@ -421,26 +367,7 @@ def _create_sam_model(
         vision_num_hidden_layers=config["vision_num_hidden_layers"],
         vision_num_attention_heads=config["vision_num_attention_heads"],
         vision_mlp_dim=config["vision_mlp_dim"],
-        vision_output_channels=config["vision_output_channels"],
-        vision_patch_size=config["vision_patch_size"],
-        vision_image_size=config["vision_image_size"],
-        vision_window_size=config["vision_window_size"],
         vision_global_attn_indexes=config["vision_global_attn_indexes"],
-        vision_layer_norm_eps=config["vision_layer_norm_eps"],
-        vision_qkv_bias=config["vision_qkv_bias"],
-        vision_use_abs_pos=config["vision_use_abs_pos"],
-        vision_use_rel_pos=config["vision_use_rel_pos"],
-        mask_decoder_hidden_size=config["mask_decoder_hidden_size"],
-        mask_decoder_num_hidden_layers=config["mask_decoder_num_hidden_layers"],
-        mask_decoder_num_attention_heads=config["mask_decoder_num_attention_heads"],
-        mask_decoder_mlp_dim=config["mask_decoder_mlp_dim"],
-        mask_decoder_iou_head_depth=config["mask_decoder_iou_head_depth"],
-        mask_decoder_iou_head_hidden_dim=config["mask_decoder_iou_head_hidden_dim"],
-        prompt_encoder_hidden_size=config["prompt_encoder_hidden_size"],
-        prompt_encoder_mask_input_channels=config["prompt_encoder_mask_input_channels"],
-        prompt_encoder_num_point_embeddings=config[
-            "prompt_encoder_num_point_embeddings"
-        ],
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=variant,

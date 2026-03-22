@@ -157,28 +157,28 @@ def SAMImageProcessorWithPrompts(
     result = SAMImageProcessor(image, target_length, image_mean, image_std)
 
     if input_points is not None:
-        points = np.array(input_points, dtype=np.float32)
-        if points.ndim == 2:
-            points = points[np.newaxis, :]
-        if points.ndim == 3:
-            points = points[np.newaxis, :]
-        result["input_points"] = keras.ops.convert_to_tensor(points, dtype="float32")
+        points = keras.ops.convert_to_tensor(input_points, dtype="float32")
+        if keras.ops.ndim(points) == 2:
+            points = keras.ops.expand_dims(points, axis=0)
+        if keras.ops.ndim(points) == 3:
+            points = keras.ops.expand_dims(points, axis=0)
+        result["input_points"] = points
 
     if input_labels is not None:
-        labels = np.array(input_labels, dtype=np.int32)
-        if labels.ndim == 1:
-            labels = labels[np.newaxis, :]
-        if labels.ndim == 2:
-            labels = labels[np.newaxis, :]
-        result["input_labels"] = keras.ops.convert_to_tensor(labels, dtype="int32")
+        labels = keras.ops.convert_to_tensor(input_labels, dtype="int32")
+        if keras.ops.ndim(labels) == 1:
+            labels = keras.ops.expand_dims(labels, axis=0)
+        if keras.ops.ndim(labels) == 2:
+            labels = keras.ops.expand_dims(labels, axis=0)
+        result["input_labels"] = labels
 
     if input_boxes is not None:
-        boxes = np.array(input_boxes, dtype=np.float32)
-        if boxes.ndim == 1:
-            boxes = boxes[np.newaxis, :]
-        if boxes.ndim == 2:
-            boxes = boxes[np.newaxis, :]
-        result["input_boxes"] = keras.ops.convert_to_tensor(boxes, dtype="float32")
+        boxes = keras.ops.convert_to_tensor(input_boxes, dtype="float32")
+        if keras.ops.ndim(boxes) == 1:
+            boxes = keras.ops.expand_dims(boxes, axis=0)
+        if keras.ops.ndim(boxes) == 2:
+            boxes = keras.ops.expand_dims(boxes, axis=0)
+        result["input_boxes"] = boxes
 
     return result
 
@@ -188,7 +188,7 @@ def SAMPostProcessMasks(
     original_size: Tuple[int, int],
     reshaped_size: Tuple[int, int],
     target_length: int = 1024,
-) -> np.ndarray:
+) -> "keras.KerasTensor":
     """Post-process predicted masks to original image resolution.
 
     Upsamples low-resolution masks to the model's input size, crops out the
@@ -202,7 +202,7 @@ def SAMPostProcessMasks(
         target_length: Model input resolution (default 1024).
 
     Returns:
-        Numpy array of masks with shape
+        Keras tensor of masks with shape
         ``(batch, point_batch, num_masks, orig_h, orig_w)``.
 
     Example:
@@ -242,4 +242,4 @@ def SAMPostProcessMasks(
         masks_final, (batch, point_batch, num_masks, orig_h, orig_w)
     )
 
-    return keras.ops.convert_to_numpy(masks_final)
+    return masks_final

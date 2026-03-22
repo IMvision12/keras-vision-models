@@ -381,15 +381,16 @@ class SAMMaskDecoderLayer(layers.Layer):
         self.output_hypernetworks_mlps_proj_ins = []
         self.output_hypernetworks_mlps_hidden_layers = []
         self.output_hypernetworks_mlps_proj_outs = []
+        self._hyper_num_hidden = 3 - 2  # num_layers=3 -> 1 hidden layer each
         for i in range(self.num_mask_tokens):
             prefix = f"output_hypernetworks_mlps_{i}"
             self.output_hypernetworks_mlps_proj_ins.append(
                 layers.Dense(hidden_size, name=f"{prefix}_proj_in")
             )
-            h_layers = []
-            for j in range(3 - 2):  # num_layers=3
-                h_layers.append(layers.Dense(hidden_size, name=f"{prefix}_layers_{j}"))
-            self.output_hypernetworks_mlps_hidden_layers.append(h_layers)
+            for j in range(self._hyper_num_hidden):
+                self.output_hypernetworks_mlps_hidden_layers.append(
+                    layers.Dense(hidden_size, name=f"{prefix}_layers_{j}")
+                )
             self.output_hypernetworks_mlps_proj_outs.append(
                 layers.Dense(hidden_size // 8, name=f"{prefix}_proj_out")
             )
@@ -537,8 +538,12 @@ class SAMMaskDecoderLayer(layers.Layer):
         for i in range(self.num_mask_tokens):
             h = self.output_hypernetworks_mlps_proj_ins[i](mask_tokens_out[:, :, i, :])
             h = ops.nn.relu(h)
-            for hidden_layer in self.output_hypernetworks_mlps_hidden_layers[i]:
-                h = ops.nn.relu(hidden_layer(h))
+            for j in range(self._hyper_num_hidden):
+                h = ops.nn.relu(
+                    self.output_hypernetworks_mlps_hidden_layers[
+                        i * self._hyper_num_hidden + j
+                    ](h)
+                )
             h = self.output_hypernetworks_mlps_proj_outs[i](h)
             hyper_in_list.append(h)
         hyper_in = ops.stack(hyper_in_list, axis=2)

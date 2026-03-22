@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from tqdm import tqdm
 from transformers import SamModel
 
@@ -245,13 +246,14 @@ def convert_model(
             hf_state_dict[f"{hf_prefix}.proj_in.bias"]
         )
 
-        for j, hidden_layer in enumerate(
-            mask_dec.output_hypernetworks_mlps_hidden_layers[i]
-        ):
-            hidden_layer.kernel.assign(
+        for j in range(mask_dec._hyper_num_hidden):
+            idx = i * mask_dec._hyper_num_hidden + j
+            mask_dec.output_hypernetworks_mlps_hidden_layers[idx].kernel.assign(
                 hf_state_dict[f"{hf_prefix}.layers.{j}.weight"].T
             )
-            hidden_layer.bias.assign(hf_state_dict[f"{hf_prefix}.layers.{j}.bias"])
+            mask_dec.output_hypernetworks_mlps_hidden_layers[idx].bias.assign(
+                hf_state_dict[f"{hf_prefix}.layers.{j}.bias"]
+            )
 
         mask_dec.output_hypernetworks_mlps_proj_outs[i].kernel.assign(
             hf_state_dict[f"{hf_prefix}.proj_out.weight"].T
@@ -279,12 +281,56 @@ def convert_model(
 
     print("Weight transfer complete!")
 
+    # ─── Verify Model Equivalence ───
+    print("Verifying model equivalence...")
+    np.random.seed(42)
+    test_image = np.random.rand(1, 1024, 1024, 3).astype(np.float32)
+    test_points = np.array([[[[500.0, 500.0]]]], dtype=np.float32)
+    test_labels = np.array([[[1]]], dtype=np.int32)
+
+    # Keras forward pass — outputs all 4 masks (1 single + 3 multi)
+    keras_output = keras_model.predict(
+        {
+            "pixel_values": test_image,
+            "input_points": test_points,
+            "input_labels": test_labels,
+        },
+        verbose=0,
+    )
+    # Slice to match HF multimask_output=True: masks[:, :, 1:], iou[:, :, 1:]
+    keras_masks = keras_output["pred_masks"][:, :, 1:]
+    keras_iou = keras_output["iou_scores"][:, :, 1:]
+
+    # HuggingFace forward pass (multimask_output=True returns 3 masks)
+    with torch.no_grad():
+        hf_input = {
+            "pixel_values": torch.from_numpy(test_image.transpose(0, 3, 1, 2)),
+            "input_points": torch.from_numpy(test_points),
+            "input_labels": torch.from_numpy(test_labels),
+            "multimask_output": True,
+        }
+        hf_output = hf_model(**hf_input)
+        hf_masks = hf_output.pred_masks.cpu().numpy()
+        hf_iou = hf_output.iou_scores.cpu().numpy()
+
+    mask_diff = np.max(np.abs(keras_masks - hf_masks))
+    iou_diff = np.max(np.abs(keras_iou - hf_iou))
+    print(f"Max mask diff: {mask_diff:.6f}")
+    print(f"Max IoU diff:  {iou_diff:.6f}")
+
+    assert mask_diff < 0.8, f"Mask diff too large: {mask_diff}"
+    assert iou_diff < 1e-2, f"IoU diff too large: {iou_diff}"
+    print("Model equivalence verified!")
+
     # Save
     model_filename = hf_model_name.split("/")[-1].replace("-", "_") + ".weights.h5"
     keras_model.save_weights(model_filename)
     print(f"Model saved as {model_filename}")
 
-    return keras_model
+    del keras_model, hf_model, hf_state_dict
+    torch.cuda.empty_cache()
+
+    return None
 
 
 if __name__ == "__main__":

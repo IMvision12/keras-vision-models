@@ -156,8 +156,13 @@ def SAMImageProcessorWithPrompts(
     """
     result = SAMImageProcessor(image, target_length, image_mean, image_std)
 
+    # Compute scale factor to transform points from original to resized coords
+    orig_h, orig_w = result["original_size"]
+    scale = target_length / max(orig_h, orig_w)
+
     if input_points is not None:
-        points = keras.ops.convert_to_tensor(input_points, dtype="float32")
+        points = np.array(input_points, dtype=np.float64) * scale
+        points = keras.ops.convert_to_tensor(points, dtype="float32")
         if keras.ops.ndim(points) == 2:
             points = keras.ops.expand_dims(points, axis=0)
         if keras.ops.ndim(points) == 3:
@@ -173,7 +178,8 @@ def SAMImageProcessorWithPrompts(
         result["input_labels"] = labels
 
     if input_boxes is not None:
-        boxes = keras.ops.convert_to_tensor(input_boxes, dtype="float32")
+        boxes = np.array(input_boxes, dtype=np.float64) * scale
+        boxes = keras.ops.convert_to_tensor(boxes, dtype="float32")
         if keras.ops.ndim(boxes) == 1:
             boxes = keras.ops.expand_dims(boxes, axis=0)
         if keras.ops.ndim(boxes) == 2:

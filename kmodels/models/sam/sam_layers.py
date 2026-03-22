@@ -359,7 +359,7 @@ class SAMMaskDecoderLayer(layers.Layer):
             name="final_attn_token_to_image",
         )
         self.layer_norm_final_attn = layers.LayerNormalization(
-            epsilon=1e-5, name="layer_norm_final_attn"
+            epsilon=1e-6, name="layer_norm_final_attn"
         )
 
         self.upscale_conv1 = layers.Conv2DTranspose(
@@ -521,9 +521,9 @@ class SAMMaskDecoderLayer(layers.Layer):
 
         upscaled = self.upscale_conv1(keys_spatial)
         upscaled = self.upscale_layer_norm(upscaled)
-        upscaled = ops.nn.gelu(upscaled)
+        upscaled = ops.nn.gelu(upscaled, approximate=False)
         upscaled = self.upscale_conv2(upscaled)
-        upscaled = ops.nn.gelu(upscaled)
+        upscaled = ops.nn.gelu(upscaled, approximate=False)
 
         up_channels = ops.shape(upscaled)[3]
         up_height = ops.shape(upscaled)[1]
@@ -866,7 +866,7 @@ class SAMVisionLayer(layers.Layer):
         hidden_states = residual + hidden_states
         ln_out = self.layer_norm2(hidden_states)
         mlp_out = self.mlp_lin1(ln_out)
-        mlp_out = ops.nn.gelu(mlp_out)
+        mlp_out = ops.nn.gelu(mlp_out, approximate=False)
         mlp_out = self.mlp_lin2(mlp_out)
         hidden_states = hidden_states + mlp_out
         return hidden_states

@@ -911,11 +911,6 @@ class SAMPositionalEmbedding(layers.Layer):
         super().build(input_shape)
 
     def call(self, coordinates):
-        """Encode pre-normalized coordinates in [-1, 1].
-
-        Args:
-            coordinates: Tensor with last dim = 2, already normalized to [0, 1].
-        """
         coordinates = 2.0 * coordinates - 1.0
         coordinates = ops.cast(coordinates, dtype=self.positional_embedding.dtype)
         coordinates = ops.matmul(coordinates, self.positional_embedding)

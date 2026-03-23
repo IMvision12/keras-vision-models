@@ -13,7 +13,7 @@ from kmodels.utils import load_weights_from_config
 from .config import DETR_MODEL_CONFIG, DETR_WEIGHTS_CONFIG
 
 
-def _detr_encoder_layer(
+def detr_encoder_layer(
     x,
     pos_embed,
     hidden_dim,
@@ -77,7 +77,7 @@ def _detr_encoder_layer(
     return x
 
 
-def _detr_decoder_layer(
+def detr_decoder_layer(
     x,
     memory,
     pos_embed,
@@ -436,7 +436,7 @@ class DETR(keras.Model):
         # --- Transformer Encoder ---
         encoder_output = src
         for i in range(num_encoder_layers):
-            encoder_output = _detr_encoder_layer(
+            encoder_output = detr_encoder_layer(
                 encoder_output,
                 pos,
                 hidden_dim=hidden_dim,
@@ -460,7 +460,7 @@ class DETR(keras.Model):
         # --- Transformer Decoder ---
         decoder_output = decoder_input
         for i in range(num_decoder_layers):
-            decoder_output = _detr_decoder_layer(
+            decoder_output = detr_decoder_layer(
                 decoder_output,
                 encoder_output,
                 pos,

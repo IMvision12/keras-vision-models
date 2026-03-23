@@ -14,7 +14,7 @@ from .eomt_layers import (
 )
 
 
-def mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
+def eomt_mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
     """Standard MLP with GELU activation (functional).
 
     Args:
@@ -33,7 +33,7 @@ def mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
     return x
 
 
-def swiglu_ffn(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
+def eomt_swiglu_ffn(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
     """SwiGLU feed-forward network (functional).
 
     Args:
@@ -55,7 +55,7 @@ def swiglu_ffn(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
     return layers.Dense(hidden_size, name=f"{block_prefix}_mlp_weights_out")(hidden)
 
 
-def encoder_layer(
+def eomt_encoder_layer(
     hidden_states,
     hidden_size,
     num_heads,
@@ -109,9 +109,11 @@ def encoder_layer(
     )(hidden_states)
 
     if use_swiglu_ffn:
-        hidden_states = swiglu_ffn(hidden_states, hidden_size, mlp_ratio, block_prefix)
+        hidden_states = eomt_swiglu_ffn(
+            hidden_states, hidden_size, mlp_ratio, block_prefix
+        )
     else:
-        hidden_states = mlp(hidden_states, hidden_size, mlp_ratio, block_prefix)
+        hidden_states = eomt_mlp(hidden_states, hidden_size, mlp_ratio, block_prefix)
 
     hidden_states = EoMTLayerScale(
         init_value=layerscale_value, name=f"{block_prefix}_layer_scale2"
@@ -123,7 +125,7 @@ def encoder_layer(
     return hidden_states
 
 
-def scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
+def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
     """Single upscaling layer: ConvTranspose2d(2x) + GELU + DepthwiseConv2d + LayerNorm (functional).
 
     Args:
@@ -153,7 +155,7 @@ def scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
     return x
 
 
-def scale_block(x, hidden_size, num_upscale_blocks=2):
+def eomt_scale_block(x, hidden_size, num_upscale_blocks=2):
     """Stack of upscaling layers (functional).
 
     Args:
@@ -165,11 +167,11 @@ def scale_block(x, hidden_size, num_upscale_blocks=2):
         Upscaled output tensor.
     """
     for i in range(num_upscale_blocks):
-        x = scale_layer(x, hidden_size, block_prefix=f"upscale_block_{i}")
+        x = eomt_scale_layer(x, hidden_size, block_prefix=f"upscale_block_{i}")
     return x
 
 
-def mask_head(x, hidden_size):
+def eomt_mask_head(x, hidden_size):
     """Mask prediction head: 3 Dense layers with GELU activations (functional).
 
     Args:
@@ -294,7 +296,7 @@ class EoMT(keras.Model):
             if i == query_injection_idx:
                 hidden_states = query_injection(hidden_states)
 
-            hidden_states = encoder_layer(
+            hidden_states = eomt_encoder_layer(
                 hidden_states,
                 hidden_size=hidden_size,
                 num_heads=num_attention_heads,
@@ -322,13 +324,15 @@ class EoMT(keras.Model):
         )
 
         # Mask prediction
-        query_mask_tokens = mask_head(query_output, hidden_size)
+        query_mask_tokens = eomt_mask_head(query_output, hidden_size)
 
         # Reshape patch tokens to spatial grid
         patch_spatial = ops.reshape(patch_output, (-1, grid_h, grid_w, hidden_size))
 
         # Upscale
-        upscaled_features = scale_block(patch_spatial, hidden_size, num_upscale_blocks)
+        upscaled_features = eomt_scale_block(
+            patch_spatial, hidden_size, num_upscale_blocks
+        )
 
         # Mask logits via einsum: (B, Q, C) x (B, H, W, C) -> (B, Q, H, W)
         mask_logits = ops.einsum("bqc,bhwc->bqhw", query_mask_tokens, upscaled_features)

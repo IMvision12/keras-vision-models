@@ -3,10 +3,6 @@ import math
 import keras
 from keras import initializers, layers, ops
 
-# ---------------------------------------------------------------------------
-# Utility helpers
-# ---------------------------------------------------------------------------
-
 
 def _get_activation(name):
     if name == "silu":
@@ -16,11 +12,6 @@ def _get_activation(name):
     if name == "gelu":
         return layers.Activation("gelu")
     raise ValueError(f"Unsupported activation: {name}")
-
-
-# ---------------------------------------------------------------------------
-# Channel-last LayerNorm for 4D tensors (B, H, W, C)
-# ---------------------------------------------------------------------------
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -54,11 +45,6 @@ class ChannelLayerNorm(layers.Layer):
         config = super().get_config()
         config.update({"epsilon": self.epsilon})
         return config
-
-
-# ---------------------------------------------------------------------------
-# ConvBN: Conv2D + Norm + Activation  (channels-last)
-# ---------------------------------------------------------------------------
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -132,11 +118,6 @@ class ConvBN(layers.Layer):
             }
         )
         return config
-
-
-# ---------------------------------------------------------------------------
-# Bottleneck + C2f (CSP Bottleneck with 2 convolutions)
-# ---------------------------------------------------------------------------
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -284,11 +265,6 @@ class C2f(layers.Layer):
         return config
 
 
-# ---------------------------------------------------------------------------
-# SimpleProjector (used by all open-source RF-DETR variants)
-# ---------------------------------------------------------------------------
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class SimpleProjector(layers.Layer):
     """Two ConvBN blocks + LayerNorm projector for single-scale features."""
@@ -329,11 +305,6 @@ class SimpleProjector(layers.Layer):
         config = super().get_config()
         config.update({"out_channels": self.out_channels})
         return config
-
-
-# ---------------------------------------------------------------------------
-# DINOv2 with Windowed Attention  (backbone)
-# ---------------------------------------------------------------------------
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

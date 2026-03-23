@@ -31,6 +31,7 @@ from kmodels.models import (
     resnetv2,
     resnext,
     rf_detr,
+    sam,
     segformer,
     senet,
     siglip,

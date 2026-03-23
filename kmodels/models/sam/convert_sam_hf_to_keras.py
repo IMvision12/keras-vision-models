@@ -14,12 +14,10 @@ VARIANT_MAP = {
 
 
 def _transfer(keras_name, keras_weight, torch_weight):
-    """Transfer a single weight using the shared utility."""
     transfer_weights(keras_name, keras_weight, torch_weight)
 
 
 def _transfer_dense(dense_layer, hf_state_dict, hf_key, keras_name):
-    """Transfer kernel and bias for a Dense layer."""
     _transfer(
         f"{keras_name}_kernel",
         dense_layer.kernel,
@@ -33,13 +31,11 @@ def _transfer_dense(dense_layer, hf_state_dict, hf_key, keras_name):
 
 
 def _transfer_layernorm(ln_layer, hf_state_dict, hf_key, keras_name):
-    """Transfer gamma and beta for a LayerNormalization layer."""
     ln_layer.gamma.assign(hf_state_dict[f"{hf_key}.weight"])
     ln_layer.beta.assign(hf_state_dict[f"{hf_key}.bias"])
 
 
 def _transfer_conv(conv_layer, hf_state_dict, hf_key, keras_name):
-    """Transfer kernel (and optional bias) for a Conv2D/Conv2DTranspose layer."""
     _transfer(
         f"{keras_name}_conv_kernel",
         conv_layer.kernel,
@@ -55,7 +51,6 @@ def _transfer_conv(conv_layer, hf_state_dict, hf_key, keras_name):
 
 
 def _transfer_attention(attn_layer, hf_state_dict, hf_prefix, keras_name):
-    """Transfer q/k/v/out_proj weights for a SAMTwoWayAttention layer."""
     for proj_name in ["q_proj", "k_proj", "v_proj", "out_proj"]:
         _transfer_dense(
             getattr(attn_layer, proj_name),
@@ -70,13 +65,6 @@ def convert_model(
     input_shape=(1024, 1024, 3),
     variant="huge",
 ):
-    """Convert HuggingFace SAM weights to Keras format.
-
-    Args:
-        hf_model_name: HuggingFace model ID.
-        input_shape: Input shape (H, W, C).
-        variant: Model variant ("base", "large", or "huge").
-    """
     print(f"Loading HF model: {hf_model_name}")
     hf_model = SamModel.from_pretrained(hf_model_name).eval()
     hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
@@ -85,7 +73,6 @@ def convert_model(
     print(f"Creating Keras model ({variant})...")
     keras_model = keras_model_cls(input_shape=input_shape, weights=None)
 
-    # ─── Vision Encoder: Patch Embeddings ───
     print("Transferring patch embeddings...")
     _transfer_conv(
         keras_model.get_layer("vision_encoder_patch_embed_projection"),
@@ -94,12 +81,10 @@ def convert_model(
         "patch_embed",
     )
 
-    # ─── Vision Encoder: Absolute Position Embedding ───
     print("Transferring position embedding...")
     pos_layer = keras_model.get_layer("vision_encoder_pos_embed")
     pos_layer.pos_embed.assign(hf_state_dict["vision_encoder.pos_embed"])
 
-    # ─── Vision Encoder: Transformer Layers ───
     num_layers = keras_model.vision_num_hidden_layers
     for i in tqdm(range(num_layers), desc="Transferring vision encoder layers"):
         hf_prefix = f"vision_encoder.layers.{i}"
@@ -109,16 +94,13 @@ def convert_model(
             layer.layer_norm1, hf_state_dict, f"{hf_prefix}.layer_norm1", "ln1"
         )
 
-        # QKV (combined projection)
         _transfer_dense(
             layer.attn.qkv, hf_state_dict, f"{hf_prefix}.attn.qkv", "attn_qkv"
         )
-        # Attention output projection
         _transfer_dense(
             layer.attn.proj, hf_state_dict, f"{hf_prefix}.attn.proj", "attn_proj"
         )
 
-        # Relative position embeddings (direct assign, not transposed)
         if layer.attn.use_rel_pos:
             layer.attn.rel_pos_h.assign(hf_state_dict[f"{hf_prefix}.attn.rel_pos_h"])
             layer.attn.rel_pos_w.assign(hf_state_dict[f"{hf_prefix}.attn.rel_pos_w"])
@@ -127,7 +109,6 @@ def convert_model(
             layer.layer_norm2, hf_state_dict, f"{hf_prefix}.layer_norm2", "ln2"
         )
 
-        # MLP
         _transfer_dense(
             layer.mlp_lin1, hf_state_dict, f"{hf_prefix}.mlp.lin1", "mlp_lin1"
         )
@@ -135,7 +116,6 @@ def convert_model(
             layer.mlp_lin2, hf_state_dict, f"{hf_prefix}.mlp.lin2", "mlp_lin2"
         )
 
-    # ─── Vision Encoder: Neck ───
     print("Transferring vision neck...")
     _transfer_conv(
         keras_model.get_layer("vision_encoder_neck_conv1"),
@@ -162,14 +142,12 @@ def convert_model(
         "neck_ln2",
     )
 
-    # ─── Shared Image Embedding ───
     print("Transferring shared image embedding...")
     image_pe_layer = keras_model.get_layer("image_positional_embeddings")
     image_pe_layer.shared_embedding.positional_embedding.assign(
         hf_state_dict["shared_image_embedding.positional_embedding"]
     )
 
-    # ─── Prompt Encoder ───
     print("Transferring prompt encoder...")
     prompt_enc = keras_model.get_layer("prompt_encoder")
 
@@ -255,7 +233,6 @@ def convert_model(
             f"dec_ln4_{i}",
         )
 
-    # Final attention token to image
     _transfer_attention(
         mask_dec.final_attn_token_to_image,
         hf_state_dict,
@@ -269,7 +246,6 @@ def convert_model(
         "dec_final_ln",
     )
 
-    # Upscale convolutions
     _transfer_conv(
         mask_dec.upscale_conv1,
         hf_state_dict,
@@ -289,7 +265,6 @@ def convert_model(
         "upscale_conv2",
     )
 
-    # Output hypernetworks MLPs
     num_mask_tokens = mask_dec.num_mask_tokens
     for i in range(num_mask_tokens):
         hf_prefix = f"mask_decoder.output_hypernetworks_mlps.{i}"
@@ -317,7 +292,6 @@ def convert_model(
             f"hyper_{i}_proj_out",
         )
 
-    # IoU prediction head
     hf_prefix = "mask_decoder.iou_prediction_head"
     _transfer_dense(
         mask_dec.iou_head_proj_in,
@@ -341,14 +315,12 @@ def convert_model(
 
     print("Weight transfer complete!")
 
-    # ─── Verify Model Equivalence ───
     print("Verifying model equivalence...")
     np.random.seed(42)
     test_image = np.random.rand(1, 1024, 1024, 3).astype(np.float32)
     test_points = np.array([[[[500.0, 500.0]]]], dtype=np.float32)
     test_labels = np.array([[[1]]], dtype=np.int32)
 
-    # Keras forward pass — outputs all 4 masks (1 single + 3 multi)
     keras_output = keras_model.predict(
         {
             "pixel_values": test_image,
@@ -357,11 +329,9 @@ def convert_model(
         },
         verbose=0,
     )
-    # Slice to match HF multimask_output=True: masks[:, :, 1:], iou[:, :, 1:]
     keras_masks = keras_output["pred_masks"][:, :, 1:]
     keras_iou = keras_output["iou_scores"][:, :, 1:]
 
-    # HuggingFace forward pass (multimask_output=True returns 3 masks)
     with torch.no_grad():
         hf_input = {
             "pixel_values": torch.from_numpy(test_image.transpose(0, 3, 1, 2)),
@@ -382,7 +352,6 @@ def convert_model(
     assert iou_diff < 1e-2, f"IoU diff too large: {iou_diff}"
     print("Model equivalence verified!")
 
-    # Save
     model_filename = hf_model_name.split("/")[-1].replace("-", "_") + ".weights.h5"
     keras_model.save_weights(model_filename)
     print(f"Model saved as {model_filename}")

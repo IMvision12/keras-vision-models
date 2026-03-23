@@ -110,7 +110,6 @@ def transfer_weights(variant, torch_sd, keras_model):
         target.assign(tensor)
         assigned.add(keras_path)
 
-    # --- Backbone embeddings ---
     assign(
         "backbone_embeddings/cls_token",
         torch_sd["backbone.0.encoder.encoder.embeddings.cls_token"],
@@ -132,7 +131,6 @@ def transfer_weights(variant, torch_sd, keras_model):
         ],
     )
 
-    # --- Backbone encoder layers ---
     for i in range(num_layers):
         pt_prefix = f"backbone.0.encoder.encoder.encoder.layer.{i}"
         k_prefix = f"backbone_encoder_layer_{i}"

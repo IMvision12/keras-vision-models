@@ -6,19 +6,304 @@ from kmodels.utils import load_weights_from_config
 
 from .config import RF_DETR_MODEL_CONFIG, RF_DETR_WEIGHTS_CONFIG
 from .rf_detr_layers import (
-    C2f,
     ChannelLayerNorm,
     DinoV2Embeddings,
+    DinoV2LayerScale,
     PositionEmbeddingSine,
     RFDETRDecoderLayer,
     SinePositionEmbeddingForRefPoints,
-    WindowedDinoV2Encoder,
 )
+
+
+def rf_detr_conv_bn(
+    x,
+    filters,
+    kernel_size=3,
+    strides=1,
+    groups=1,
+    activation="relu",
+    use_layer_norm=False,
+    name="conv_bn",
+):
+    padding = (kernel_size // 2, kernel_size // 2)
+    x = layers.ZeroPadding2D(padding=padding, name=f"{name}_pad")(x)
+    x = layers.Conv2D(
+        filters,
+        kernel_size,
+        strides=strides,
+        padding="valid",
+        groups=groups,
+        use_bias=False,
+        data_format="channels_last",
+        name=f"{name}_conv",
+    )(x)
+    if use_layer_norm:
+        x = ChannelLayerNorm(name=f"{name}_ln")(x)
+    else:
+        x = layers.BatchNormalization(
+            axis=-1,
+            epsilon=1e-5,
+            momentum=0.1,
+            name=f"{name}_bn",
+        )(x)
+    x = layers.Activation(activation, name=f"{name}_{activation}")(x)
+    return x
+
+
+def rf_detr_bottleneck(
+    x,
+    out_channels,
+    shortcut=True,
+    expansion=1.0,
+    activation="silu",
+    use_layer_norm=False,
+    name="bottleneck",
+):
+    hidden = int(out_channels * expansion)
+    in_channels = x.shape[-1]
+    residual = x
+    x = rf_detr_conv_bn(
+        x,
+        hidden,
+        3,
+        activation=activation,
+        use_layer_norm=use_layer_norm,
+        name=f"{name}_cv1",
+    )
+    x = rf_detr_conv_bn(
+        x,
+        out_channels,
+        3,
+        activation=activation,
+        use_layer_norm=use_layer_norm,
+        name=f"{name}_cv2",
+    )
+    if shortcut and in_channels == out_channels:
+        x = x + residual
+    return x
+
+
+def rf_detr_c2f(
+    x,
+    out_channels,
+    num_blocks=1,
+    shortcut=False,
+    expansion=0.5,
+    activation="silu",
+    use_layer_norm=False,
+    name="c2f",
+):
+    c = int(out_channels * expansion)
+    x = rf_detr_conv_bn(
+        x,
+        2 * c,
+        1,
+        activation=activation,
+        use_layer_norm=use_layer_norm,
+        name=f"{name}_cv1",
+    )
+    chunks = ops.split(x, 2, axis=-1)
+    y = [chunks[0], chunks[1]]
+    for i in range(num_blocks):
+        y.append(
+            rf_detr_bottleneck(
+                y[-1],
+                c,
+                shortcut=shortcut,
+                expansion=1.0,
+                activation=activation,
+                use_layer_norm=use_layer_norm,
+                name=f"{name}_bottleneck_{i}",
+            )
+        )
+    x = ops.concatenate(y, axis=-1)
+    x = rf_detr_conv_bn(
+        x,
+        out_channels,
+        1,
+        activation=activation,
+        use_layer_norm=use_layer_norm,
+        name=f"{name}_cv2",
+    )
+    return x
+
+
+def rf_detr_simple_projector(x, out_channels, name="projector"):
+    in_dim = x.shape[-1]
+    x = rf_detr_conv_bn(
+        x,
+        in_dim * 2,
+        3,
+        activation="silu",
+        use_layer_norm=True,
+        name=f"{name}_convx1",
+    )
+    x = rf_detr_conv_bn(
+        x,
+        out_channels,
+        3,
+        activation="silu",
+        use_layer_norm=True,
+        name=f"{name}_convx2",
+    )
+    x = ChannelLayerNorm(name=f"{name}_ln")(x)
+    return x
+
+
+def rf_detr_dinov2_swiglu_ffn(x, hidden_size, mlp_ratio=4, name="mlp"):
+    hidden_features = int(hidden_size * mlp_ratio)
+    hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
+    x = layers.Dense(2 * hidden_features, name=f"{name}_weights_in")(x)
+    x1, x2 = ops.split(x, 2, axis=-1)
+    x = ops.silu(x1) * x2
+    x = layers.Dense(hidden_size, name=f"{name}_weights_out")(x)
+    return x
+
+
+def rf_detr_dinov2_mlp(x, hidden_size, mlp_ratio=4, name="mlp"):
+    hidden_features = int(hidden_size * mlp_ratio)
+    x = layers.Dense(hidden_features, name=f"{name}_fc1")(x)
+    x = ops.gelu(x, approximate=False)
+    x = layers.Dense(hidden_size, name=f"{name}_fc2")(x)
+    return x
+
+
+def rf_detr_dinov2_block(
+    x,
+    hidden_size,
+    num_heads,
+    mlp_ratio=4,
+    use_swiglu=False,
+    run_full_attention=False,
+    num_windows=1,
+    name="layer",
+):
+    head_dim = hidden_size // num_heads
+    shortcut = x
+
+    if run_full_attention and num_windows > 1:
+        nw2 = num_windows**2
+        shape = ops.shape(x)
+        x = ops.reshape(x, [-1, nw2 * shape[1], shape[2]])
+
+    normed = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_norm1")(x)
+
+    q = layers.Dense(hidden_size, name=f"{name}_attention_query")(normed)
+    k = layers.Dense(hidden_size, name=f"{name}_attention_key")(normed)
+    v = layers.Dense(hidden_size, name=f"{name}_attention_value")(normed)
+
+    seq_len = ops.shape(normed)[1]
+    q = ops.reshape(q, [-1, seq_len, num_heads, head_dim])
+    k = ops.reshape(k, [-1, seq_len, num_heads, head_dim])
+    v = ops.reshape(v, [-1, seq_len, num_heads, head_dim])
+    q = ops.transpose(q, [0, 2, 1, 3])
+    k = ops.transpose(k, [0, 2, 1, 3])
+    v = ops.transpose(v, [0, 2, 1, 3])
+
+    scale = ops.cast(head_dim, q.dtype) ** -0.5
+    attn_weights = ops.matmul(q, ops.transpose(k, [0, 1, 3, 2])) * scale
+    attn_weights = ops.softmax(attn_weights, axis=-1)
+    attn_output = ops.matmul(attn_weights, v)
+    attn_output = ops.transpose(attn_output, [0, 2, 1, 3])
+    attn_output = ops.reshape(attn_output, [-1, seq_len, hidden_size])
+    attn_out = layers.Dense(
+        hidden_size,
+        name=f"{name}_attention_out_proj",
+    )(attn_output)
+
+    if run_full_attention and num_windows > 1:
+        full_shape = ops.shape(attn_out)
+        attn_out = ops.reshape(
+            attn_out,
+            [-1, full_shape[1] // nw2, full_shape[2]],
+        )
+
+    attn_out = DinoV2LayerScale(hidden_size, name=f"{name}_layer_scale1")(attn_out)
+    x = attn_out + shortcut
+
+    shortcut2 = x
+    normed2 = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_norm2")(x)
+    if use_swiglu:
+        mlp_out = rf_detr_dinov2_swiglu_ffn(
+            normed2,
+            hidden_size,
+            mlp_ratio,
+            name=f"{name}_mlp",
+        )
+    else:
+        mlp_out = rf_detr_dinov2_mlp(
+            normed2,
+            hidden_size,
+            mlp_ratio,
+            name=f"{name}_mlp",
+        )
+    mlp_out = DinoV2LayerScale(hidden_size, name=f"{name}_layer_scale2")(mlp_out)
+    x = mlp_out + shortcut2
+    return x
+
+
+def rf_detr_windowed_dinov2_encoder(
+    x,
+    hidden_size,
+    num_heads,
+    num_layers,
+    mlp_ratio=4,
+    use_swiglu=False,
+    num_windows=1,
+    out_feature_indexes=None,
+    window_block_indexes=None,
+    name="backbone_encoder",
+):
+    out_feature_indexes = out_feature_indexes or []
+    window_block_indexes = window_block_indexes or []
+    max_layer = max(out_feature_indexes) + 1 if out_feature_indexes else num_layers
+
+    shared_layernorm = layers.LayerNormalization(
+        epsilon=1e-6,
+        name=f"{name}_layernorm",
+    )
+
+    features = []
+    for i in range(max_layer):
+        run_full = i not in window_block_indexes
+        x = rf_detr_dinov2_block(
+            x,
+            hidden_size,
+            num_heads,
+            mlp_ratio,
+            use_swiglu=use_swiglu,
+            run_full_attention=run_full,
+            num_windows=num_windows,
+            name=f"{name}_layer_{i}",
+        )
+        if (i + 1) in out_feature_indexes:
+            features.append(shared_layernorm(x))
+    return features
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class UnwindowFeatures(layers.Layer):
-    """Remove register/CLS tokens, undo windowing, reshape to spatial (B, H, W, C)."""
+    """Reverses windowing and removes special tokens to produce spatial features.
+
+    Strips CLS and register tokens from the sequence, merges windowed batches
+    back into a single batch, and reshapes the flat token sequence into a 2D
+    spatial feature map of shape `(B, H, W, C)`.
+
+    Args:
+        num_h: Integer, spatial height of the output feature map (in patches).
+        num_w: Integer, spatial width of the output feature map (in patches).
+        num_windows: Integer, number of windows per spatial axis used during
+            windowed attention.
+        hidden_size: Integer, channel dimension of the features.
+        num_register_tokens: Integer, number of register tokens to remove.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        3D tensor: `(batch_size * num_windows^2, seq_len, hidden_size)`.
+
+    Output Shape:
+        4D tensor: `(batch_size, num_h, num_w, hidden_size)`.
+    """
 
     def __init__(
         self, num_h, num_w, num_windows, hidden_size, num_register_tokens, **kwargs
@@ -74,7 +359,27 @@ class UnwindowFeatures(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EncoderOutputProposals(layers.Layer):
-    """Generate encoder output proposals for two-stage detection."""
+    """Generates encoder output proposals for two-stage query initialization.
+
+    Creates a grid of anchor proposals at each spatial position across all
+    feature levels, filters invalid proposals, and masks the corresponding
+    encoder memory. Used in the two-stage variant of RF-DETR to initialize
+    object queries from encoder features.
+
+    Args:
+        spatial_shapes: List of `(height, width)` tuples for each feature level.
+        bbox_reparam: Boolean, whether to use bounding box reparameterization.
+            If False, uses inverse-sigmoid encoding. Defaults to `True`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        3D tensor (memory): `(batch_size, total_tokens, hidden_dim)`.
+
+    Output Shape:
+        Tuple of two tensors:
+        - output_memory: `(batch_size, total_tokens, hidden_dim)`.
+        - output_proposals: `(batch_size, total_tokens, 4)`.
+    """
 
     def __init__(self, spatial_shapes, bbox_reparam=True, **kwargs):
         super().__init__(**kwargs)
@@ -146,7 +451,25 @@ class EncoderOutputProposals(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class LearnedEmbedding(layers.Layer):
-    """A layer that holds a learned embedding and broadcasts it to batch size."""
+    """Learnable embedding table that broadcasts to the input batch size.
+
+    Holds a single weight matrix of shape `(num_embeddings, embedding_dim)` and
+    replicates it across the batch dimension at call time. Used for query
+    feature embeddings and reference point embeddings in RF-DETR.
+
+    Args:
+        num_embeddings: Integer, number of embedding vectors (e.g., num_queries).
+        embedding_dim: Integer, dimensionality of each embedding vector.
+        initializer: String or initializer, weight initializer.
+            Defaults to `"zeros"`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        Any tensor (only the batch dimension is used).
+
+    Output Shape:
+        3D tensor: `(batch_size, num_embeddings, embedding_dim)`.
+    """
 
     def __init__(self, num_embeddings, embedding_dim, initializer="zeros", **kwargs):
         super().__init__(**kwargs)
@@ -329,7 +652,8 @@ class RFDETR(keras.Model):
             set(range(max(out_feature_indexes) + 1)) - set(out_feature_indexes)
         )
 
-        encoder_features = WindowedDinoV2Encoder(
+        encoder_features = rf_detr_windowed_dinov2_encoder(
+            embeddings,
             hidden_size=backbone_hidden_size,
             num_heads=backbone_num_heads,
             num_layers=backbone_num_layers,
@@ -339,7 +663,7 @@ class RFDETR(keras.Model):
             out_feature_indexes=out_feature_indexes,
             window_block_indexes=window_block_indexes,
             name="backbone_encoder",
-        )(embeddings)
+        )
 
         num_h = input_shape[0] // patch_size
         num_w = input_shape[1] // patch_size
@@ -360,7 +684,8 @@ class RFDETR(keras.Model):
         concat_feat = layers.Concatenate(axis=-1, name="concat_features")(
             unwindowed_features
         )
-        projected = C2f(
+        projected = rf_detr_c2f(
+            concat_feat,
             hidden_dim,
             num_blocks=3,
             shortcut=False,
@@ -368,7 +693,7 @@ class RFDETR(keras.Model):
             activation="silu",
             use_layer_norm=True,
             name="projector_c2f",
-        )(concat_feat)
+        )
         projected = ChannelLayerNorm(name="projector_ln")(projected)
 
         # --- Position Encoding ---
@@ -658,29 +983,29 @@ def _create_rf_detr_model(
         input_shape = (res, res, 3)
 
     model = RFDETR(
-        hidden_dim=config["hidden_dim"],
-        backbone_hidden_size=config["backbone_hidden_size"],
-        backbone_num_heads=config["backbone_num_heads"],
-        backbone_num_layers=config["backbone_num_layers"],
-        backbone_mlp_ratio=config["backbone_mlp_ratio"],
-        backbone_use_swiglu=config["backbone_use_swiglu"],
-        num_register_tokens=config["num_register_tokens"],
-        out_feature_indexes=config["out_feature_indexes"],
-        patch_size=config["patch_size"],
-        num_windows=config["num_windows"],
+        hidden_dim=256,
+        backbone_hidden_size=384,
+        backbone_num_heads=6,
+        backbone_num_layers=12,
+        backbone_mlp_ratio=4,
+        backbone_use_swiglu=False,
+        num_register_tokens=0,
+        out_feature_indexes=config.get("out_feature_indexes", [3, 6, 9, 12]),
+        patch_size=config.get("patch_size", 16),
+        num_windows=config.get("num_windows", 2),
         positional_encoding_size=config["positional_encoding_size"],
         resolution=config["resolution"],
         dec_layers=config["dec_layers"],
-        sa_nheads=config["sa_nheads"],
-        ca_nheads=config["ca_nheads"],
-        dec_n_points=config["dec_n_points"],
+        sa_nheads=8,
+        ca_nheads=16,
+        dec_n_points=2,
         num_queries=num_queries,
         num_classes=num_classes,
-        two_stage=config["two_stage"],
-        bbox_reparam=config["bbox_reparam"],
-        lite_refpoint_refine=config["lite_refpoint_refine"],
-        group_detr=config["group_detr"],
-        dim_feedforward=config["dim_feedforward"],
+        two_stage=True,
+        bbox_reparam=True,
+        lite_refpoint_refine=True,
+        group_detr=13,
+        dim_feedforward=2048,
         weights=weights,
         input_shape=input_shape,
         input_tensor=input_tensor,

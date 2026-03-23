@@ -4,19 +4,24 @@ import keras
 from keras import initializers, layers, ops
 
 
-def _get_activation(name):
-    if name == "silu":
-        return layers.Activation("silu")
-    if name == "relu":
-        return layers.Activation("relu")
-    if name == "gelu":
-        return layers.Activation("gelu")
-    raise ValueError(f"Unsupported activation: {name}")
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class ChannelLayerNorm(layers.Layer):
-    """LayerNorm applied over the channel dimension of (B, H, W, C) tensors."""
+    """Layer normalization applied over the channel dimension.
+
+    Unlike standard LayerNormalization which expects (B, ..., C) inputs,
+    this layer explicitly normalizes along the last axis of (B, H, W, C)
+    tensors using learnable gamma and beta parameters.
+
+    Args:
+        epsilon: Float, small constant for numerical stability. Defaults to `1e-6`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, channels)`.
+
+    Output Shape:
+        Same as input shape.
+    """
 
     def __init__(self, epsilon=1e-6, **kwargs):
         super().__init__(**kwargs)
@@ -48,268 +53,26 @@ class ChannelLayerNorm(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ConvBN(layers.Layer):
-    """Conv2D + LayerNorm/BatchNorm + Activation (channels-last)."""
-
-    def __init__(
-        self,
-        filters,
-        kernel_size=3,
-        strides=1,
-        groups=1,
-        activation="relu",
-        use_layer_norm=False,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.filters = filters
-        self.kernel_size = (
-            kernel_size
-            if isinstance(kernel_size, tuple)
-            else (kernel_size, kernel_size)
-        )
-        self.strides = strides
-        self.groups = groups
-        self.activation_name = activation
-        self.use_layer_norm = use_layer_norm
-
-    def build(self, input_shape):
-        padding = (self.kernel_size[0] // 2, self.kernel_size[1] // 2)
-        self.pad = layers.ZeroPadding2D(padding=padding)
-        self.conv = layers.Conv2D(
-            self.filters,
-            self.kernel_size,
-            strides=self.strides,
-            padding="valid",
-            groups=self.groups,
-            use_bias=False,
-            data_format="channels_last",
-            name="conv",
-        )
-        if self.use_layer_norm:
-            self.norm = ChannelLayerNorm(name="ln")
-        else:
-            self.norm = layers.BatchNormalization(
-                axis=-1, epsilon=1e-5, momentum=0.1, name="bn"
-            )
-        self.act = _get_activation(self.activation_name)
-        super().build(input_shape)
-
-    def call(self, x, training=None):
-        x = self.pad(x)
-        x = self.conv(x)
-        if self.use_layer_norm:
-            x = self.norm(x)
-        else:
-            x = self.norm(x, training=training)
-        x = self.act(x)
-        return x
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "filters": self.filters,
-                "kernel_size": self.kernel_size,
-                "strides": self.strides,
-                "groups": self.groups,
-                "activation": self.activation_name,
-                "use_layer_norm": self.use_layer_norm,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class Bottleneck(layers.Layer):
-    def __init__(
-        self,
-        out_channels,
-        shortcut=True,
-        expansion=1.0,
-        activation="silu",
-        use_layer_norm=False,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.out_channels = out_channels
-        self.shortcut = shortcut
-        self.expansion = expansion
-        self.activation_name = activation
-        self.use_layer_norm = use_layer_norm
-
-    def build(self, input_shape):
-        hidden = int(self.out_channels * self.expansion)
-        in_channels = input_shape[-1]
-        self.cv1 = ConvBN(
-            hidden,
-            3,
-            activation=self.activation_name,
-            use_layer_norm=self.use_layer_norm,
-            name="cv1",
-        )
-        self.cv2 = ConvBN(
-            self.out_channels,
-            3,
-            activation=self.activation_name,
-            use_layer_norm=self.use_layer_norm,
-            name="cv2",
-        )
-        self.add_shortcut = self.shortcut and in_channels == self.out_channels
-        super().build(input_shape)
-
-    def call(self, x, training=None):
-        out = self.cv1(x, training=training)
-        out = self.cv2(out, training=training)
-        if self.add_shortcut:
-            out = out + x
-        return out
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "out_channels": self.out_channels,
-                "shortcut": self.shortcut,
-                "expansion": self.expansion,
-                "activation": self.activation_name,
-                "use_layer_norm": self.use_layer_norm,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class C2f(layers.Layer):
-    """CSP Bottleneck with 2 convolutions (faster implementation)."""
-
-    def __init__(
-        self,
-        out_channels,
-        num_blocks=1,
-        shortcut=False,
-        expansion=0.5,
-        activation="silu",
-        use_layer_norm=False,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.out_channels = out_channels
-        self.num_blocks = num_blocks
-        self.shortcut = shortcut
-        self.expansion = expansion
-        self.activation_name = activation
-        self.use_layer_norm = use_layer_norm
-
-    def build(self, input_shape):
-        self.c = int(self.out_channels * self.expansion)
-        self.cv1 = ConvBN(
-            2 * self.c,
-            1,
-            activation=self.activation_name,
-            use_layer_norm=self.use_layer_norm,
-            name="cv1",
-        )
-        self.cv2 = ConvBN(
-            self.out_channels,
-            1,
-            activation=self.activation_name,
-            use_layer_norm=self.use_layer_norm,
-            name="cv2",
-        )
-        self.bottlenecks = []
-        for i in range(self.num_blocks):
-            self.bottlenecks.append(
-                Bottleneck(
-                    self.c,
-                    shortcut=self.shortcut,
-                    expansion=1.0,
-                    activation=self.activation_name,
-                    use_layer_norm=self.use_layer_norm,
-                    name=f"bottleneck_{i}",
-                )
-            )
-        super().build(input_shape)
-
-    def call(self, x, training=None):
-        x = self.cv1(x, training=training)
-        chunks = ops.split(x, 2, axis=-1)
-        y = [chunks[0], chunks[1]]
-        for m in self.bottlenecks:
-            y.append(m(y[-1], training=training))
-        return self.cv2(ops.concatenate(y, axis=-1), training=training)
-
-    def compute_output_spec(self, input_spec, **kwargs):
-        return keras.KerasTensor(
-            shape=(
-                input_spec.shape[0],
-                input_spec.shape[1],
-                input_spec.shape[2],
-                self.out_channels,
-            ),
-            dtype=input_spec.dtype,
-        )
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "out_channels": self.out_channels,
-                "num_blocks": self.num_blocks,
-                "shortcut": self.shortcut,
-                "expansion": self.expansion,
-                "activation": self.activation_name,
-                "use_layer_norm": self.use_layer_norm,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class SimpleProjector(layers.Layer):
-    """Two ConvBN blocks + LayerNorm projector for single-scale features."""
-
-    def __init__(self, out_channels, **kwargs):
-        super().__init__(**kwargs)
-        self.out_channels = out_channels
-
-    def build(self, input_shape):
-        in_dim = input_shape[-1]
-        self.convx1 = ConvBN(
-            in_dim * 2, 3, activation="silu", use_layer_norm=True, name="convx1"
-        )
-        self.convx2 = ConvBN(
-            self.out_channels, 3, activation="silu", use_layer_norm=True, name="convx2"
-        )
-        self.ln = ChannelLayerNorm(name="ln")
-        super().build(input_shape)
-
-    def call(self, x, training=None):
-        x = self.convx1(x, training=training)
-        x = self.convx2(x, training=training)
-        x = self.ln(x)
-        return x
-
-    def compute_output_spec(self, input_spec, **kwargs):
-        return keras.KerasTensor(
-            shape=(
-                input_spec.shape[0],
-                input_spec.shape[1],
-                input_spec.shape[2],
-                self.out_channels,
-            ),
-            dtype=input_spec.dtype,
-        )
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"out_channels": self.out_channels})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
 class DinoV2PatchEmbeddings(layers.Layer):
-    """Convert pixel values to patch embeddings via a convolution."""
+    """Converts pixel values to patch embeddings via a non-overlapping convolution.
+
+    Splits the input image into fixed-size patches and projects each patch
+    into an embedding vector using a single Conv2D with kernel and stride
+    equal to the patch size.
+
+    Args:
+        hidden_size: Integer, dimensionality of the output embeddings.
+        patch_size: Integer, size of each square patch (height and width).
+        num_channels: Integer, number of input channels. Defaults to `3`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, channels)`.
+
+    Output Shape:
+        3D tensor: `(batch_size, num_patches, hidden_size)`, where
+        `num_patches = (height // patch_size) * (width // patch_size)`.
+    """
 
     def __init__(self, hidden_size, patch_size, num_channels=3, **kwargs):
         super().__init__(**kwargs)
@@ -348,7 +111,35 @@ class DinoV2PatchEmbeddings(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DinoV2Embeddings(layers.Layer):
-    """CLS token, register tokens, patch embeddings, position embeddings, windowing."""
+    """DINOv2 embedding layer with CLS token, position embeddings, and windowing.
+
+    Converts input images into a sequence of patch embeddings with learnable
+    CLS token and position embeddings. Optionally splits patches into spatial
+    windows for windowed attention and prepends register tokens.
+
+    Position embeddings are interpolated via bicubic resize when the input
+    resolution differs from the pretrained positional encoding grid size.
+
+    Args:
+        hidden_size: Integer, dimensionality of the embeddings.
+        patch_size: Integer, size of each square patch.
+        num_channels: Integer, number of input image channels. Defaults to `3`.
+        num_register_tokens: Integer, number of register tokens to prepend.
+            Defaults to `4`.
+        num_windows: Integer, number of spatial windows per axis. When greater
+            than 1, patches are partitioned into `num_windows^2` windows.
+            Defaults to `1` (no windowing).
+        positional_encoding_size: Integer, grid size used for the pretrained
+            positional encoding. Defaults to `37`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, channels)`.
+
+    Output Shape:
+        3D tensor: `(batch_size [* num_windows^2], seq_len, hidden_size)`, where
+        `seq_len = tokens_per_window + 1 + num_register_tokens`.
+    """
 
     def __init__(
         self,
@@ -493,117 +284,27 @@ class DinoV2Embeddings(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DinoV2SwiGLUFFN(layers.Layer):
-    def __init__(self, hidden_size, mlp_ratio=4, **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.mlp_ratio = mlp_ratio
-
-    def build(self, input_shape):
-        hidden_features = int(self.hidden_size * self.mlp_ratio)
-        hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
-        self.weights_in = layers.Dense(2 * hidden_features, name="weights_in")
-        self.weights_out = layers.Dense(self.hidden_size, name="weights_out")
-        super().build(input_shape)
-
-    def call(self, x):
-        x = self.weights_in(x)
-        x1, x2 = ops.split(x, 2, axis=-1)
-        hidden = ops.silu(x1) * x2
-        return self.weights_out(hidden)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"hidden_size": self.hidden_size, "mlp_ratio": self.mlp_ratio})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class DinoV2MLP(layers.Layer):
-    def __init__(self, hidden_size, mlp_ratio=4, hidden_act="gelu", **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.mlp_ratio = mlp_ratio
-        self.hidden_act = hidden_act
-
-    def build(self, input_shape):
-        hidden_features = int(self.hidden_size * self.mlp_ratio)
-        self.fc1 = layers.Dense(hidden_features, name="fc1")
-        self.fc2 = layers.Dense(self.hidden_size, name="fc2")
-        super().build(input_shape)
-
-    def call(self, x):
-        x = self.fc1(x)
-        if self.hidden_act == "gelu":
-            x = ops.gelu(x, approximate=False)
-        else:
-            x = ops.relu(x)
-        x = self.fc2(x)
-        return x
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "mlp_ratio": self.mlp_ratio,
-                "hidden_act": self.hidden_act,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class DinoV2Attention(layers.Layer):
-    """Multi-head self-attention with separate Q, K, V projections."""
-
-    def __init__(self, hidden_size, num_heads, **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_heads = num_heads
-        self.head_dim = hidden_size // num_heads
-
-    def build(self, input_shape):
-        self.query = layers.Dense(self.hidden_size, name="query")
-        self.key = layers.Dense(self.hidden_size, name="key")
-        self.value = layers.Dense(self.hidden_size, name="value")
-        self.out_proj = layers.Dense(self.hidden_size, name="out_proj")
-        super().build(input_shape)
-
-    def call(self, x):
-        batch_size = ops.shape(x)[0]
-        seq_len = ops.shape(x)[1]
-
-        q = self.query(x)
-        k = self.key(x)
-        v = self.value(x)
-
-        q = ops.reshape(q, [batch_size, seq_len, self.num_heads, self.head_dim])
-        k = ops.reshape(k, [batch_size, seq_len, self.num_heads, self.head_dim])
-        v = ops.reshape(v, [batch_size, seq_len, self.num_heads, self.head_dim])
-
-        q = ops.transpose(q, [0, 2, 1, 3])
-        k = ops.transpose(k, [0, 2, 1, 3])
-        v = ops.transpose(v, [0, 2, 1, 3])
-
-        scale = ops.cast(self.head_dim, q.dtype) ** -0.5
-        attn_weights = ops.matmul(q, ops.transpose(k, [0, 1, 3, 2])) * scale
-        attn_weights = ops.softmax(attn_weights, axis=-1)
-
-        attn_output = ops.matmul(attn_weights, v)
-        attn_output = ops.transpose(attn_output, [0, 2, 1, 3])
-        attn_output = ops.reshape(attn_output, [batch_size, seq_len, self.hidden_size])
-
-        return self.out_proj(attn_output)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"hidden_size": self.hidden_size, "num_heads": self.num_heads})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
 class DinoV2LayerScale(layers.Layer):
+    """Learnable per-channel scaling applied to residual branch outputs.
+
+    Multiplies input element-wise by a learnable vector (lambda1) of shape
+    `(hidden_size,)`, initialized to a constant value. Used in DINOv2
+    transformer blocks to stabilize training.
+
+    Args:
+        hidden_size: Integer, number of channels (must match the last dimension
+            of the input).
+        init_value: Float, initial value for the scale parameters.
+            Defaults to `1.0`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        Tensor of shape `(..., hidden_size)`.
+
+    Output Shape:
+        Same as input shape.
+    """
+
     def __init__(self, hidden_size, init_value=1.0, **kwargs):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -627,228 +328,30 @@ class DinoV2LayerScale(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class DinoV2DropPath(layers.Layer):
-    def __init__(self, drop_prob=0.0, **kwargs):
-        super().__init__(**kwargs)
-        self.drop_prob = drop_prob
-
-    def call(self, x, training=None):
-        if not training or self.drop_prob == 0.0:
-            return x
-        keep_prob = 1.0 - self.drop_prob
-        shape = (ops.shape(x)[0],) + (1,) * (len(x.shape) - 1)
-        random_tensor = ops.random.uniform(shape, dtype=x.dtype)
-        random_tensor = ops.floor(random_tensor + keep_prob)
-        return x / keep_prob * random_tensor
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"drop_prob": self.drop_prob})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class WindowedDinoV2Block(layers.Layer):
-    """Single DINOv2 transformer block with windowed attention support."""
-
-    def __init__(
-        self,
-        hidden_size,
-        num_heads,
-        mlp_ratio=4,
-        use_swiglu=False,
-        drop_path_rate=0.0,
-        layer_scale_init=1.0,
-        num_windows=1,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_heads = num_heads
-        self.mlp_ratio = mlp_ratio
-        self.use_swiglu = use_swiglu
-        self.drop_path_rate = drop_path_rate
-        self.layer_scale_init = layer_scale_init
-        self.num_windows = num_windows
-
-    def build(self, input_shape):
-        self.norm1 = layers.LayerNormalization(epsilon=1e-6, name="norm1")
-        self.attention = DinoV2Attention(
-            self.hidden_size, self.num_heads, name="attention"
-        )
-        self.layer_scale1 = DinoV2LayerScale(
-            self.hidden_size, self.layer_scale_init, name="layer_scale1"
-        )
-        self.drop_path = DinoV2DropPath(self.drop_path_rate, name="drop_path")
-
-        self.norm2 = layers.LayerNormalization(epsilon=1e-6, name="norm2")
-        if self.use_swiglu:
-            self.mlp = DinoV2SwiGLUFFN(self.hidden_size, self.mlp_ratio, name="mlp")
-        else:
-            self.mlp = DinoV2MLP(self.hidden_size, self.mlp_ratio, name="mlp")
-        self.layer_scale2 = DinoV2LayerScale(
-            self.hidden_size, self.layer_scale_init, name="layer_scale2"
-        )
-        super().build(input_shape)
-
-    def call(self, hidden_states, run_full_attention=False, training=None):
-        shortcut = hidden_states
-
-        if run_full_attention and self.num_windows > 1:
-            nw2 = self.num_windows**2
-            shape = ops.shape(hidden_states)
-            hidden_states = ops.reshape(hidden_states, [-1, nw2 * shape[1], shape[2]])
-
-        attn_out = self.attention(self.norm1(hidden_states))
-
-        if run_full_attention and self.num_windows > 1:
-            full_shape = ops.shape(attn_out)
-            attn_out = ops.reshape(attn_out, [-1, full_shape[1] // nw2, full_shape[2]])
-
-        attn_out = self.layer_scale1(attn_out)
-        hidden_states = self.drop_path(attn_out, training=training) + shortcut
-
-        layer_output = self.mlp(self.norm2(hidden_states))
-        layer_output = self.layer_scale2(layer_output)
-        layer_output = self.drop_path(layer_output, training=training) + hidden_states
-
-        return layer_output
-
-    def compute_output_spec(self, input_spec, **kwargs):
-        return keras.KerasTensor(
-            shape=input_spec.shape,
-            dtype=input_spec.dtype,
-        )
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "num_heads": self.num_heads,
-                "mlp_ratio": self.mlp_ratio,
-                "use_swiglu": self.use_swiglu,
-                "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init": self.layer_scale_init,
-                "num_windows": self.num_windows,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class WindowedDinoV2Encoder(layers.Layer):
-    """Stack of windowed DINOv2 blocks with multi-scale feature extraction."""
-
-    def __init__(
-        self,
-        hidden_size,
-        num_heads,
-        num_layers,
-        mlp_ratio=4,
-        use_swiglu=False,
-        drop_path_rate=0.0,
-        layer_scale_init=1.0,
-        num_windows=1,
-        out_feature_indexes=None,
-        window_block_indexes=None,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_heads = num_heads
-        self.num_layers = num_layers
-        self.mlp_ratio = mlp_ratio
-        self.use_swiglu = use_swiglu
-        self.drop_path_rate = drop_path_rate
-        self.layer_scale_init = layer_scale_init
-        self.num_windows = num_windows
-        self.out_feature_indexes = out_feature_indexes or []
-        if window_block_indexes is None:
-            all_indexes = set(
-                range(
-                    max(self.out_feature_indexes) + 1
-                    if self.out_feature_indexes
-                    else num_layers
-                )
-            )
-            all_indexes.difference_update(set(self.out_feature_indexes))
-            self.window_block_indexes = sorted(all_indexes)
-        else:
-            self.window_block_indexes = window_block_indexes
-
-    def build(self, input_shape):
-        max_layer = (
-            max(self.out_feature_indexes) + 1
-            if self.out_feature_indexes
-            else self.num_layers
-        )
-        self.blocks = []
-        for i in range(max_layer):
-            block = WindowedDinoV2Block(
-                self.hidden_size,
-                self.num_heads,
-                self.mlp_ratio,
-                use_swiglu=self.use_swiglu,
-                drop_path_rate=self.drop_path_rate,
-                layer_scale_init=self.layer_scale_init,
-                num_windows=self.num_windows,
-                name=f"layer_{i}",
-            )
-            self.blocks.append(block)
-        self.layernorm = layers.LayerNormalization(epsilon=1e-6, name="layernorm")
-        super().build(input_shape)
-
-    def call(self, hidden_states, training=None):
-        features = []
-        for i, block in enumerate(self.blocks):
-            run_full = i not in self.window_block_indexes
-            hidden_states = block(
-                hidden_states, run_full_attention=run_full, training=training
-            )
-            if (i + 1) in self.out_feature_indexes:
-                features.append(self.layernorm(hidden_states))
-        return features
-
-    def compute_output_spec(self, input_spec, **kwargs):
-        seq_len = input_spec.shape[1]
-        output_specs = []
-        for _ in self.out_feature_indexes:
-            output_specs.append(
-                keras.KerasTensor(
-                    shape=(input_spec.shape[0], seq_len, self.hidden_size),
-                    dtype=input_spec.dtype,
-                )
-            )
-        return output_specs
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "num_heads": self.num_heads,
-                "num_layers": self.num_layers,
-                "mlp_ratio": self.mlp_ratio,
-                "use_swiglu": self.use_swiglu,
-                "drop_path_rate": self.drop_path_rate,
-                "layer_scale_init": self.layer_scale_init,
-                "num_windows": self.num_windows,
-                "out_feature_indexes": self.out_feature_indexes,
-                "window_block_indexes": self.window_block_indexes,
-            }
-        )
-        return config
-
-
-# ---------------------------------------------------------------------------
-# Sinusoidal 2D Position Encoding (for decoder feature maps)
-# ---------------------------------------------------------------------------
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
 class PositionEmbeddingSine(layers.Layer):
-    """2D sinusoidal position embedding for feature maps."""
+    """2D sinusoidal position embedding for spatial feature maps.
+
+    Generates fixed sine/cosine position embeddings for each spatial location
+    in the input feature map. The y and x coordinates are each encoded into
+    `num_pos_feats` dimensions using interleaved sin/cos, then concatenated
+    to produce a `2 * num_pos_feats` dimensional embedding per position.
+
+    Args:
+        num_pos_feats: Integer, number of positional features per spatial
+            axis. The total embedding dimension is `2 * num_pos_feats`.
+            Defaults to `128`.
+        temperature: Float, temperature scaling for the sinusoidal
+            frequencies. Defaults to `10000`.
+        normalize: Boolean, whether to normalize coordinates to [0, 2*pi].
+            Defaults to `True`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, channels)`.
+
+    Output Shape:
+        4D tensor: `(1, height, width, 2 * num_pos_feats)`.
+    """
 
     def __init__(self, num_pos_feats=128, temperature=10000, normalize=True, **kwargs):
         super().__init__(**kwargs)
@@ -908,11 +411,6 @@ class PositionEmbeddingSine(layers.Layer):
             }
         )
         return config
-
-
-# ---------------------------------------------------------------------------
-# Multi-Scale Deformable Attention (pure Keras implementation)
-# ---------------------------------------------------------------------------
 
 
 def _ms_deform_attn_core(
@@ -1021,7 +519,36 @@ def _ms_deform_attn_core(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MSDeformableAttention(layers.Layer):
-    """Multi-Scale Deformable Attention Module."""
+    """Multi-Scale Deformable Attention module.
+
+    Implements deformable attention where each query attends to a small set of
+    learned sampling locations around reference points, rather than all spatial
+    positions. Uses bilinear interpolation to sample values at continuous
+    locations, enabling efficient attention over large feature maps.
+
+    Reference:
+        - [Deformable DETR](https://arxiv.org/abs/2010.04159)
+
+    Args:
+        d_model: Integer, dimensionality of the model. Defaults to `256`.
+        n_levels: Integer, number of feature levels. Defaults to `1`.
+        n_heads: Integer, number of attention heads. Defaults to `8`.
+        n_points: Integer, number of sampling points per head per level.
+            Defaults to `4`.
+        spatial_shapes: List of `(height, width)` tuples for each feature
+            level. Defaults to `None`.
+        level_start_index: List of integers indicating the start index of each
+            level in the flattened feature sequence. Defaults to `None`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        - query: `(batch_size, num_queries, d_model)`.
+        - reference_points: `(batch_size, num_queries, n_levels, 2 or 4)`.
+        - input_flatten: `(batch_size, total_tokens, d_model)`.
+
+    Output Shape:
+        3D tensor: `(batch_size, num_queries, d_model)`.
+    """
 
     def __init__(
         self,
@@ -1130,13 +657,45 @@ class MSDeformableAttention(layers.Layer):
         return config
 
 
-# ---------------------------------------------------------------------------
-# Decoder Layer (Self-Attn + MS Deformable Cross-Attn + FFN)
-# ---------------------------------------------------------------------------
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class RFDETRDecoderLayer(layers.Layer):
+    """Single decoder layer for RF-DETR with self-attention, deformable
+    cross-attention, and feed-forward network.
+
+    Each layer applies:
+    1. Multi-head self-attention over object queries.
+    2. Multi-scale deformable cross-attention to encoder memory.
+    3. Feed-forward network with ReLU activation.
+
+    All sub-blocks use pre-norm residual connections with dropout.
+
+    Args:
+        d_model: Integer, model hidden dimension.
+        sa_nhead: Integer, number of self-attention heads.
+        ca_nhead: Integer, number of cross-attention heads.
+        dim_feedforward: Integer, hidden dimension of the FFN.
+            Defaults to `2048`.
+        dropout: Float, dropout rate for all sub-blocks. Defaults to `0.0`.
+        num_feature_levels: Integer, number of multi-scale feature levels.
+            Defaults to `1`.
+        dec_n_points: Integer, number of sampling points per head in
+            deformable cross-attention. Defaults to `4`.
+        spatial_shapes: List of `(height, width)` tuples for each feature
+            level. Defaults to `None`.
+        level_start_index: List of integers for each level's start index
+            in the flattened feature sequence. Defaults to `None`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        - tgt: `(batch_size, num_queries, d_model)`.
+        - memory: `(batch_size, total_tokens, d_model)`.
+        - query_pos: `(batch_size, num_queries, d_model)`.
+        - reference_points: `(batch_size, num_queries, 1, 4)`.
+
+    Output Shape:
+        3D tensor: `(batch_size, num_queries, d_model)`.
+    """
+
     def __init__(
         self,
         d_model,
@@ -1271,11 +830,6 @@ class RFDETRDecoderLayer(layers.Layer):
         return config
 
 
-# ---------------------------------------------------------------------------
-# Sine embedding for reference points (used in decoder)
-# ---------------------------------------------------------------------------
-
-
 def _sincos_interleave(x):
     """Apply sin to even indices and cos to odd indices, then interleave."""
     sin_part = ops.sin(x[..., 0::2])
@@ -1287,7 +841,24 @@ def _sincos_interleave(x):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SinePositionEmbeddingForRefPoints(layers.Layer):
-    """Generate sinusoidal embeddings for reference point positions."""
+    """Generates sinusoidal position embeddings for decoder reference points.
+
+    Encodes 2D or 4D reference point coordinates (x, y) or (x, y, w, h)
+    into sinusoidal embeddings using interleaved sin/cos encoding per
+    coordinate dimension.
+
+    Args:
+        dim: Integer, embedding dimension per coordinate. The total output
+            dimension is `dim * num_coordinates` (2 or 4). Defaults to `128`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        Tensor of shape `(..., 2)` or `(..., 4)` containing normalized
+        coordinates.
+
+    Output Shape:
+        Tensor of shape `(..., dim * 2)` or `(..., dim * 4)`.
+    """
 
     def __init__(self, dim=128, **kwargs):
         super().__init__(**kwargs)

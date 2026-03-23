@@ -119,8 +119,6 @@ def convert_model(
 
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    # Transfer ASPP + classifier weights manually
-    # ASPP convs.0: 1x1 conv (Conv2D + BN)
     _transfer_conv_bn(
         keras_model,
         pytorch_state_dict,
@@ -130,7 +128,6 @@ def convert_model(
         torch_bn_key="classifier.0.convs.0.1",
     )
 
-    # ASPP convs.1-3: dilated 3x3 convs
     for i in range(1, 4):
         _transfer_conv_bn(
             keras_model,
@@ -141,7 +138,6 @@ def convert_model(
             torch_bn_key=f"classifier.0.convs.{i}.1",
         )
 
-    # ASPP convs.4: image pooling (Conv2D + BN)
     _transfer_conv_bn(
         keras_model,
         pytorch_state_dict,
@@ -151,7 +147,6 @@ def convert_model(
         torch_bn_key="classifier.0.convs.4.2",
     )
 
-    # ASPP project: 1x1 conv (1280->256) + BN
     _transfer_conv_bn(
         keras_model,
         pytorch_state_dict,
@@ -161,7 +156,6 @@ def convert_model(
         torch_bn_key="classifier.0.project.1",
     )
 
-    # Classifier: Conv2d(256,256,3) + BN
     _transfer_conv_bn(
         keras_model,
         pytorch_state_dict,
@@ -171,54 +165,44 @@ def convert_model(
         torch_bn_key="classifier.2",
     )
 
-    # Classifier: final Conv2d(256, 21, 1) - has bias
     cls_layer = keras_model.get_layer("classifier_4")
     conv_w = pytorch_state_dict["classifier.4.weight"]
     cls_layer.weights[0].assign(np.transpose(conv_w, (2, 3, 1, 0)))
     cls_layer.weights[1].assign(pytorch_state_dict["classifier.4.bias"])
 
-    # Verify equivalence
     print("\nVerifying model equivalence...")
     np.random.seed(42)
     test_input = np.random.rand(1, *input_shape).astype(np.float32)
 
-    # Normalize for torchvision
     mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
     std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
     normalized_input = (test_input - mean) / std
 
-    # PyTorch inference
     torch_input = torch.tensor(normalized_input).permute(0, 3, 1, 2).float()
     with torch.no_grad():
         torch_output = torch_model(torch_input)["out"]
         torch_output_np = torch_output.permute(0, 2, 3, 1).numpy()
 
-    # Keras inference (without final upsampling for comparison)
     keras_output = keras_model(normalized_input.astype(np.float32), training=False)
     keras_output_np = keras.ops.convert_to_numpy(keras_output)
 
-    # Compare at the same resolution - torch output is 1/8 of input,
-    # keras output is upsampled to full resolution. Resize torch output to match.
     from PIL import Image
 
     torch_h, torch_w = torch_output_np.shape[1], torch_output_np.shape[2]
     keras_h, keras_w = keras_output_np.shape[1], keras_output_np.shape[2]
 
     if torch_h != keras_h or torch_w != keras_w:
-        # Resize keras output to torch resolution for comparison
         keras_resized = np.array(
             Image.fromarray(keras_output_np[0, :, :, 0]).resize(
                 (torch_w, torch_h), Image.BILINEAR
             )
         )
-        # Compare single channel
         diff = np.max(np.abs(torch_output_np[0, :, :, 0] - keras_resized))
         print(
             f"Note: Comparing at different resolutions (torch: {torch_h}x{torch_w}, keras: {keras_h}x{keras_w})"
         )
         print(f"Max diff (channel 0, resized): {diff:.6f}")
 
-        # Also build a model without upsampling for exact comparison
         print("Building model without upsampling for exact comparison...")
         keras_model_no_upsample = keras.Model(
             inputs=keras_model.input,
@@ -241,7 +225,6 @@ def convert_model(
 
     print("Model equivalence test passed!")
 
-    # Save weights
     model_filename = (
         f"deeplabv3_{variant.replace('DeepLabV3', '').lower()}_coco_voc.weights.h5"
     )
@@ -259,7 +242,6 @@ def _transfer_conv_bn(
     torch_conv_key,
     torch_bn_key,
 ):
-    """Transfer weights for a Conv2D + BatchNorm pair."""
     conv_layer = keras_model.get_layer(keras_conv_name)
     conv_w = pytorch_state_dict[f"{torch_conv_key}.weight"]
     conv_layer.weights[0].assign(np.transpose(conv_w, (2, 3, 1, 0)))

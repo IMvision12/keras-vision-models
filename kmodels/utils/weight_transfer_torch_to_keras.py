@@ -221,6 +221,9 @@ def transfer_weights(
                 f"Keras shape={keras_shape}, Torch shape={torch_shape}"
             )
 
+    elif keras_shape == torch_shape:
+        transformed = torch_weight
+
     elif len(keras_shape) == 0 and len(torch_shape) == 1:
         transformed = torch_weight[0]
 
@@ -291,6 +294,93 @@ def transfer_attention_weights(
         raise ValueError(
             f"Missing PyTorch weight '{torch_name}' for Keras weight '{keras_name}'"
         )
+
+
+def transfer_nested_layer_weights(
+    keras_layer: keras.Layer,
+    torch_weights_dict: Dict[str, Union[np.ndarray, torch.Tensor]],
+    torch_prefix: str,
+    name_mapping: Optional[Dict[str, str]] = None,
+    skip_paths: Optional[list] = None,
+) -> list:
+    """
+    Transfer weights for a nested Keras layer by mapping weight paths to
+    PyTorch state dict keys.
+
+    Converts Keras ``weight.path`` (e.g.
+    ``decoder_layer_0/self_attn_q_proj/kernel``) into the corresponding
+    PyTorch key (e.g.
+    ``transformer.decoder.layers.0.self_attn.q_proj.weight``) using two
+    steps:
+
+    1. Strip the top-level layer name, replace ``/`` with ``.``.
+    2. Apply *name_mapping* replacements sequentially (last segment maps
+       like ``kernel`` → ``weight``).
+
+    The resolved key is looked up in *torch_weights_dict* and handed to
+    :func:`transfer_weights`, which takes care of shape transforms
+    (conv transpose, dense transpose, etc.).
+
+    Args:
+        keras_layer: A Keras layer whose ``.weights`` will be iterated.
+        torch_weights_dict: PyTorch state dict (values may be tensors or
+            numpy arrays).
+        torch_prefix: Prefix prepended to every resolved torch key
+            (e.g. ``"transformer.decoder.layers.0"``).
+        name_mapping: Optional ordered dict of ``{old: new}`` string
+            replacements applied after the ``/`` → ``.`` conversion.
+            Applied sequentially, so order matters.  Common entries::
+
+                {"kernel": "weight", "gamma": "weight",
+                 "beta": "bias", "moving_mean": "running_mean",
+                 "moving_variance": "running_var"}
+
+        skip_paths: Optional list of substrings; any weight whose
+            ``path`` contains one of these strings is skipped and
+            returned for manual handling.
+
+    Returns:
+        A list of ``(keras_weight, weight_path)`` tuples that were
+        skipped (matched *skip_paths* or not found in
+        *torch_weights_dict*), so the caller can handle them manually.
+    """
+    if name_mapping is None:
+        name_mapping = {
+            "kernel": "weight",
+            "gamma": "weight",
+            "beta": "bias",
+            "moving_mean": "running_mean",
+            "moving_variance": "running_var",
+        }
+
+    if skip_paths is None:
+        skip_paths = []
+
+    layer_name = keras_layer.name
+    skipped: list = []
+
+    for w in keras_layer.weights:
+        path = w.path
+
+        if any(s in path for s in skip_paths):
+            skipped.append((w, path))
+            continue
+
+        suffix = path[len(layer_name) :].lstrip("/")
+        torch_suffix = suffix.replace("/", ".")
+
+        for old, new in name_mapping.items():
+            torch_suffix = torch_suffix.replace(old, new)
+        torch_key = f"{torch_prefix}.{torch_suffix}" if torch_prefix else torch_suffix
+
+        if torch_key not in torch_weights_dict:
+            skipped.append((w, path))
+            continue
+
+        torch_weight = torch_weights_dict[torch_key]
+        transfer_weights(path, w, torch_weight)
+
+    return skipped
 
 
 def compare_keras_torch_names(

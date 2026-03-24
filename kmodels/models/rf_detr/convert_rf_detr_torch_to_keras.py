@@ -3,37 +3,51 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
+from typing import Dict, List, Tuple
+
 import keras
+import numpy as np
 import torch
+from tqdm import tqdm
 
 from kmodels.models.rf_detr.config import RF_DETR_MODEL_CONFIG
 from kmodels.models.rf_detr.rf_detr_model import RFDETR
+from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
+from kmodels.utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_nested_layer_weights,
+    transfer_weights,
+)
 
-VARIANT_TO_RFDETR_CLASS = {
-    "RFDETRNano": "RFDETRNano",
-    "RFDETRSmall": "RFDETRSmall",
-    "RFDETRMedium": "RFDETRMedium",
-    "RFDETRBase": "RFDETRBase",
-    "RFDETRLarge": "RFDETRLarge",
-}
-
-RFDETR_PKG_CLASSES = {
-    "RFDETRNano": "RFDETRNano",
-    "RFDETRSmall": "RFDETRSmall",
-    "RFDETRMedium": "RFDETRMedium",
-    "RFDETRBase": "RFDETRBase",
-    "RFDETRLarge": "RFDETRLarge",
+weight_name_mapping: Dict[str, str] = {
+    "backbone_encoder_layer_": "backbone.0.encoder.encoder.encoder.layer.",
+    "backbone_encoder_layernorm_": "backbone.0.encoder.encoder.layernorm.",
+    "_attention_query_": ".attention.attention.query.",
+    "_attention_key_": ".attention.attention.key.",
+    "_attention_value_": ".attention.attention.value.",
+    "_attention_out_proj_": ".attention.output.dense.",
+    "_norm1_": ".norm1.",
+    "_norm2_": ".norm2.",
+    "_layer_scale1_": ".layer_scale1.",
+    "_layer_scale2_": ".layer_scale2.",
+    "_mlp_fc1_": ".mlp.fc1.",
+    "_mlp_fc2_": ".mlp.fc2.",
+    "_mlp_weights_in_": ".mlp.fc1.",
+    "_mlp_weights_out_": ".mlp.fc2.",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
 }
 
 
 def load_torch_state_dict(variant):
-    """Load PyTorch weights using the rfdetr package."""
+    """Load PyTorch weights using the rfdetr package and convert to numpy."""
     import rfdetr as rfdetr_pkg
 
     cls = getattr(rfdetr_pkg, variant.replace("RFDETR", "RFDETR"))
     torch_model = cls()
     sd = torch_model.model.model.state_dict()
-    return sd
+    return {k: v.cpu().numpy() for k, v in sd.items()}
 
 
 def build_keras_model(variant):
@@ -73,38 +87,33 @@ def build_keras_model(variant):
     return model
 
 
-def get_keras_weight_dict(model):
-    """Build a dict from weight path -> weight variable."""
-    weight_dict = {}
-    for layer in model.layers:
-        for w in layer.weights:
-            weight_dict[w.path] = w
-    return weight_dict
-
-
-def transfer_weights(variant, torch_sd, keras_model):
+def transfer_all_weights(variant, pytorch_state_dict, keras_model):
     """Map PyTorch state_dict keys to Keras weights and assign values."""
     config = RF_DETR_MODEL_CONFIG[variant]
     out_feature_indexes = config.get("out_feature_indexes", [3, 6, 9, 12])
     num_layers = max(out_feature_indexes)
     dec_layers = config["dec_layers"]
 
-    kw = get_keras_weight_dict(keras_model)
+    # ---- Backbone Encoder Layers (name mapping + library utilities) ----
+    backbone_encoder_weights: List[Tuple[keras.Variable, str]] = []
+    for layer in keras_model.layers:
+        if layer.name.startswith("backbone_encoder_layer_") or (
+            layer.name == "backbone_encoder_layernorm"
+        ):
+            for weight in layer.trainable_weights:
+                backbone_encoder_weights.append((weight, f"{layer.name}_{weight.name}"))
+            for weight in layer.non_trainable_weights:
+                backbone_encoder_weights.append((weight, f"{layer.name}_{weight.name}"))
 
-    assigned = set()
-
-    def assign(keras_path, torch_tensor, transpose=False):
-        if keras_path not in kw:
-            print(f"  WARN: Keras path not found: {keras_path}")
-            return
-        tensor = keras.ops.convert_to_tensor(torch_tensor.detach().cpu())
-        if transpose:
-            tensor = keras.ops.transpose(tensor)
-        target = kw[keras_path]
-        if tensor.shape != tuple(target.shape):
-            print(
-                f"  WARN: Shape mismatch for {keras_path}: "
-                f"torch={tensor.shape}, keras={tuple(target.shape)}"
+    for keras_weight, keras_weight_name in tqdm(
+        backbone_encoder_weights,
+        total=len(backbone_encoder_weights),
+        desc="Transferring backbone encoder weights",
+    ):
+        torch_weight_name: str = keras_weight_name
+        for keras_name_part, torch_name_part in weight_name_mapping.items():
+            torch_weight_name = torch_weight_name.replace(
+                keras_name_part, torch_name_part
             )
             return
         target.assign(tensor)
@@ -236,8 +245,7 @@ def transfer_weights(variant, torch_sd, keras_model):
         torch_sd["backbone.0.encoder.encoder.layernorm.bias"],
     )
 
-    # --- Projector (C2f + ChannelLayerNorm) ---
-    pt_proj = "backbone.0.projector.stages.0"
+    emb_prefix = "backbone.0.encoder.encoder.embeddings"
 
     assign(
         "projector_c2f_cv1_conv/kernel",
@@ -265,6 +273,12 @@ def transfer_weights(variant, torch_sd, keras_model):
         torch_sd[f"{pt_proj}.0.cv2.bn.bias"],
     )
 
+    projector_conv_ln_pairs = [
+        ("projector_c2f_cv1_conv", f"{pt_proj}.0.cv1.conv"),
+        ("projector_c2f_cv1_ln", f"{pt_proj}.0.cv1.bn"),
+        ("projector_c2f_cv2_conv", f"{pt_proj}.0.cv2.conv"),
+        ("projector_c2f_cv2_ln", f"{pt_proj}.0.cv2.bn"),
+    ]
     for b_idx in range(3):
         pt_bn = f"{pt_proj}.0.m.{b_idx}"
         k_bn = f"projector_c2f_bottleneck_{b_idx}"
@@ -282,180 +296,105 @@ def transfer_weights(variant, torch_sd, keras_model):
                 torch_sd[f"{pt_bn}.{cv}.bn.bias"],
             )
 
-    assign("projector_ln/gamma", torch_sd[f"{pt_proj}.1.weight"])
-    assign("projector_ln/beta", torch_sd[f"{pt_proj}.1.bias"])
+    for keras_name, pt_name in tqdm(
+        projector_conv_ln_pairs,
+        desc="Transferring projector weights",
+    ):
+        layer = keras_model.get_layer(keras_name)
+        if keras_name.endswith("_conv"):
+            conv_w = pytorch_state_dict[f"{pt_name}.weight"]
+            layer.weights[0].assign(np.transpose(conv_w, (2, 3, 1, 0)))
+        else:
+            layer.weights[0].assign(pytorch_state_dict[f"{pt_name}.weight"])
+            layer.weights[1].assign(pytorch_state_dict[f"{pt_name}.bias"])
 
-    # --- Encoder output (two-stage, group 0 only) ---
-    assign(
-        "enc_output_0/kernel",
-        torch_sd["transformer.enc_output.0.weight"],
-        transpose=True,
-    )
-    assign("enc_output_0/bias", torch_sd["transformer.enc_output.0.bias"])
-    assign(
-        "enc_output_norm_0/gamma",
-        torch_sd["transformer.enc_output_norm.0.weight"],
-    )
-    assign(
-        "enc_output_norm_0/beta",
-        torch_sd["transformer.enc_output_norm.0.bias"],
-    )
+    proj_ln = keras_model.get_layer("projector_ln")
+    proj_ln.weights[0].assign(pytorch_state_dict[f"{pt_proj}.1.weight"])
+    proj_ln.weights[1].assign(pytorch_state_dict[f"{pt_proj}.1.bias"])
 
-    assign(
-        "enc_out_class_embed_0/kernel",
-        torch_sd["transformer.enc_out_class_embed.0.weight"],
-        transpose=True,
+    enc_output = keras_model.get_layer("enc_output_0")
+    enc_output.weights[0].assign(
+        pytorch_state_dict["transformer.enc_output.0.weight"].T
     )
-    assign(
-        "enc_out_class_embed_0/bias",
-        torch_sd["transformer.enc_out_class_embed.0.bias"],
-    )
+    enc_output.weights[1].assign(pytorch_state_dict["transformer.enc_output.0.bias"])
 
-    assign(
-        "enc_bbox_0/kernel",
-        torch_sd["transformer.enc_out_bbox_embed.0.layers.0.weight"],
-        transpose=True,
+    enc_output_norm = keras_model.get_layer("enc_output_norm_0")
+    enc_output_norm.weights[0].assign(
+        pytorch_state_dict["transformer.enc_output_norm.0.weight"]
     )
-    assign(
-        "enc_bbox_0/bias",
-        torch_sd["transformer.enc_out_bbox_embed.0.layers.0.bias"],
-    )
-    assign(
-        "enc_bbox_1/kernel",
-        torch_sd["transformer.enc_out_bbox_embed.0.layers.1.weight"],
-        transpose=True,
-    )
-    assign(
-        "enc_bbox_1/bias",
-        torch_sd["transformer.enc_out_bbox_embed.0.layers.1.bias"],
-    )
-    assign(
-        "enc_bbox_2/kernel",
-        torch_sd["transformer.enc_out_bbox_embed.0.layers.2.weight"],
-        transpose=True,
-    )
-    assign(
-        "enc_bbox_2/bias",
-        torch_sd["transformer.enc_out_bbox_embed.0.layers.2.bias"],
+    enc_output_norm.weights[1].assign(
+        pytorch_state_dict["transformer.enc_output_norm.0.bias"]
     )
 
-    # --- Ref point head ---
-    assign(
-        "ref_point_head_0/kernel",
-        torch_sd["transformer.decoder.ref_point_head.layers.0.weight"],
-        transpose=True,
+    enc_cls = keras_model.get_layer("enc_out_class_embed_0")
+    enc_cls.weights[0].assign(
+        pytorch_state_dict["transformer.enc_out_class_embed.0.weight"].T
     )
-    assign(
-        "ref_point_head_0/bias",
-        torch_sd["transformer.decoder.ref_point_head.layers.0.bias"],
-    )
-    assign(
-        "ref_point_head_1/kernel",
-        torch_sd["transformer.decoder.ref_point_head.layers.1.weight"],
-        transpose=True,
-    )
-    assign(
-        "ref_point_head_1/bias",
-        torch_sd["transformer.decoder.ref_point_head.layers.1.bias"],
+    enc_cls.weights[1].assign(
+        pytorch_state_dict["transformer.enc_out_class_embed.0.bias"]
     )
 
-    # --- Decoder layers ---
-    for i in range(dec_layers):
+    for i in range(3):
+        bbox_layer = keras_model.get_layer(f"enc_bbox_{i}")
+        bbox_layer.weights[0].assign(
+            pytorch_state_dict[f"transformer.enc_out_bbox_embed.0.layers.{i}.weight"].T
+        )
+        bbox_layer.weights[1].assign(
+            pytorch_state_dict[f"transformer.enc_out_bbox_embed.0.layers.{i}.bias"]
+        )
+
+    for i in range(2):
+        rph = keras_model.get_layer(f"ref_point_head_{i}")
+        rph.weights[0].assign(
+            pytorch_state_dict[
+                f"transformer.decoder.ref_point_head.layers.{i}.weight"
+            ].T
+        )
+        rph.weights[1].assign(
+            pytorch_state_dict[f"transformer.decoder.ref_point_head.layers.{i}.bias"]
+        )
+
+    decoder_name_mapping = {
+        "self_attn_out_proj": "self_attn.out_proj",
+        "kernel": "weight",
+        "gamma": "weight",
+        "beta": "bias",
+    }
+
+    for i in tqdm(range(dec_layers), desc="Transferring decoder weights"):
         pt_dl = f"transformer.decoder.layers.{i}"
         k_dl = f"decoder_layer_{i}"
 
-        # Self-attention: fused in_proj_weight -> split into Q, K, V
-        in_proj_w = torch_sd[f"{pt_dl}.self_attn.in_proj_weight"]
-        in_proj_b = torch_sd[f"{pt_dl}.self_attn.in_proj_bias"]
-        q_w, k_w, v_w = torch.chunk(in_proj_w, 3, dim=0)
-        q_b, k_b, v_b = torch.chunk(in_proj_b, 3, dim=0)
+        dec_layer = keras_model.get_layer(k_dl)
 
-        assign(f"{k_dl}/self_attn_q_proj/kernel", q_w, transpose=True)
-        assign(f"{k_dl}/self_attn_q_proj/bias", q_b)
-        assign(f"{k_dl}/self_attn_k_proj/kernel", k_w, transpose=True)
-        assign(f"{k_dl}/self_attn_k_proj/bias", k_b)
-        assign(f"{k_dl}/self_attn_v_proj/kernel", v_w, transpose=True)
-        assign(f"{k_dl}/self_attn_v_proj/bias", v_b)
+        # Self-attention uses fused in_proj in PyTorch → split into Q/K/V
+        in_proj_w = pytorch_state_dict[f"{pt_dl}.self_attn.in_proj_weight"]
+        in_proj_b = pytorch_state_dict[f"{pt_dl}.self_attn.in_proj_bias"]
+        q_w, k_w, v_w = np.split(in_proj_w, 3, axis=0)
+        q_b, k_b, v_b = np.split(in_proj_b, 3, axis=0)
 
-        assign(
-            f"{k_dl}/self_attn_out_proj/kernel",
-            torch_sd[f"{pt_dl}.self_attn.out_proj.weight"],
-            transpose=True,
-        )
-        assign(
-            f"{k_dl}/self_attn_out_proj/bias",
-            torch_sd[f"{pt_dl}.self_attn.out_proj.bias"],
-        )
+        weight_dict = {w.path: w for w in dec_layer.weights}
+        weight_dict[f"{k_dl}/self_attn_q_proj/kernel"].assign(q_w.T)
+        weight_dict[f"{k_dl}/self_attn_q_proj/bias"].assign(q_b)
+        weight_dict[f"{k_dl}/self_attn_k_proj/kernel"].assign(k_w.T)
+        weight_dict[f"{k_dl}/self_attn_k_proj/bias"].assign(k_b)
+        weight_dict[f"{k_dl}/self_attn_v_proj/kernel"].assign(v_w.T)
+        weight_dict[f"{k_dl}/self_attn_v_proj/bias"].assign(v_b)
 
-        assign(f"{k_dl}/norm1/gamma", torch_sd[f"{pt_dl}.norm1.weight"])
-        assign(f"{k_dl}/norm1/beta", torch_sd[f"{pt_dl}.norm1.bias"])
-
-        # Cross-attention (deformable)
-        assign(
-            f"{k_dl}/cross_attn/sampling_offsets/kernel",
-            torch_sd[f"{pt_dl}.cross_attn.sampling_offsets.weight"],
-            transpose=True,
-        )
-        assign(
-            f"{k_dl}/cross_attn/sampling_offsets/bias",
-            torch_sd[f"{pt_dl}.cross_attn.sampling_offsets.bias"],
-        )
-        assign(
-            f"{k_dl}/cross_attn/attention_weights/kernel",
-            torch_sd[f"{pt_dl}.cross_attn.attention_weights.weight"],
-            transpose=True,
-        )
-        assign(
-            f"{k_dl}/cross_attn/attention_weights/bias",
-            torch_sd[f"{pt_dl}.cross_attn.attention_weights.bias"],
-        )
-        assign(
-            f"{k_dl}/cross_attn/value_proj/kernel",
-            torch_sd[f"{pt_dl}.cross_attn.value_proj.weight"],
-            transpose=True,
-        )
-        assign(
-            f"{k_dl}/cross_attn/value_proj/bias",
-            torch_sd[f"{pt_dl}.cross_attn.value_proj.bias"],
-        )
-        assign(
-            f"{k_dl}/cross_attn/output_proj/kernel",
-            torch_sd[f"{pt_dl}.cross_attn.output_proj.weight"],
-            transpose=True,
-        )
-        assign(
-            f"{k_dl}/cross_attn/output_proj/bias",
-            torch_sd[f"{pt_dl}.cross_attn.output_proj.bias"],
+        # Transfer remaining weights (cross_attn, norms, linears) via utility
+        transfer_nested_layer_weights(
+            dec_layer,
+            pytorch_state_dict,
+            pt_dl,
+            name_mapping=decoder_name_mapping,
+            skip_paths=["self_attn_q_proj", "self_attn_k_proj", "self_attn_v_proj"],
         )
 
-        assign(f"{k_dl}/norm2/gamma", torch_sd[f"{pt_dl}.norm2.weight"])
-        assign(f"{k_dl}/norm2/beta", torch_sd[f"{pt_dl}.norm2.bias"])
+    dec_norm = keras_model.get_layer("decoder_norm")
+    dec_norm.weights[0].assign(pytorch_state_dict["transformer.decoder.norm.weight"])
+    dec_norm.weights[1].assign(pytorch_state_dict["transformer.decoder.norm.bias"])
 
-        assign(
-            f"{k_dl}/linear1/kernel",
-            torch_sd[f"{pt_dl}.linear1.weight"],
-            transpose=True,
-        )
-        assign(f"{k_dl}/linear1/bias", torch_sd[f"{pt_dl}.linear1.bias"])
-        assign(
-            f"{k_dl}/linear2/kernel",
-            torch_sd[f"{pt_dl}.linear2.weight"],
-            transpose=True,
-        )
-        assign(f"{k_dl}/linear2/bias", torch_sd[f"{pt_dl}.linear2.bias"])
-
-        assign(f"{k_dl}/norm3/gamma", torch_sd[f"{pt_dl}.norm3.weight"])
-        assign(f"{k_dl}/norm3/beta", torch_sd[f"{pt_dl}.norm3.bias"])
-
-    # --- Decoder norm ---
-    assign(
-        "decoder_norm/gamma",
-        torch_sd["transformer.decoder.norm.weight"],
-    )
-    assign(
-        "decoder_norm/beta",
-        torch_sd["transformer.decoder.norm.bias"],
-    )
+    num_queries = 300
 
     # --- Learned query embeddings (slice to first num_queries for inference) ---
     num_queries = 300
@@ -468,50 +407,33 @@ def transfer_weights(variant, torch_sd, keras_model):
         torch_sd["query_feat.weight"][:num_queries],
     )
 
-    # --- Output heads ---
-    assign("class_embed/kernel", torch_sd["class_embed.weight"], transpose=True)
-    assign("class_embed/bias", torch_sd["class_embed.bias"])
-
-    assign(
-        "bbox_embed_0/kernel",
-        torch_sd["bbox_embed.layers.0.weight"],
-        transpose=True,
+    query_feat_layer = keras_model.get_layer("query_feat_embed")
+    query_feat_layer.weights[0].assign(
+        pytorch_state_dict["query_feat.weight"][:num_queries]
     )
-    assign("bbox_embed_0/bias", torch_sd["bbox_embed.layers.0.bias"])
-    assign(
-        "bbox_embed_1/kernel",
-        torch_sd["bbox_embed.layers.1.weight"],
-        transpose=True,
-    )
-    assign("bbox_embed_1/bias", torch_sd["bbox_embed.layers.1.bias"])
-    assign(
-        "bbox_embed_2/kernel",
-        torch_sd["bbox_embed.layers.2.weight"],
-        transpose=True,
-    )
-    assign("bbox_embed_2/bias", torch_sd["bbox_embed.layers.2.bias"])
 
-    print(f"\nAssigned {len(assigned)} Keras weight tensors")
-    total_keras = sum(1 for _ in get_keras_weight_dict(keras_model).keys())
-    if len(assigned) < total_keras:
-        unassigned = set(get_keras_weight_dict(keras_model).keys()) - assigned
-        non_bn_stats = [k for k in unassigned if "moving_" not in k]
-        if non_bn_stats:
-            print(f"Unassigned non-BN-stat weights: {len(non_bn_stats)}")
-            for k in sorted(non_bn_stats):
-                print(f"  {k}")
+    cls_embed = keras_model.get_layer("class_embed")
+    cls_embed.weights[0].assign(pytorch_state_dict["class_embed.weight"].T)
+    cls_embed.weights[1].assign(pytorch_state_dict["class_embed.bias"])
+
+    for i in range(3):
+        bbox_layer = keras_model.get_layer(f"bbox_embed_{i}")
+        bbox_layer.weights[0].assign(
+            pytorch_state_dict[f"bbox_embed.layers.{i}.weight"].T
+        )
+        bbox_layer.weights[1].assign(pytorch_state_dict[f"bbox_embed.layers.{i}.bias"])
 
 
-def verify_equivalence(variant, keras_model, torch_sd):
-    """Verify Keras model produces similar outputs to PyTorch model."""
+def verify_equivalence(variant, keras_model, pytorch_state_dict):
     import torchvision.transforms as T
 
     config = RF_DETR_MODEL_CONFIG[variant]
     res = config["resolution"]
 
-    test_input = keras.random.uniform((1, res, res, 3), dtype="float32", seed=42)
+    np.random.seed(42)
+    test_input = np.random.rand(1, res, res, 3).astype(np.float32)
 
-    pt_input = torch.tensor(keras.ops.convert_to_numpy(test_input)).permute(0, 3, 1, 2)
+    pt_input = torch.tensor(test_input).permute(0, 3, 1, 2)
     normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     pt_input_norm = normalize(pt_input)
 
@@ -523,31 +445,25 @@ def verify_equivalence(variant, keras_model, torch_sd):
 
     with torch.no_grad():
         pt_out = pt_model(pt_input_norm)
-    pt_logits = keras.ops.convert_to_tensor(pt_out["pred_logits"].cpu())
-    pt_boxes = keras.ops.convert_to_tensor(pt_out["pred_boxes"].cpu())
+    pt_logits = pt_out["pred_logits"].cpu().numpy()
+    pt_boxes = pt_out["pred_boxes"].cpu().numpy()
 
-    mean = keras.ops.reshape(
-        keras.ops.convert_to_tensor([0.485, 0.456, 0.406], dtype="float32"),
-        (1, 1, 1, 3),
-    )
-    std = keras.ops.reshape(
-        keras.ops.convert_to_tensor([0.229, 0.224, 0.225], dtype="float32"),
-        (1, 1, 1, 3),
-    )
-    keras_input_norm = keras.ops.cast((test_input - mean) / std, dtype="float32")
+    mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 1, 3)
+    std = np.array([0.229, 0.224, 0.225]).reshape(1, 1, 1, 3)
+    keras_input_norm = ((test_input - mean) / std).astype(np.float32)
 
     keras_out = keras_model(keras_input_norm, training=False)
-    keras_logits = keras.ops.convert_to_tensor(keras_out["pred_logits"].detach().cpu())
-    keras_boxes = keras.ops.convert_to_tensor(keras_out["pred_boxes"].detach().cpu())
+    keras_logits = keras.ops.convert_to_numpy(keras_out["pred_logits"])
+    keras_boxes = keras.ops.convert_to_numpy(keras_out["pred_boxes"])
 
-    logits_diff = float(keras.ops.max(keras.ops.abs(pt_logits - keras_logits)))
-    boxes_diff = float(keras.ops.max(keras.ops.abs(pt_boxes - keras_boxes)))
+    logits_diff = np.max(np.abs(pt_logits - keras_logits))
+    boxes_diff = np.max(np.abs(pt_boxes - keras_boxes))
 
-    pt_flat = keras.ops.reshape(pt_logits, (-1,))
-    k_flat = keras.ops.reshape(keras_logits, (-1,))
+    pt_flat = pt_logits.flatten()
+    k_flat = keras_logits.flatten()
     logits_cos = float(
-        keras.ops.dot(pt_flat, k_flat)
-        / (keras.ops.norm(pt_flat) * keras.ops.norm(k_flat) + 1e-8)
+        np.dot(pt_flat, k_flat)
+        / (np.linalg.norm(pt_flat) * np.linalg.norm(k_flat) + 1e-8)
     )
 
     print(f"Max logits diff:  {logits_diff:.6f}")
@@ -590,15 +506,15 @@ def main():
     print(f"  Parameters: {keras_model.count_params():,}")
 
     print(f"Loading PyTorch weights for {variant}...")
-    torch_sd = load_torch_state_dict(variant)
-    print(f"  PyTorch keys: {len(torch_sd)}")
+    pytorch_state_dict = load_torch_state_dict(variant)
+    print(f"  PyTorch keys: {len(pytorch_state_dict)}")
 
     print("Transferring weights...")
-    transfer_weights(variant, torch_sd, keras_model)
+    transfer_all_weights(variant, pytorch_state_dict, keras_model)
 
     if not args.skip_verify:
         print("\nVerifying model equivalence...")
-        verify_equivalence(variant, keras_model, torch_sd)
+        verify_equivalence(variant, keras_model, pytorch_state_dict)
 
     print(f"\nSaving Keras weights to {output}...")
     keras_model.save_weights(output)

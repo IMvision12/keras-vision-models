@@ -87,7 +87,7 @@ class DinoV2PatchEmbeddings(layers.Layer):
             strides=self.patch_size,
             padding="valid",
             data_format="channels_last",
-            name="projection",
+            name="conv_projection",
         )
         super().build(input_shape)
 

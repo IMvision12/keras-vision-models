@@ -282,15 +282,15 @@ def verify_cls_model_equivalence(
 
                 print(f"Expected class: {test_case['expected_class']}")
                 print(f"Predicted class: {predicted_class}")
-                print(f"Class match: {'✓' if class_matched else '✗'}")
+                print(f"Class match: {'PASS' if class_matched else 'FAIL'}")
                 print(f"Confidence: {confidence:.4f}")
                 print(
-                    f"Threshold ({prediction_threshold}) passed: {'✓' if threshold_passed else '✗'}"
+                    f"Threshold ({prediction_threshold}) passed: {'PASS' if threshold_passed else 'FAIL'}"
                 )
-                print(f"Overall test result: {'✓' if test_passed else '✗'}")
+                print(f"Overall test result: {'PASS' if test_passed else 'FAIL'}")
 
             except Exception as e:
-                print(f"✗ Test failed for {test_case['name']}: {str(e)}")
+                print(f"FAIL Test failed for {test_case['name']}: {str(e)}")
                 imagenet_results[test_case["name"]] = {
                     "success": False,
                     "error": str(e),
@@ -417,7 +417,7 @@ def verify_cls_model_equivalence(
 
             success = test_outputs(output_a, output_b)
             print(
-                f"{'✓' if success else '✗'} Output {'matched' if success else 'mismatched'} "
+                f"{'PASS' if success else 'FAIL'} Output {'matched' if success else 'mismatched'} "
                 f"for input shape {input_shape}"
             )
 
@@ -431,7 +431,7 @@ def verify_cls_model_equivalence(
 
             return success
         except Exception as e:
-            print(f"✗ Test failed: {str(e)}")
+            print(f"FAIL Test failed: {str(e)}")
             return False
 
     def test_batch_processing() -> Dict[str, bool]:
@@ -468,7 +468,7 @@ def verify_cls_model_equivalence(
                 success = test_outputs(output_a, output_b)
                 batch_results[f"batch_size_{batch_size}"] = success
                 print(
-                    f"{'✓' if success else '✗'} Output {'matched' if success else 'mismatched'}"
+                    f"{'PASS' if success else 'FAIL'} Output {'matched' if success else 'mismatched'}"
                 )
 
                 if not success:
@@ -481,7 +481,7 @@ def verify_cls_model_equivalence(
 
             except Exception as e:
                 batch_results[f"batch_size_{batch_size}"] = False
-                print(f"✗ Test failed for batch size {batch_size}: {str(e)}")
+                print(f"FAIL Test failed for batch size {batch_size}: {str(e)}")
 
         return batch_results
 
@@ -541,12 +541,12 @@ def verify_cls_model_equivalence(
 
         print("\n=== Test Summary ===")
         print(
-            f"ImageNet Tests: {'Passed ✓' if results['imagenet_test']['all_passed'] else 'Failed ✗'}"
+            f"ImageNet Tests: {'Passed PASS' if results['imagenet_test']['all_passed'] else 'Failed FAIL'}"
         )
         for name, result in results["imagenet_test"].items():
             if name != "all_passed":
                 success = result.get("success", False)
-                print(f"  - {name}: {'Passed ✓' if success else 'Failed ✗'}")
+                print(f"  - {name}: {'Passed PASS' if success else 'Failed FAIL'}")
     else:
         results["standard_input"] = test_standard_input()
 
@@ -572,8 +572,10 @@ def verify_cls_model_equivalence(
         ]
         all_passed = all(all_tests)
         print(
-            f"Standard Input Test: {'Passed ✓' if results['standard_input'] else 'Failed ✗'}"
+            f"Standard Input Test: {'Passed PASS' if results['standard_input'] else 'Failed FAIL'}"
         )
-        print(f"Batch Processing Tests: {'Passed ✓' if all_passed else 'Failed ✗'}")
+        print(
+            f"Batch Processing Tests: {'Passed PASS' if all_passed else 'Failed FAIL'}"
+        )
 
     return results

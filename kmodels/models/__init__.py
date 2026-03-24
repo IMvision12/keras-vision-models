@@ -8,6 +8,7 @@ from kmodels.models import (
     deit,
     densenet,
     detr,
+    efficientformer,
     efficientnet,
     efficientnet_lite,
     efficientnetv2,

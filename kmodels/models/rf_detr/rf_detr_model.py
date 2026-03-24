@@ -1,3 +1,5 @@
+import math
+
 import keras
 from keras import layers, ops, utils
 
@@ -9,14 +11,162 @@ from .rf_detr_layers import (
     ChannelLayerNorm,
     DinoV2Embeddings,
     DinoV2LayerScale,
-    EncoderOutputProposals,
     LearnedEmbedding,
-    PositionEmbeddingSine,
     RFDETRDecoderLayer,
-    SinePositionEmbeddingForRefPoints,
-    TwoStageRefineRefpoints,
-    UnwindowFeatures,
 )
+
+
+def _sincos_interleave(x):
+    sin_part = ops.sin(x[..., 0::2])
+    cos_part = ops.cos(x[..., 1::2])
+    stacked = ops.stack([sin_part, cos_part], axis=-1)
+    target_shape = [-1 if s is None else s for s in stacked.shape]
+    target_shape[-2] = target_shape[-2] * 2
+    target_shape.pop()
+    return ops.reshape(stacked, target_shape)
+
+
+def rf_detr_position_embedding_sine(
+    x, num_pos_feats=128, temperature=10000, normalize=True
+):
+    scale = 2.0 * math.pi
+    shape = ops.shape(x)
+    h, w = shape[1], shape[2]
+
+    y_range = ops.cast(ops.arange(h), "float32")
+    x_range = ops.cast(ops.arange(w), "float32")
+
+    if normalize:
+        eps = 1e-6
+        y_range = y_range / (ops.cast(h, "float32") - 1 + eps) * scale
+        x_range = x_range / (ops.cast(w, "float32") - 1 + eps) * scale
+    else:
+        y_range = (y_range + 1) * scale
+        x_range = (x_range + 1) * scale
+
+    dim_t = ops.cast(ops.arange(num_pos_feats), "float32")
+    dim_t = temperature ** (2 * (dim_t // 2) / num_pos_feats)
+
+    pos_x = x_range[:, None] / dim_t[None, :]
+    pos_y = y_range[:, None] / dim_t[None, :]
+
+    pos_x_sin = ops.sin(pos_x[:, 0::2])
+    pos_x_cos = ops.cos(pos_x[:, 1::2])
+    pos_x = ops.reshape(ops.stack([pos_x_sin, pos_x_cos], axis=-1), [w, num_pos_feats])
+
+    pos_y_sin = ops.sin(pos_y[:, 0::2])
+    pos_y_cos = ops.cos(pos_y[:, 1::2])
+    pos_y = ops.reshape(ops.stack([pos_y_sin, pos_y_cos], axis=-1), [h, num_pos_feats])
+
+    pos_y = ops.expand_dims(pos_y, axis=1)
+    pos_y = ops.tile(pos_y, [1, w, 1])
+    pos_x = ops.expand_dims(pos_x, axis=0)
+    pos_x = ops.tile(pos_x, [h, 1, 1])
+    pos = ops.concatenate([pos_y, pos_x], axis=-1)
+    pos = ops.expand_dims(pos, axis=0)
+    return pos
+
+
+def rf_detr_gen_sineembed_for_position(pos_tensor, dim=128):
+    scale = 2 * math.pi
+    dim_t = ops.cast(ops.arange(dim), "float32")
+    dim_t = 10000.0 ** (2 * (dim_t // 2) / dim)
+
+    x_embed = pos_tensor[..., 0:1] * scale
+    y_embed = pos_tensor[..., 1:2] * scale
+
+    pos_x = _sincos_interleave(x_embed / dim_t)
+    pos_y = _sincos_interleave(y_embed / dim_t)
+
+    if pos_tensor.shape[-1] == 2:
+        return ops.concatenate([pos_y, pos_x], axis=-1)
+    elif pos_tensor.shape[-1] == 4:
+        w_embed = pos_tensor[..., 2:3] * scale
+        h_embed = pos_tensor[..., 3:4] * scale
+        pos_w = _sincos_interleave(w_embed / dim_t)
+        pos_h = _sincos_interleave(h_embed / dim_t)
+        return ops.concatenate([pos_y, pos_x, pos_w, pos_h], axis=-1)
+    else:
+        raise ValueError(
+            f"pos_tensor last dim must be 2 or 4, got {pos_tensor.shape[-1]}"
+        )
+
+
+def rf_detr_unwindow_features(
+    hidden_state, num_h, num_w, num_windows, hidden_size, num_register_tokens
+):
+    hidden_state = hidden_state[:, num_register_tokens + 1 :, :]
+
+    if num_windows > 1:
+        nw2 = num_windows**2
+        shape = ops.shape(hidden_state)
+        HW_win = shape[1]
+        C = shape[2]
+
+        hidden_state = ops.reshape(hidden_state, [-1, nw2 * HW_win, C])
+        h_pw = num_h // num_windows
+        w_pw = num_w // num_windows
+        hidden_state = ops.reshape(hidden_state, [-1, num_windows, h_pw, w_pw, C])
+        hidden_state = ops.transpose(hidden_state, [0, 2, 1, 3, 4])
+
+    hidden_state = ops.reshape(hidden_state, [-1, num_h, num_w, hidden_size])
+    return hidden_state
+
+
+def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
+    proposals = []
+    for lvl, (H_, W_) in enumerate(spatial_shapes):
+        y_range = ops.cast(ops.arange(H_), "float32")
+        x_range = ops.cast(ops.arange(W_), "float32")
+        grid_y, grid_x = ops.meshgrid(y_range, x_range, indexing="ij")
+        grid = ops.stack([grid_x, grid_y], axis=-1)
+        grid = ops.reshape(grid, [1, H_ * W_, 2])
+
+        scale = ops.convert_to_tensor([[W_, H_]], dtype="float32")
+        scale = ops.reshape(scale, [1, 1, 2])
+        grid = (grid + 0.5) / scale
+
+        wh = ops.ones_like(grid) * 0.05 * (2.0**lvl)
+        proposal = ops.concatenate([grid, wh], axis=-1)
+        proposals.append(proposal)
+
+    output_proposals = ops.concatenate(proposals, axis=1)
+    output_proposals = output_proposals + ops.zeros_like(memory[:, :, :4])
+
+    valid = ops.all(
+        (output_proposals > 0.01) & (output_proposals < 0.99),
+        axis=-1,
+        keepdims=True,
+    )
+
+    if bbox_reparam:
+        output_proposals = ops.where(
+            valid, output_proposals, ops.zeros_like(output_proposals)
+        )
+    else:
+        eps = 1e-7
+        clamped = ops.clip(output_proposals, eps, 1.0 - eps)
+        unsig = ops.log(clamped / (1.0 - clamped))
+        inf_val = ops.full_like(unsig, 1e8)
+        output_proposals = ops.where(valid, unsig, inf_val)
+
+    output_memory = ops.where(valid, memory, ops.zeros_like(memory))
+    return output_memory, output_proposals
+
+
+def rf_detr_two_stage_refine_refpoints(
+    refpoint_embed, refpoint_embed_ts, bbox_reparam=True, num_queries=300
+):
+    refpoint_embed_subset = refpoint_embed[:, :num_queries, :]
+    if bbox_reparam:
+        ref_cxcy = (
+            refpoint_embed_subset[..., :2] * refpoint_embed_ts[..., 2:]
+            + refpoint_embed_ts[..., :2]
+        )
+        ref_wh = ops.exp(refpoint_embed_subset[..., 2:]) * refpoint_embed_ts[..., 2:]
+        return ops.concatenate([ref_cxcy, ref_wh], axis=-1)
+    else:
+        return refpoint_embed_subset + refpoint_embed_ts
 
 
 def rf_detr_conv_bn(
@@ -407,14 +557,14 @@ class RFDETR(keras.Model):
 
         unwindowed_features = []
         for i, feat in enumerate(encoder_features):
-            uw = UnwindowFeatures(
+            uw = rf_detr_unwindow_features(
+                feat,
                 num_h,
                 num_w,
                 num_windows,
                 backbone_hidden_size,
                 num_register_tokens,
-                name=f"unwindow_{i}",
-            )(feat)
+            )
             unwindowed_features.append(uw)
 
         # --- Projector: concatenate all multi-scale features + C2f + LayerNorm ---
@@ -433,13 +583,6 @@ class RFDETR(keras.Model):
         )
         projected = ChannelLayerNorm(name="projector_ln")(projected)
 
-        # --- Position Encoding ---
-        pos_embed = PositionEmbeddingSine(
-            num_pos_feats=hidden_dim // 2,
-            normalize=True,
-            name="position_embedding",
-        )(projected)
-
         proj_shape = (input_shape[0] // patch_size, input_shape[1] // patch_size)
         num_feature_levels = 1
         spatial_shapes = [proj_shape]
@@ -449,11 +592,6 @@ class RFDETR(keras.Model):
         src_flat = ops.reshape(
             projected, [-1, proj_shape[0] * proj_shape[1], hidden_dim]
         )
-        pos_flat = ops.reshape(
-            pos_embed, [1, proj_shape[0] * proj_shape[1], hidden_dim]
-        )
-        pos_flat = ops.broadcast_to(pos_flat, ops.shape(src_flat))
-
         memory = src_flat
 
         # --- Learned query embeddings (used in both two-stage and single-stage) ---
@@ -472,11 +610,11 @@ class RFDETR(keras.Model):
 
         # --- Two-Stage Query Initialization ---
         if two_stage:
-            output_memory_filtered, output_proposals = EncoderOutputProposals(
+            output_memory_filtered, output_proposals = rf_detr_encoder_output_proposals(
+                memory,
                 spatial_shapes=spatial_shapes,
                 bbox_reparam=bbox_reparam,
-                name="encoder_proposals",
-            )(memory)
+            )
 
             enc_output_proj = layers.Dense(hidden_dim, name="enc_output_0")(
                 output_memory_filtered
@@ -522,11 +660,12 @@ class RFDETR(keras.Model):
             refpoint_embed_ts = ops.take_along_axis(enc_coords, topk_idx_4, axis=1)
             refpoint_embed_ts = ops.stop_gradient(refpoint_embed_ts)
 
-            refpoints_unsigmoid = TwoStageRefineRefpoints(
+            refpoints_unsigmoid = rf_detr_two_stage_refine_refpoints(
+                refpoint_embed,
+                refpoint_embed_ts,
                 bbox_reparam=bbox_reparam,
                 num_queries=num_queries,
-                name="refine_refpoints",
-            )([refpoint_embed, refpoint_embed_ts])
+            )
         else:
             refpoints_unsigmoid = refpoint_embed
 
@@ -563,17 +702,15 @@ class RFDETR(keras.Model):
 
         level_start_index = [0]
 
-        sine_embed_layer = SinePositionEmbeddingForRefPoints(
-            dim=hidden_dim // 2, name="sine_pos_embed"
-        )
-
         if bbox_reparam:
             ref_for_query = refpoints_unsigmoid
         else:
             ref_for_query = ops.sigmoid(refpoints_unsigmoid)
 
         if lite_refpoint_refine:
-            query_sine = sine_embed_layer(ref_for_query[..., :4])
+            query_sine = rf_detr_gen_sineembed_for_position(
+                ref_for_query[..., :4], dim=hidden_dim // 2
+            )
             query_pos = ref_point_head_1(ref_point_head_0(query_sine))
 
         output = tgt
@@ -583,7 +720,9 @@ class RFDETR(keras.Model):
                     ref_for_query = refpoints_unsigmoid
                 else:
                     ref_for_query = ops.sigmoid(refpoints_unsigmoid)
-                query_sine = sine_embed_layer(ref_for_query[..., :4])
+                query_sine = rf_detr_gen_sineembed_for_position(
+                    ref_for_query[..., :4], dim=hidden_dim // 2
+                )
                 query_pos = ref_point_head_1(ref_point_head_0(query_sine))
 
             if bbox_reparam:

@@ -90,6 +90,8 @@ def build_keras_model(variant):
 def transfer_all_weights(variant, pytorch_state_dict, keras_model):
     """Map PyTorch state_dict keys to Keras weights and assign values."""
     config = RF_DETR_MODEL_CONFIG[variant]
+    out_feature_indexes = config.get("out_feature_indexes", [3, 6, 9, 12])
+    num_layers = max(out_feature_indexes)
     dec_layers = config["dec_layers"]
 
     # ---- Backbone Encoder Layers (name mapping + library utilities) ----
@@ -113,35 +115,163 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
             torch_weight_name = torch_weight_name.replace(
                 keras_name_part, torch_name_part
             )
+            return
+        target.assign(tensor)
+        assigned.add(keras_path)
 
-        if torch_weight_name not in pytorch_state_dict:
-            raise WeightMappingError(keras_weight_name, torch_weight_name)
+    assign(
+        "backbone_embeddings/cls_token",
+        torch_sd["backbone.0.encoder.encoder.embeddings.cls_token"],
+    )
+    assign(
+        "backbone_embeddings/position_embeddings",
+        torch_sd["backbone.0.encoder.encoder.embeddings.position_embeddings"],
+    )
+    assign(
+        "backbone_embeddings/patch_embeddings/projection/kernel",
+        torch_sd[
+            "backbone.0.encoder.encoder.embeddings.patch_embeddings.projection.weight"
+        ].permute(2, 3, 1, 0),
+    )
+    assign(
+        "backbone_embeddings/patch_embeddings/projection/bias",
+        torch_sd[
+            "backbone.0.encoder.encoder.embeddings.patch_embeddings.projection.bias"
+        ],
+    )
 
-        torch_weight = pytorch_state_dict[torch_weight_name]
+    for i in range(num_layers):
+        pt_prefix = f"backbone.0.encoder.encoder.encoder.layer.{i}"
+        k_prefix = f"backbone_encoder_layer_{i}"
 
-        if not compare_keras_torch_names(
-            keras_weight_name, keras_weight, torch_weight_name, torch_weight
-        ):
-            raise WeightShapeMismatchError(
-                keras_weight_name,
-                keras_weight.shape,
-                torch_weight_name,
-                torch_weight.shape,
+        assign(f"{k_prefix}_norm1/gamma", torch_sd[f"{pt_prefix}.norm1.weight"])
+        assign(f"{k_prefix}_norm1/beta", torch_sd[f"{pt_prefix}.norm1.bias"])
+
+        assign(
+            f"{k_prefix}_attention_query/kernel",
+            torch_sd[f"{pt_prefix}.attention.attention.query.weight"],
+            transpose=True,
+        )
+        assign(
+            f"{k_prefix}_attention_query/bias",
+            torch_sd[f"{pt_prefix}.attention.attention.query.bias"],
+        )
+        assign(
+            f"{k_prefix}_attention_key/kernel",
+            torch_sd[f"{pt_prefix}.attention.attention.key.weight"],
+            transpose=True,
+        )
+        assign(
+            f"{k_prefix}_attention_key/bias",
+            torch_sd[f"{pt_prefix}.attention.attention.key.bias"],
+        )
+        assign(
+            f"{k_prefix}_attention_value/kernel",
+            torch_sd[f"{pt_prefix}.attention.attention.value.weight"],
+            transpose=True,
+        )
+        assign(
+            f"{k_prefix}_attention_value/bias",
+            torch_sd[f"{pt_prefix}.attention.attention.value.bias"],
+        )
+        assign(
+            f"{k_prefix}_attention_out_proj/kernel",
+            torch_sd[f"{pt_prefix}.attention.output.dense.weight"],
+            transpose=True,
+        )
+        assign(
+            f"{k_prefix}_attention_out_proj/bias",
+            torch_sd[f"{pt_prefix}.attention.output.dense.bias"],
+        )
+
+        assign(
+            f"{k_prefix}_layer_scale1/lambda1",
+            torch_sd[f"{pt_prefix}.layer_scale1.lambda1"],
+        )
+
+        assign(f"{k_prefix}_norm2/gamma", torch_sd[f"{pt_prefix}.norm2.weight"])
+        assign(f"{k_prefix}_norm2/beta", torch_sd[f"{pt_prefix}.norm2.bias"])
+
+        if config.get("backbone_use_swiglu", False):
+            assign(
+                f"{k_prefix}_mlp_weights_in/kernel",
+                torch_sd[f"{pt_prefix}.mlp.fc1.weight"],
+                transpose=True,
+            )
+            assign(
+                f"{k_prefix}_mlp_weights_in/bias",
+                torch_sd[f"{pt_prefix}.mlp.fc1.bias"],
+            )
+            assign(
+                f"{k_prefix}_mlp_weights_out/kernel",
+                torch_sd[f"{pt_prefix}.mlp.fc2.weight"],
+                transpose=True,
+            )
+            assign(
+                f"{k_prefix}_mlp_weights_out/bias",
+                torch_sd[f"{pt_prefix}.mlp.fc2.bias"],
+            )
+        else:
+            assign(
+                f"{k_prefix}_mlp_fc1/kernel",
+                torch_sd[f"{pt_prefix}.mlp.fc1.weight"],
+                transpose=True,
+            )
+            assign(
+                f"{k_prefix}_mlp_fc1/bias",
+                torch_sd[f"{pt_prefix}.mlp.fc1.bias"],
+            )
+            assign(
+                f"{k_prefix}_mlp_fc2/kernel",
+                torch_sd[f"{pt_prefix}.mlp.fc2.weight"],
+                transpose=True,
+            )
+            assign(
+                f"{k_prefix}_mlp_fc2/bias",
+                torch_sd[f"{pt_prefix}.mlp.fc2.bias"],
             )
 
-        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+        assign(
+            f"{k_prefix}_layer_scale2/lambda1",
+            torch_sd[f"{pt_prefix}.layer_scale2.lambda1"],
+        )
+
+    assign(
+        "backbone_encoder_layernorm/gamma",
+        torch_sd["backbone.0.encoder.encoder.layernorm.weight"],
+    )
+    assign(
+        "backbone_encoder_layernorm/beta",
+        torch_sd["backbone.0.encoder.encoder.layernorm.bias"],
+    )
 
     emb_prefix = "backbone.0.encoder.encoder.embeddings"
 
-    emb_layer = keras_model.get_layer("backbone_embeddings")
-    transfer_nested_layer_weights(
-        emb_layer,
-        pytorch_state_dict,
-        emb_prefix,
-        name_mapping={"conv_projection": "projection", "kernel": "weight"},
+    assign(
+        "projector_c2f_cv1_conv/kernel",
+        torch_sd[f"{pt_proj}.0.cv1.conv.weight"].permute(2, 3, 1, 0),
+    )
+    assign(
+        "projector_c2f_cv1_ln/gamma",
+        torch_sd[f"{pt_proj}.0.cv1.bn.weight"],
+    )
+    assign(
+        "projector_c2f_cv1_ln/beta",
+        torch_sd[f"{pt_proj}.0.cv1.bn.bias"],
     )
 
-    pt_proj = "backbone.0.projector.stages.0"
+    assign(
+        "projector_c2f_cv2_conv/kernel",
+        torch_sd[f"{pt_proj}.0.cv2.conv.weight"].permute(2, 3, 1, 0),
+    )
+    assign(
+        "projector_c2f_cv2_ln/gamma",
+        torch_sd[f"{pt_proj}.0.cv2.bn.weight"],
+    )
+    assign(
+        "projector_c2f_cv2_ln/beta",
+        torch_sd[f"{pt_proj}.0.cv2.bn.bias"],
+    )
 
     projector_conv_ln_pairs = [
         ("projector_c2f_cv1_conv", f"{pt_proj}.0.cv1.conv"),
@@ -150,18 +280,20 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
         ("projector_c2f_cv2_ln", f"{pt_proj}.0.cv2.bn"),
     ]
     for b_idx in range(3):
+        pt_bn = f"{pt_proj}.0.m.{b_idx}"
+        k_bn = f"projector_c2f_bottleneck_{b_idx}"
         for cv in ["cv1", "cv2"]:
-            projector_conv_ln_pairs.append(
-                (
-                    f"projector_c2f_bottleneck_{b_idx}_{cv}_conv",
-                    f"{pt_proj}.0.m.{b_idx}.{cv}.conv",
-                )
+            assign(
+                f"{k_bn}_{cv}_conv/kernel",
+                torch_sd[f"{pt_bn}.{cv}.conv.weight"].permute(2, 3, 1, 0),
             )
-            projector_conv_ln_pairs.append(
-                (
-                    f"projector_c2f_bottleneck_{b_idx}_{cv}_ln",
-                    f"{pt_proj}.0.m.{b_idx}.{cv}.bn",
-                )
+            assign(
+                f"{k_bn}_{cv}_ln/gamma",
+                torch_sd[f"{pt_bn}.{cv}.bn.weight"],
+            )
+            assign(
+                f"{k_bn}_{cv}_ln/beta",
+                torch_sd[f"{pt_bn}.{cv}.bn.bias"],
             )
 
     for keras_name, pt_name in tqdm(
@@ -264,9 +396,15 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
 
     num_queries = 300
 
-    refpoint_layer = keras_model.get_layer("refpoint_embed_layer")
-    refpoint_layer.weights[0].assign(
-        pytorch_state_dict["refpoint_embed.weight"][:num_queries]
+    # --- Learned query embeddings (slice to first num_queries for inference) ---
+    num_queries = 300
+    assign(
+        "refpoint_embed_layer/weight",
+        torch_sd["refpoint_embed.weight"][:num_queries],
+    )
+    assign(
+        "query_feat_embed/weight",
+        torch_sd["query_feat.weight"][:num_queries],
     )
 
     query_feat_layer = keras_model.get_layer("query_feat_embed")

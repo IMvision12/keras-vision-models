@@ -6,15 +6,29 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DETRExpandQueryEmbedding(layers.Layer):
-    """Expands query embeddings to match the batch dimension of the input.
+    """Expands learned query embeddings to match the batch dimension.
 
-    Takes learned query embeddings of shape ``(num_queries, hidden_dim)``
-    and tiles them along a new batch axis to produce
-    ``(batch_size, num_queries, hidden_dim)``.
+    Wraps a standard `Embedding` layer and broadcasts its output along
+    a new batch axis so that each sample in the batch receives the same
+    set of learned object queries. Used to produce the positional part
+    of the object queries fed into the DETR decoder.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        num_queries: Number of object queries.
-        hidden_dim: Embedding dimension.
+        num_queries: Integer, number of object queries (maximum
+            detections per image).
+        hidden_dim: Integer, embedding dimension for each query.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        Any tensor whose first dimension is the batch size. Only
+        `batch_size` is read from the input; the content is unused.
+
+    Output Shape:
+        3D tensor: `(batch_size, num_queries, hidden_dim)`.
     """
 
     def __init__(self, num_queries, hidden_dim, **kwargs):
@@ -48,12 +62,26 @@ class DETRExpandQueryEmbedding(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DETRFlattenFeatures(layers.Layer):
-    """Flattens spatial feature maps for transformer input.
+    """Flattens spatial feature maps into a 1D token sequence.
 
-    Reshapes ``(B, H, W, C)`` to ``(B, H*W, C)``.
+    Reshapes a 4D spatial tensor into a 3D sequence tensor suitable
+    for transformer input by collapsing the height and width
+    dimensions into a single sequence dimension.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        hidden_dim: Channel dimension (used for the reshape target).
+        hidden_dim: Integer, channel dimension of the input feature
+            map. Used as the last dimension in the reshape target.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, hidden_dim)`.
+
+    Output Shape:
+        3D tensor: `(batch_size, height * width, hidden_dim)`.
     """
 
     def __init__(self, hidden_dim, **kwargs):
@@ -72,17 +100,38 @@ class DETRFlattenFeatures(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DETRPositionEmbeddingSine(layers.Layer):
-    """Fixed sinusoidal 2D position embedding used in the DETR encoder.
+    """Fixed sinusoidal 2D positional embedding for spatial feature maps.
 
-    Generates sine/cosine positional encodings for spatial feature maps,
-    matching the original DETR implementation (facebook/detr).
+    Generates non-learnable sine/cosine positional encodings that
+    encode the row and column position of each spatial location. Half
+    of the embedding dimension encodes the vertical position and the
+    other half encodes the horizontal position, using sinusoidal
+    functions at geometrically spaced frequencies. Matches the
+    positional encoding used in the original DETR implementation.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        hidden_dim: Total embedding dimension. Half is used for row
-            embeddings, half for column embeddings.
-        temperature: Temperature scaling for the sinusoidal frequencies.
-        normalize: Whether to normalize position coordinates to [0, 2*pi].
-        eps: Small epsilon to avoid division by zero during normalization.
+        hidden_dim: Integer, total embedding dimension. Half is
+            allocated to row embeddings and half to column embeddings.
+            Defaults to `256`.
+        temperature: Integer, temperature scaling factor for the
+            sinusoidal frequencies. Defaults to `10000`.
+        normalize: Boolean, whether to normalize position coordinates
+            to the range `[0, 2*pi]` before computing the encoding.
+            Defaults to `True`.
+        eps: Float, small constant added during normalization to
+            prevent division by zero. Defaults to `1e-6`.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, channels)`. Only the
+        spatial dimensions are used; the channel dimension is ignored.
+
+    Output Shape:
+        4D tensor: `(batch_size, height, width, hidden_dim)`.
     """
 
     def __init__(
@@ -168,16 +217,38 @@ class DETRPositionEmbeddingSine(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DETRMultiHeadAttention(layers.Layer):
-    """Multi-head attention layer for DETR transformer.
+    """Multi-head attention layer for the DETR transformer.
 
-    Implements standard scaled dot-product multi-head attention with
-    separate Q, K, V projections matching the HuggingFace DETR layout.
+    Implements scaled dot-product multi-head attention with separate
+    query, key, and value projections followed by an output projection.
+    The projection naming matches the HuggingFace DETR layout to
+    simplify weight transfer from pretrained models. Used in both the
+    encoder (self-attention) and decoder (self-attention and
+    cross-attention) stages of DETR.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        hidden_dim: Model dimension.
-        num_heads: Number of attention heads.
-        dropout_rate: Dropout rate for attention weights.
-        block_prefix: Name prefix for sub-layers.
+        hidden_dim: Integer, total model dimension. Must be divisible
+            by `num_heads`.
+        num_heads: Integer, number of parallel attention heads.
+        dropout_rate: Float, dropout rate applied to the attention
+            weight matrix. Defaults to `0.0`.
+        block_prefix: String, name prefix for the internal dense
+            layers (`q_proj`, `k_proj`, `v_proj`, `out_proj`).
+            Defaults to `""`.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        Three 3D tensors:
+        - `query`: `(batch_size, seq_len_q, hidden_dim)`
+        - `key`:   `(batch_size, seq_len_k, hidden_dim)`
+        - `value`: `(batch_size, seq_len_k, hidden_dim)`
+
+    Output Shape:
+        3D tensor: `(batch_size, seq_len_q, hidden_dim)`.
     """
 
     def __init__(

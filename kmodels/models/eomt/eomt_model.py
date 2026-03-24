@@ -15,16 +15,28 @@ from .eomt_layers import (
 
 
 def eomt_mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
-    """Standard MLP with GELU activation (functional).
+    """Standard two-layer MLP with GELU activation.
+
+    Applies a dense expansion to `hidden_size * mlp_ratio` units with
+    GELU activation, followed by a dense projection back to
+    `hidden_size`. Used as the feedforward network in each EoMT
+    encoder layer when SwiGLU is not enabled.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
-        hidden_size: Input/output dimension.
-        mlp_ratio: Ratio for hidden dimension.
-        block_prefix: Name prefix for sub-layers.
+        x: Input tensor of shape
+            `(batch_size, seq_len, hidden_size)`.
+        hidden_size: Integer, input and output feature dimension.
+        mlp_ratio: Integer, expansion ratio for the hidden layer.
+            Defaults to `4`.
+        block_prefix: String, name prefix for all layers in this
+            block. Defaults to `"layers_0"`.
 
     Returns:
-        Output tensor of same shape as ``x``.
+        Output tensor of shape
+        `(batch_size, seq_len, hidden_size)`.
     """
     hidden_features = int(hidden_size * mlp_ratio)
     x = layers.Dense(hidden_features, name=f"{block_prefix}_mlp_fc1")(x)
@@ -34,16 +46,30 @@ def eomt_mlp(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
 
 
 def eomt_swiglu_ffn(x, hidden_size, mlp_ratio=4, block_prefix="layers_0"):
-    """SwiGLU feed-forward network (functional).
+    """SwiGLU gated feed-forward network.
+
+    Applies a gated linear unit with SiLU activation: the input is
+    projected to `2 * hidden_features` units, split into two halves,
+    one passed through SiLU and multiplied element-wise with the
+    other, then projected back to `hidden_size`. The hidden dimension
+    is rounded to the nearest multiple of 8 for hardware efficiency.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
+    - [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
-        hidden_size: Input/output dimension.
-        mlp_ratio: Ratio for computing hidden dimension.
-        block_prefix: Name prefix for sub-layers.
+        x: Input tensor of shape
+            `(batch_size, seq_len, hidden_size)`.
+        hidden_size: Integer, input and output feature dimension.
+        mlp_ratio: Integer, expansion ratio used to compute the
+            intermediate dimension. Defaults to `4`.
+        block_prefix: String, name prefix for all layers in this
+            block. Defaults to `"layers_0"`.
 
     Returns:
-        Output tensor of same shape as ``x``.
+        Output tensor of shape
+        `(batch_size, seq_len, hidden_size)`.
     """
     hidden_features = int(hidden_size * mlp_ratio)
     hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
@@ -67,22 +93,39 @@ def eomt_encoder_layer(
     layer_norm_eps=1e-6,
     block_prefix="layers_0",
 ):
-    """Single transformer encoder layer with LayerScale and DropPath (functional).
+    """Single EoMT transformer encoder layer with pre-norm design.
+
+    Applies layer-normalized multi-head self-attention followed by a
+    feedforward network (standard MLP or SwiGLU), each with a
+    residual connection, learnable LayerScale, and optional stochastic
+    depth (DropPath). Follows the DINOv2 encoder block design.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        hidden_states: Input tensor of shape ``(B, seq_len, hidden_size)``.
-        hidden_size: Hidden dimension.
-        num_heads: Number of attention heads.
-        mlp_ratio: MLP expansion ratio.
-        layerscale_value: Initial LayerScale value.
-        drop_path_rate: Stochastic depth rate.
-        attention_dropout: Attention dropout rate.
-        use_swiglu_ffn: Whether to use SwiGLU FFN.
-        layer_norm_eps: Epsilon for LayerNorm.
-        block_prefix: Name prefix for sub-layers.
+        hidden_states: Input tensor of shape
+            `(batch_size, seq_len, hidden_size)`.
+        hidden_size: Integer, model hidden dimension.
+        num_heads: Integer, number of attention heads.
+        mlp_ratio: Integer, expansion ratio for the feedforward
+            network. Defaults to `4`.
+        layerscale_value: Float, initial value for the learnable
+            LayerScale parameters. Defaults to `1.0`.
+        drop_path_rate: Float, stochastic depth rate for dropping
+            the residual branch. Defaults to `0.0`.
+        attention_dropout: Float, dropout rate applied to the
+            attention weight matrix. Defaults to `0.0`.
+        use_swiglu_ffn: Boolean, whether to use SwiGLU instead of
+            the standard GELU MLP. Defaults to `False`.
+        layer_norm_eps: Float, epsilon for layer normalization.
+            Defaults to `1e-6`.
+        block_prefix: String, name prefix for all sub-layers.
+            Defaults to `"layers_0"`.
 
     Returns:
-        Output tensor of shape ``(B, seq_len, hidden_size)``.
+        Output tensor of shape
+        `(batch_size, seq_len, hidden_size)`.
     """
     residual = hidden_states
     hidden_states = layers.LayerNormalization(
@@ -126,15 +169,26 @@ def eomt_encoder_layer(
 
 
 def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
-    """Single upscaling layer: ConvTranspose2d(2x) + GELU + DepthwiseConv2d + LayerNorm (functional).
+    """Single 2x spatial upscaling layer for mask feature decoding.
+
+    Applies a transposed convolution with stride 2 for spatial
+    upsampling, followed by GELU activation, a depthwise convolution
+    for local refinement, and layer normalization.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        x: Input tensor of shape ``(B, H, W, C)``.
-        hidden_size: Number of channels.
-        block_prefix: Name prefix for sub-layers.
+        x: Input tensor of shape
+            `(batch_size, height, width, hidden_size)`.
+        hidden_size: Integer, number of channels (preserved through
+            the layer).
+        block_prefix: String, name prefix for all sub-layers.
+            Defaults to `"upscale_block_0"`.
 
     Returns:
-        Output tensor of shape ``(B, 2*H, 2*W, C)``.
+        Output tensor of shape
+        `(batch_size, 2 * height, 2 * width, hidden_size)`.
     """
     x = layers.Conv2DTranspose(
         hidden_size,
@@ -156,15 +210,26 @@ def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
 
 
 def eomt_scale_block(x, hidden_size, num_upscale_blocks=2):
-    """Stack of upscaling layers (functional).
+    """Stack of spatial upscaling layers for mask feature decoding.
+
+    Applies `num_upscale_blocks` consecutive `eomt_scale_layer`
+    blocks, each doubling the spatial resolution. With the default
+    of 2 blocks, the resolution increases by 4x total.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        x: Input tensor of shape ``(B, H, W, C)``.
-        hidden_size: Number of channels.
-        num_upscale_blocks: Number of upscaling layers.
+        x: Input tensor of shape
+            `(batch_size, height, width, hidden_size)`.
+        hidden_size: Integer, number of channels (preserved through
+            all layers).
+        num_upscale_blocks: Integer, number of 2x upscaling layers
+            to stack. Defaults to `2`.
 
     Returns:
-        Upscaled output tensor.
+        Output tensor of shape
+        `(batch_size, height * 2^num_upscale_blocks, width * 2^num_upscale_blocks, hidden_size)`.
     """
     for i in range(num_upscale_blocks):
         x = eomt_scale_layer(x, hidden_size, block_prefix=f"upscale_block_{i}")
@@ -172,14 +237,25 @@ def eomt_scale_block(x, hidden_size, num_upscale_blocks=2):
 
 
 def eomt_mask_head(x, hidden_size):
-    """Mask prediction head: 3 Dense layers with GELU activations (functional).
+    """Mask prediction head with three dense layers and GELU activations.
+
+    Projects each query token through a 3-layer MLP to produce a
+    mask embedding vector. The output is later multiplied with
+    upscaled spatial features via einsum to produce per-query mask
+    logits.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        x: Input tensor of shape ``(B, num_queries, hidden_size)``.
-        hidden_size: Hidden dimension.
+        x: Input tensor of shape
+            `(batch_size, num_queries, hidden_size)`.
+        hidden_size: Integer, hidden dimension for all three dense
+            layers.
 
     Returns:
-        Mask embedding tensor of same shape.
+        Mask embedding tensor of shape
+        `(batch_size, num_queries, hidden_size)`.
     """
     x = layers.Dense(hidden_size, name="mask_head_fc1")(x)
     x = layers.Activation("gelu", name="mask_head_gelu1")(x)
@@ -193,52 +269,63 @@ def eomt_mask_head(x, hidden_size):
 class EoMT(keras.Model):
     """Encoder-only Mask Transformer (EoMT) for universal image segmentation.
 
-    EoMT repurposes a plain Vision Transformer for image segmentation without
-    task-specific decoder components. Learned queries are injected into the final
-    encoder blocks, enabling joint attention between image patches and object queries.
-
-    Architecture:
-        1. DINOv2-style ViT encoder with CLS + register tokens
-        2. Learned object queries injected at layer (num_hidden_layers - num_blocks)
-        3. Mask prediction via bilinear product of query embeddings and upscaled features
-        4. Class prediction via linear projection of query tokens
+    EoMT repurposes a plain DINOv2-style Vision Transformer for image
+    segmentation without a task-specific decoder. Learned object
+    queries are injected into the final `num_blocks` encoder layers,
+    enabling joint self-attention between image patch tokens and
+    query tokens. After the encoder, query tokens are projected to
+    class logits via a linear head, and mask logits are computed as
+    the bilinear product of query mask embeddings and spatially
+    upscaled patch features.
 
     Reference:
-        - [Your ViT is Secretly an Image Segmentation Model]
-          (https://arxiv.org/abs/2503.19108) (Kerssies et al., CVPR 2025)
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        hidden_size: Transformer hidden dimension.
-        num_hidden_layers: Number of transformer layers.
-        num_attention_heads: Number of attention heads.
-        mlp_ratio: MLP expansion ratio.
-        patch_size: Patch size for embedding.
-        num_register_tokens: Number of register tokens.
-        num_blocks: Number of final blocks with query injection.
-        num_upscale_blocks: Number of upscaling layers in mask predictor.
-        num_queries: Number of learned object queries.
-        num_labels: Number of segmentation classes.
-        layerscale_value: Initial LayerScale value.
-        drop_path_rate: Stochastic depth rate.
-        attention_dropout: Attention dropout rate.
-        use_swiglu_ffn: Whether to use SwiGLU FFN.
-        layer_norm_eps: LayerNorm epsilon.
-        input_shape: Input shape (H, W, C).
-        input_tensor: Optional input tensor.
-        name: Model name.
-        **kwargs: Additional arguments.
+        hidden_size: Integer, transformer hidden dimension.
+            Defaults to `1024`.
+        num_hidden_layers: Integer, total number of transformer
+            encoder layers. Defaults to `24`.
+        num_attention_heads: Integer, number of attention heads per
+            layer. Defaults to `16`.
+        mlp_ratio: Integer, expansion ratio for the feedforward
+            network. Defaults to `4`.
+        patch_size: Integer, height and width of each image patch.
+            Defaults to `16`.
+        num_register_tokens: Integer, number of DINOv2-style register
+            tokens prepended after the CLS token. Defaults to `4`.
+        num_blocks: Integer, number of final encoder blocks that
+            receive the injected object queries. Defaults to `4`.
+        num_upscale_blocks: Integer, number of 2x upscaling layers
+            applied to patch features before mask prediction.
+            Defaults to `2`.
+        num_queries: Integer, number of learned object queries.
+            Defaults to `200`.
+        num_labels: Integer, number of segmentation classes.
+            Defaults to `133`.
+        layerscale_value: Float, initial value for the learnable
+            LayerScale parameters. Defaults to `1e-5`.
+        drop_path_rate: Float, stochastic depth rate.
+            Defaults to `0.0`.
+        attention_dropout: Float, dropout rate for the attention
+            weight matrix. Defaults to `0.0`.
+        use_swiglu_ffn: Boolean, whether to use SwiGLU instead of
+            the standard GELU MLP. Defaults to `False`.
+        layer_norm_eps: Float, epsilon for layer normalization.
+            Defaults to `1e-6`.
+        input_shape: Optional tuple of integers specifying the input
+            shape (excluding batch size), e.g., `(640, 640, 3)`.
+        input_tensor: Optional Keras tensor to use as the model input.
+        name: String, the name of the model.
+            Defaults to `"EoMT"`.
+        **kwargs: Additional keyword arguments passed to the
+            `keras.Model` class.
 
-    Example:
-        ```python
-        model = EoMT(
-            hidden_size=1024,
-            num_hidden_layers=24,
-            num_attention_heads=16,
-            num_queries=200,
-            num_labels=133,
-            input_shape=(640, 640, 3),
-        )
-        ```
+    Returns:
+        A `keras.Model` instance with dict outputs:
+        - `"class_logits"`: `(batch_size, num_queries, num_labels + 1)`
+        - `"mask_logits"`: `(batch_size, num_queries, H_up, W_up)`
+          where `H_up = image_size // patch_size * 2^num_upscale_blocks`.
     """
 
     def __init__(
@@ -400,19 +487,30 @@ def _create_eomt_model(
     weights=None,
     **kwargs,
 ):
-    """Creates an EoMT model with the specified variant.
+    """Factory function for creating EoMT model variants.
+
+    Looks up the architecture configuration for the given variant
+    name, infers `num_labels` and `input_shape` from the weight
+    identifier when not specified, instantiates an `EoMT` model, and
+    optionally loads pretrained weights.
 
     Args:
-        variant: Model variant name (e.g., "EoMT_Large").
-        num_queries: Number of object queries.
-        num_labels: Number of segmentation classes.
-        input_shape: Input shape (H, W, C).
-        input_tensor: Optional input tensor.
-        weights: Pretrained weights identifier or file path.
-        **kwargs: Additional arguments.
+        variant: String, model variant name (e.g., `"EoMT_Large"`).
+        num_queries: Integer, number of learned object queries.
+            Defaults to `200`.
+        num_labels: Integer or `None`, number of segmentation
+            classes. Inferred from the weight identifier when `None`.
+        input_shape: Optional tuple of integers specifying the input
+            shape. Inferred from the weight identifier when `None`
+            (defaults to `(640, 640, 3)`).
+        input_tensor: Optional Keras tensor to use as the model input.
+        weights: String or `None`, pretrained weight identifier
+            (e.g., `"coco_panoptic_640"`) or a path to a weights
+            file. Defaults to `None`.
+        **kwargs: Additional keyword arguments passed to `EoMT`.
 
     Returns:
-        Configured EoMT model.
+        A configured `EoMT` model instance.
     """
     config = EOMT_MODEL_CONFIG[variant]
 
@@ -464,15 +562,15 @@ def _create_eomt_model(
         hidden_size=config["hidden_size"],
         num_hidden_layers=config["num_hidden_layers"],
         num_attention_heads=config["num_attention_heads"],
-        mlp_ratio=config["mlp_ratio"],
-        patch_size=config["patch_size"],
-        num_register_tokens=config["num_register_tokens"],
+        mlp_ratio=4,
+        patch_size=16,
+        num_register_tokens=4,
         num_blocks=config["num_blocks"],
-        num_upscale_blocks=config["num_upscale_blocks"],
+        num_upscale_blocks=2,
         num_queries=num_queries,
         num_labels=num_labels,
         layerscale_value=config["layerscale_value"],
-        use_swiglu_ffn=config["use_swiglu_ffn"],
+        use_swiglu_ffn=False,
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=variant,

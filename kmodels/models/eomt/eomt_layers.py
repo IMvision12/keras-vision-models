@@ -6,9 +6,27 @@ from keras import layers, ops
 class EoMTLayerScale(layers.Layer):
     """Learnable per-channel scaling factor for residual connections.
 
+    Applies an element-wise multiplication by a trainable vector of
+    the same dimension as the input channels. Initialised to a
+    constant value so that early in training the residual branch
+    contributes a controlled amount to the output. Used in every
+    encoder layer of EoMT.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
+
     Args:
-        init_value: Initial value for the scale parameters.
-        **kwargs: Additional layer arguments.
+        init_value: Float, initial constant value for every element
+            of the scale vector. Defaults to `1.0`.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        Arbitrary tensor whose last dimension is the channel
+        dimension.
+
+    Output Shape:
+        Same as input shape.
     """
 
     def __init__(self, init_value=1.0, **kwargs):
@@ -34,13 +52,32 @@ class EoMTLayerScale(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EoMTPatchEmbeddings(layers.Layer):
-    """Converts pixel values to patch embeddings using a Conv2D projection.
+    """Converts pixel values to patch embeddings via a Conv2D projection.
+
+    Splits the input image into non-overlapping patches of size
+    `patch_size x patch_size` using a strided convolution and projects
+    each patch into a `hidden_size`-dimensional embedding. The spatial
+    grid is then flattened into a 1D token sequence.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        hidden_size: Embedding dimension.
-        patch_size: Size of each patch.
-        num_channels: Number of input channels.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, output embedding dimension for each
+            patch token.
+        patch_size: Integer, height and width of each image patch.
+            Defaults to `16`.
+        num_channels: Integer, number of input image channels.
+            Defaults to `3`.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        4D tensor: `(batch_size, height, width, num_channels)`.
+
+    Output Shape:
+        3D tensor: `(batch_size, num_patches, hidden_size)` where
+        `num_patches = (height // patch_size) * (width // patch_size)`.
     """
 
     def __init__(self, hidden_size, patch_size=16, num_channels=3, **kwargs):
@@ -78,15 +115,36 @@ class EoMTPatchEmbeddings(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EoMTEmbeddings(layers.Layer):
-    """Constructs CLS token, register tokens, position embeddings and patch embeddings.
+    """Constructs the full input embedding for the EoMT encoder.
+
+    Combines patch embeddings with learnable positional embeddings,
+    then prepends a CLS token and a set of register tokens following
+    the DINOv2 design. The output sequence has length
+    `1 + num_register_tokens + num_patches`.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
+    - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
 
     Args:
-        hidden_size: Embedding dimension.
-        patch_size: Size of each patch.
-        image_size: Input image resolution.
-        num_register_tokens: Number of register tokens.
-        num_channels: Number of input channels.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, embedding dimension for all tokens.
+        patch_size: Integer, height and width of each image patch.
+            Defaults to `16`.
+        image_size: Integer, spatial resolution of the input image
+            (assumed square). Defaults to `640`.
+        num_register_tokens: Integer, number of learnable register
+            tokens prepended after the CLS token. Defaults to `4`.
+        num_channels: Integer, number of input image channels.
+            Defaults to `3`.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        4D tensor: `(batch_size, image_size, image_size, num_channels)`.
+
+    Output Shape:
+        3D tensor:
+        `(batch_size, 1 + num_register_tokens + num_patches, hidden_size)`.
     """
 
     def __init__(
@@ -163,13 +221,31 @@ class EoMTEmbeddings(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EoMTAttention(layers.Layer):
-    """Multi-head self-attention.
+    """Multi-head self-attention for the EoMT transformer encoder.
+
+    Implements scaled dot-product multi-head self-attention with
+    separate query, key, and value projections followed by an output
+    projection. Each head operates on a `hidden_size // num_heads`
+    dimensional subspace.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        hidden_size: Total dimension.
-        num_heads: Number of attention heads.
-        attention_dropout: Dropout rate for attention weights.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, total model dimension. Must be divisible
+            by `num_heads`.
+        num_heads: Integer, number of parallel attention heads.
+        attention_dropout: Float, dropout rate applied to the
+            attention weight matrix during training. Defaults to
+            `0.0`.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        3D tensor: `(batch_size, seq_len, hidden_size)`.
+
+    Output Shape:
+        3D tensor: `(batch_size, seq_len, hidden_size)`.
     """
 
     def __init__(self, hidden_size, num_heads, attention_dropout=0.0, **kwargs):
@@ -240,12 +316,30 @@ class EoMTAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EoMTQueryInjection(layers.Layer):
-    """Injects learned query tokens by concatenating them with hidden states.
+    """Injects learned query tokens into the encoder sequence.
+
+    Maintains a learnable weight matrix of shape
+    `(num_queries, hidden_size)` and prepends it (broadcast across
+    the batch) to the existing hidden states. This enables joint
+    attention between object queries and image patch tokens in the
+    final encoder blocks, which is the core mechanism of EoMT.
+
+    Reference:
+    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        num_queries: Number of query tokens.
-        hidden_size: Hidden dimension.
-        **kwargs: Additional layer arguments.
+        num_queries: Integer, number of learnable object query tokens.
+        hidden_size: Integer, embedding dimension matching the
+            encoder hidden size.
+        **kwargs: Additional keyword arguments passed to the `Layer`
+            class.
+
+    Input Shape:
+        3D tensor: `(batch_size, seq_len, hidden_size)`.
+
+    Output Shape:
+        3D tensor:
+        `(batch_size, num_queries + seq_len, hidden_size)`.
     """
 
     def __init__(self, num_queries, hidden_size, **kwargs):

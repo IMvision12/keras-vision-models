@@ -15,6 +15,8 @@ from tqdm import tqdm
 
 from kmodels.models.efficientformer import (
     EfficientFormerL1,
+    EfficientFormerL3,
+    EfficientFormerL7,
 )
 from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kmodels.utils.model_equivalence_tester import verify_cls_model_equivalence
@@ -52,102 +54,172 @@ weight_name_mapping = {
     "head.dist.": "head_dist.",
 }
 
+# L1: last stage has depths=4, num_vit=1 → conv blocks 0,1,2 then vit block 3
+#     timm skips index 3 for conv → vit block at index 4
+# L3: last stage has depths=6, num_vit=4 → conv blocks 0,1 then vit blocks 2,3,4,5
+#     timm skips index 2 for first conv→vit transition, so blocks 2..5 map to 3..6
+# L7: last stage has depths=8, num_vit=8 → all vit blocks 0..7
+#     no conv blocks in last stage, no skip needed
 
-model_config: Dict[str, Union[type, str, List[int], int, bool]] = {
-    "keras_model_cls": EfficientFormerL1,
-    "torch_model_name": "efficientformer_l1.snap_dist_in1k",
-    "input_shape": [224, 224, 3],
-    "num_classes": 1000,
-    "include_top": True,
-    "include_normalization": False,
-    "classifier_activation": "linear",
+BLOCK_INDEX_REMAP = {
+    "l1": {"stages.3.blocks.3": "stages.3.blocks.4"},
+    "l3": {
+        "stages.3.blocks.2": "stages.3.blocks.3",
+        "stages.3.blocks.3": "stages.3.blocks.4",
+        "stages.3.blocks.4": "stages.3.blocks.5",
+        "stages.3.blocks.5": "stages.3.blocks.6",
+    },
+    "l7": {
+        "stages.3.blocks.7": "stages.3.blocks.8",
+        "stages.3.blocks.6": "stages.3.blocks.7",
+        "stages.3.blocks.5": "stages.3.blocks.6",
+        "stages.3.blocks.4": "stages.3.blocks.5",
+        "stages.3.blocks.3": "stages.3.blocks.4",
+        "stages.3.blocks.2": "stages.3.blocks.3",
+        "stages.3.blocks.1": "stages.3.blocks.2",
+        "stages.3.blocks.0": "stages.3.blocks.1",
+    },
 }
 
+MODEL_CONFIGS: List[Dict[str, Union[type, str, List[int], int, bool]]] = [
+    {
+        "variant": "l1",
+        "keras_model_cls": EfficientFormerL1,
+        "torch_model_name": "efficientformer_l1.snap_dist_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+        "include_top": True,
+        "include_normalization": False,
+        "classifier_activation": "linear",
+    },
+    {
+        "variant": "l3",
+        "keras_model_cls": EfficientFormerL3,
+        "torch_model_name": "efficientformer_l3.snap_dist_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+        "include_top": True,
+        "include_normalization": False,
+        "classifier_activation": "linear",
+    },
+    {
+        "variant": "l7",
+        "keras_model_cls": EfficientFormerL7,
+        "torch_model_name": "efficientformer_l7.snap_dist_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+        "include_top": True,
+        "include_normalization": False,
+        "classifier_activation": "linear",
+    },
+]
 
-keras_model: keras.Model = model_config["keras_model_cls"](
-    include_top=model_config["include_top"],
-    input_shape=model_config["input_shape"],
-    classifier_activation=model_config["classifier_activation"],
-    num_classes=model_config["num_classes"],
-    include_normalization=model_config["include_normalization"],
-    weights=None,
-)
 
-torch_model: torch.nn.Module = timm.create_model(
-    model_config["torch_model_name"], pretrained=True
-).eval()
+def convert_model(model_config):
+    variant = model_config["variant"]
+    block_remap = BLOCK_INDEX_REMAP[variant]
 
-trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
-    torch_model
-)
-trainable_keras_weights, non_trainable_keras_weights = split_model_weights(keras_model)
+    print(f"\n{'=' * 60}")
+    print(f"Converting {model_config['torch_model_name']}")
+    print(f"{'=' * 60}")
 
-torch_weights_dict: Dict[str, torch.Tensor] = {
-    **trainable_torch_weights,
-    **non_trainable_torch_weights,
-}
-
-for keras_weight, keras_weight_name in tqdm(
-    trainable_keras_weights + non_trainable_keras_weights,
-    total=len(trainable_keras_weights + non_trainable_keras_weights),
-    desc="Transferring weights",
-):
-    torch_weight_name: str = keras_weight_name
-
-    torch_weight_name = re.sub(r"_variable(_\d+)?$", "_gamma", torch_weight_name)
-
-    for keras_name_part, torch_name_part in weight_name_mapping.items():
-        torch_weight_name = torch_weight_name.replace(keras_name_part, torch_name_part)
-
-    if ".gamma" in torch_weight_name and ".ls" not in torch_weight_name:
-        torch_weight_name = torch_weight_name.replace(".gamma", ".weight")
-
-    if "stages.3.blocks.3" in torch_weight_name:
-        torch_weight_name = torch_weight_name.replace(
-            "stages.3.blocks.3", "stages.3.blocks.4"
-        )
-
-    if "attn.attention.biases" in torch_weight_name:
-        torch_weight_name = torch_weight_name.replace(
-            ".attn.attention.biases", ".token_mixer.attention_biases"
-        )
-
-    if "attention_bias_idxs" in torch_weight_name:
-        continue
-
-    if torch_weight_name not in torch_weights_dict:
-        raise WeightMappingError(keras_weight_name, torch_weight_name)
-
-    torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
-
-    if "attention_biases" in keras_weight_name:
-        keras_weight.assign(
-            torch_weight.numpy() if hasattr(torch_weight, "numpy") else torch_weight
-        )
-        continue
-
-    if not compare_keras_torch_names(
-        keras_weight_name, keras_weight, torch_weight_name, torch_weight
-    ):
-        raise WeightShapeMismatchError(
-            keras_weight_name, keras_weight.shape, torch_weight_name, torch_weight.shape
-        )
-
-    transfer_weights(keras_weight_name, keras_weight, torch_weight)
-
-results = verify_cls_model_equivalence(
-    model_a=torch_model,
-    model_b=keras_model,
-    input_shape=(224, 224, 3),
-    output_specs={"num_classes": 1000},
-    run_performance=False,
-)
-
-if not results["standard_input"]:
-    raise ValueError(
-        "Model equivalence test failed - model outputs do not match for standard input"
+    keras_model: keras.Model = model_config["keras_model_cls"](
+        include_top=model_config["include_top"],
+        input_shape=model_config["input_shape"],
+        classifier_activation=model_config["classifier_activation"],
+        num_classes=model_config["num_classes"],
+        include_normalization=model_config["include_normalization"],
+        weights=None,
     )
 
-model_filename: str = f"{model_config['torch_model_name'].replace('.', '_')}.weights.h5"
-keras_model.save_weights(model_filename)
-print(f"Model saved successfully as {model_filename}")
+    torch_model: torch.nn.Module = timm.create_model(
+        model_config["torch_model_name"], pretrained=True
+    ).eval()
+
+    trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
+        torch_model
+    )
+    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
+        keras_model
+    )
+
+    torch_weights_dict: Dict[str, torch.Tensor] = {
+        **trainable_torch_weights,
+        **non_trainable_torch_weights,
+    }
+
+    for keras_weight, keras_weight_name in tqdm(
+        trainable_keras_weights + non_trainable_keras_weights,
+        total=len(trainable_keras_weights + non_trainable_keras_weights),
+        desc="Transferring weights",
+    ):
+        torch_weight_name: str = keras_weight_name
+
+        torch_weight_name = re.sub(r"_variable(_\d+)?$", "_gamma", torch_weight_name)
+
+        for keras_name_part, torch_name_part in weight_name_mapping.items():
+            torch_weight_name = torch_weight_name.replace(
+                keras_name_part, torch_name_part
+            )
+
+        if ".gamma" in torch_weight_name and ".ls" not in torch_weight_name:
+            torch_weight_name = torch_weight_name.replace(".gamma", ".weight")
+
+        for keras_block, torch_block in block_remap.items():
+            if keras_block in torch_weight_name:
+                torch_weight_name = torch_weight_name.replace(keras_block, torch_block)
+                break
+
+        if "attn.attention.biases" in torch_weight_name:
+            torch_weight_name = torch_weight_name.replace(
+                ".attn.attention.biases", ".token_mixer.attention_biases"
+            )
+
+        if "attention_bias_idxs" in torch_weight_name:
+            continue
+
+        if torch_weight_name not in torch_weights_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+
+        torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
+
+        if "attention_biases" in keras_weight_name:
+            keras_weight.assign(
+                torch_weight.numpy() if hasattr(torch_weight, "numpy") else torch_weight
+            )
+            continue
+
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
+            )
+
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+
+    results = verify_cls_model_equivalence(
+        model_a=torch_model,
+        model_b=keras_model,
+        input_shape=(224, 224, 3),
+        output_specs={"num_classes": 1000},
+        run_performance=False,
+    )
+
+    if not results["standard_input"]:
+        raise ValueError(
+            f"Model equivalence test failed for {model_config['torch_model_name']}"
+        )
+
+    model_filename: str = (
+        f"{model_config['torch_model_name'].replace('.', '_')}.weights.h5"
+    )
+    keras_model.save_weights(model_filename)
+    print(f"Model saved successfully as {model_filename}")
+
+
+for config in MODEL_CONFIGS:
+    convert_model(config)

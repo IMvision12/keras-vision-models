@@ -906,3 +906,270 @@ def gen_sineembed_for_position(pos_tensor, dim=128):
     """Functional wrapper for backward compat (not used in model graph)."""
     layer = SinePositionEmbeddingForRefPoints(dim=dim)
     return layer(pos_tensor)
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class UnwindowFeatures(layers.Layer):
+    """Reverses windowing and removes special tokens to produce spatial features.
+
+    Strips CLS and register tokens from the sequence, merges windowed batches
+    back into a single batch, and reshapes the flat token sequence into a 2D
+    spatial feature map of shape `(B, H, W, C)`.
+
+    Args:
+        num_h: Integer, spatial height of the output feature map (in patches).
+        num_w: Integer, spatial width of the output feature map (in patches).
+        num_windows: Integer, number of windows per spatial axis used during
+            windowed attention.
+        hidden_size: Integer, channel dimension of the features.
+        num_register_tokens: Integer, number of register tokens to remove.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        3D tensor: `(batch_size * num_windows^2, seq_len, hidden_size)`.
+
+    Output Shape:
+        4D tensor: `(batch_size, num_h, num_w, hidden_size)`.
+    """
+
+    def __init__(
+        self, num_h, num_w, num_windows, hidden_size, num_register_tokens, **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.num_h = num_h
+        self.num_w = num_w
+        self.num_windows = num_windows
+        self.hidden_size = hidden_size
+        self.num_register_tokens = num_register_tokens
+
+    def call(self, hidden_state):
+        hidden_state = hidden_state[:, self.num_register_tokens + 1 :, :]
+
+        if self.num_windows > 1:
+            nw2 = self.num_windows**2
+            shape = ops.shape(hidden_state)
+            HW_win = shape[1]
+            C = shape[2]
+
+            hidden_state = ops.reshape(hidden_state, [-1, nw2 * HW_win, C])
+            h_pw = self.num_h // self.num_windows
+            w_pw = self.num_w // self.num_windows
+            hidden_state = ops.reshape(
+                hidden_state, [-1, self.num_windows, h_pw, w_pw, C]
+            )
+            hidden_state = ops.transpose(hidden_state, [0, 2, 1, 3, 4])
+
+        hidden_state = ops.reshape(
+            hidden_state, [-1, self.num_h, self.num_w, self.hidden_size]
+        )
+        return hidden_state
+
+    def compute_output_spec(self, input_spec, **kwargs):
+        return keras.KerasTensor(
+            shape=(None, self.num_h, self.num_w, self.hidden_size),
+            dtype=input_spec.dtype,
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "num_h": self.num_h,
+                "num_w": self.num_w,
+                "num_windows": self.num_windows,
+                "hidden_size": self.hidden_size,
+                "num_register_tokens": self.num_register_tokens,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class EncoderOutputProposals(layers.Layer):
+    """Generates encoder output proposals for two-stage query initialization.
+
+    Creates a grid of anchor proposals at each spatial position across all
+    feature levels, filters invalid proposals, and masks the corresponding
+    encoder memory. Used in the two-stage variant of RF-DETR to initialize
+    object queries from encoder features.
+
+    Args:
+        spatial_shapes: List of `(height, width)` tuples for each feature level.
+        bbox_reparam: Boolean, whether to use bounding box reparameterization.
+            If False, uses inverse-sigmoid encoding. Defaults to `True`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        3D tensor (memory): `(batch_size, total_tokens, hidden_dim)`.
+
+    Output Shape:
+        Tuple of two tensors:
+        - output_memory: `(batch_size, total_tokens, hidden_dim)`.
+        - output_proposals: `(batch_size, total_tokens, 4)`.
+    """
+
+    def __init__(self, spatial_shapes, bbox_reparam=True, **kwargs):
+        super().__init__(**kwargs)
+        self.spatial_shapes = spatial_shapes
+        self.bbox_reparam = bbox_reparam
+
+    def call(self, memory):
+        proposals = []
+        for lvl, (H_, W_) in enumerate(self.spatial_shapes):
+            y_range = ops.cast(ops.arange(H_), "float32")
+            x_range = ops.cast(ops.arange(W_), "float32")
+            grid_y, grid_x = ops.meshgrid(y_range, x_range, indexing="ij")
+            grid = ops.stack([grid_x, grid_y], axis=-1)
+            grid = ops.reshape(grid, [1, H_ * W_, 2])
+
+            scale = ops.convert_to_tensor([[W_, H_]], dtype="float32")
+            scale = ops.reshape(scale, [1, 1, 2])
+            grid = (grid + 0.5) / scale
+
+            wh = ops.ones_like(grid) * 0.05 * (2.0**lvl)
+            proposal = ops.concatenate([grid, wh], axis=-1)
+            proposals.append(proposal)
+
+        output_proposals = ops.concatenate(proposals, axis=1)
+        batch = ops.shape(memory)[0]
+        output_proposals = ops.broadcast_to(
+            output_proposals, [batch, ops.shape(output_proposals)[1], 4]
+        )
+
+        valid = ops.all(
+            (output_proposals > 0.01) & (output_proposals < 0.99),
+            axis=-1,
+            keepdims=True,
+        )
+
+        if self.bbox_reparam:
+            output_proposals = ops.where(
+                valid, output_proposals, ops.zeros_like(output_proposals)
+            )
+        else:
+            eps = 1e-7
+            clamped = ops.clip(output_proposals, eps, 1.0 - eps)
+            unsig = ops.log(clamped / (1.0 - clamped))
+            inf_val = ops.full_like(unsig, 1e8)
+            output_proposals = ops.where(valid, unsig, inf_val)
+
+        output_memory = ops.where(valid, memory, ops.zeros_like(memory))
+        return output_memory, output_proposals
+
+    def compute_output_spec(self, memory_spec, **kwargs):
+        total = sum(h * w for h, w in self.spatial_shapes)
+        return (
+            keras.KerasTensor(shape=memory_spec.shape, dtype=memory_spec.dtype),
+            keras.KerasTensor(
+                shape=(memory_spec.shape[0], total, 4), dtype=memory_spec.dtype
+            ),
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "spatial_shapes": self.spatial_shapes,
+                "bbox_reparam": self.bbox_reparam,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class LearnedEmbedding(layers.Layer):
+    """Learnable embedding table that broadcasts to the input batch size.
+
+    Holds a single weight matrix of shape `(num_embeddings, embedding_dim)` and
+    replicates it across the batch dimension at call time. Used for query
+    feature embeddings and reference point embeddings in RF-DETR.
+
+    Args:
+        num_embeddings: Integer, number of embedding vectors (e.g., num_queries).
+        embedding_dim: Integer, dimensionality of each embedding vector.
+        initializer: String or initializer, weight initializer.
+            Defaults to `"zeros"`.
+        **kwargs: Additional keyword arguments passed to the `Layer` class.
+
+    Input Shape:
+        Any tensor (only the batch dimension is used).
+
+    Output Shape:
+        3D tensor: `(batch_size, num_embeddings, embedding_dim)`.
+    """
+
+    def __init__(self, num_embeddings, embedding_dim, initializer="zeros", **kwargs):
+        super().__init__(**kwargs)
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.initializer = initializer
+
+    def build(self, input_shape):
+        self.weight = self.add_weight(
+            name="weight",
+            shape=(self.num_embeddings, self.embedding_dim),
+            initializer=self.initializer,
+        )
+        self.built = True
+
+    def call(self, x):
+        batch_size = ops.shape(x)[0]
+        return ops.repeat(ops.expand_dims(self.weight, axis=0), batch_size, axis=0)
+
+    def compute_output_spec(self, input_spec, **kwargs):
+        return keras.KerasTensor(
+            shape=(None, self.num_embeddings, self.embedding_dim),
+            dtype=input_spec.dtype,
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "num_embeddings": self.num_embeddings,
+                "embedding_dim": self.embedding_dim,
+                "initializer": self.initializer,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class TwoStageRefineRefpoints(layers.Layer):
+    """Refine encoder proposals with learned refpoint deltas (bbox_reparam)."""
+
+    def __init__(self, bbox_reparam=True, num_queries=300, **kwargs):
+        super().__init__(**kwargs)
+        self.bbox_reparam = bbox_reparam
+        self.num_queries = num_queries
+
+    def call(self, inputs):
+        refpoint_embed, refpoint_embed_ts = inputs
+        refpoint_embed_subset = refpoint_embed[:, : self.num_queries, :]
+        if self.bbox_reparam:
+            ref_cxcy = (
+                refpoint_embed_subset[..., :2] * refpoint_embed_ts[..., 2:]
+                + refpoint_embed_ts[..., :2]
+            )
+            ref_wh = (
+                ops.exp(refpoint_embed_subset[..., 2:]) * refpoint_embed_ts[..., 2:]
+            )
+            return ops.concatenate([ref_cxcy, ref_wh], axis=-1)
+        else:
+            return refpoint_embed_subset + refpoint_embed_ts
+
+    def compute_output_spec(self, input_spec, **kwargs):
+        return keras.KerasTensor(
+            shape=(None, self.num_queries, 4),
+            dtype=input_spec[0].dtype,
+        )
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "bbox_reparam": self.bbox_reparam,
+                "num_queries": self.num_queries,
+            }
+        )
+        return config

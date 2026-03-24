@@ -327,92 +327,6 @@ class DinoV2LayerScale(layers.Layer):
         return config
 
 
-@keras.saving.register_keras_serializable(package="kmodels")
-class PositionEmbeddingSine(layers.Layer):
-    """2D sinusoidal position embedding for spatial feature maps.
-
-    Generates fixed sine/cosine position embeddings for each spatial location
-    in the input feature map. The y and x coordinates are each encoded into
-    `num_pos_feats` dimensions using interleaved sin/cos, then concatenated
-    to produce a `2 * num_pos_feats` dimensional embedding per position.
-
-    Args:
-        num_pos_feats: Integer, number of positional features per spatial
-            axis. The total embedding dimension is `2 * num_pos_feats`.
-            Defaults to `128`.
-        temperature: Float, temperature scaling for the sinusoidal
-            frequencies. Defaults to `10000`.
-        normalize: Boolean, whether to normalize coordinates to [0, 2*pi].
-            Defaults to `True`.
-        **kwargs: Additional keyword arguments passed to the `Layer` class.
-
-    Input Shape:
-        4D tensor: `(batch_size, height, width, channels)`.
-
-    Output Shape:
-        4D tensor: `(1, height, width, 2 * num_pos_feats)`.
-    """
-
-    def __init__(self, num_pos_feats=128, temperature=10000, normalize=True, **kwargs):
-        super().__init__(**kwargs)
-        self.num_pos_feats = num_pos_feats
-        self.temperature = temperature
-        self.normalize = normalize
-        self.scale = 2.0 * math.pi
-
-    def call(self, x):
-        shape = ops.shape(x)
-        h, w = shape[1], shape[2]
-
-        y_range = ops.cast(ops.arange(h), "float32")
-        x_range = ops.cast(ops.arange(w), "float32")
-
-        if self.normalize:
-            eps = 1e-6
-            y_range = y_range / (ops.cast(h, "float32") - 1 + eps) * self.scale
-            x_range = x_range / (ops.cast(w, "float32") - 1 + eps) * self.scale
-        else:
-            y_range = (y_range + 1) * self.scale
-            x_range = (x_range + 1) * self.scale
-
-        dim_t = ops.cast(ops.arange(self.num_pos_feats), "float32")
-        dim_t = self.temperature ** (2 * (dim_t // 2) / self.num_pos_feats)
-
-        pos_x = x_range[:, None] / dim_t[None, :]
-        pos_y = y_range[:, None] / dim_t[None, :]
-
-        pos_x_sin = ops.sin(pos_x[:, 0::2])
-        pos_x_cos = ops.cos(pos_x[:, 1::2])
-        pos_x = ops.reshape(
-            ops.stack([pos_x_sin, pos_x_cos], axis=-1), [w, self.num_pos_feats]
-        )
-
-        pos_y_sin = ops.sin(pos_y[:, 0::2])
-        pos_y_cos = ops.cos(pos_y[:, 1::2])
-        pos_y = ops.reshape(
-            ops.stack([pos_y_sin, pos_y_cos], axis=-1), [h, self.num_pos_feats]
-        )
-
-        pos_y = ops.expand_dims(pos_y, axis=1)
-        pos_y = ops.tile(pos_y, [1, w, 1])
-        pos_x = ops.expand_dims(pos_x, axis=0)
-        pos_x = ops.tile(pos_x, [h, 1, 1])
-        pos = ops.concatenate([pos_y, pos_x], axis=-1)
-        pos = ops.expand_dims(pos, axis=0)
-        return pos
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "num_pos_feats": self.num_pos_feats,
-                "temperature": self.temperature,
-                "normalize": self.normalize,
-            }
-        )
-        return config
-
-
 def _ms_deform_attn_core(
     value, value_spatial_shapes, sampling_locations, attention_weights
 ):
@@ -830,79 +744,59 @@ class RFDETRDecoderLayer(layers.Layer):
         return config
 
 
-def _sincos_interleave(x):
-    """Apply sin to even indices and cos to odd indices, then interleave."""
-    sin_part = ops.sin(x[..., 0::2])
-    cos_part = ops.cos(x[..., 1::2])
-    stacked = ops.stack([sin_part, cos_part], axis=-1)
-    out_shape = ops.shape(x)
-    return ops.reshape(stacked, out_shape)
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
-class SinePositionEmbeddingForRefPoints(layers.Layer):
-    """Generates sinusoidal position embeddings for decoder reference points.
+class LearnedEmbedding(layers.Layer):
+    """Learnable embedding table that broadcasts to the input batch size.
 
-    Encodes 2D or 4D reference point coordinates (x, y) or (x, y, w, h)
-    into sinusoidal embeddings using interleaved sin/cos encoding per
-    coordinate dimension.
+    Holds a single weight matrix of shape `(num_embeddings, embedding_dim)` and
+    replicates it across the batch dimension at call time. Used for query
+    feature embeddings and reference point embeddings in RF-DETR.
 
     Args:
-        dim: Integer, embedding dimension per coordinate. The total output
-            dimension is `dim * num_coordinates` (2 or 4). Defaults to `128`.
+        num_embeddings: Integer, number of embedding vectors (e.g., num_queries).
+        embedding_dim: Integer, dimensionality of each embedding vector.
+        initializer: String or initializer, weight initializer.
+            Defaults to `"zeros"`.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
 
     Input Shape:
-        Tensor of shape `(..., 2)` or `(..., 4)` containing normalized
-        coordinates.
+        Any tensor (only the batch dimension is used).
 
     Output Shape:
-        Tensor of shape `(..., dim * 2)` or `(..., dim * 4)`.
+        3D tensor: `(batch_size, num_embeddings, embedding_dim)`.
     """
 
-    def __init__(self, dim=128, **kwargs):
+    def __init__(self, num_embeddings, embedding_dim, initializer="zeros", **kwargs):
         super().__init__(**kwargs)
-        self.dim = dim
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.initializer = initializer
 
-    def call(self, pos_tensor):
-        scale = 2 * math.pi
-        dim_t = ops.cast(ops.arange(self.dim), "float32")
-        dim_t = 10000.0 ** (2 * (dim_t // 2) / self.dim)
+    def build(self, input_shape):
+        self.weight = self.add_weight(
+            name="weight",
+            shape=(self.num_embeddings, self.embedding_dim),
+            initializer=self.initializer,
+        )
+        self.built = True
 
-        x_embed = pos_tensor[..., 0:1] * scale
-        y_embed = pos_tensor[..., 1:2] * scale
-
-        pos_x = x_embed / dim_t
-        pos_y = y_embed / dim_t
-        pos_x = _sincos_interleave(pos_x)
-        pos_y = _sincos_interleave(pos_y)
-
-        if pos_tensor.shape[-1] == 2:
-            return ops.concatenate([pos_y, pos_x], axis=-1)
-        elif pos_tensor.shape[-1] == 4:
-            w_embed = pos_tensor[..., 2:3] * scale
-            h_embed = pos_tensor[..., 3:4] * scale
-            pos_w = _sincos_interleave(w_embed / dim_t)
-            pos_h = _sincos_interleave(h_embed / dim_t)
-            return ops.concatenate([pos_y, pos_x, pos_w, pos_h], axis=-1)
-        else:
-            raise ValueError(
-                f"pos_tensor last dim must be 2 or 4, got {pos_tensor.shape[-1]}"
-            )
+    def call(self, x):
+        batch_size = ops.shape(x)[0]
+        return ops.repeat(ops.expand_dims(self.weight, axis=0), batch_size, axis=0)
 
     def compute_output_spec(self, input_spec, **kwargs):
-        d = input_spec.shape[-1]
-        out_dim = self.dim * d
-        new_shape = input_spec.shape[:-1] + (out_dim,)
-        return keras.KerasTensor(shape=new_shape, dtype=input_spec.dtype)
+        return keras.KerasTensor(
+            shape=(None, self.num_embeddings, self.embedding_dim),
+            dtype=input_spec.dtype,
+        )
 
     def get_config(self):
         config = super().get_config()
-        config.update({"dim": self.dim})
+        config.update(
+            {
+                "num_embeddings": self.num_embeddings,
+                "embedding_dim": self.embedding_dim,
+                "initializer": self.initializer,
+            }
+        )
         return config
-
-
-def gen_sineembed_for_position(pos_tensor, dim=128):
-    """Functional wrapper for backward compat (not used in model graph)."""
-    layer = SinePositionEmbeddingForRefPoints(dim=dim)
-    return layer(pos_tensor)

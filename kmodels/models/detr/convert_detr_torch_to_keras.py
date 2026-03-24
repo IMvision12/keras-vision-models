@@ -11,6 +11,7 @@ from kmodels.models import detr
 from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kmodels.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
+    transfer_nested_layer_weights,
     transfer_weights,
 )
 
@@ -125,18 +126,12 @@ for model_config in model_configs:
         k_prefix = f"encoder_layers_{i}"
 
         self_attn = keras_model.get_layer(f"{k_prefix}_self_attn")
-        for proj, hf_proj in [
-            ("q_proj", "q_proj"),
-            ("k_proj", "k_proj"),
-            ("v_proj", "v_proj"),
-            ("out_proj", "o_proj"),
-        ]:
-            dense = getattr(self_attn, proj)
-            w = pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.weight"]
-            dense.weights[0].assign(w.T)
-            dense.weights[1].assign(
-                pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.bias"]
-            )
+        transfer_nested_layer_weights(
+            self_attn,
+            pytorch_state_dict,
+            f"{hf_prefix}.self_attn",
+            name_mapping={"out_proj": "o_proj", "kernel": "weight"},
+        )
 
         ln = keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm")
         ln.weights[0].assign(
@@ -167,18 +162,12 @@ for model_config in model_configs:
         k_prefix = f"decoder_layers_{i}"
 
         self_attn = keras_model.get_layer(f"{k_prefix}_self_attn")
-        for proj, hf_proj in [
-            ("q_proj", "q_proj"),
-            ("k_proj", "k_proj"),
-            ("v_proj", "v_proj"),
-            ("out_proj", "o_proj"),
-        ]:
-            dense = getattr(self_attn, proj)
-            w = pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.weight"]
-            dense.weights[0].assign(w.T)
-            dense.weights[1].assign(
-                pytorch_state_dict[f"{hf_prefix}.self_attn.{hf_proj}.bias"]
-            )
+        transfer_nested_layer_weights(
+            self_attn,
+            pytorch_state_dict,
+            f"{hf_prefix}.self_attn",
+            name_mapping={"out_proj": "o_proj", "kernel": "weight"},
+        )
 
         ln = keras_model.get_layer(f"{k_prefix}_self_attn_layer_norm")
         ln.weights[0].assign(
@@ -189,18 +178,12 @@ for model_config in model_configs:
         )
 
         cross_attn = keras_model.get_layer(f"{k_prefix}_encoder_attn")
-        for proj, hf_proj in [
-            ("q_proj", "q_proj"),
-            ("k_proj", "k_proj"),
-            ("v_proj", "v_proj"),
-            ("out_proj", "o_proj"),
-        ]:
-            dense = getattr(cross_attn, proj)
-            w = pytorch_state_dict[f"{hf_prefix}.encoder_attn.{hf_proj}.weight"]
-            dense.weights[0].assign(w.T)
-            dense.weights[1].assign(
-                pytorch_state_dict[f"{hf_prefix}.encoder_attn.{hf_proj}.bias"]
-            )
+        transfer_nested_layer_weights(
+            cross_attn,
+            pytorch_state_dict,
+            f"{hf_prefix}.encoder_attn",
+            name_mapping={"out_proj": "o_proj", "kernel": "weight"},
+        )
 
         ln = keras_model.get_layer(f"{k_prefix}_encoder_attn_layer_norm")
         ln.weights[0].assign(

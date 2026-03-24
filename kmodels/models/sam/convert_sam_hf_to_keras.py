@@ -4,7 +4,10 @@ from tqdm import tqdm
 from transformers import SamModel
 
 from kmodels.models.sam.sam_model import SAM_ViT_Base, SAM_ViT_Huge, SAM_ViT_Large
-from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights
+from kmodels.utils.weight_transfer_torch_to_keras import (
+    transfer_nested_layer_weights,
+    transfer_weights,
+)
 
 VARIANT_MAP = {
     "base": SAM_ViT_Base,
@@ -12,52 +15,17 @@ VARIANT_MAP = {
     "huge": SAM_ViT_Huge,
 }
 
+vision_encoder_name_mapping = {
+    "mlp_lin1": "mlp.lin1",
+    "mlp_lin2": "mlp.lin2",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+}
 
-def _transfer(keras_name, keras_weight, torch_weight):
-    transfer_weights(keras_name, keras_weight, torch_weight)
-
-
-def _transfer_dense(dense_layer, hf_state_dict, hf_key, keras_name):
-    _transfer(
-        f"{keras_name}_kernel",
-        dense_layer.kernel,
-        hf_state_dict[f"{hf_key}.weight"],
-    )
-    _transfer(
-        f"{keras_name}_bias",
-        dense_layer.bias,
-        hf_state_dict[f"{hf_key}.bias"],
-    )
-
-
-def _transfer_layernorm(ln_layer, hf_state_dict, hf_key, keras_name):
-    ln_layer.gamma.assign(hf_state_dict[f"{hf_key}.weight"])
-    ln_layer.beta.assign(hf_state_dict[f"{hf_key}.bias"])
-
-
-def _transfer_conv(conv_layer, hf_state_dict, hf_key, keras_name):
-    _transfer(
-        f"{keras_name}_conv_kernel",
-        conv_layer.kernel,
-        hf_state_dict[f"{hf_key}.weight"],
-    )
-    bias_key = f"{hf_key}.bias"
-    if bias_key in hf_state_dict:
-        _transfer(
-            f"{keras_name}_bias",
-            conv_layer.bias,
-            hf_state_dict[bias_key],
-        )
-
-
-def _transfer_attention(attn_layer, hf_state_dict, hf_prefix, keras_name):
-    for proj_name in ["q_proj", "k_proj", "v_proj", "out_proj"]:
-        _transfer_dense(
-            getattr(attn_layer, proj_name),
-            hf_state_dict,
-            f"{hf_prefix}.{proj_name}",
-            f"{keras_name}_{proj_name}",
-        )
+attention_name_mapping = {
+    "kernel": "weight",
+}
 
 
 def convert_model(
@@ -74,12 +42,13 @@ def convert_model(
     keras_model = keras_model_cls(input_shape=input_shape, weights=None)
 
     print("Transferring patch embeddings...")
-    _transfer_conv(
-        keras_model.get_layer("vision_encoder_patch_embed_projection"),
-        hf_state_dict,
-        "vision_encoder.patch_embed.projection",
-        "patch_embed",
+    patch_conv = keras_model.get_layer("vision_encoder_patch_embed_projection")
+    transfer_weights(
+        "conv_kernel",
+        patch_conv.kernel,
+        hf_state_dict["vision_encoder.patch_embed.projection.weight"],
     )
+    patch_conv.bias.assign(hf_state_dict["vision_encoder.patch_embed.projection.bias"])
 
     print("Transferring position embedding...")
     pos_layer = keras_model.get_layer("vision_encoder_pos_embed")
@@ -87,60 +56,38 @@ def convert_model(
 
     num_layers = keras_model.vision_num_hidden_layers
     for i in tqdm(range(num_layers), desc="Transferring vision encoder layers"):
-        hf_prefix = f"vision_encoder.layers.{i}"
         layer = keras_model.get_layer(f"vision_encoder_layers_{i}")
-
-        _transfer_layernorm(
-            layer.layer_norm1, hf_state_dict, f"{hf_prefix}.layer_norm1", "ln1"
-        )
-
-        _transfer_dense(
-            layer.attn.qkv, hf_state_dict, f"{hf_prefix}.attn.qkv", "attn_qkv"
-        )
-        _transfer_dense(
-            layer.attn.proj, hf_state_dict, f"{hf_prefix}.attn.proj", "attn_proj"
-        )
-
-        if layer.attn.use_rel_pos:
-            layer.attn.rel_pos_h.assign(hf_state_dict[f"{hf_prefix}.attn.rel_pos_h"])
-            layer.attn.rel_pos_w.assign(hf_state_dict[f"{hf_prefix}.attn.rel_pos_w"])
-
-        _transfer_layernorm(
-            layer.layer_norm2, hf_state_dict, f"{hf_prefix}.layer_norm2", "ln2"
-        )
-
-        _transfer_dense(
-            layer.mlp_lin1, hf_state_dict, f"{hf_prefix}.mlp.lin1", "mlp_lin1"
-        )
-        _transfer_dense(
-            layer.mlp_lin2, hf_state_dict, f"{hf_prefix}.mlp.lin2", "mlp_lin2"
+        transfer_nested_layer_weights(
+            layer,
+            hf_state_dict,
+            f"vision_encoder.layers.{i}",
+            name_mapping=vision_encoder_name_mapping,
         )
 
     print("Transferring vision neck...")
-    _transfer_conv(
-        keras_model.get_layer("vision_encoder_neck_conv1"),
-        hf_state_dict,
-        "vision_encoder.neck.conv1",
-        "neck_conv1",
+    neck_conv1 = keras_model.get_layer("vision_encoder_neck_conv1")
+    transfer_weights(
+        "conv_kernel",
+        neck_conv1.kernel,
+        hf_state_dict["vision_encoder.neck.conv1.weight"],
     )
-    _transfer_layernorm(
-        keras_model.get_layer("vision_encoder_neck_layer_norm1"),
-        hf_state_dict,
-        "vision_encoder.neck.layer_norm1",
-        "neck_ln1",
+    neck_conv1.bias.assign(hf_state_dict["vision_encoder.neck.conv1.bias"])
+
+    neck_ln1 = keras_model.get_layer("vision_encoder_neck_layer_norm1")
+    neck_ln1.gamma.assign(hf_state_dict["vision_encoder.neck.layer_norm1.weight"])
+    neck_ln1.beta.assign(hf_state_dict["vision_encoder.neck.layer_norm1.bias"])
+
+    neck_conv2 = keras_model.get_layer("vision_encoder_neck_conv2")
+    transfer_weights(
+        "conv_kernel",
+        neck_conv2.kernel,
+        hf_state_dict["vision_encoder.neck.conv2.weight"],
     )
-    _transfer_conv(
-        keras_model.get_layer("vision_encoder_neck_conv2"),
-        hf_state_dict,
-        "vision_encoder.neck.conv2",
-        "neck_conv2",
-    )
-    _transfer_layernorm(
-        keras_model.get_layer("vision_encoder_neck_layer_norm2"),
-        hf_state_dict,
-        "vision_encoder.neck.layer_norm2",
-        "neck_ln2",
-    )
+    neck_conv2.bias.assign(hf_state_dict["vision_encoder.neck.conv2.bias"])
+
+    neck_ln2 = keras_model.get_layer("vision_encoder_neck_layer_norm2")
+    neck_ln2.gamma.assign(hf_state_dict["vision_encoder.neck.layer_norm2.weight"])
+    neck_ln2.beta.assign(hf_state_dict["vision_encoder.neck.layer_norm2.bias"])
 
     print("Transferring shared image embedding...")
     image_pe_layer = keras_model.get_layer("image_positional_embeddings")
@@ -163,155 +110,144 @@ def convert_model(
         hf_state_dict["prompt_encoder.no_mask_embed.weight"]
     )
 
-    # ─── Mask Decoder ───
     print("Transferring mask decoder...")
     mask_dec = keras_model.get_layer("mask_decoder")
 
-    # Token embeddings (direct assign)
     mask_dec.iou_token.assign(hf_state_dict["mask_decoder.iou_token.weight"])
     mask_dec.mask_tokens.assign(hf_state_dict["mask_decoder.mask_tokens.weight"])
 
-    # Two-way transformer layers
     for i in range(mask_dec.num_hidden_layers):
         hf_prefix = f"mask_decoder.transformer.layers.{i}"
 
-        _transfer_attention(
+        transfer_nested_layer_weights(
             mask_dec.transformer_self_attns[i],
             hf_state_dict,
             f"{hf_prefix}.self_attn",
-            f"dec_self_attn_{i}",
-        )
-        _transfer_layernorm(
-            mask_dec.transformer_layer_norm1s[i],
-            hf_state_dict,
-            f"{hf_prefix}.layer_norm1",
-            f"dec_ln1_{i}",
+            name_mapping=attention_name_mapping,
         )
 
-        _transfer_attention(
+        ln1 = mask_dec.transformer_layer_norm1s[i]
+        ln1.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm1.weight"])
+        ln1.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm1.bias"])
+
+        transfer_nested_layer_weights(
             mask_dec.transformer_cross_attn_token_to_images[i],
             hf_state_dict,
             f"{hf_prefix}.cross_attn_token_to_image",
-            f"dec_cross_t2i_{i}",
-        )
-        _transfer_layernorm(
-            mask_dec.transformer_layer_norm2s[i],
-            hf_state_dict,
-            f"{hf_prefix}.layer_norm2",
-            f"dec_ln2_{i}",
+            name_mapping=attention_name_mapping,
         )
 
-        _transfer_dense(
-            mask_dec.transformer_mlp_lin1s[i],
-            hf_state_dict,
-            f"{hf_prefix}.mlp.lin1",
-            f"dec_mlp_lin1_{i}",
-        )
-        _transfer_dense(
-            mask_dec.transformer_mlp_lin2s[i],
-            hf_state_dict,
-            f"{hf_prefix}.mlp.lin2",
-            f"dec_mlp_lin2_{i}",
-        )
-        _transfer_layernorm(
-            mask_dec.transformer_layer_norm3s[i],
-            hf_state_dict,
-            f"{hf_prefix}.layer_norm3",
-            f"dec_ln3_{i}",
-        )
+        ln2 = mask_dec.transformer_layer_norm2s[i]
+        ln2.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm2.weight"])
+        ln2.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm2.bias"])
 
-        _transfer_attention(
+        mlp_lin1 = mask_dec.transformer_mlp_lin1s[i]
+        transfer_weights(
+            "kernel", mlp_lin1.kernel, hf_state_dict[f"{hf_prefix}.mlp.lin1.weight"]
+        )
+        mlp_lin1.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.lin1.bias"])
+
+        mlp_lin2 = mask_dec.transformer_mlp_lin2s[i]
+        transfer_weights(
+            "kernel", mlp_lin2.kernel, hf_state_dict[f"{hf_prefix}.mlp.lin2.weight"]
+        )
+        mlp_lin2.bias.assign(hf_state_dict[f"{hf_prefix}.mlp.lin2.bias"])
+
+        ln3 = mask_dec.transformer_layer_norm3s[i]
+        ln3.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm3.weight"])
+        ln3.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm3.bias"])
+
+        transfer_nested_layer_weights(
             mask_dec.transformer_cross_attn_image_to_tokens[i],
             hf_state_dict,
             f"{hf_prefix}.cross_attn_image_to_token",
-            f"dec_cross_i2t_{i}",
-        )
-        _transfer_layernorm(
-            mask_dec.transformer_layer_norm4s[i],
-            hf_state_dict,
-            f"{hf_prefix}.layer_norm4",
-            f"dec_ln4_{i}",
+            name_mapping=attention_name_mapping,
         )
 
-    _transfer_attention(
+        ln4 = mask_dec.transformer_layer_norm4s[i]
+        ln4.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm4.weight"])
+        ln4.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm4.bias"])
+
+    transfer_nested_layer_weights(
         mask_dec.final_attn_token_to_image,
         hf_state_dict,
         "mask_decoder.transformer.final_attn_token_to_image",
-        "dec_final_attn",
-    )
-    _transfer_layernorm(
-        mask_dec.layer_norm_final_attn,
-        hf_state_dict,
-        "mask_decoder.transformer.layer_norm_final_attn",
-        "dec_final_ln",
+        name_mapping={"kernel": "weight"},
     )
 
-    _transfer_conv(
-        mask_dec.upscale_conv1,
-        hf_state_dict,
-        "mask_decoder.upscale_conv1",
-        "upscale_conv1",
+    final_ln = mask_dec.layer_norm_final_attn
+    final_ln.gamma.assign(
+        hf_state_dict["mask_decoder.transformer.layer_norm_final_attn.weight"]
     )
-    _transfer_layernorm(
-        mask_dec.upscale_layer_norm,
-        hf_state_dict,
-        "mask_decoder.upscale_layer_norm",
-        "upscale_ln",
+    final_ln.beta.assign(
+        hf_state_dict["mask_decoder.transformer.layer_norm_final_attn.bias"]
     )
-    _transfer_conv(
-        mask_dec.upscale_conv2,
-        hf_state_dict,
-        "mask_decoder.upscale_conv2",
-        "upscale_conv2",
+
+    transfer_weights(
+        "conv_kernel",
+        mask_dec.upscale_conv1.kernel,
+        hf_state_dict["mask_decoder.upscale_conv1.weight"],
     )
+    mask_dec.upscale_conv1.bias.assign(hf_state_dict["mask_decoder.upscale_conv1.bias"])
+
+    mask_dec.upscale_layer_norm.gamma.assign(
+        hf_state_dict["mask_decoder.upscale_layer_norm.weight"]
+    )
+    mask_dec.upscale_layer_norm.beta.assign(
+        hf_state_dict["mask_decoder.upscale_layer_norm.bias"]
+    )
+
+    transfer_weights(
+        "conv_kernel",
+        mask_dec.upscale_conv2.kernel,
+        hf_state_dict["mask_decoder.upscale_conv2.weight"],
+    )
+    mask_dec.upscale_conv2.bias.assign(hf_state_dict["mask_decoder.upscale_conv2.bias"])
 
     num_mask_tokens = mask_dec.num_mask_tokens
     for i in range(num_mask_tokens):
         hf_prefix = f"mask_decoder.output_hypernetworks_mlps.{i}"
 
-        _transfer_dense(
-            mask_dec.output_hypernetworks_mlps_proj_ins[i],
-            hf_state_dict,
-            f"{hf_prefix}.proj_in",
-            f"hyper_{i}_proj_in",
+        proj_in = mask_dec.output_hypernetworks_mlps_proj_ins[i]
+        transfer_weights(
+            "kernel", proj_in.kernel, hf_state_dict[f"{hf_prefix}.proj_in.weight"]
         )
+        proj_in.bias.assign(hf_state_dict[f"{hf_prefix}.proj_in.bias"])
 
         for j in range(mask_dec._hyper_num_hidden):
             idx = i * mask_dec._hyper_num_hidden + j
-            _transfer_dense(
-                mask_dec.output_hypernetworks_mlps_hidden_layers[idx],
-                hf_state_dict,
-                f"{hf_prefix}.layers.{j}",
-                f"hyper_{i}_hidden_{j}",
+            hidden = mask_dec.output_hypernetworks_mlps_hidden_layers[idx]
+            transfer_weights(
+                "kernel", hidden.kernel, hf_state_dict[f"{hf_prefix}.layers.{j}.weight"]
             )
+            hidden.bias.assign(hf_state_dict[f"{hf_prefix}.layers.{j}.bias"])
 
-        _transfer_dense(
-            mask_dec.output_hypernetworks_mlps_proj_outs[i],
-            hf_state_dict,
-            f"{hf_prefix}.proj_out",
-            f"hyper_{i}_proj_out",
+        proj_out = mask_dec.output_hypernetworks_mlps_proj_outs[i]
+        transfer_weights(
+            "kernel", proj_out.kernel, hf_state_dict[f"{hf_prefix}.proj_out.weight"]
         )
+        proj_out.bias.assign(hf_state_dict[f"{hf_prefix}.proj_out.bias"])
 
     hf_prefix = "mask_decoder.iou_prediction_head"
-    _transfer_dense(
-        mask_dec.iou_head_proj_in,
-        hf_state_dict,
-        f"{hf_prefix}.proj_in",
-        "iou_proj_in",
+    transfer_weights(
+        "kernel",
+        mask_dec.iou_head_proj_in.kernel,
+        hf_state_dict[f"{hf_prefix}.proj_in.weight"],
     )
+    mask_dec.iou_head_proj_in.bias.assign(hf_state_dict[f"{hf_prefix}.proj_in.bias"])
     for j, hidden_layer in enumerate(mask_dec.iou_head_hidden_layers):
-        _transfer_dense(
-            hidden_layer,
-            hf_state_dict,
-            f"{hf_prefix}.layers.{j}",
-            f"iou_hidden_{j}",
+        transfer_weights(
+            "kernel",
+            hidden_layer.kernel,
+            hf_state_dict[f"{hf_prefix}.layers.{j}.weight"],
         )
-    _transfer_dense(
-        mask_dec.iou_head_proj_out,
-        hf_state_dict,
-        f"{hf_prefix}.proj_out",
-        "iou_proj_out",
+        hidden_layer.bias.assign(hf_state_dict[f"{hf_prefix}.layers.{j}.bias"])
+    transfer_weights(
+        "kernel",
+        mask_dec.iou_head_proj_out.kernel,
+        hf_state_dict[f"{hf_prefix}.proj_out.weight"],
     )
+    mask_dec.iou_head_proj_out.bias.assign(hf_state_dict[f"{hf_prefix}.proj_out.bias"])
 
     print("Weight transfer complete!")
 

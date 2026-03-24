@@ -17,6 +17,18 @@ from .rf_detr_layers import (
 
 
 def _sincos_interleave(x):
+    """Interleave sine and cosine components for positional encoding.
+
+    Converts alternating sin/cos components into an interleaved format,
+    matching the standard sinusoidal positional encoding format.
+
+    Args:
+        x: Input tensor with even indices containing angles for sin,
+            odd indices for cos.
+
+    Returns:
+        Tensor with interleaved sin/cos values.
+    """
     sin_part = ops.sin(x[..., 0::2])
     cos_part = ops.cos(x[..., 1::2])
     stacked = ops.stack([sin_part, cos_part], axis=-1)
@@ -29,6 +41,22 @@ def _sincos_interleave(x):
 def rf_detr_position_embedding_sine(
     x, num_pos_feats=128, temperature=10000, normalize=True
 ):
+    """Generate 2D sinusoidal positional embeddings for feature maps.
+
+    Creates a positional encoding using sine and cosine functions at different
+    frequencies, suitable for transformer-based vision models.
+
+    Args:
+        x: Input tensor used only for shape reference. Shape is expected to be
+            ``(B, H, W, C)`` where H and W determine the spatial dimensions.
+        num_pos_feats: Number of positional features per dimension. The output
+            will have ``2 * num_pos_feats`` channels. Default 128.
+        temperature: Temperature for scaling the frequency bands. Default 10000.
+        normalize: Whether to normalize coordinates to [0, 2π]. Default True.
+
+    Returns:
+        Positional embedding tensor of shape ``(1, H, W, 2 * num_pos_feats)``.
+    """
     scale = 2.0 * math.pi
     shape = ops.shape(x)
     h, w = shape[1], shape[2]
@@ -68,6 +96,25 @@ def rf_detr_position_embedding_sine(
 
 
 def rf_detr_gen_sineembed_for_position(pos_tensor, dim=128):
+    """Generate sine positional embeddings for bounding box coordinates.
+
+    Creates sinusoidal positional embeddings from normalized coordinate tensors,
+    used for query position encoding in the DETR decoder.
+
+    Args:
+        pos_tensor: Position tensor of shape ``(..., 2)`` for (x, y) coordinates
+            or ``(..., 4)`` for (x, y, w, h) coordinates. Values should be in
+            range [0, 1] representing normalized positions.
+        dim: Embedding dimension per coordinate axis. Default 128.
+
+    Returns:
+        Positional embedding tensor. Shape depends on input:
+        - For 2D input: ``(..., 2 * dim)``
+        - For 4D input: ``(..., 4 * dim)``
+
+    Raises:
+        ValueError: If pos_tensor has last dimension other than 2 or 4.
+    """
     scale = 2 * math.pi
     dim_t = ops.cast(ops.arange(dim), "float32")
     dim_t = 10000.0 ** (2 * (dim_t // 2) / dim)
@@ -95,6 +142,25 @@ def rf_detr_gen_sineembed_for_position(pos_tensor, dim=128):
 def rf_detr_unwindow_features(
     hidden_state, num_h, num_w, num_windows, hidden_size, num_register_tokens
 ):
+    """Convert windowed features back to spatial feature map format.
+
+    Transforms features from window-based representation (used in windowed
+    attention) back to a standard spatial layout, removing register tokens
+    and reorganizing patches.
+
+    Args:
+        hidden_state: Windowed feature tensor from DINOv2 encoder.
+        num_h: Number of patches in height dimension.
+        num_w: Number of patches in width dimension.
+        num_windows: Number of windows along each spatial dimension.
+            Windowed attention divides the spatial grid into windows.
+        hidden_size: Feature dimension.
+        num_register_tokens: Number of DINOv2 register tokens to remove
+            from the beginning of the sequence.
+
+    Returns:
+        Unwindowed feature tensor of shape ``(B, num_h, num_w, hidden_size)``.
+    """
     hidden_state = hidden_state[:, num_register_tokens + 1 :, :]
 
     if num_windows > 1:
@@ -114,6 +180,25 @@ def rf_detr_unwindow_features(
 
 
 def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
+    """Generate encoder output proposals for two-stage DETR initialization.
+
+    Creates initial reference points (proposals) from spatial locations across
+    feature levels, used in the two-stage DETR architecture for query selection.
+
+    Args:
+        memory: Encoder output features of shape ``(B, total_tokens, C)``.
+        spatial_shapes: List of ``(H, W)`` tuples for each feature level's
+            spatial dimensions.
+        bbox_reparam: If True, use bbox reparameterization (cx, cy, w, h
+            format directly). If False, use sigmoid-sigmoid format for
+            numerically stable sigmoid inverse. Default True.
+
+    Returns:
+        Tuple of:
+        - output_memory: Filtered memory features with invalid proposals zeroed.
+        - output_proposals: Generated proposals as (cx, cy, w, h) tensors
+            in normalized coordinates [0, 1].
+    """
     proposals = []
     for lvl, (H_, W_) in enumerate(spatial_shapes):
         y_range = ops.cast(ops.arange(H_), "float32")
@@ -157,6 +242,23 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
 def rf_detr_two_stage_refine_refpoints(
     refpoint_embed, refpoint_embed_ts, bbox_reparam=True, num_queries=300
 ):
+    """Refine reference points for two-stage query initialization.
+
+    Combines learned query reference points with encoder proposals selected
+    in the first stage, using either bbox reparameterization or direct addition.
+
+    Args:
+        refpoint_embed: Learned query embeddings of shape ``(B, num_queries, 4)``.
+        refpoint_embed_ts: Two-stage proposals from encoder of shape
+            ``(B, num_proposals, 4)``.
+        bbox_reparam: If True, use multiplicative refinement for center and
+            exponential for size. If False, use additive refinement. Default True.
+        num_queries: Number of queries to select from proposals. Default 300.
+
+    Returns:
+        Refined reference points of shape ``(B, num_queries, 4)`` as
+        (cx, cy, w, h) in normalized coordinates.
+    """
     refpoint_embed_subset = refpoint_embed[:, :num_queries, :]
     if bbox_reparam:
         ref_cxcy = (
@@ -179,6 +281,25 @@ def rf_detr_conv_bn(
     use_layer_norm=False,
     name="conv_bn",
 ):
+    """Apply convolution followed by batch normalization and activation.
+
+    A convenience layer that combines Conv2D, BatchNormalization (or
+    ChannelLayerNorm), and activation into a single block.
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C_in)``.
+        filters: Number of output filters (channels).
+        kernel_size: Convolution kernel size. Default 3.
+        strides: Convolution stride. Default 1.
+        groups: Number of groups for grouped convolution. Default 1.
+        activation: Activation function name. Default "relu".
+        use_layer_norm: If True, use ChannelLayerNorm instead of BatchNorm.
+            Default False.
+        name: Layer name prefix. Default "conv_bn".
+
+    Returns:
+        Output tensor of shape ``(B, H', W', filters)``.
+    """
     padding = (kernel_size // 2, kernel_size // 2)
     x = layers.ZeroPadding2D(padding=padding, name=f"{name}_pad")(x)
     x = layers.Conv2D(
@@ -213,6 +334,26 @@ def rf_detr_bottleneck(
     use_layer_norm=False,
     name="bottleneck",
 ):
+    """Apply a bottleneck block with optional residual connection.
+
+    A lightweight bottleneck that applies two 3x3 convolutions with an
+    optional skip connection, used in C2F modules.
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C_in)``.
+        out_channels: Number of output channels.
+        shortcut: Whether to add residual connection. Only applied when
+            input and output channels match. Default True.
+        expansion: Hidden channel expansion ratio. The intermediate channels
+            are ``out_channels * expansion``. Default 1.0.
+        activation: Activation function name. Default "silu".
+        use_layer_norm: If True, use ChannelLayerNorm instead of BatchNorm.
+            Default False.
+        name: Layer name prefix. Default "bottleneck".
+
+    Returns:
+        Output tensor of shape ``(B, H, W, out_channels)``.
+    """
     hidden = int(out_channels * expansion)
     in_channels = x.shape[-1]
     residual = x
@@ -247,6 +388,26 @@ def rf_detr_c2f(
     use_layer_norm=False,
     name="c2f",
 ):
+    """Apply a C2F (CSP Bottleneck with 2 convolutions) module from YOLO.
+
+    Implements the C2F module that splits features and processes through
+    a series of bottleneck blocks, then concatenates and fuses outputs.
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C_in)``.
+        out_channels: Number of output channels.
+        num_blocks: Number of bottleneck blocks to apply. Default 1.
+        shortcut: Whether to use residual connections in bottlenecks.
+            Default False.
+        expansion: Hidden channel expansion ratio for the split. Default 0.5.
+        activation: Activation function name. Default "silu".
+        use_layer_norm: If True, use ChannelLayerNorm instead of BatchNorm.
+            Default False.
+        name: Layer name prefix. Default "c2f".
+
+    Returns:
+        Output tensor of shape ``(B, H, W, out_channels)``.
+    """
     c = int(out_channels * expansion)
     x = rf_detr_conv_bn(
         x,
@@ -283,6 +444,19 @@ def rf_detr_c2f(
 
 
 def rf_detr_simple_projector(x, out_channels, name="projector"):
+    """Apply a simple 2-layer projector with convolution and normalization.
+
+    Projects features from backbone dimension to decoder dimension using
+    two convolutional layers with SwiGLU-style activation and LayerNorm.
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C_in)``.
+        out_channels: Number of output channels (decoder hidden dimension).
+        name: Layer name prefix. Default "projector".
+
+    Returns:
+        Output tensor of shape ``(B, H, W, out_channels)``.
+    """
     in_dim = x.shape[-1]
     x = rf_detr_conv_bn(
         x,
@@ -305,6 +479,20 @@ def rf_detr_simple_projector(x, out_channels, name="projector"):
 
 
 def rf_detr_dinov2_swiglu_ffn(x, hidden_size, mlp_ratio=4, name="mlp"):
+    """Apply SwiGLU feed-forward network from DINOv2.
+
+    Implements the SwiGLU variant of FFN which uses a gated linear unit
+    with Swish activation, providing better performance than standard FFN.
+
+    Args:
+        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
+        hidden_size: Model dimension (input and output size).
+        mlp_ratio: Expansion ratio for hidden dimension. Default 4.
+        name: Layer name prefix. Default "mlp".
+
+    Returns:
+        Output tensor of shape ``(B, seq_len, hidden_size)``.
+    """
     hidden_features = int(hidden_size * mlp_ratio)
     hidden_features = (int(hidden_features * 2 / 3) + 7) // 8 * 8
     x = layers.Dense(2 * hidden_features, name=f"{name}_weights_in")(x)
@@ -315,6 +503,20 @@ def rf_detr_dinov2_swiglu_ffn(x, hidden_size, mlp_ratio=4, name="mlp"):
 
 
 def rf_detr_dinov2_mlp(x, hidden_size, mlp_ratio=4, name="mlp"):
+    """Apply standard MLP feed-forward network with GELU activation.
+
+    Implements the classic transformer FFN: two linear layers with GELU
+    activation in between.
+
+    Args:
+        x: Input tensor of shape ``(B, seq_len, hidden_size)``.
+        hidden_size: Model dimension (input and output size).
+        mlp_ratio: Expansion ratio for hidden dimension. Default 4.
+        name: Layer name prefix. Default "mlp".
+
+    Returns:
+        Output tensor of shape ``(B, seq_len, hidden_size)``.
+    """
     hidden_features = int(hidden_size * mlp_ratio)
     x = layers.Dense(hidden_features, name=f"{name}_fc1")(x)
     x = ops.gelu(x, approximate=False)
@@ -332,6 +534,27 @@ def rf_detr_dinov2_block(
     num_windows=1,
     name="layer",
 ):
+    """Apply a single DINOv2 transformer block.
+
+    Implements self-attention followed by feed-forward network with
+    pre-norm and residual connections. Supports both windowed and full attention.
+
+    Args:
+        x: Input tensor of shape ``(B, seq_len, hidden_size)`` for full attention
+            or ``(B, num_windows^2, seq_per_window, hidden_size)`` for windowed.
+        hidden_size: Model dimension.
+        num_heads: Number of attention heads.
+        mlp_ratio: Expansion ratio for FFN hidden dimension. Default 4.
+        use_swiglu: If True, use SwiGLU FFN; otherwise use GELU MLP. Default False.
+        run_full_attention: If True and num_windows > 1, reshape for full attention.
+            Default False.
+        num_windows: Number of windows per dimension for windowed attention.
+            Default 1 (full attention).
+        name: Layer name prefix. Default "layer".
+
+    Returns:
+        Output tensor of same shape as input.
+    """
     head_dim = hidden_size // num_heads
     shortcut = x
 
@@ -408,6 +631,31 @@ def rf_detr_windowed_dinov2_encoder(
     window_block_indexes=None,
     name="backbone_encoder",
 ):
+    """Apply a stack of DINOv2 transformer blocks with windowed attention.
+
+    Runs a sequence of DINOv2 blocks, alternating between windowed and full
+    attention based on the window_block_indexes, and extracts features at
+    specified layer indices.
+
+    Args:
+        x: Input tensor from DINOv2 embeddings.
+        hidden_size: Model dimension.
+        num_heads: Number of attention heads.
+        num_layers: Total number of transformer blocks.
+        mlp_ratio: Expansion ratio for FFN hidden dimension. Default 4.
+        use_swiglu: If True, use SwiGLU FFN. Default False.
+        num_windows: Number of windows per dimension for windowed attention.
+            Default 1.
+        out_feature_indexes: Layer indices (1-indexed) at which to extract
+            intermediate features. Default None.
+        window_block_indexes: Layer indices that should use windowed attention.
+            Others will use full attention. Default None.
+        name: Layer name prefix. Default "backbone_encoder".
+
+    Returns:
+        List of feature tensors extracted at out_feature_indexes (after layer
+        norm). If out_feature_indexes is empty, returns empty list.
+    """
     out_feature_indexes = out_feature_indexes or []
     window_block_indexes = window_block_indexes or []
     max_layer = max(out_feature_indexes) + 1 if out_feature_indexes else num_layers
@@ -852,6 +1100,25 @@ def _create_rf_detr_model(
     name=None,
     **kwargs,
 ):
+    """Factory function to create RF-DETR model variants.
+
+    Creates an RF-DETR model with configuration based on the variant name,
+    loading pre-trained weights if available.
+
+    Args:
+        variant: Model variant name (e.g., "RFDETRNano", "RFDETRSmall").
+        num_queries: Number of object queries. Default 300.
+        num_classes: Number of object classes. Default 91 (COCO).
+        weights: Weight identifier ("coco", None) or path to weights file.
+            Default "coco".
+        input_shape: Input shape as ``(H, W, C)``. If None, uses variant default.
+        input_tensor: Optional input tensor for functional API usage.
+        name: Model name. If None, uses variant name.
+        **kwargs: Additional arguments passed to RFDETR constructor.
+
+    Returns:
+        RF-DETR model instance with loaded weights.
+    """
     config = RF_DETR_MODEL_CONFIG[variant]
 
     if input_shape is None:

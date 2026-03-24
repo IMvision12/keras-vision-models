@@ -22,22 +22,34 @@ def detr_encoder_layer(
     dropout_rate=0.1,
     block_prefix="encoder_layers_0",
 ):
-    """Single DETR transformer encoder layer (functional).
+    """Single DETR transformer encoder layer.
 
-    Implements self-attention + feedforward with residual connections and
-    layer normalization, matching the HuggingFace DETR encoder layer structure.
+    Applies self-attention followed by a two-layer feedforward network,
+    each with a residual connection, dropout, and post-norm layer
+    normalization. Positional embeddings are added to the query and key
+    inputs of the self-attention but not to the values, following the
+    original DETR design.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        x: Input tensor of shape ``(B, seq_len, hidden_dim)``.
-        pos_embed: Positional embedding tensor of same shape as ``x``.
-        hidden_dim: Model dimension.
-        num_heads: Number of attention heads.
-        dim_feedforward: FFN intermediate dimension.
-        dropout_rate: Dropout rate.
-        block_prefix: Name prefix for sub-layers.
+        x: Input tensor of shape
+            `(batch_size, seq_len, hidden_dim)`.
+        pos_embed: Positional embedding tensor of shape
+            `(batch_size, seq_len, hidden_dim)`, added to the query
+            and key inputs of self-attention.
+        hidden_dim: Integer, model dimension.
+        num_heads: Integer, number of attention heads.
+        dim_feedforward: Integer, intermediate dimension of the
+            feedforward network.
+        dropout_rate: Float, dropout rate applied after attention and
+            each feedforward layer. Defaults to `0.1`.
+        block_prefix: String, name prefix for all sub-layers in this
+            block. Defaults to `"encoder_layers_0"`.
 
     Returns:
-        Output tensor of shape ``(B, seq_len, hidden_dim)``.
+        Output tensor of shape `(batch_size, seq_len, hidden_dim)`.
     """
     self_attn = DETRMultiHeadAttention(
         hidden_dim=hidden_dim,
@@ -88,25 +100,40 @@ def detr_decoder_layer(
     dropout_rate=0.1,
     block_prefix="decoder_layers_0",
 ):
-    """Single DETR transformer decoder layer (functional).
+    """Single DETR transformer decoder layer.
 
-    Implements self-attention on object queries, cross-attention with encoder
-    output, and a feedforward block, each with residual connections and
-    layer normalization.
+    Applies masked self-attention on object queries, cross-attention
+    between object queries and the encoder memory, and a two-layer
+    feedforward network. Each sub-block uses a residual connection,
+    dropout, and post-norm layer normalization. Positional embeddings
+    are added to the query/key inputs of both attention operations.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        x: Decoder input tensor of shape ``(B, num_queries, hidden_dim)``.
-        memory: Encoder output tensor of shape ``(B, seq_len, hidden_dim)``.
-        pos_embed: Encoder positional embedding tensor.
-        query_pos: Object query positional embedding tensor.
-        hidden_dim: Model dimension.
-        num_heads: Number of attention heads.
-        dim_feedforward: FFN intermediate dimension.
-        dropout_rate: Dropout rate.
-        block_prefix: Name prefix for sub-layers.
+        x: Decoder input tensor of shape
+            `(batch_size, num_queries, hidden_dim)`.
+        memory: Encoder output tensor of shape
+            `(batch_size, seq_len, hidden_dim)`.
+        pos_embed: Encoder positional embedding tensor of shape
+            `(batch_size, seq_len, hidden_dim)`, added to the key
+            in cross-attention.
+        query_pos: Object query positional embedding tensor of shape
+            `(batch_size, num_queries, hidden_dim)`, added to the
+            query in both self-attention and cross-attention.
+        hidden_dim: Integer, model dimension.
+        num_heads: Integer, number of attention heads.
+        dim_feedforward: Integer, intermediate dimension of the
+            feedforward network.
+        dropout_rate: Float, dropout rate applied after attention and
+            each feedforward layer. Defaults to `0.1`.
+        block_prefix: String, name prefix for all sub-layers in this
+            block. Defaults to `"decoder_layers_0"`.
 
     Returns:
-        Output tensor of shape ``(B, num_queries, hidden_dim)``.
+        Output tensor of shape
+        `(batch_size, num_queries, hidden_dim)`.
     """
     self_attn = DETRMultiHeadAttention(
         hidden_dim=hidden_dim,
@@ -172,21 +199,32 @@ def build_detr_backbone(
     include_normalization,
     normalization_mode,
 ):
-    """Build a frozen ResNet backbone for DETR.
+    """Build a ResNet backbone for DETR feature extraction.
 
-    Instead of reusing kmodels.models.resnet (which would add weight-loading
-    complexity during conversion), this builds a standard ResNet backbone
-    from scratch with naming that mirrors the HuggingFace DETR backbone,
-    making weight transfer straightforward.
+    Constructs a standard ResNet-50 or ResNet-101 bottleneck backbone
+    from scratch with layer naming that mirrors the HuggingFace DETR
+    backbone structure, enabling direct weight transfer from pretrained
+    HuggingFace checkpoints without name remapping for the backbone
+    layers.
+
+    Reference:
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
+    - [Deep Residual Learning for Image Recognition](https://arxiv.org/abs/1512.03385)
 
     Args:
-        input_tensor: Input Keras tensor.
-        backbone_variant: One of "ResNet50" or "ResNet101".
-        include_normalization: Whether to add ImageNormalizationLayer.
-        normalization_mode: Normalization mode string.
+        input_tensor: Keras input tensor of shape
+            `(batch_size, height, width, 3)`.
+        backbone_variant: String, one of `"ResNet50"` or
+            `"ResNet101"`. Determines the number of bottleneck blocks
+            per stage.
+        include_normalization: Boolean, whether to prepend an
+            `ImageNormalizationLayer` for input preprocessing.
+        normalization_mode: String, normalization mode passed to
+            `ImageNormalizationLayer` (e.g., `"imagenet"`).
 
     Returns:
-        Feature tensor from the last ResNet stage (C5).
+        Feature tensor from the last ResNet stage (C5) of shape
+        `(batch_size, height // 32, width // 32, 2048)`.
     """
     from kmodels.layers import ImageNormalizationLayer
 
@@ -338,38 +376,64 @@ def build_detr_backbone(
 class DETR(keras.Model):
     """DEtection TRansformer (DETR) for end-to-end object detection.
 
-    DETR treats object detection as a direct set prediction problem using a
-    transformer encoder-decoder architecture. It eliminates the need for
-    hand-designed components like non-maximum suppression or anchor generation.
-
-    Architecture:
-        1. A CNN backbone (ResNet) extracts spatial features from the input image.
-        2. A 1x1 convolution projects backbone features to the transformer dimension.
-        3. Fixed sinusoidal positional embeddings encode spatial information.
-        4. A transformer encoder processes the flattened feature map.
-        5. A transformer decoder attends to encoder output using learned object queries.
-        6. Prediction heads output class labels and bounding boxes for each query.
+    DETR treats object detection as a direct set prediction problem
+    using a transformer encoder-decoder architecture with bipartite
+    matching loss. It eliminates the need for hand-designed components
+    like non-maximum suppression, anchor generation, or region proposal
+    networks. The architecture consists of a CNN backbone (ResNet) for
+    feature extraction, a 1x1 projection, fixed sinusoidal positional
+    embeddings, a transformer encoder that processes the flattened
+    feature map, and a transformer decoder that attends to encoder
+    output using learned object queries. Two prediction heads output
+    class logits and normalized bounding box coordinates for each
+    query.
 
     Reference:
-        - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
-          (Carion et al., ECCV 2020)
+    - [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872)
 
     Args:
-        hidden_dim: Transformer hidden dimension.
-        num_heads: Number of attention heads per layer.
-        num_encoder_layers: Number of transformer encoder layers.
-        num_decoder_layers: Number of transformer decoder layers.
-        dim_feedforward: FFN intermediate dimension.
-        dropout_rate: Dropout rate for transformer layers.
-        num_queries: Number of object queries (max detections per image).
-        num_classes: Number of object classes (including background/no-object).
-        backbone_variant: ResNet variant for the backbone ("ResNet50" or "ResNet101").
-        include_normalization: Whether to include an image normalization layer.
-        normalization_mode: Normalization mode if ``include_normalization`` is True.
-        weights: Pre-trained weight identifier, file path, or None.
-        input_shape: Input image shape as ``(H, W, C)``.
-        input_tensor: Optional existing Keras tensor for the model input.
-        name: Model name.
+        hidden_dim: Integer, transformer hidden dimension and the
+            dimension of all internal projections. Defaults to `256`.
+        num_heads: Integer, number of attention heads per transformer
+            layer. Defaults to `8`.
+        num_encoder_layers: Integer, number of transformer encoder
+            layers. Defaults to `6`.
+        num_decoder_layers: Integer, number of transformer decoder
+            layers. Defaults to `6`.
+        dim_feedforward: Integer, intermediate dimension of the
+            feedforward networks in each transformer layer.
+            Defaults to `2048`.
+        dropout_rate: Float, dropout rate applied in all transformer
+            layers. Defaults to `0.1`.
+        num_queries: Integer, number of learned object queries
+            (maximum detections per image). Defaults to `100`.
+        num_classes: Integer, number of object classes including the
+            no-object class. Defaults to `92` (COCO: 91 + 1).
+        backbone_variant: String, ResNet variant for the backbone.
+            One of `"ResNet50"` or `"ResNet101"`.
+            Defaults to `"ResNet50"`.
+        include_normalization: Boolean, whether to prepend an input
+            normalization layer. Defaults to `True`.
+        normalization_mode: String, normalization mode passed to
+            `ImageNormalizationLayer` (e.g., `"imagenet"`).
+            Defaults to `"imagenet"`.
+        weights: String, one of `None` (random initialization), a
+            weight identifier from the config (e.g., `"coco"`), or
+            a path to a weights file to load.
+            Defaults to `"coco"`.
+        input_shape: Optional tuple of integers specifying the input
+            shape (excluding batch size), e.g., `(800, 800, 3)`.
+        input_tensor: Optional Keras tensor to use as the model input.
+        name: String, the name of the model.
+            Defaults to `"DETR"`.
+        **kwargs: Additional keyword arguments passed to the
+            `keras.Model` class.
+
+    Returns:
+        A `keras.Model` instance with dict outputs:
+        - `"logits"`: `(batch_size, num_queries, num_classes)`
+        - `"pred_boxes"`: `(batch_size, num_queries, 4)` in
+          `[cx, cy, w, h]` format, normalized to `[0, 1]`.
     """
 
     def __init__(
@@ -551,20 +615,31 @@ def _create_detr_model(
 ):
     """Factory function for creating DETR model variants.
 
+    Looks up the architecture configuration for the given variant
+    name, instantiates a `DETR` model, and optionally loads pretrained
+    weights from the configured URL or a local file path.
+
     Args:
-        variant: Model variant name (e.g., "DETRResNet50").
-        num_queries: Number of object queries.
-        num_classes: Number of object classes (COCO default: 91 + 1 no-object).
-        include_normalization: Whether to include image normalization layer.
-        normalization_mode: Normalization mode string.
-        weights: Pre-trained weights identifier, file path, or None.
-        input_shape: Input image shape.
-        input_tensor: Optional input tensor.
-        name: Model name.
-        **kwargs: Additional keyword arguments.
+        variant: String, model variant name (e.g., `"DETRResNet50"`).
+        num_queries: Integer, number of object queries. Defaults to
+            `100`.
+        num_classes: Integer, number of object classes (COCO default:
+            91 + 1 no-object). Defaults to `92`.
+        include_normalization: Boolean, whether to include an input
+            normalization layer. Defaults to `True`.
+        normalization_mode: String, normalization mode.
+            Defaults to `"imagenet"`.
+        weights: String, one of `None`, a weight identifier from the
+            config (e.g., `"coco"`), or a path to a weights file.
+            Defaults to `"coco"`.
+        input_shape: Optional tuple of integers specifying the input
+            shape. Defaults to `(800, 800, 3)`.
+        input_tensor: Optional Keras tensor to use as the model input.
+        name: String, the name of the model.
+        **kwargs: Additional keyword arguments passed to `DETR`.
 
     Returns:
-        A configured DETR model instance.
+        A configured `DETR` model instance.
     """
     config = DETR_MODEL_CONFIG[variant]
 
@@ -624,31 +699,6 @@ def DETRResNet50(
     name="DETRResNet50",
     **kwargs,
 ):
-    """DETR with ResNet-50 backbone.
-
-    Pre-trained on COCO 2017 object detection (91 classes + 1 no-object).
-
-    Args:
-        num_queries: Number of object queries. Default 100.
-        num_classes: Number of object classes (COCO: 91 + 1 background). Default 92.
-        include_normalization: Whether to normalize input images. Default True.
-        normalization_mode: Normalization mode. Default "imagenet".
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape. Default (800, 800, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        A DETR model with ResNet-50 backbone.
-
-    Example:
-        ```python
-        model = kmodels.models.detr.DETRResNet50(weights=None)
-        output = model(np.random.rand(1, 800, 800, 3).astype("float32"))
-        print(output["logits"].shape)      # (1, 100, 92)
-        print(output["pred_boxes"].shape)   # (1, 100, 4)
-        ```
-    """
     return _create_detr_model(
         "DETRResNet50",
         num_queries=num_queries,
@@ -675,23 +725,6 @@ def DETRResNet101(
     name="DETRResNet101",
     **kwargs,
 ):
-    """DETR with ResNet-101 backbone.
-
-    Pre-trained on COCO 2017 object detection (91 classes + 1 no-object).
-
-    Args:
-        num_queries: Number of object queries. Default 100.
-        num_classes: Number of object classes (COCO: 91 + 1 background). Default 92.
-        include_normalization: Whether to normalize input images. Default True.
-        normalization_mode: Normalization mode. Default "imagenet".
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape. Default (800, 800, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        A DETR model with ResNet-101 backbone.
-    """
     return _create_detr_model(
         "DETRResNet101",
         num_queries=num_queries,

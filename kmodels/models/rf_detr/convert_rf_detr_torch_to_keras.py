@@ -1,13 +1,13 @@
-import argparse
 import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 import keras
 import numpy as np
 import torch
+import torchvision.transforms as T
 from tqdm import tqdm
 
 from kmodels.models.rf_detr.config import RF_DETR_MODEL_CONFIG
@@ -39,22 +39,48 @@ weight_name_mapping: Dict[str, str] = {
     "beta": "bias",
 }
 
+decoder_name_mapping: Dict[str, str] = {
+    "self_attn_out_proj": "self_attn.out_proj",
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+}
 
-def load_torch_state_dict(variant):
-    """Load PyTorch weights using the rfdetr package and convert to numpy."""
-    import rfdetr as rfdetr_pkg
+model_configs: List[Dict[str, Union[str, type]]] = [
+    {
+        "variant": "RFDETRNano",
+        "output": "rf_detr_nano_coco.weights.h5",
+    },
+    {
+        "variant": "RFDETRSmall",
+        "output": "rf_detr_small_coco.weights.h5",
+    },
+    {
+        "variant": "RFDETRMedium",
+        "output": "rf_detr_medium_coco.weights.h5",
+    },
+    {
+        "variant": "RFDETRBase",
+        "output": "rf_detr_base_coco.weights.h5",
+    },
+    {
+        "variant": "RFDETRLarge",
+        "output": "rf_detr_large_coco.weights.h5",
+    },
+]
 
-    cls = getattr(rfdetr_pkg, variant.replace("RFDETR", "RFDETR"))
-    torch_model = cls()
-    sd = torch_model.model.model.state_dict()
-    return {k: v.cpu().numpy() for k, v in sd.items()}
-
-
-def build_keras_model(variant):
-    """Build a Keras RF-DETR model (no weights)."""
+for model_config in model_configs:
+    variant = model_config["variant"]
+    output = model_config["output"]
     config = RF_DETR_MODEL_CONFIG[variant]
     res = config["resolution"]
-    model = RFDETR(
+    dec_layers = config["dec_layers"]
+
+    print(f"\n{'=' * 60}")
+    print(f"Converting {variant}...")
+    print(f"{'=' * 60}")
+
+    keras_model: keras.Model = RFDETR(
         hidden_dim=256,
         backbone_hidden_size=384,
         backbone_num_heads=6,
@@ -67,7 +93,7 @@ def build_keras_model(variant):
         num_windows=config.get("num_windows", 2),
         positional_encoding_size=config["positional_encoding_size"],
         resolution=res,
-        dec_layers=config["dec_layers"],
+        dec_layers=dec_layers,
         sa_nheads=8,
         ca_nheads=16,
         dec_n_points=2,
@@ -83,16 +109,20 @@ def build_keras_model(variant):
         name=variant,
     )
     dummy = keras.random.uniform((1, res, res, 3), dtype="float32")
-    _ = model(dummy)
-    return model
+    _ = keras_model(dummy)
+    print(f"  Parameters: {keras_model.count_params():,}")
 
+    import rfdetr as rfdetr_pkg
 
-def transfer_all_weights(variant, pytorch_state_dict, keras_model):
-    """Map PyTorch state_dict keys to Keras weights and assign values."""
-    config = RF_DETR_MODEL_CONFIG[variant]
-    dec_layers = config["dec_layers"]
+    pt_cls = getattr(rfdetr_pkg, variant)
+    pt_wrapper = pt_cls()
+    pt_model = pt_wrapper.model.model
 
-    # ---- Backbone Encoder Layers (name mapping + library utilities) ----
+    pytorch_state_dict: Dict[str, np.ndarray] = {
+        k: v.cpu().numpy() for k, v in pt_model.state_dict().items()
+    }
+    print(f"  PyTorch keys: {len(pytorch_state_dict)}")
+
     backbone_encoder_weights: List[Tuple[keras.Variable, str]] = []
     for layer in keras_model.layers:
         if layer.name.startswith("backbone_encoder_layer_") or (
@@ -132,7 +162,6 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
     emb_prefix = "backbone.0.encoder.encoder.embeddings"
-
     emb_layer = keras_model.get_layer("backbone_embeddings")
     transfer_nested_layer_weights(
         emb_layer,
@@ -143,7 +172,7 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
 
     pt_proj = "backbone.0.projector.stages.0"
 
-    projector_conv_ln_pairs = [
+    projector_conv_ln_pairs: List[Tuple[str, str]] = [
         ("projector_c2f_cv1_conv", f"{pt_proj}.0.cv1.conv"),
         ("projector_c2f_cv1_ln", f"{pt_proj}.0.cv1.bn"),
         ("projector_c2f_cv2_conv", f"{pt_proj}.0.cv2.conv"),
@@ -222,20 +251,12 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
             pytorch_state_dict[f"transformer.decoder.ref_point_head.layers.{i}.bias"]
         )
 
-    decoder_name_mapping = {
-        "self_attn_out_proj": "self_attn.out_proj",
-        "kernel": "weight",
-        "gamma": "weight",
-        "beta": "bias",
-    }
-
     for i in tqdm(range(dec_layers), desc="Transferring decoder weights"):
         pt_dl = f"transformer.decoder.layers.{i}"
         k_dl = f"decoder_layer_{i}"
 
         dec_layer = keras_model.get_layer(k_dl)
 
-        # Self-attention uses fused in_proj in PyTorch → split into Q/K/V
         in_proj_w = pytorch_state_dict[f"{pt_dl}.self_attn.in_proj_weight"]
         in_proj_b = pytorch_state_dict[f"{pt_dl}.self_attn.in_proj_bias"]
         q_w, k_w, v_w = np.split(in_proj_w, 3, axis=0)
@@ -249,13 +270,16 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
         weight_dict[f"{k_dl}/self_attn_v_proj/kernel"].assign(v_w.T)
         weight_dict[f"{k_dl}/self_attn_v_proj/bias"].assign(v_b)
 
-        # Transfer remaining weights (cross_attn, norms, linears) via utility
         transfer_nested_layer_weights(
             dec_layer,
             pytorch_state_dict,
             pt_dl,
             name_mapping=decoder_name_mapping,
-            skip_paths=["self_attn_q_proj", "self_attn_k_proj", "self_attn_v_proj"],
+            skip_paths=[
+                "self_attn_q_proj",
+                "self_attn_k_proj",
+                "self_attn_v_proj",
+            ],
         )
 
     dec_norm = keras_model.get_layer("decoder_norm")
@@ -285,12 +309,7 @@ def transfer_all_weights(variant, pytorch_state_dict, keras_model):
         )
         bbox_layer.weights[1].assign(pytorch_state_dict[f"bbox_embed.layers.{i}.bias"])
 
-
-def verify_equivalence(variant, keras_model, pytorch_state_dict):
-    import torchvision.transforms as T
-
-    config = RF_DETR_MODEL_CONFIG[variant]
-    res = config["resolution"]
+    print("\nVerifying model equivalence...")
 
     np.random.seed(42)
     test_input = np.random.rand(1, res, res, 3).astype(np.float32)
@@ -299,12 +318,7 @@ def verify_equivalence(variant, keras_model, pytorch_state_dict):
     normalize = T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     pt_input_norm = normalize(pt_input)
 
-    import rfdetr as rfdetr_pkg
-
-    pt_wrapper = getattr(rfdetr_pkg, variant.replace("RFDETR", "RFDETR"))()
-    pt_model = pt_wrapper.model.model
     pt_model.eval()
-
     with torch.no_grad():
         pt_out = pt_model(pt_input_norm)
     pt_logits = pt_out["pred_logits"].cpu().numpy()
@@ -338,50 +352,8 @@ def verify_equivalence(variant, keras_model, pytorch_state_dict):
         )
     print("Equivalence test passed (logits cosine sim > 0.95)")
 
-
-def main():
-    parser = argparse.ArgumentParser(description="Convert RF-DETR weights to Keras")
-    parser.add_argument(
-        "--variant",
-        type=str,
-        default="RFDETRNano",
-        choices=list(RF_DETR_MODEL_CONFIG.keys()),
-    )
-    parser.add_argument("--output", type=str, default=None)
-    parser.add_argument("--skip-verify", action="store_true")
-    args = parser.parse_args()
-
-    variant = args.variant
-    output = args.output
-    if output is None:
-        name_map = {
-            "RFDETRNano": "rf_detr_nano_coco",
-            "RFDETRSmall": "rf_detr_small_coco",
-            "RFDETRMedium": "rf_detr_medium_coco",
-            "RFDETRBase": "rf_detr_base_coco",
-            "RFDETRLarge": "rf_detr_large_coco",
-        }
-        output = f"{name_map[variant]}.weights.h5"
-
-    print(f"Building Keras {variant} model...")
-    keras_model = build_keras_model(variant)
-    print(f"  Parameters: {keras_model.count_params():,}")
-
-    print(f"Loading PyTorch weights for {variant}...")
-    pytorch_state_dict = load_torch_state_dict(variant)
-    print(f"  PyTorch keys: {len(pytorch_state_dict)}")
-
-    print("Transferring weights...")
-    transfer_all_weights(variant, pytorch_state_dict, keras_model)
-
-    if not args.skip_verify:
-        print("\nVerifying model equivalence...")
-        verify_equivalence(variant, keras_model, pytorch_state_dict)
-
-    print(f"\nSaving Keras weights to {output}...")
     keras_model.save_weights(output)
-    print("Done!")
+    print(f"Model saved successfully as {output}")
 
-
-if __name__ == "__main__":
-    main()
+    del keras_model, pt_model, pt_wrapper, pytorch_state_dict
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None

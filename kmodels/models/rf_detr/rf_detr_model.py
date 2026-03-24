@@ -772,7 +772,6 @@ class RFDETR(keras.Model):
 
         inputs = img_input
 
-        # --- DINOv2 Backbone ---
         embeddings = DinoV2Embeddings(
             hidden_size=backbone_hidden_size,
             patch_size=patch_size,
@@ -815,7 +814,6 @@ class RFDETR(keras.Model):
             )
             unwindowed_features.append(uw)
 
-        # --- Projector: concatenate all multi-scale features + C2f + LayerNorm ---
         concat_feat = layers.Concatenate(axis=-1, name="concat_features")(
             unwindowed_features
         )
@@ -836,13 +834,11 @@ class RFDETR(keras.Model):
         spatial_shapes = [proj_shape]
         level_start_index = [0]
 
-        # Flatten to (B, H*W, C)
         src_flat = ops.reshape(
             projected, [-1, proj_shape[0] * proj_shape[1], hidden_dim]
         )
         memory = src_flat
 
-        # --- Learned query embeddings (used in both two-stage and single-stage) ---
         tgt = LearnedEmbedding(
             num_queries,
             hidden_dim,
@@ -856,7 +852,6 @@ class RFDETR(keras.Model):
             name="refpoint_embed_layer",
         )(memory)
 
-        # --- Two-Stage Query Initialization ---
         if two_stage:
             output_memory_filtered, output_proposals = rf_detr_encoder_output_proposals(
                 memory,
@@ -917,13 +912,11 @@ class RFDETR(keras.Model):
         else:
             refpoints_unsigmoid = refpoint_embed
 
-        # --- Ref point head ---
         ref_point_head_0 = layers.Dense(
             hidden_dim, activation="relu", name="ref_point_head_0"
         )
         ref_point_head_1 = layers.Dense(hidden_dim, name="ref_point_head_1")
 
-        # --- Decoder ---
         decoder_layers_list = []
         for i in range(dec_layers):
             decoder_layers_list.append(
@@ -943,7 +936,6 @@ class RFDETR(keras.Model):
 
         decoder_norm = layers.LayerNormalization(epsilon=1e-5, name="decoder_norm")
 
-        # Bbox embed (shared across layers for iterative refinement)
         bbox_embed_0 = layers.Dense(hidden_dim, activation="relu", name="bbox_embed_0")
         bbox_embed_1 = layers.Dense(hidden_dim, activation="relu", name="bbox_embed_1")
         bbox_embed_2 = layers.Dense(4, name="bbox_embed_2")
@@ -1002,7 +994,6 @@ class RFDETR(keras.Model):
 
         output = decoder_norm(output)
 
-        # --- Prediction Heads ---
         class_embed = layers.Dense(num_classes, name="class_embed")
         pred_logits = class_embed(output)
 
@@ -1083,11 +1074,6 @@ class RFDETR(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-# ---------------------------------------------------------------------------
-# Factory + Registration
-# ---------------------------------------------------------------------------
 
 
 def _create_rf_detr_model(
@@ -1174,30 +1160,6 @@ def RFDETRNano(
     name="RFDETRNano",
     **kwargs,
 ):
-    """RF-DETR Nano -- smallest variant.
-
-    DINOv2-Small backbone, 2 decoder layers, 384px resolution.
-    COCO AP: 48.0
-
-    Args:
-        num_queries: Number of object queries. Default 300.
-        num_classes: Number of object classes (COCO: 91). Default 91.
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape as (H, W, C). Default (384, 384, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        RF-DETR Nano model.
-
-    Example:
-        ```python
-        model = kmodels.models.rf_detr.RFDETRNano(weights=None)
-        output = model(np.random.rand(1, 384, 384, 3).astype("float32"))
-        print(output["pred_logits"].shape)   # (1, 300, 92)
-        print(output["pred_boxes"].shape)    # (1, 300, 4)
-        ```
-    """
     return _create_rf_detr_model(
         "RFDETRNano",
         num_queries=num_queries,
@@ -1220,21 +1182,6 @@ def RFDETRSmall(
     name="RFDETRSmall",
     **kwargs,
 ):
-    """RF-DETR Small.
-
-    DINOv2-Small backbone, 3 decoder layers, 512px resolution.
-
-    Args:
-        num_queries: Number of object queries. Default 300.
-        num_classes: Number of object classes (COCO: 91). Default 91.
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape as (H, W, C). Default (512, 512, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        RF-DETR Small model.
-    """
     return _create_rf_detr_model(
         "RFDETRSmall",
         num_queries=num_queries,
@@ -1257,21 +1204,6 @@ def RFDETRMedium(
     name="RFDETRMedium",
     **kwargs,
 ):
-    """RF-DETR Medium.
-
-    DINOv2-Small backbone, 4 decoder layers, 576px resolution.
-
-    Args:
-        num_queries: Number of object queries. Default 300.
-        num_classes: Number of object classes (COCO: 91). Default 91.
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape as (H, W, C). Default (576, 576, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        RF-DETR Medium model.
-    """
     return _create_rf_detr_model(
         "RFDETRMedium",
         num_queries=num_queries,
@@ -1294,21 +1226,6 @@ def RFDETRBase(
     name="RFDETRBase",
     **kwargs,
 ):
-    """RF-DETR Base.
-
-    DINOv2-Small backbone, 3 decoder layers, 560px resolution, patch_size=14.
-
-    Args:
-        num_queries: Number of object queries. Default 300.
-        num_classes: Number of object classes (COCO: 91). Default 91.
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape as (H, W, C). Default (560, 560, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        RF-DETR Base model.
-    """
     return _create_rf_detr_model(
         "RFDETRBase",
         num_queries=num_queries,
@@ -1331,22 +1248,6 @@ def RFDETRLarge(
     name="RFDETRLarge",
     **kwargs,
 ):
-    """RF-DETR Large.
-
-    DINOv2-Small backbone, 4 decoder layers, 704px resolution.
-    First real-time detector to surpass 60 AP on COCO.
-
-    Args:
-        num_queries: Number of object queries. Default 300.
-        num_classes: Number of object classes (COCO: 91). Default 91.
-        weights: Pre-trained weights identifier or file path. Default "coco".
-        input_shape: Input shape as (H, W, C). Default (704, 704, 3).
-        input_tensor: Optional input tensor.
-        name: Model name.
-
-    Returns:
-        RF-DETR Large model.
-    """
     return _create_rf_detr_model(
         "RFDETRLarge",
         num_queries=num_queries,

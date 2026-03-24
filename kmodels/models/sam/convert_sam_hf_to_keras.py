@@ -4,7 +4,10 @@ from tqdm import tqdm
 from transformers import SamModel
 
 from kmodels.models.sam.sam_model import SAM_ViT_Base, SAM_ViT_Huge, SAM_ViT_Large
-from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights
+from kmodels.utils.weight_transfer_torch_to_keras import (
+    transfer_nested_layer_weights,
+    transfer_weights,
+)
 
 VARIANT_MAP = {
     "base": SAM_ViT_Base,
@@ -50,14 +53,13 @@ def _transfer_conv(conv_layer, hf_state_dict, hf_key, keras_name):
         )
 
 
-def _transfer_attention(attn_layer, hf_state_dict, hf_prefix, keras_name):
-    for proj_name in ["q_proj", "k_proj", "v_proj", "out_proj"]:
-        _transfer_dense(
-            getattr(attn_layer, proj_name),
-            hf_state_dict,
-            f"{hf_prefix}.{proj_name}",
-            f"{keras_name}_{proj_name}",
-        )
+def _transfer_attention(attn_layer, hf_state_dict, hf_prefix):
+    transfer_nested_layer_weights(
+        attn_layer,
+        hf_state_dict,
+        hf_prefix,
+        name_mapping={"kernel": "weight"},
+    )
 
 
 def convert_model(
@@ -87,33 +89,18 @@ def convert_model(
 
     num_layers = keras_model.vision_num_hidden_layers
     for i in tqdm(range(num_layers), desc="Transferring vision encoder layers"):
-        hf_prefix = f"vision_encoder.layers.{i}"
         layer = keras_model.get_layer(f"vision_encoder_layers_{i}")
-
-        _transfer_layernorm(
-            layer.layer_norm1, hf_state_dict, f"{hf_prefix}.layer_norm1", "ln1"
-        )
-
-        _transfer_dense(
-            layer.attn.qkv, hf_state_dict, f"{hf_prefix}.attn.qkv", "attn_qkv"
-        )
-        _transfer_dense(
-            layer.attn.proj, hf_state_dict, f"{hf_prefix}.attn.proj", "attn_proj"
-        )
-
-        if layer.attn.use_rel_pos:
-            layer.attn.rel_pos_h.assign(hf_state_dict[f"{hf_prefix}.attn.rel_pos_h"])
-            layer.attn.rel_pos_w.assign(hf_state_dict[f"{hf_prefix}.attn.rel_pos_w"])
-
-        _transfer_layernorm(
-            layer.layer_norm2, hf_state_dict, f"{hf_prefix}.layer_norm2", "ln2"
-        )
-
-        _transfer_dense(
-            layer.mlp_lin1, hf_state_dict, f"{hf_prefix}.mlp.lin1", "mlp_lin1"
-        )
-        _transfer_dense(
-            layer.mlp_lin2, hf_state_dict, f"{hf_prefix}.mlp.lin2", "mlp_lin2"
+        transfer_nested_layer_weights(
+            layer,
+            hf_state_dict,
+            f"vision_encoder.layers.{i}",
+            name_mapping={
+                "mlp_lin1": "mlp.lin1",
+                "mlp_lin2": "mlp.lin2",
+                "kernel": "weight",
+                "gamma": "weight",
+                "beta": "bias",
+            },
         )
 
     print("Transferring vision neck...")
@@ -179,7 +166,6 @@ def convert_model(
             mask_dec.transformer_self_attns[i],
             hf_state_dict,
             f"{hf_prefix}.self_attn",
-            f"dec_self_attn_{i}",
         )
         _transfer_layernorm(
             mask_dec.transformer_layer_norm1s[i],
@@ -192,7 +178,6 @@ def convert_model(
             mask_dec.transformer_cross_attn_token_to_images[i],
             hf_state_dict,
             f"{hf_prefix}.cross_attn_token_to_image",
-            f"dec_cross_t2i_{i}",
         )
         _transfer_layernorm(
             mask_dec.transformer_layer_norm2s[i],
@@ -224,7 +209,6 @@ def convert_model(
             mask_dec.transformer_cross_attn_image_to_tokens[i],
             hf_state_dict,
             f"{hf_prefix}.cross_attn_image_to_token",
-            f"dec_cross_i2t_{i}",
         )
         _transfer_layernorm(
             mask_dec.transformer_layer_norm4s[i],
@@ -237,7 +221,6 @@ def convert_model(
         mask_dec.final_attn_token_to_image,
         hf_state_dict,
         "mask_decoder.transformer.final_attn_token_to_image",
-        "dec_final_attn",
     )
     _transfer_layernorm(
         mask_dec.layer_norm_final_attn,

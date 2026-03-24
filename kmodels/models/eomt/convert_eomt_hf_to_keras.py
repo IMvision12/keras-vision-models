@@ -5,6 +5,7 @@ from tqdm import tqdm
 from transformers import EomtForUniversalSegmentation
 
 from kmodels.models.eomt.eomt_model import EoMT_Base, EoMT_Large, EoMT_Small
+from kmodels.utils.weight_transfer_torch_to_keras import transfer_nested_layer_weights
 
 VARIANT_MAP = {
     "small": EoMT_Small,
@@ -83,11 +84,12 @@ def convert_model(
 
         # Attention: q_proj, k_proj, v_proj, out_proj
         attn = keras_model.get_layer(f"{k_prefix}_attention")
-        for proj in ["q_proj", "k_proj", "v_proj", "out_proj"]:
-            dense = getattr(attn, proj)
-            w = hf_state_dict[f"{hf_prefix}.attention.{proj}.weight"]
-            dense.kernel.assign(w.T)
-            dense.bias.assign(hf_state_dict[f"{hf_prefix}.attention.{proj}.bias"])
+        transfer_nested_layer_weights(
+            attn,
+            hf_state_dict,
+            f"{hf_prefix}.attention",
+            name_mapping={"kernel": "weight"},
+        )
 
         # Layer scale 1
         ls1 = keras_model.get_layer(f"{k_prefix}_layer_scale1")

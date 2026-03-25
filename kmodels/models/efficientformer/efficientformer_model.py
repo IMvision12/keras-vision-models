@@ -444,7 +444,7 @@ class EfficientFormer(keras.Model):
                     and j == depths[i] - num_vit
                 ):
                     # Stem does 4x downsample, each subsequent stage does 2x
-                    resolution = _img_h // (4 * (2 ** i))
+                    resolution = _img_h // (4 * (2**i))
                     x = layers.Reshape((-1, x.shape[-1]), name=f"stages_{i}_flat")(x)
 
                 # Choose block type

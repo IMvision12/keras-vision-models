@@ -250,16 +250,14 @@ class SAM(keras.Model):
         else:
             pixel_values = layers.Input(shape=input_shape, name="pixel_values")
 
-        image_embedding_size = self.VISION_IMAGE_SIZE // self.VISION_PATCH_SIZE
+        image_embedding_size = input_shape[0] // self.VISION_PATCH_SIZE
 
-        # Prompt inputs
         input_points = layers.Input(
             shape=(None, None, 2), name="input_points", dtype="float32"
         )
         input_labels = layers.Input(
             shape=(None, None), name="input_labels", dtype="int32"
         )
-        # ─── Vision Encoder ───
         hidden_states = layers.Conv2D(
             vision_hidden_size,
             kernel_size=self.VISION_PATCH_SIZE,
@@ -298,7 +296,6 @@ class SAM(keras.Model):
             name="vision_encoder_neck",
         )
 
-        # ─── Shared Positional Embedding ───
         num_pos_feats = 128
         shared_image_embedding = SAMPositionalEmbedding(
             num_pos_feats=num_pos_feats,
@@ -306,14 +303,12 @@ class SAM(keras.Model):
             name="shared_image_embedding",
         )
 
-        # ─── Image-wide Positional Embeddings ───
         image_pe = SAMImagePositionalEmbeddings(
             image_embedding_size,
             shared_image_embedding,
             name="image_positional_embeddings",
         )(image_embeddings)
 
-        # ─── Prompt Encoder ───
         prompt_results = SAMPromptEncoderLayer(
             hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
             image_embedding_size=image_embedding_size,
@@ -326,7 +321,6 @@ class SAM(keras.Model):
         sparse_embeddings = prompt_results["sparse_embeddings"]
         dense_embeddings = prompt_results["dense_embeddings"]
 
-        # ─── Mask Decoder ───
         decoder_output = SAMMaskDecoderLayer(
             hidden_size=self.MASK_DECODER_HIDDEN_SIZE,
             num_hidden_layers=self.MASK_DECODER_NUM_HIDDEN_LAYERS,

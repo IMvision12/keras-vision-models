@@ -10,6 +10,11 @@ class Attention4D(layers.Layer):
     a trainable relative position bias to the attention logits. Used in
     the transformer (1D) stages of EfficientFormer.
 
+    When loading pretrained weights from a different resolution, the
+    attention bias table is automatically interpolated via bilinear
+    resizing in ``load_own_variables``, following the same approach
+    used by ViT's ``AddPositionEmbs``.
+
     Reference:
     - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
 
@@ -126,6 +131,51 @@ class Attention4D(layers.Layer):
         x = ops.reshape(x, (B, N, self.val_attn_dim))
         x = ops.matmul(x, self.proj_kernel) + self.proj_bias
         return x
+
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        store["resolution"] = self.resolution
+
+    def load_own_variables(self, store):
+        try:
+            source_resolution = int(store["resolution"][...])
+        except KeyError:
+            source_resolution = self.resolution
+
+        if source_resolution == self.resolution:
+            super().load_own_variables(store)
+            return
+
+        target_vars = self.trainable_variables + self.non_trainable_variables
+        for i, var in enumerate(target_vars):
+            if var is self.attention_biases:
+                continue
+            var.assign(store[str(i)])
+
+        bias_idx = None
+        for i, var in enumerate(target_vars):
+            if var is self.attention_biases:
+                bias_idx = i
+                break
+
+        source_biases = store[str(bias_idx)]
+        source_biases = ops.cast(source_biases, dtype="float32")
+        source_biases = ops.reshape(
+            source_biases,
+            (self.num_heads, source_resolution, source_resolution),
+        )
+        source_biases = ops.expand_dims(source_biases, axis=-1)
+        source_biases = ops.image.resize(
+            source_biases,
+            size=(self.resolution, self.resolution),
+            interpolation="bilinear",
+            antialias=True,
+        )
+        source_biases = ops.reshape(
+            source_biases,
+            (self.num_heads, self.resolution * self.resolution),
+        )
+        self.attention_biases.assign(source_biases)
 
     def get_config(self):
         config = super().get_config()

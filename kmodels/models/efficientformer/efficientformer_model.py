@@ -334,6 +334,9 @@ class EfficientFormer(keras.Model):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
 
+        if input_shape is None:
+            input_shape = (224, 224, 3)
+
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
             default_size=224,
@@ -342,6 +345,12 @@ class EfficientFormer(keras.Model):
             require_flatten=include_top,
             weights=weights,
         )
+
+        # Compute spatial height for attention resolution (like ViT's grid_h)
+        if data_format == "channels_last":
+            _img_h = input_shape[0]
+        else:
+            _img_h = input_shape[1]
 
         if input_tensor is None:
             img_input = layers.Input(shape=input_shape)
@@ -434,13 +443,9 @@ class EfficientFormer(keras.Model):
                     and num_vit > remain_idx
                     and j == depths[i] - num_vit
                 ):
+                    # Stem does 4x downsample, each subsequent stage does 2x
+                    resolution = _img_h // (4 * (2 ** i))
                     x = layers.Reshape((-1, x.shape[-1]), name=f"stages_{i}_flat")(x)
-                    # Calculate resolution for attention from current feature map
-                    if data_format == "channels_last":
-                        # Get spatial dimensions from the tensor shape
-                        resolution = 224 // (4 * (2**i))  # Default calculation
-                    else:
-                        resolution = 224 // (4 * (2**i))
 
                 # Choose block type
                 if use_transformer and num_vit > remain_idx:

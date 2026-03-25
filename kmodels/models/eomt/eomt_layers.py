@@ -212,32 +212,21 @@ class EoMTEmbeddings(layers.Layer):
         store["grid_w"] = grid_size
 
     def load_own_variables(self, store):
-        try:
-            source_h = int(store["grid_h"][...])
-            source_w = int(store["grid_w"][...])
-        except KeyError:
-            target_vars = self._trainable_variables + self._non_trainable_variables
-            for i, var in enumerate(target_vars):
-                if var is self.position_embeddings:
-                    source_num_patches = store[str(i)].shape[1]
-                    source_h = source_w = int(source_num_patches**0.5)
-                    break
-            else:
-                super().load_own_variables(store)
-                return
+        source_h = int(store["grid_h"][...])
+        source_w = int(store["grid_w"][...])
         grid_size = self.image_size // self.patch_size
-
-        if source_h == grid_size and source_w == grid_size:
-            super().load_own_variables(store)
-            return
 
         target_vars = self._trainable_variables + self._non_trainable_variables
         pos_idx = None
         for i, var in enumerate(target_vars):
             if var is self.position_embeddings:
                 pos_idx = i
-                continue
-            var.assign(store[str(i)])
+            else:
+                var.assign(store[str(i)])
+
+        if source_h == grid_size and source_w == grid_size:
+            self.position_embeddings.assign(store[str(pos_idx)])
+            return
 
         pos_embed = store[str(pos_idx)]
         embed_dim = pos_embed.shape[-1]

@@ -60,13 +60,10 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
         store["image_embedding_size"] = self.image_embedding_size
 
     def load_own_variables(self, store):
-        try:
-            source_size = int(store["image_embedding_size"][...])
-        except KeyError:
-            source_size = int(store["0"].shape[1])
+        source_size = int(store["image_embedding_size"][...])
 
         if source_size == self.image_embedding_size:
-            super().load_own_variables(store)
+            self.pos_embed.assign(store["0"])
             return
 
         pos_embed = store["0"]

@@ -5,12 +5,32 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAMAbsolutePositionEmbedding(layers.Layer):
-    """Adds learnable absolute position embeddings to patch embeddings.
+    """Learnable absolute position embeddings for vision encoder patches.
+
+    Adds a trainable position embedding tensor to the patch embeddings
+    produced by the vision encoder's patch projection. The embedding
+    has the same spatial dimensions as the patch grid and is broadcast
+    across the batch dimension.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        hidden_size: Embedding dimension.
-        image_embedding_size: Spatial size of the patch grid.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, embedding dimension for each spatial
+            position. Must match the channel dimension of the patch
+            embeddings.
+        image_embedding_size: Integer, spatial size of the patch
+            grid (both height and width).
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, image_embedding_size,
+        image_embedding_size, hidden_size)``.
+
+    Output Shape:
+        Same as input: ``(batch_size, image_embedding_size,
+        image_embedding_size, hidden_size)``.
     """
 
     def __init__(self, hidden_size, image_embedding_size, **kwargs):
@@ -47,59 +67,49 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SAMImagePositionalEmbeddings(layers.Layer):
-    """Generates grid-based positional embeddings for the image feature map.
-
-    Creates a ``(1, H, W, C)`` positional embedding tensor using the shared
-    Fourier embedding layer.
-
-    Args:
-        image_embedding_size: Spatial size of the image embedding grid.
-        shared_embedding: A ``SAMPositionalEmbedding`` layer instance.
-        **kwargs: Additional layer arguments.
-    """
-
-    def __init__(self, image_embedding_size, shared_embedding, **kwargs):
-        super().__init__(**kwargs)
-        self.image_embedding_size = image_embedding_size
-        self.shared_embedding = shared_embedding
-
-    def call(self, image_embeddings):
-        size = self.image_embedding_size
-        grid = ops.ones((size, size), dtype="float32")
-        y_embed = ops.cumsum(grid, axis=0) - 0.5
-        x_embed = ops.cumsum(grid, axis=1) - 0.5
-        y_embed = y_embed / size
-        x_embed = x_embed / size
-        coords = ops.stack([x_embed, y_embed], axis=-1)
-        pe = self.shared_embedding(coords)
-        pe = ops.transpose(pe, (2, 0, 1))
-        pe = ops.expand_dims(pe, axis=0)
-        return pe
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"image_embedding_size": self.image_embedding_size})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
 class SAMPromptEncoderLayer(layers.Layer):
-    """Encodes sparse (point/box) and dense (mask) prompts.
+    """Prompt encoder for sparse (point/box) and dense (mask) prompts.
 
-    Sparse prompts are converted to embedding vectors via positional encoding
-    and learned type embeddings.  Dense prompts (masks) are downsampled through
-    a small CNN.  When no mask is provided, a learned ``no_mask_embed`` is
-    broadcast to the image embedding spatial size.
+    Encodes user-provided prompts into embedding vectors that condition
+    the mask decoder. Sparse prompts (points and boxes) are converted
+    to positional embeddings via a shared Fourier encoding layer, then
+    augmented with learned type embeddings that distinguish foreground
+    points, background points, and box corners. When no mask prompt is
+    provided, a learned ``no_mask_embed`` is broadcast to the image
+    embedding spatial size to serve as the dense embedding.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        hidden_size: Output embedding dimension.
-        image_embedding_size: Spatial size of the image embedding grid.
-        image_size: Original input image resolution.
-        mask_input_channels: Intermediate channels for the mask CNN.
-        num_point_embeddings: Number of point type embeddings (typically 4).
-        shared_embedding: A ``SAMPositionalEmbedding`` for coordinate encoding.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, output embedding dimension.
+            Defaults to ``256``.
+        image_embedding_size: Integer, spatial size of the image
+            embedding grid (both height and width).
+            Defaults to ``64``.
+        image_size: Integer, original input image resolution in
+            pixels. Used to normalize point coordinates.
+            Defaults to ``1024``.
+        num_point_embeddings: Integer, number of learned point type
+            embeddings (foreground, background, top-left corner,
+            bottom-right corner). Defaults to ``4``.
+        shared_embedding: A ``SAMPositionalEmbedding`` layer instance
+            used for Fourier coordinate encoding. Shared with the
+            image positional embedding generation.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        List of two tensors:
+        - ``input_points``: ``(batch_size, num_prompts, num_points, 2)``
+        - ``input_labels``: ``(batch_size, num_prompts, num_points)``
+
+    Output Shape:
+        Dictionary with:
+        - ``"sparse_embeddings"``: ``(batch_size, num_prompts,
+          num_points + 1, hidden_size)``
+        - ``"dense_embeddings"``: ``(batch_size, image_embedding_size,
+          image_embedding_size, hidden_size)``
     """
 
     def __init__(
@@ -247,21 +257,59 @@ class SAMPromptEncoderLayer(layers.Layer):
 class SAMMaskDecoderLayer(layers.Layer):
     """Mask decoder that predicts segmentation masks and IoU scores.
 
-    Uses a two-way transformer to attend between prompt tokens and image
-    embeddings, then upscales image features and generates per-token mask
-    predictions via hypernetwork MLPs.
+    Uses a lightweight two-way transformer to jointly attend between
+    prompt tokens and image embeddings. The decoder first concatenates
+    learned IoU and mask tokens with the sparse prompt embeddings,
+    then alternates self-attention on tokens, cross-attention from
+    tokens to image features, an MLP block, and cross-attention from
+    image features back to tokens. After the transformer, image
+    features are upscaled via two transposed convolutions with GELU
+    activation, and per-mask predictions are generated by
+    hypernetwork MLPs that produce dynamic convolution weights. An
+    IoU prediction head estimates the quality of each mask output.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        hidden_size: Hidden dimension.
-        num_hidden_layers: Number of two-way transformer layers.
-        num_attention_heads: Number of attention heads.
-        mlp_dim: MLP dimension in the two-way transformer.
-        num_multimask_outputs: Number of mask outputs (default 3).
-        iou_head_depth: Depth of the IoU prediction head.
-        iou_head_hidden_dim: Hidden dim of the IoU prediction head.
-        attention_downsample_rate: Downsample factor for cross-attention.
-        layer_norm_eps: LayerNorm epsilon.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, hidden dimension for the transformer
+            and embedding layers. Defaults to ``256``.
+        num_hidden_layers: Integer, number of two-way transformer
+            layers. Defaults to ``2``.
+        num_attention_heads: Integer, number of attention heads in
+            each attention layer. Defaults to ``8``.
+        mlp_dim: Integer, hidden dimension of the feedforward
+            network in each transformer layer.
+            Defaults to ``2048``.
+        num_multimask_outputs: Integer, number of mask outputs
+            (excluding the single-mask output token).
+            Defaults to ``3``.
+        iou_head_depth: Integer, total number of linear layers in
+            the IoU prediction MLP. Defaults to ``3``.
+        iou_head_hidden_dim: Integer, hidden dimension of the IoU
+            prediction MLP. Defaults to ``256``.
+        attention_downsample_rate: Integer, factor by which to
+            reduce the internal dimension in cross-attention
+            layers for efficiency. Defaults to ``2``.
+        layer_norm_eps: Float, epsilon for layer normalization.
+            Defaults to ``1e-6``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        List of four tensors:
+        - ``image_embeddings``: ``(batch_size, H, W, hidden_size)``
+        - ``image_pe``: ``(1, hidden_size, H, W)``
+        - ``sparse_embeddings``: ``(batch_size, num_prompts,
+          num_tokens, hidden_size)``
+        - ``dense_embeddings``: ``(batch_size, H, W, hidden_size)``
+
+    Output Shape:
+        Dictionary with:
+        - ``"pred_masks"``: ``(batch_size, num_prompts,
+          num_mask_tokens, 4*H, 4*W)``
+        - ``"iou_scores"``: ``(batch_size, num_prompts,
+          num_mask_tokens)``
     """
 
     def __init__(
@@ -582,19 +630,42 @@ class SAMMaskDecoderLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAMVisionAttention(layers.Layer):
-    """Multi-head attention with decomposed relative position embeddings.
+    """Multi-head attention with decomposed relative position bias.
 
-    Supports both windowed and global attention modes. When ``window_size > 0``,
-    relative position parameters have shape ``(2*window_size - 1, head_dim)``; for
-    global attention layers, the input_size is derived from the full feature map.
+    Implements scaled dot-product multi-head attention with an
+    optional decomposed relative position bias. The bias is added
+    to the attention logits and decomposes into separate
+    height-axis and width-axis learned embeddings, reducing the
+    parameter count from ``O(H*W * H*W)`` to ``O(H + W)`` per
+    head. Supports both windowed and global attention modes: when
+    operating within windows, the relative position tables have
+    shape ``(2 * window_size - 1, head_dim)``; for global
+    attention, ``input_size`` corresponds to the full feature map.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        hidden_size: Total hidden dimension.
-        num_heads: Number of attention heads.
-        qkv_bias: Whether to use bias in QKV projection.
-        use_rel_pos: Whether to add decomposed relative position bias.
-        input_size: Spatial resolution ``(H, W)`` used for relative position tables.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, total hidden dimension. Must be
+            divisible by ``num_heads``.
+        num_heads: Integer, number of parallel attention heads.
+        qkv_bias: Boolean, whether to include bias terms in the
+            fused QKV projection. Defaults to ``True``.
+        use_rel_pos: Boolean, whether to add decomposed relative
+            position bias to the attention logits.
+            Defaults to ``True``.
+        input_size: Tuple of two integers ``(H, W)`` specifying
+            the spatial resolution used to size the relative
+            position tables. ``None`` disables relative position
+            even if ``use_rel_pos`` is ``True``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, height, width, hidden_size)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, height, width, hidden_size)``.
     """
 
     def __init__(
@@ -730,20 +801,43 @@ class SAMVisionAttention(layers.Layer):
 class SAMVisionLayer(layers.Layer):
     """Single transformer block in the SAM vision encoder.
 
-    Implements windowed or global attention with optional relative position bias,
-    followed by a two-layer MLP.  When ``window_size > 0``, the input is
-    partitioned into non-overlapping windows before attention.
+    Applies pre-norm layer normalization, multi-head attention with
+    decomposed relative position bias, and a two-layer MLP with
+    GELU activation. Both sub-blocks use residual connections. When
+    ``window_size > 0``, the spatial input is partitioned into
+    non-overlapping windows before attention and unpartitioned
+    afterward, limiting the attention receptive field to reduce
+    compute. Layers at global attention indices use
+    ``window_size=0`` to attend over the full feature map.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        hidden_size: Hidden dimension.
-        num_heads: Number of attention heads.
-        mlp_dim: MLP hidden dimension.
-        qkv_bias: QKV bias flag.
-        use_rel_pos: Relative position flag.
-        window_size: Window size (0 = global attention).
-        image_size: Full image patch grid size.
-        layer_norm_eps: LayerNorm epsilon.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, hidden dimension for attention and
+            MLP output projections.
+        num_heads: Integer, number of parallel attention heads.
+        mlp_dim: Integer, hidden dimension of the two-layer
+            feedforward network.
+        qkv_bias: Boolean, whether to include bias in the QKV
+            projection. Defaults to ``True``.
+        use_rel_pos: Boolean, whether to use decomposed relative
+            position bias in attention. Defaults to ``True``.
+        window_size: Integer, size of the attention window. Set
+            to ``0`` for global attention. Defaults to ``0``.
+        image_size: Integer, full patch grid size used to
+            determine the relative position table size for global
+            attention layers. Defaults to ``64``.
+        layer_norm_eps: Float, epsilon for layer normalization.
+            Defaults to ``1e-6``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, height, width, hidden_size)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, height, width, hidden_size)``.
     """
 
     def __init__(
@@ -890,15 +984,35 @@ class SAMVisionLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAMPositionalEmbedding(layers.Layer):
-    """Random Fourier feature positional encoding used in prompt and mask encoders.
+    """Random Fourier feature positional encoding for 2-D coordinates.
 
-    Encodes 2-D coordinates normalized to ``[0, 1]`` into a fixed-dimensional
-    feature vector via ``sin``/``cos`` of a learned random projection.
+    Encodes 2-D coordinates normalized to ``[0, 1]`` into a
+    fixed-dimensional feature vector using random Fourier features.
+    Coordinates are first mapped to ``[-1, 1]``, linearly projected
+    by a frozen random weight matrix, scaled by ``2 * pi``, then
+    passed through concatenated ``sin`` and ``cos`` functions. The
+    projection matrix is initialized once and not updated during
+    training, producing a stable positional encoding shared between
+    the prompt encoder and image positional embedding generation.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        num_pos_feats: Half of the output dimension (full output = ``2 * num_pos_feats``).
-        scale: Standard deviation of the initial random projection matrix.
-        **kwargs: Additional layer arguments.
+        num_pos_feats: Integer, half of the output embedding
+            dimension. The full output has ``2 * num_pos_feats``
+            channels. Defaults to ``128``.
+        scale: Float, standard deviation of the initial random
+            projection matrix. Defaults to ``1.0``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        Tensor of shape ``(..., 2)`` with coordinates in
+        ``[0, 1]``.
+
+    Output Shape:
+        Tensor of shape ``(..., 2 * num_pos_feats)``.
     """
 
     def __init__(self, num_pos_feats=128, scale=None, **kwargs):
@@ -930,16 +1044,41 @@ class SAMPositionalEmbedding(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAMTwoWayAttention(layers.Layer):
-    """Attention layer used in the mask decoder's two-way transformer.
+    """Multi-head attention for the mask decoder's two-way transformer.
 
-    Supports an optional ``downsample_rate`` that reduces the internal dimension
-    of Q/K/V projections for efficiency.
+    Implements scaled dot-product multi-head attention with separate
+    query, key, and value projections followed by an output
+    projection. An optional ``downsample_rate`` reduces the internal
+    dimension of Q/K/V projections for efficiency, which is used in
+    the cross-attention layers of the mask decoder to lower compute
+    cost. The projection naming (``q_proj``, ``k_proj``, ``v_proj``,
+    ``out_proj``) matches the HuggingFace SAM layout for direct
+    weight transfer.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        hidden_size: Input hidden dimension.
-        num_heads: Number of attention heads.
-        downsample_rate: Factor to reduce internal dimension.
-        **kwargs: Additional layer arguments.
+        hidden_size: Integer, input and output hidden dimension.
+            Must be divisible by ``num_heads * downsample_rate``.
+        num_heads: Integer, number of parallel attention heads.
+        downsample_rate: Integer, factor by which to reduce the
+            internal projection dimension. Defaults to ``1``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        Three 4D tensors:
+        - ``query``: ``(batch_size, num_prompts, seq_len_q,
+          hidden_size)``
+        - ``key``: ``(batch_size, num_prompts, seq_len_k,
+          hidden_size)``
+        - ``value``: ``(batch_size, num_prompts, seq_len_k,
+          hidden_size)``
+
+    Output Shape:
+        4D tensor: ``(batch_size, num_prompts, seq_len_q,
+        hidden_size)``.
     """
 
     def __init__(self, hidden_size, num_heads, downsample_rate=1, **kwargs):

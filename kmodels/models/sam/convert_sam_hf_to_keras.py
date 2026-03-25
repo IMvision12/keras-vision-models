@@ -90,8 +90,8 @@ def convert_model(
     neck_ln2.beta.assign(hf_state_dict["vision_encoder.neck.layer_norm2.bias"])
 
     print("Transferring shared image embedding...")
-    image_pe_layer = keras_model.get_layer("image_positional_embeddings")
-    image_pe_layer.shared_embedding.positional_embedding.assign(
+    prompt_enc = keras_model.get_layer("prompt_encoder")
+    prompt_enc.shared_embedding.positional_embedding.assign(
         hf_state_dict["shared_image_embedding.positional_embedding"]
     )
 

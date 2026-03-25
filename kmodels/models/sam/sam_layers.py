@@ -983,6 +983,68 @@ class SAMVisionLayer(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
+class SAMImagePositionalEmbeddings(layers.Layer):
+    """Grid-based positional embeddings for the image feature map.
+
+    Builds a normalized ``[0, 1]`` coordinate grid over the image
+    embedding spatial dimensions and encodes it with the shared
+    random Fourier feature layer (``SAMPositionalEmbedding``). The
+    resulting tensor provides fixed positional information that is
+    added to the keys in the mask decoder's cross-attention layers.
+
+    This computation depends on the ``positional_embedding`` weight
+    inside the shared embedding layer, so it must be a ``Layer``
+    subclass to remain part of the Keras computation graph.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
+
+    Args:
+        image_embedding_size: Integer, spatial size of the image
+            embedding grid (both height and width).
+        shared_embedding: A ``SAMPositionalEmbedding`` layer
+            instance used to encode the coordinate grid. Shared
+            with the prompt encoder.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        Not used. A dummy input is required to trigger the
+        ``call`` method in Keras functional API.
+
+    Output Shape:
+        4D tensor: ``(1, 2 * num_pos_feats, H, W)``.
+    """
+
+    def __init__(self, image_embedding_size, shared_embedding, **kwargs):
+        super().__init__(**kwargs)
+        self.image_embedding_size = image_embedding_size
+        self.shared_embedding = shared_embedding
+
+    def call(self, inputs):
+        size = self.image_embedding_size
+        grid = ops.ones((size, size), dtype="float32")
+        y_embed = ops.cumsum(grid, axis=0) - 0.5
+        x_embed = ops.cumsum(grid, axis=1) - 0.5
+        y_embed = y_embed / size
+        x_embed = x_embed / size
+        coords = ops.stack([x_embed, y_embed], axis=-1)
+        pe = self.shared_embedding(coords)
+        pe = ops.transpose(pe, (2, 0, 1))
+        pe = ops.expand_dims(pe, axis=0)
+        return pe
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "image_embedding_size": self.image_embedding_size,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
 class SAMPositionalEmbedding(layers.Layer):
     """Random Fourier feature positional encoding for 2-D coordinates.
 

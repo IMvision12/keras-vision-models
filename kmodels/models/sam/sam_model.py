@@ -1,5 +1,5 @@
 import keras
-from keras import layers, ops, utils
+from keras import layers, utils
 
 from kmodels.model_registry import register_model
 from kmodels.utils import load_weights_from_config
@@ -7,6 +7,7 @@ from kmodels.utils import load_weights_from_config
 from .config import SAM_MODEL_CONFIG, SAM_WEIGHTS_CONFIG
 from .sam_layers import (
     SAMAbsolutePositionEmbedding,
+    SAMImagePositionalEmbeddings,
     SAMMaskDecoderLayer,
     SAMPositionalEmbedding,
     SAMPromptEncoderLayer,
@@ -52,42 +53,6 @@ def sam_vision_neck(inputs, output_channels, name="vision_encoder_neck"):
     )(x)
     x = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_layer_norm2")(x)
     return x
-
-
-def sam_image_positional_embeddings(image_embedding_size, shared_embedding):
-    """Grid-based positional embeddings for the image feature map.
-
-    Builds a normalized ``[0, 1]`` coordinate grid over the image
-    embedding spatial dimensions and encodes it with the shared
-    random Fourier feature layer (``SAMPositionalEmbedding``). The
-    resulting tensor provides fixed positional information that is
-    added to the keys in the mask decoder's cross-attention layers.
-
-    Reference:
-        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
-
-    Args:
-        image_embedding_size: Integer, spatial size of the image
-            embedding grid (both height and width).
-        shared_embedding: A ``SAMPositionalEmbedding`` layer
-            instance used to encode the coordinate grid. Shared
-            with the prompt encoder.
-
-    Returns:
-        Positional embedding tensor of shape
-        ``(1, 2 * num_pos_feats, H, W)``.
-    """
-    size = image_embedding_size
-    grid = ops.ones((size, size), dtype="float32")
-    y_embed = ops.cumsum(grid, axis=0) - 0.5
-    x_embed = ops.cumsum(grid, axis=1) - 0.5
-    y_embed = y_embed / size
-    x_embed = x_embed / size
-    coords = ops.stack([x_embed, y_embed], axis=-1)
-    pe = shared_embedding(coords)
-    pe = ops.transpose(pe, (2, 0, 1))
-    pe = ops.expand_dims(pe, axis=0)
-    return pe
 
 
 def sam_feed_forward(
@@ -342,10 +307,11 @@ class SAM(keras.Model):
         )
 
         # ─── Image-wide Positional Embeddings ───
-        image_pe = sam_image_positional_embeddings(
+        image_pe = SAMImagePositionalEmbeddings(
             image_embedding_size,
             shared_image_embedding,
-        )
+            name="image_positional_embeddings",
+        )(image_embeddings)
 
         # ─── Prompt Encoder ───
         prompt_results = SAMPromptEncoderLayer(

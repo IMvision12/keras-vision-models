@@ -8,11 +8,11 @@ from kmodels.utils import load_weights_from_config
 
 from .config import RF_DETR_MODEL_CONFIG, RF_DETR_WEIGHTS_CONFIG
 from .rf_detr_layers import (
-    ChannelLayerNorm,
     DinoV2Embeddings,
     DinoV2LayerScale,
-    LearnedEmbedding,
+    RFDETRChannelLayerNorm,
     RFDETRDecoderLayer,
+    RFDETRLearnedEmbedding,
 )
 
 
@@ -284,7 +284,7 @@ def rf_detr_conv_bn(
     """Apply convolution followed by batch normalization and activation.
 
     A convenience layer that combines Conv2D, BatchNormalization (or
-    ChannelLayerNorm), and activation into a single block.
+    RFDETRChannelLayerNorm), and activation into a single block.
 
     Args:
         x: Input tensor of shape ``(B, H, W, C_in)``.
@@ -293,7 +293,7 @@ def rf_detr_conv_bn(
         strides: Convolution stride. Default 1.
         groups: Number of groups for grouped convolution. Default 1.
         activation: Activation function name. Default "relu".
-        use_layer_norm: If True, use ChannelLayerNorm instead of BatchNorm.
+        use_layer_norm: If True, use RFDETRChannelLayerNorm instead of BatchNorm.
             Default False.
         name: Layer name prefix. Default "conv_bn".
 
@@ -313,7 +313,7 @@ def rf_detr_conv_bn(
         name=f"{name}_conv",
     )(x)
     if use_layer_norm:
-        x = ChannelLayerNorm(name=f"{name}_ln")(x)
+        x = RFDETRChannelLayerNorm(name=f"{name}_ln")(x)
     else:
         x = layers.BatchNormalization(
             axis=-1,
@@ -347,7 +347,7 @@ def rf_detr_bottleneck(
         expansion: Hidden channel expansion ratio. The intermediate channels
             are ``out_channels * expansion``. Default 1.0.
         activation: Activation function name. Default "silu".
-        use_layer_norm: If True, use ChannelLayerNorm instead of BatchNorm.
+        use_layer_norm: If True, use RFDETRChannelLayerNorm instead of BatchNorm.
             Default False.
         name: Layer name prefix. Default "bottleneck".
 
@@ -401,7 +401,7 @@ def rf_detr_c2f(
             Default False.
         expansion: Hidden channel expansion ratio for the split. Default 0.5.
         activation: Activation function name. Default "silu".
-        use_layer_norm: If True, use ChannelLayerNorm instead of BatchNorm.
+        use_layer_norm: If True, use RFDETRChannelLayerNorm instead of BatchNorm.
             Default False.
         name: Layer name prefix. Default "c2f".
 
@@ -474,7 +474,7 @@ def rf_detr_simple_projector(x, out_channels, name="projector"):
         use_layer_norm=True,
         name=f"{name}_convx2",
     )
-    x = ChannelLayerNorm(name=f"{name}_ln")(x)
+    x = RFDETRChannelLayerNorm(name=f"{name}_ln")(x)
     return x
 
 
@@ -827,7 +827,7 @@ class RFDETR(keras.Model):
             use_layer_norm=True,
             name="projector_c2f",
         )
-        projected = ChannelLayerNorm(name="projector_ln")(projected)
+        projected = RFDETRChannelLayerNorm(name="projector_ln")(projected)
 
         proj_shape = (input_shape[0] // patch_size, input_shape[1] // patch_size)
         num_feature_levels = 1
@@ -839,13 +839,13 @@ class RFDETR(keras.Model):
         )
         memory = src_flat
 
-        tgt = LearnedEmbedding(
+        tgt = RFDETRLearnedEmbedding(
             num_queries,
             hidden_dim,
             initializer="glorot_uniform",
             name="query_feat_embed",
         )(memory)
-        refpoint_embed = LearnedEmbedding(
+        refpoint_embed = RFDETRLearnedEmbedding(
             num_queries,
             4,
             initializer="zeros",

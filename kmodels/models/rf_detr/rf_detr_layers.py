@@ -5,7 +5,7 @@ from keras import initializers, layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class ChannelLayerNorm(layers.Layer):
+class RFDETRChannelLayerNorm(layers.Layer):
     """Layer normalization applied over the channel dimension.
 
     Unlike standard LayerNormalization which expects (B, ..., C) inputs,
@@ -432,7 +432,7 @@ def _ms_deform_attn_core(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MSDeformableAttention(layers.Layer):
+class RFDETRMSDeformableAttention(layers.Layer):
     """Multi-Scale Deformable Attention module.
 
     Implements deformable attention where each query attends to a small set of
@@ -642,7 +642,7 @@ class RFDETRDecoderLayer(layers.Layer):
         self.norm1 = layers.LayerNormalization(epsilon=1e-5, name="norm1")
         self.dropout1 = layers.Dropout(self.dropout_rate)
 
-        self.cross_attn = MSDeformableAttention(
+        self.cross_attn = RFDETRMSDeformableAttention(
             d_model=self.d_model,
             n_levels=self.num_feature_levels,
             n_heads=self.ca_nhead,
@@ -745,7 +745,7 @@ class RFDETRDecoderLayer(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class LearnedEmbedding(layers.Layer):
+class RFDETRLearnedEmbedding(layers.Layer):
     """Learnable embedding table that broadcasts to the input batch size.
 
     Holds a single weight matrix of shape `(num_embeddings, embedding_dim)` and

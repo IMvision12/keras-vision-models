@@ -205,6 +205,54 @@ class EoMTEmbeddings(layers.Layer):
         embeddings = ops.concatenate([cls_tokens, register_tokens, embeddings], axis=1)
         return embeddings
 
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        grid_size = self.image_size // self.patch_size
+        store["grid_h"] = grid_size
+        store["grid_w"] = grid_size
+
+    def load_own_variables(self, store):
+        try:
+            source_h = int(store["grid_h"][...])
+            source_w = int(store["grid_w"][...])
+        except KeyError:
+            target_vars = self._trainable_variables + self._non_trainable_variables
+            for i, var in enumerate(target_vars):
+                if var is self.position_embeddings:
+                    source_num_patches = store[str(i)].shape[1]
+                    source_h = source_w = int(source_num_patches**0.5)
+                    break
+            else:
+                super().load_own_variables(store)
+                return
+        grid_size = self.image_size // self.patch_size
+
+        if source_h == grid_size and source_w == grid_size:
+            super().load_own_variables(store)
+            return
+
+        target_vars = self._trainable_variables + self._non_trainable_variables
+        pos_idx = None
+        for i, var in enumerate(target_vars):
+            if var is self.position_embeddings:
+                pos_idx = i
+                continue
+            var.assign(store[str(i)])
+
+        pos_embed = store[str(pos_idx)]
+        embed_dim = pos_embed.shape[-1]
+
+        pos_embed = ops.cast(pos_embed, dtype="float32")
+        pos_embed = ops.reshape(pos_embed, (1, source_h, source_w, embed_dim))
+        pos_embed = ops.image.resize(
+            pos_embed,
+            size=(grid_size, grid_size),
+            interpolation="bilinear",
+            antialias=True,
+        )
+        pos_embed = ops.reshape(pos_embed, (1, grid_size * grid_size, embed_dim))
+        self.position_embeddings.assign(pos_embed)
+
     def get_config(self):
         config = super().get_config()
         config.update(

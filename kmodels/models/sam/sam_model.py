@@ -16,18 +16,29 @@ from .sam_layers import (
 
 
 def sam_vision_neck(inputs, output_channels, name="vision_encoder_neck"):
-    """Neck that projects vision encoder output to the mask decoder dimension.
+    """Projection neck from vision encoder to mask decoder dimension.
 
-    Two Conv2D layers (1x1 then 3x3) with LayerNorm between, projecting the
-    input channels to ``output_channels``.
+    Projects the vision encoder output to the mask decoder hidden
+    size using two convolutional layers with layer normalization.
+    The first 1x1 convolution reduces the channel dimension, and
+    the second 3x3 convolution refines spatial features with
+    same-padding.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        inputs: Input tensor from the vision encoder.
-        output_channels: Output channel dimension (mask decoder hidden size).
-        name: Name prefix for the layers.
+        inputs: Input tensor of shape
+            ``(batch_size, H, W, encoder_channels)`` from the
+            vision encoder.
+        output_channels: Integer, output channel dimension
+            matching the mask decoder hidden size.
+        name: String, name prefix for all sub-layers.
+            Defaults to ``"vision_encoder_neck"``.
 
     Returns:
-        Output tensor of shape ``(B, H, W, output_channels)``.
+        Output tensor of shape
+        ``(batch_size, H, W, output_channels)``.
     """
     x = layers.Conv2D(
         output_channels, kernel_size=1, use_bias=False, name=f"{name}_conv1"
@@ -47,18 +58,34 @@ def sam_vision_neck(inputs, output_channels, name="vision_encoder_neck"):
 def sam_feed_forward(
     inputs, hidden_dim, output_dim, num_layers, sigmoid_output=False, name=""
 ):
-    """Multi-layer perceptron used in the mask decoder for iou/mask heads.
+    """Multi-layer perceptron for mask decoder prediction heads.
+
+    Builds a feedforward network with ReLU activations between
+    hidden layers. Used for the IoU prediction head and the
+    output hypernetwork MLPs that generate per-mask dynamic
+    convolution weights.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        inputs: Input tensor.
-        hidden_dim: Hidden dimension.
-        output_dim: Output dimension.
-        num_layers: Total number of linear layers.
-        sigmoid_output: Apply sigmoid to the final output.
-        name: Name prefix for the layers.
+        inputs: Input tensor of shape
+            ``(batch_size, ..., input_dim)``.
+        hidden_dim: Integer, hidden dimension for all
+            intermediate layers.
+        output_dim: Integer, output dimension of the final
+            linear layer.
+        num_layers: Integer, total number of linear layers
+            (including input and output projections).
+        sigmoid_output: Boolean, whether to apply sigmoid
+            activation to the final output.
+            Defaults to ``False``.
+        name: String, name prefix for all sub-layers.
+            Defaults to ``""``.
 
     Returns:
-        Output tensor.
+        Output tensor of shape
+        ``(batch_size, ..., output_dim)``.
     """
     x = layers.Dense(hidden_dim, name=f"{name}_proj_in")(inputs)
     x = layers.Activation("relu", name=f"{name}_relu_0")(x)
@@ -74,20 +101,33 @@ def sam_feed_forward(
 def sam_mask_embedding(
     inputs, hidden_size=256, mask_input_channels=16, layer_norm_eps=1e-6, name=""
 ):
-    """Embeds dense mask prompts through a small CNN.
+    """Embeds dense mask prompts through a small convolutional network.
 
-    Three Conv2D layers downsample the mask by 4x total, mapping a single-channel
-    mask to ``hidden_size`` channels at the image-embedding resolution.
+    Downsamples a single-channel mask input by 4x total through
+    three Conv2D layers with GELU activations and layer
+    normalization, mapping it to ``hidden_size`` channels at the
+    image embedding spatial resolution. Used when the user provides
+    a mask prompt to the SAM model.
+
+    Reference:
+        - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        inputs: Input mask tensor.
-        hidden_size: Output embedding dimension.
-        mask_input_channels: Intermediate channel count after the second conv.
-        layer_norm_eps: Epsilon for layer normalization.
-        name: Name prefix for the layers.
+        inputs: Input mask tensor of shape
+            ``(batch_size, 4*H, 4*W, 1)``.
+        hidden_size: Integer, output embedding dimension.
+            Defaults to ``256``.
+        mask_input_channels: Integer, intermediate channel count
+            after the second convolution.
+            Defaults to ``16``.
+        layer_norm_eps: Float, epsilon for layer normalization.
+            Defaults to ``1e-6``.
+        name: String, name prefix for all sub-layers.
+            Defaults to ``""``.
 
     Returns:
-        Dense embedding tensor.
+        Dense embedding tensor of shape
+        ``(batch_size, H, W, hidden_size)``.
     """
     inner_channels = mask_input_channels // 4
     x = layers.Conv2D(inner_channels, kernel_size=2, strides=2, name=f"{name}_conv1")(
@@ -108,30 +148,56 @@ def sam_mask_embedding(
 class SAM(keras.Model):
     """Segment Anything Model (SAM) for promptable image segmentation.
 
-    SAM consists of three components:
+    SAM treats image segmentation as a promptable task, producing
+    high-quality masks from flexible user inputs. The architecture
+    consists of three components:
 
-    1. **Vision Encoder** – a ViT backbone with windowed attention and
-       relative positional embeddings that produces image embeddings.
-    2. **Prompt Encoder** – encodes sparse prompts (points, boxes) and dense
-       prompts (masks) into embeddings.
-    3. **Mask Decoder** – a lightweight two-way transformer that predicts
-       segmentation masks and IoU scores from image and prompt embeddings.
+    1. **Vision Encoder** – a ViT backbone with windowed attention
+       and decomposed relative positional embeddings that produces
+       dense image embeddings. A projection neck maps the encoder
+       output to the mask decoder hidden dimension.
+    2. **Prompt Encoder** – encodes sparse prompts (points, boxes)
+       via Fourier positional encoding with learned type embeddings,
+       and dense prompts (masks) via a small CNN.
+    3. **Mask Decoder** – a lightweight two-way transformer that
+       jointly attends between prompt tokens and image embeddings,
+       then predicts multiple segmentation masks and corresponding
+       IoU quality scores via hypernetwork MLPs.
 
     Reference:
         - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
-          (Kirillov et al., 2023)
 
     Args:
-        vision_hidden_size: Vision encoder hidden dimension.
-        vision_num_hidden_layers: Number of vision encoder transformer layers.
-        vision_num_attention_heads: Number of attention heads in vision encoder.
-        vision_mlp_dim: MLP hidden dimension in vision encoder.
-        vision_global_attn_indexes: Layer indices that use global attention.
-        num_multimask_outputs: Number of mask outputs (default 3).
-        input_shape: Input image shape ``(H, W, C)``.
-        input_tensor: Optional input tensor.
-        name: Model name.
-        **kwargs: Additional arguments.
+        vision_hidden_size: Integer, hidden dimension of the vision
+            encoder transformer layers. Defaults to ``768``.
+        vision_num_hidden_layers: Integer, number of transformer
+            layers in the vision encoder. Defaults to ``12``.
+        vision_num_attention_heads: Integer, number of attention
+            heads per vision encoder layer. Defaults to ``12``.
+        vision_mlp_dim: Integer, hidden dimension of the MLP in
+            each vision encoder layer. Defaults to ``3072``.
+        vision_global_attn_indexes: Tuple of integers, layer
+            indices that use global (non-windowed) attention.
+            Defaults to ``(2, 5, 8, 11)``.
+        num_multimask_outputs: Integer, number of mask outputs
+            (excluding the single-mask token).
+            Defaults to ``3``.
+        input_shape: Optional tuple of integers specifying the
+            input image shape ``(H, W, C)``. Defaults to
+            ``(1024, 1024, 3)``.
+        input_tensor: Optional Keras tensor to use as the model
+            input.
+        name: String, the name of the model.
+            Defaults to ``"SAM"``.
+        **kwargs: Additional keyword arguments passed to the
+            ``keras.Model`` class.
+
+    Returns:
+        A ``keras.Model`` instance with dict outputs:
+        - ``"pred_masks"``: ``(batch_size, num_prompts,
+          num_mask_tokens, 4*H, 4*W)``
+        - ``"iou_scores"``: ``(batch_size, num_prompts,
+          num_mask_tokens)``
 
     Example:
         ```python
@@ -329,17 +395,29 @@ def _create_sam_model(
     weights=None,
     **kwargs,
 ):
-    """Creates a SAM model from the given variant configuration.
+    """Factory function for creating SAM model variants.
+
+    Looks up the architecture configuration for the given variant
+    name, instantiates a ``SAM`` model, and optionally loads
+    pretrained weights from the configured URL or a local file
+    path.
 
     Args:
-        variant: Model variant name (e.g., ``"SAM_ViT_Huge"``).
-        input_shape: Input image shape ``(H, W, C)``.
-        input_tensor: Optional input tensor.
-        weights: Pretrained weights identifier or file path.
-        **kwargs: Additional arguments passed to the ``SAM`` constructor.
+        variant: String, model variant name (e.g.,
+            ``"SAM_ViT_Huge"``).
+        input_shape: Optional tuple of integers specifying the
+            input shape ``(H, W, C)``. Defaults to
+            ``(1024, 1024, 3)``.
+        input_tensor: Optional Keras tensor to use as the model
+            input.
+        weights: String, one of ``None`` (random initialization),
+            a weight identifier from the config (e.g.,
+            ``"sa1b"``), or a path to a weights file.
+        **kwargs: Additional keyword arguments passed to the
+            ``SAM`` constructor.
 
     Returns:
-        Configured ``SAM`` model instance.
+        A configured ``SAM`` model instance.
     """
     config = SAM_MODEL_CONFIG[variant]
 

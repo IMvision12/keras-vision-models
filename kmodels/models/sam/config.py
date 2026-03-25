@@ -25,17 +25,17 @@ SAM_MODEL_CONFIG = {
 SAM_WEIGHTS_CONFIG = {
     "SAM_ViT_Base": {
         "sa1b": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/SAM/sam_vit_base.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam/sam_vit_base.weights.h5",
         },
     },
     "SAM_ViT_Large": {
         "sa1b": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/SAM/sam_vit_large.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam/sam_vit_large.weights.h5",
         },
     },
     "SAM_ViT_Huge": {
         "sa1b": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/SAM/sam_vit_huge.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam/sam_vit_huge.weights.json",
         },
     },
 }

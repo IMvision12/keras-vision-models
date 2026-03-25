@@ -55,6 +55,27 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
     def call(self, hidden_states):
         return hidden_states + self.pos_embed
 
+    def save_own_variables(self, store):
+        super().save_own_variables(store)
+        store["image_embedding_size"] = self.image_embedding_size
+
+    def load_own_variables(self, store):
+        source_size = int(store["image_embedding_size"][...])
+
+        if source_size == self.image_embedding_size:
+            self.pos_embed.assign(store["0"])
+            return
+
+        pos_embed = store["0"]
+        pos_embed = ops.cast(pos_embed, dtype="float32")
+        pos_embed = ops.image.resize(
+            pos_embed,
+            size=(self.image_embedding_size, self.image_embedding_size),
+            interpolation="bilinear",
+            antialias=True,
+        )
+        self.pos_embed.assign(pos_embed)
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -782,6 +803,55 @@ class SAMVisionAttention(layers.Layer):
         attn_output = ops.reshape(attn_output, (batch_size, height, width, -1))
         attn_output = self.proj(attn_output)
         return attn_output
+
+    def load_own_variables(self, store):
+        if not self.use_rel_pos or self.input_size is None:
+            super().load_own_variables(store)
+            return
+
+        target_vars = self._trainable_variables + self._non_trainable_variables
+        rel_h_idx = None
+        rel_w_idx = None
+        for i, var in enumerate(target_vars):
+            if var is self.rel_pos_h:
+                rel_h_idx = i
+            elif var is self.rel_pos_w:
+                rel_w_idx = i
+
+        source_h = (store[str(rel_h_idx)].shape[0] + 1) // 2
+        source_w = (store[str(rel_w_idx)].shape[0] + 1) // 2
+
+        if source_h == self.input_size[0] and source_w == self.input_size[1]:
+            super().load_own_variables(store)
+            return
+
+        for i, var in enumerate(target_vars):
+            if i in (rel_h_idx, rel_w_idx):
+                continue
+            var.assign(store[str(i)])
+
+        for rel_idx, target_size in [
+            (rel_h_idx, 2 * self.input_size[0] - 1),
+            (rel_w_idx, 2 * self.input_size[1] - 1),
+        ]:
+            rel_pos = store[str(rel_idx)]
+            rel_pos = ops.cast(rel_pos, dtype="float32")
+            source_len = rel_pos.shape[0]
+            head_dim = rel_pos.shape[1]
+            rel_pos = ops.reshape(rel_pos, (1, source_len, head_dim))
+            rel_pos = ops.transpose(rel_pos, (0, 2, 1))
+            rel_pos = ops.expand_dims(rel_pos, axis=-1)
+            rel_pos = ops.image.resize(
+                rel_pos,
+                size=(head_dim, target_size),
+                interpolation="bilinear",
+                antialias=True,
+            )
+            rel_pos = ops.squeeze(rel_pos, axis=-1)
+            rel_pos = ops.transpose(rel_pos, (0, 2, 1))
+            rel_pos = ops.reshape(rel_pos, (target_size, head_dim))
+            target_var = self.rel_pos_h if rel_idx == rel_h_idx else self.rel_pos_w
+            target_var.assign(rel_pos)
 
     def get_config(self):
         config = super().get_config()

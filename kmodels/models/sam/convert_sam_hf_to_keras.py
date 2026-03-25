@@ -306,10 +306,13 @@ for model_config in model_configs:
     assert iou_diff < 1e-2, f"IoU diff too large: {iou_diff}"
     print("Model equivalence verified!")
 
-    model_filename = (
-        model_config["hf_model_name"].split("/")[-1].replace("-", "_") + ".weights.h5"
-    )
-    keras_model.save_weights(model_filename)
+    model_base = model_config["hf_model_name"].split("/")[-1].replace("-", "_")
+    if "huge" in model_config["hf_model_name"]:
+        model_filename = model_base + ".weights.json"
+        keras_model.save_weights(model_filename, max_shard_size=1.5)
+    else:
+        model_filename = model_base + ".weights.h5"
+        keras_model.save_weights(model_filename)
     print(f"Model saved as {model_filename}")
 
     del keras_model, hf_model, hf_state_dict

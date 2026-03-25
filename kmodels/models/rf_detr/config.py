@@ -32,27 +32,27 @@ RF_DETR_MODEL_CONFIG = {
 RF_DETR_WEIGHTS_CONFIG = {
     "RFDETRNano": {
         "coco": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_nano_coco.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_nano_coco.weights.h5",
         },
     },
     "RFDETRSmall": {
         "coco": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_small_coco.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_small_coco.weights.h5",
         },
     },
     "RFDETRMedium": {
         "coco": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_medium_coco.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_medium_coco.weights.h5",
         },
     },
     "RFDETRBase": {
         "coco": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_base_coco.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_base_coco.weights.h5",
         },
     },
     "RFDETRLarge": {
         "coco": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/rf-detr/rf_detr_large_coco.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/RF-DeTR/rf_detr_large_coco.weights.h5",
         },
     },
 }

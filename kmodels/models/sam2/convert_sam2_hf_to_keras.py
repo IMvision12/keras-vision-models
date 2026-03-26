@@ -51,7 +51,9 @@ for model_config in model_configs:
     print(f"{'=' * 60}")
 
     print(f"Loading HF model: {model_config['hf_model_name']}")
-    hf_model = Sam2Model.from_pretrained(model_config["hf_model_name"]).eval()
+    hf_model = Sam2Model.from_pretrained(
+        model_config["hf_model_name"], attn_implementation="eager"
+    ).eval()
     hf_state_dict = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 
     print("Creating Keras model...")
@@ -104,6 +106,12 @@ for model_config in model_configs:
         hf_key = f"vision_encoder.neck.convs.{i}.weight"
         transfer_weights("conv_kernel", neck_conv.kernel, hf_state_dict[hf_key])
         neck_conv.bias.assign(hf_state_dict[f"vision_encoder.neck.convs.{i}.bias"])
+
+    # ---- No-memory embedding ----
+    print("Transferring no-memory embedding...")
+    no_mem_layer = keras_model.get_layer("no_memory_embedding")
+    hf_no_mem = hf_state_dict["no_memory_embedding"]  # shape (1, 1, C)
+    no_mem_layer.embedding.assign(hf_no_mem.reshape(1, 1, 1, -1))
 
     # ---- Prompt encoder ----
     print("Transferring prompt encoder...")
@@ -369,8 +377,8 @@ for model_config in model_configs:
     print(f"Max mask diff: {mask_diff:.6f}")
     print(f"Max IoU diff:  {iou_diff:.6f}")
 
-    assert mask_diff < 5.0, f"Mask diff too large: {mask_diff}"
-    assert iou_diff < 0.1, f"IoU diff too large: {iou_diff}"
+    assert mask_diff < 0.5, f"Mask diff too large: {mask_diff}"
+    assert iou_diff < 0.05, f"IoU diff too large: {iou_diff}"
     print("Model equivalence verified!")
 
     # ---- Save weights ----

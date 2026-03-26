@@ -446,7 +446,7 @@ class SAM2MultiScaleBlock(layers.Layer):
 
         ln_out = self.layer_norm2(hidden_states)
         mlp_out = self.mlp_lin1(ln_out)
-        mlp_out = ops.nn.gelu(mlp_out)
+        mlp_out = ops.nn.gelu(mlp_out, approximate=False)
         mlp_out = self.mlp_lin2(mlp_out)
         hidden_states = hidden_states + mlp_out
 
@@ -1282,8 +1282,10 @@ class SAM2MaskDecoderLayer(layers.Layer):
         )
 
         upscaled = self.upscale_conv1(keys_spatial) + self.conv_s1(feat_s1)
-        upscaled = ops.nn.gelu(self.upscale_layer_norm(upscaled))
-        upscaled = ops.nn.gelu(self.upscale_conv2(upscaled) + self.conv_s0(feat_s0))
+        upscaled = ops.nn.gelu(self.upscale_layer_norm(upscaled), approximate=False)
+        upscaled = ops.nn.gelu(
+            self.upscale_conv2(upscaled) + self.conv_s0(feat_s0), approximate=False
+        )
 
         up_shape = ops.shape(upscaled)
         up_h = up_shape[1]

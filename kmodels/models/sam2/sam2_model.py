@@ -28,6 +28,42 @@ from .sam2_layers import (
 )
 
 
+@keras.saving.register_keras_serializable(package="kmodels")
+class SAM2NoMemoryEmbedding(layers.Layer):
+    """Learnable bias added to image embeddings.
+
+    In the SAM2 video model this embedding indicates the absence of
+    memory from previous frames. For image-only inference the
+    parameter is still present and must be transferred during weight
+    conversion.
+
+    Args:
+        hidden_size: Integer, channel dimension of the image
+            embeddings. Defaults to ``256``.
+        **kwargs: Additional keyword arguments.
+    """
+
+    def __init__(self, hidden_size=256, **kwargs):
+        super().__init__(**kwargs)
+        self.hidden_size = hidden_size
+
+    def build(self, input_shape):
+        self.embedding = self.add_weight(
+            name="embedding",
+            shape=(1, 1, 1, self.hidden_size),
+            initializer="zeros",
+        )
+        self.built = True
+
+    def call(self, image_embeddings):
+        return image_embeddings + self.embedding
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"hidden_size": self.hidden_size})
+        return config
+
+
 def sam2_mask_embedding(
     inputs, hidden_size=256, mask_input_channels=16, layer_norm_eps=1e-6, name=""
 ):
@@ -332,6 +368,14 @@ class SAM2(keras.Model):
         # conv_s0 and conv_s1 are inside the mask decoder layer
         # Image embeddings: lowest-res FPN output, NCHW -> NHWC
         image_embeddings = ops.transpose(fpn_hidden_states_list[-1], (0, 2, 3, 1))
+
+        # No-memory embedding: bias added to image embeddings
+        # (matches the SAM2 video model's no_memory_embedding parameter)
+        no_mem_embed_layer = SAM2NoMemoryEmbedding(
+            hidden_size=self.FPN_HIDDEN_SIZE,
+            name="no_memory_embedding",
+        )
+        image_embeddings = no_mem_embed_layer(image_embeddings)
 
         # High-res features for skip connections (kept NCHW,
         # mask decoder transposes internally)

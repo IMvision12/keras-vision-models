@@ -50,7 +50,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools
           pip install -U keras>=3.11.0 pytest pytest-cov
-          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0 pillow
+          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0 pillow sentencepiece
           pip install -e .
       - name: Run layer tests
         run: pytest tests/layers/ -v --durations=10 --cov=kmodels --cov-append

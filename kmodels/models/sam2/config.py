@@ -40,22 +40,22 @@ SAM2_MODEL_CONFIG = {
 
 SAM2_WEIGHTS_CONFIG = {
     "Sam2Tiny": {
-        "sa1b": {
+        "sav": {
             "url": "",
         },
     },
     "Sam2Small": {
-        "sa1b": {
+        "sav": {
             "url": "",
         },
     },
     "Sam2BasePlus": {
-        "sa1b": {
+        "sav": {
             "url": "",
         },
     },
     "Sam2Large": {
-        "sa1b": {
+        "sav": {
             "url": "",
         },
     },

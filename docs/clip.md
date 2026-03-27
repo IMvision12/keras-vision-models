@@ -22,6 +22,13 @@ CLIP (Contrastive Language-Image Pre-training) is a neural network trained on a 
 | ClipVitG14 | | | ✅ (s12B_b42K_224) |
 | ClipVitBigG14 | | | ✅ (39B_b160k_224) |
 
+## Features and Capabilities
+
+- **Zero-Shot Classification:** Capable of classifying images into arbitrary categories without targeted finetuning.
+- **Cross-Modal Retrieval:** Aligned text and image embeddings space enables semantic image search via natural language queries.
+- **Robust Representations:** Extracted vision and text embeddings provide powerful foundations for multiple downstream tasks.
+- **Flexible Scalability:** Offers various Vision Transformer (ViT) sizes scaling from Base to Large.
+
 ## Basic Usage
 
 ```python

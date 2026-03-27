@@ -6,6 +6,13 @@ SAM (Segment Anything Model) is a promptable segmentation model that can generat
 
 **Reference:** [Segment Anything](https://arxiv.org/abs/2304.02643) (Kirillov et al., 2023)
 
+## Architecture Highlights
+
+- **Promptable Object Segmentation:** Naturally accepts ambiguous or explicit prompts in the form of interactive points, bounding boxes, or dense masks.
+- **Zero-Shot Generalization:** Delivers high-quality masks out-of-the-box on novel domains and unseen subjects without retraining.
+- **Three-Part Pipeline:** Features a robust ViT Image Encoder, a flexible sparse/dense Prompt Encoder, and a lightweight two-way Mask Decoder for lightning-fast prompting.
+- **Ambiguity Awareness:** Generates multiple valid segmentation mask hypotheses when a prompt is underspecified (e.g. part vs whole).
+
 ## Available Models
 
 | Model | Parameters | Description | Weights |

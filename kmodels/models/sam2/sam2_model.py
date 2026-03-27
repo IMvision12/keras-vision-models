@@ -658,20 +658,6 @@ def Sam2Tiny(
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Tiny backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
         "Sam2Tiny",
         input_shape=input_shape,
@@ -688,20 +674,6 @@ def Sam2Small(
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Small backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
         "Sam2Small",
         input_shape=input_shape,
@@ -718,20 +690,6 @@ def Sam2BasePlus(
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Base-Plus backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
         "Sam2BasePlus",
         input_shape=input_shape,
@@ -748,20 +706,6 @@ def Sam2Large(
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Large backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
         "Sam2Large",
         input_shape=input_shape,

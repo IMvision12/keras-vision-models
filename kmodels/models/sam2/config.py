@@ -41,22 +41,22 @@ SAM2_MODEL_CONFIG = {
 SAM2_WEIGHTS_CONFIG = {
     "Sam2Tiny": {
         "sav": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_tiny.weights.h5",
         },
     },
     "Sam2Small": {
         "sav": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_small.weights.h5",
         },
     },
     "Sam2BasePlus": {
         "sav": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_base_plus.weights.h5",
         },
     },
     "Sam2Large": {
         "sav": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_large.weights.h5",
         },
     },
 }

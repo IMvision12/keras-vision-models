@@ -778,9 +778,13 @@ class SAMVisionAttention(layers.Layer):
         width = ops.shape(hidden_states)[2]
 
         qkv = self.qkv(hidden_states)
-        qkv = ops.reshape(qkv, (batch_size, height * width, 3, self.num_heads, -1))
+        qkv = ops.reshape(
+            qkv, (batch_size, height * width, 3, self.num_heads, self.head_dim)
+        )
         qkv = ops.transpose(qkv, (2, 0, 3, 1, 4))
-        qkv = ops.reshape(qkv, (3, batch_size * self.num_heads, height * width, -1))
+        qkv = ops.reshape(
+            qkv, (3, batch_size * self.num_heads, height * width, self.head_dim)
+        )
         query, key, value = qkv[0], qkv[1], qkv[2]
 
         attn_weights = ops.matmul(query * self.scale, ops.transpose(key, (0, 2, 1)))
@@ -797,10 +801,12 @@ class SAMVisionAttention(layers.Layer):
         attn_weights = ops.softmax(attn_weights, axis=-1)
         attn_output = ops.matmul(attn_weights, value)
         attn_output = ops.reshape(
-            attn_output, (batch_size, self.num_heads, height, width, -1)
+            attn_output, (batch_size, self.num_heads, height, width, self.head_dim)
         )
         attn_output = ops.transpose(attn_output, (0, 2, 3, 1, 4))
-        attn_output = ops.reshape(attn_output, (batch_size, height, width, -1))
+        attn_output = ops.reshape(
+            attn_output, (batch_size, height, width, self.hidden_size)
+        )
         attn_output = self.proj(attn_output)
         return attn_output
 

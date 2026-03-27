@@ -4,6 +4,22 @@
 
 DETR (DEtection TRansformer) is an end-to-end object detection model that combines a convolutional backbone with a Transformer encoder-decoder architecture. It eliminates the need for hand-designed components like non-maximum suppression and anchor generation by using a set-based global loss via bipartite matching.
 
+## Architecture Highlights
+
+- **Bipartite Matching Loss:** Frames object detection as a direct set prediction problem utilizing Hungarian matching for optimal assignments.
+- **Transformers Encoder-Decoder:** Replaces standard CNN detection heads with a robust transformer architecture, preserving global image context and relationships between objects in the scene.
+- **ResNet Backbones:** Uses standard deep residual networks (ResNet-50/ResNet-101) to extract initial 2D feature representations.
+- **Simplified Pipeline:** Streamlines standard complex detection pipelines into a straightforward encode-decode translation framework.
+
+## Available Models
+
+| Model | Description | Weights |
+|-------|-------------|---------|
+| `DETRResNet50` | DETR with a ResNet-50 backbone | `detr_resnet50_coco.weights.h5` |
+| `DETRResNet101` | DETR with a ResNet-101 backbone | `detr_resnet_101_coco.weights.h5` |
+
+*Note: The `detr_resnet50_coco` weights are pre-trained on the COCO 2017 object detection dataset.*
+
 ## Basic Usage
 
 ```python

@@ -61,7 +61,6 @@ for model_config in model_configs:
         input_shape=model_config["input_shape"], weights=None
     )
 
-    # ---- Patch embedding ----
     print("Transferring patch embedding...")
     patch_conv = keras_model.get_layer("backbone_patch_embed_projection")
     transfer_weights(
@@ -73,16 +72,13 @@ for model_config in model_configs:
         hf_state_dict["vision_encoder.backbone.patch_embed.projection.bias"]
     )
 
-    # ---- Positional embedding ----
     print("Transferring positional embedding...")
     pos_layer = keras_model.get_layer("backbone_pos_embed")
-    # HF stores pos_embed as NCHW (1, C, H, W), Keras stores NHWC (1, H, W, C)
     pos_embed_hf = hf_state_dict["vision_encoder.backbone.pos_embed"]
     pos_layer.pos_embed.assign(np.transpose(pos_embed_hf, (0, 2, 3, 1)))
     pos_embed_window_hf = hf_state_dict["vision_encoder.backbone.pos_embed_window"]
     pos_layer.pos_embed_window.assign(np.transpose(pos_embed_window_hf, (0, 2, 3, 1)))
 
-    # ---- Backbone blocks ----
     total_blocks = sum(keras_model.blocks_per_stage)
     for i in tqdm(range(total_blocks), desc="Transferring backbone blocks"):
         layer = keras_model.get_layer(f"backbone_blocks_{i}")
@@ -96,33 +92,25 @@ for model_config in model_configs:
             for w, path in skipped:
                 print(f"  WARNING: Skipped {path}")
 
-    # ---- FPN Neck ----
     print("Transferring FPN neck...")
     n_fpn = len(keras_model.backbone_channel_list)
     for i in range(n_fpn):
         neck_conv = keras_model.get_layer(f"neck_convs_{i}")
-        # FPN convs use channels_first data_format, so kernel is (1, 1, in, out)
-        # HF stores as (out, in, 1, 1)
         hf_key = f"vision_encoder.neck.convs.{i}.weight"
         transfer_weights("conv_kernel", neck_conv.kernel, hf_state_dict[hf_key])
         neck_conv.bias.assign(hf_state_dict[f"vision_encoder.neck.convs.{i}.bias"])
 
-    # ---- No-memory embedding ----
     print("Transferring no-memory embedding...")
     no_mem_layer = keras_model.get_layer("no_memory_embedding")
-    hf_no_mem = hf_state_dict["no_memory_embedding"]  # shape (1, 1, C)
+    hf_no_mem = hf_state_dict["no_memory_embedding"]
     no_mem_layer.embedding.assign(hf_no_mem.reshape(1, 1, 1, -1))
 
-    # ---- Prompt encoder ----
     print("Transferring prompt encoder...")
     prompt_enc = keras_model.get_layer("prompt_encoder")
-
-    # Shared image embedding (sublayer of prompt_encoder)
     prompt_enc.shared_embedding.positional_embedding.assign(
         hf_state_dict["shared_image_embedding.positional_embedding"]
     )
 
-    # HF stores point_embed as single (4, 256) tensor
     hf_point_embed = hf_state_dict["prompt_encoder.point_embed.weight"]
     for i in range(prompt_enc.num_point_embeddings):
         prompt_enc.point_embeddings[i].assign(hf_point_embed[i : i + 1])
@@ -134,7 +122,6 @@ for model_config in model_configs:
         hf_state_dict["prompt_encoder.no_mask_embed.weight"]
     )
 
-    # ---- Mask decoder ----
     print("Transferring mask decoder...")
     mask_dec = keras_model.get_layer("mask_decoder")
 
@@ -144,7 +131,6 @@ for model_config in model_configs:
     mask_dec.iou_token.assign(hf_state_dict["mask_decoder.iou_token.weight"])
     mask_dec.mask_tokens.assign(hf_state_dict["mask_decoder.mask_tokens.weight"])
 
-    # Two-way transformer layers
     for i in range(mask_dec.num_hidden_layers):
         hf_prefix = f"mask_decoder.transformer.layers.{i}"
 
@@ -207,7 +193,6 @@ for model_config in model_configs:
         ln4.gamma.assign(hf_state_dict[f"{hf_prefix}.layer_norm4.weight"])
         ln4.beta.assign(hf_state_dict[f"{hf_prefix}.layer_norm4.bias"])
 
-    # Final attention
     hf_final_attn = "mask_decoder.transformer.final_attn_token_to_image"
     for proj_name, hf_proj_name in [
         ("q_proj", "q_proj"),
@@ -231,7 +216,6 @@ for model_config in model_configs:
         hf_state_dict["mask_decoder.transformer.layer_norm_final_attn.bias"]
     )
 
-    # Upscale convolutions
     transfer_weights(
         "conv_kernel",
         mask_dec.upscale_conv1.kernel,
@@ -253,7 +237,6 @@ for model_config in model_configs:
     )
     mask_dec.upscale_conv2.bias.assign(hf_state_dict["mask_decoder.upscale_conv2.bias"])
 
-    # Skip connection convolutions
     transfer_weights(
         "conv_kernel",
         mask_dec.conv_s0.kernel,
@@ -268,7 +251,6 @@ for model_config in model_configs:
     )
     mask_dec.conv_s1.bias.assign(hf_state_dict["mask_decoder.conv_s1.bias"])
 
-    # Hypernetwork MLPs
     num_mask_tokens = mask_dec.num_mask_tokens
     for i in range(num_mask_tokens):
         hf_prefix = f"mask_decoder.output_hypernetworks_mlps.{i}"
@@ -297,7 +279,6 @@ for model_config in model_configs:
         )
         proj_out.bias.assign(hf_state_dict[f"{hf_prefix}.proj_out.bias"])
 
-    # IoU prediction head
     hf_prefix = "mask_decoder.iou_prediction_head"
     transfer_weights(
         "kernel",
@@ -319,7 +300,6 @@ for model_config in model_configs:
     )
     mask_dec.iou_head_proj_out.bias.assign(hf_state_dict[f"{hf_prefix}.proj_out.bias"])
 
-    # Object score prediction head
     hf_prefix = "mask_decoder.pred_obj_score_head"
     transfer_weights(
         "kernel",
@@ -343,7 +323,6 @@ for model_config in model_configs:
 
     print("Weight transfer complete!")
 
-    # ---- Verification ----
     print("Verifying model equivalence...")
     np.random.seed(42)
     test_image = np.random.rand(1, 1024, 1024, 3).astype(np.float32)
@@ -381,14 +360,9 @@ for model_config in model_configs:
     assert iou_diff < 0.05, f"IoU diff too large: {iou_diff}"
     print("Model equivalence verified!")
 
-    # ---- Save weights ----
     model_base = model_config["hf_model_name"].split("/")[-1].replace("-", "_")
-    if "large" in model_config["hf_model_name"]:
-        model_filename = model_base + ".weights.json"
-        keras_model.save_weights(model_filename, max_shard_size=2.0)
-    else:
-        model_filename = model_base + ".weights.h5"
-        keras_model.save_weights(model_filename)
+    model_filename = model_base + ".weights.h5"
+    keras_model.save_weights(model_filename)
     print(f"Model saved as {model_filename}")
 
     del keras_model, hf_model, hf_state_dict

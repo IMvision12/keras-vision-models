@@ -18,6 +18,7 @@ from kmodels.utils import load_weights_from_config
 
 from .config import SAM2_MODEL_CONFIG, SAM2_WEIGHTS_CONFIG
 from .sam2_layers import (
+    SAM2HieraPositionEmbedding,
     SAM2ImagePositionalEmbeddings,
     SAM2MaskDecoderLayer,
     SAM2MultiScaleBlock,
@@ -462,81 +463,6 @@ class SAM2(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM2HieraPositionEmbedding(layers.Layer):
-    """Windowed positional embedding for the Hiera backbone.
-
-    Combines a global positional embedding (bicubic-interpolated to
-    match the input spatial size) with a tiled window-level
-    positional embedding.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-        - `Hiera <https://arxiv.org/abs/2306.00989>`_
-
-    Args:
-        hidden_size: Integer, channel dimension.
-        spatial_size: Tuple ``(H, W)`` of the feature map.
-        window_size: Integer, first-stage window size for the tiled
-            window embedding.
-        bg_size: Tuple ``(H, W)`` background size for the global
-            embedding. Defaults to ``(7, 7)``.
-        **kwargs: Additional keyword arguments.
-    """
-
-    def __init__(
-        self, hidden_size, spatial_size, window_size, bg_size=(7, 7), **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.spatial_size = tuple(spatial_size)
-        self.window_size = window_size
-        self.bg_size = tuple(bg_size)
-
-    def build(self, input_shape):
-        self.pos_embed = self.add_weight(
-            name="pos_embed",
-            shape=(1, self.bg_size[0], self.bg_size[1], self.hidden_size),
-            initializer="zeros",
-        )
-        self.pos_embed_window = self.add_weight(
-            name="pos_embed_window",
-            shape=(1, self.window_size, self.window_size, self.hidden_size),
-            initializer="zeros",
-        )
-        self.built = True
-
-    def call(self, hidden_states):
-        h = ops.shape(hidden_states)[1]
-        w = ops.shape(hidden_states)[2]
-
-        pos = ops.image.resize(
-            self.pos_embed,
-            size=(h, w),
-            interpolation="bicubic",
-            antialias=False,
-        )
-
-        tile_h = h // self.window_size
-        tile_w = w // self.window_size
-        window_pos = ops.tile(self.pos_embed_window, (1, tile_h, tile_w, 1))
-        pos = pos + window_pos
-
-        return hidden_states + pos
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "spatial_size": self.spatial_size,
-                "window_size": self.window_size,
-                "bg_size": self.bg_size,
-            }
-        )
-        return config
 
 
 def _create_sam2_model(

@@ -24,7 +24,6 @@ from .sam2_layers import (
     SAM2PositionalEmbedding,
     SAM2PromptEncoderLayer,
     SAM2SinePositionEmbedding,
-    SAM2TwoWayAttention,
 )
 
 
@@ -168,7 +167,7 @@ class SAM2(keras.Model):
 
     Example:
         ```python
-        model = kmodels.models.sam2.SAM2_Hiera_Tiny(
+        model = kmodels.models.sam2.Sam2Tiny(
             input_shape=(1024, 1024, 3),
         )
         ```
@@ -590,7 +589,7 @@ def _create_sam2_model(
 
     Args:
         variant: String, model variant name (e.g.,
-            ``"SAM2_Hiera_Tiny"``).
+            ``"Sam2Tiny"``).
         input_shape: Optional tuple of integers specifying the
             input shape ``(H, W, C)``.
         input_tensor: Optional Keras tensor to use as the model
@@ -653,7 +652,7 @@ def _create_sam2_model(
 
 
 @register_model
-def SAM2_Hiera_Tiny(
+def Sam2Tiny(
     input_shape=None,
     input_tensor=None,
     weights=None,
@@ -674,7 +673,7 @@ def SAM2_Hiera_Tiny(
         A ``SAM2`` model instance.
     """
     return _create_sam2_model(
-        "SAM2_Hiera_Tiny",
+        "Sam2Tiny",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -683,7 +682,7 @@ def SAM2_Hiera_Tiny(
 
 
 @register_model
-def SAM2_Hiera_Small(
+def Sam2Small(
     input_shape=None,
     input_tensor=None,
     weights=None,
@@ -704,7 +703,7 @@ def SAM2_Hiera_Small(
         A ``SAM2`` model instance.
     """
     return _create_sam2_model(
-        "SAM2_Hiera_Small",
+        "Sam2Small",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -713,7 +712,7 @@ def SAM2_Hiera_Small(
 
 
 @register_model
-def SAM2_Hiera_Base_Plus(
+def Sam2BasePlus(
     input_shape=None,
     input_tensor=None,
     weights=None,
@@ -734,7 +733,7 @@ def SAM2_Hiera_Base_Plus(
         A ``SAM2`` model instance.
     """
     return _create_sam2_model(
-        "SAM2_Hiera_Base_Plus",
+        "Sam2BasePlus",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -743,7 +742,7 @@ def SAM2_Hiera_Base_Plus(
 
 
 @register_model
-def SAM2_Hiera_Large(
+def Sam2Large(
     input_shape=None,
     input_tensor=None,
     weights=None,
@@ -764,7 +763,7 @@ def SAM2_Hiera_Large(
         A ``SAM2`` model instance.
     """
     return _create_sam2_model(
-        "SAM2_Hiera_Large",
+        "Sam2Large",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,

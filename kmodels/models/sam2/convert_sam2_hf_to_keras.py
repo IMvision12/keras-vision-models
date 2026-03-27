@@ -4,10 +4,10 @@ from tqdm import tqdm
 from transformers import Sam2Model
 
 from kmodels.models.sam2.sam2_model import (
-    SAM2_Hiera_Base_Plus,
-    SAM2_Hiera_Large,
-    SAM2_Hiera_Small,
-    SAM2_Hiera_Tiny,
+    Sam2BasePlus,
+    Sam2Large,
+    Sam2Small,
+    Sam2Tiny,
 )
 from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
@@ -24,22 +24,22 @@ backbone_name_mapping = {
 
 model_configs = [
     {
-        "keras_model_cls": SAM2_Hiera_Tiny,
+        "keras_model_cls": Sam2Tiny,
         "hf_model_name": "facebook/sam2-hiera-tiny",
         "input_shape": (1024, 1024, 3),
     },
     {
-        "keras_model_cls": SAM2_Hiera_Small,
+        "keras_model_cls": Sam2Small,
         "hf_model_name": "facebook/sam2-hiera-small",
         "input_shape": (1024, 1024, 3),
     },
     {
-        "keras_model_cls": SAM2_Hiera_Base_Plus,
+        "keras_model_cls": Sam2BasePlus,
         "hf_model_name": "facebook/sam2-hiera-base-plus",
         "input_shape": (1024, 1024, 3),
     },
     {
-        "keras_model_cls": SAM2_Hiera_Large,
+        "keras_model_cls": Sam2Large,
         "hf_model_name": "facebook/sam2-hiera-large",
         "input_shape": (1024, 1024, 3),
     },

@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from keras import ops
 
@@ -7,11 +9,28 @@ from tests.base.model_test_registry import (
     import_model_class,
 )
 
+BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
+
+
+def _skip_if_incompatible(model_name):
+    """Skip models with inherent backend/hardware incompatibilities."""
+    if BACKEND == "tensorflow" and model_name == "Sam2Tiny":
+        # Check if GPU is available (TF supports NCHW on GPU, not CPU)
+        try:
+            import tensorflow as tf
+
+            if not tf.config.list_physical_devices("GPU"):
+                pytest.skip(
+                    f"{model_name} requires GPU on TF (uses NCHW Conv2D internally)"
+                )
+        except ImportError:
+            pass
 
 
 @pytest.mark.parametrize("model_name", MODEL_IDS)
 def test_model_forward_pass(model_name):
+    _skip_if_incompatible(model_name)
     config = MODEL_TEST_CONFIGS[model_name]
     model_cls = import_model_class(config)
     model = model_cls(**config["init_kwargs"])
@@ -41,6 +60,7 @@ def test_model_forward_pass(model_name):
 
 @pytest.mark.parametrize("model_name", MODEL_IDS)
 def test_model_no_nans(model_name):
+    _skip_if_incompatible(model_name)
     config = MODEL_TEST_CONFIGS[model_name]
     model_cls = import_model_class(config)
     model = model_cls(**config["init_kwargs"])

@@ -18,13 +18,13 @@ from kmodels.utils import load_weights_from_config
 
 from .config import SAM2_MODEL_CONFIG, SAM2_WEIGHTS_CONFIG
 from .sam2_layers import (
+    SAM2HieraPositionEmbedding,
     SAM2ImagePositionalEmbeddings,
     SAM2MaskDecoderLayer,
     SAM2MultiScaleBlock,
     SAM2PositionalEmbedding,
     SAM2PromptEncoderLayer,
     SAM2SinePositionEmbedding,
-    SAM2TwoWayAttention,
 )
 
 
@@ -35,12 +35,23 @@ class SAM2NoMemoryEmbedding(layers.Layer):
     In the SAM2 video model this embedding indicates the absence of
     memory from previous frames. For image-only inference the
     parameter is still present and must be transferred during weight
-    conversion.
+    conversion. The embedding is a trainable weight that is broadcast
+    and added to the image embeddings.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
 
     Args:
         hidden_size: Integer, channel dimension of the image
             embeddings. Defaults to ``256``.
-        **kwargs: Additional keyword arguments.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, H, W, hidden_size)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H, W, hidden_size)``.
     """
 
     def __init__(self, hidden_size=256, **kwargs):
@@ -120,14 +131,15 @@ class SAM2(keras.Model):
     1. **Hiera Backbone** – a hierarchical ViT with multi-scale
        blocks, windowed attention, query pooling at stage transitions,
        and windowed positional embeddings. An FPN neck produces
-       multi-scale feature maps.
+       multi-scale feature maps with sine-cosine positional encodings.
     2. **Prompt Encoder** – encodes sparse prompts (points, boxes)
        via Fourier positional encoding with learned type embeddings,
        and dense prompts (masks) via a small CNN.
     3. **Mask Decoder** – a lightweight two-way transformer that
        jointly attends between prompt tokens and image embeddings,
        then predicts multiple segmentation masks, IoU quality scores,
-       and object-presence scores via hypernetwork MLPs.
+       and object-presence scores via hypernetwork MLPs. High-resolution
+       feature skip connections from the FPN improve mask quality.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -149,10 +161,14 @@ class SAM2(keras.Model):
         backbone_channel_list: List of integers, channel dimensions
             for FPN lateral connections (high-to-low resolution).
             Defaults to ``[768, 384, 192, 96]``.
+        window_pos_embed_bg_size: Tuple of integers ``(H, W)``,
+            background size for windowed positional embeddings.
+            Defaults to ``(7, 7)``.
         num_multimask_outputs: Integer, number of mask outputs
             beyond the single-mask token. Defaults to ``3``.
         input_shape: Optional tuple of integers specifying the
-            input image shape ``(H, W, C)``.
+            input image shape ``(H, W, C)``. Defaults to
+            ``(1024, 1024, 3)``.
         input_tensor: Optional Keras tensor to use as the model
             input.
         name: String, the name of the model.
@@ -162,13 +178,15 @@ class SAM2(keras.Model):
 
     Returns:
         A ``keras.Model`` instance with dict outputs:
-        - ``"pred_masks"``: ``(B, P, num_mask_tokens, 4H, 4W)``
-        - ``"iou_scores"``: ``(B, P, num_mask_tokens)``
-        - ``"object_score_logits"``: ``(B, P, 1)``
+        - ``"pred_masks"``: ``(batch_size, num_prompts,
+          num_multimask_outputs, 4*H, 4*W)``
+        - ``"iou_scores"``: ``(batch_size, num_prompts,
+          num_multimask_outputs)``
+        - ``"object_score_logits"``: ``(batch_size, num_prompts, 1)``
 
     Example:
         ```python
-        model = kmodels.models.sam2.SAM2_Hiera_Tiny(
+        model = kmodels.models.sam2.Sam2Tiny(
             input_shape=(1024, 1024, 3),
         )
         ```
@@ -236,9 +254,6 @@ class SAM2(keras.Model):
             shape=(None, None), name="input_labels", dtype="int32"
         )
 
-        # ---- Hiera backbone ----
-        # Patch embedding (7x7 kernel, stride 4, padding 3)
-        # Use explicit symmetric padding to match PyTorch Conv2d(padding=3)
         padded = layers.ZeroPadding2D(
             padding=self.PATCH_PADDING,
             name="backbone_patch_embed_padding",
@@ -252,7 +267,6 @@ class SAM2(keras.Model):
             name="backbone_patch_embed_projection",
         )(padded)
 
-        # Positional embedding: global + tiled window
         pos_embed_h = input_shape[0] // self.PATCH_STRIDE[0]
         pos_embed_w = input_shape[1] // self.PATCH_STRIDE[1]
         pos_embed_layer = SAM2HieraPositionEmbedding(
@@ -264,7 +278,6 @@ class SAM2(keras.Model):
         )
         hidden_states = pos_embed_layer(hidden_states)
 
-        # Backbone blocks
         stage_ends = (np.cumsum(blocks_per_stage) - 1).tolist()
         intermediate_hidden_states = []
         total_block_idx = 0
@@ -307,7 +320,6 @@ class SAM2(keras.Model):
 
                 total_block_idx += 1
 
-        # ---- FPN Neck ----
         fpn_position_encoding = SAM2SinePositionEmbedding(
             num_pos_feats=self.FPN_HIDDEN_SIZE // 2,
             normalize=True,
@@ -319,7 +331,6 @@ class SAM2(keras.Model):
         fpn_hidden_states_list = []
         fpn_pe_list = []
 
-        # Build lateral convolutions
         for i, in_channels in enumerate(backbone_channel_list):
             conv = layers.Conv2D(
                 self.FPN_HIDDEN_SIZE,
@@ -331,11 +342,9 @@ class SAM2(keras.Model):
 
         fpn_top_down_levels = [2, 3]
 
-        # Forward in top-down order (from low to high resolution)
         prev_features = None
         for i in range(n, -1, -1):
             stage_features = intermediate_hidden_states[i]
-            # NHWC -> NCHW for FPN processing
             lateral_features = layers.Permute((3, 1, 2), name=f"neck_permute_{i}")(
                 stage_features
             )
@@ -354,35 +363,25 @@ class SAM2(keras.Model):
                     [lateral_features, top_down]
                 )
 
-            # Position encoding expects NHWC input
             pe = fpn_position_encoding(ops.transpose(prev_features, (0, 2, 3, 1)))
             fpn_hidden_states_list.append(prev_features)
             fpn_pe_list.append(pe)
 
-        # Select last num_feature_levels and reverse (high-to-low res)
         fpn_hidden_states_list = fpn_hidden_states_list[-self.NUM_FEATURE_LEVELS :][
             ::-1
         ]
         fpn_pe_list = fpn_pe_list[-self.NUM_FEATURE_LEVELS :][::-1]
-
-        # conv_s0 and conv_s1 are inside the mask decoder layer
-        # Image embeddings: lowest-res FPN output, NCHW -> NHWC
         image_embeddings = ops.transpose(fpn_hidden_states_list[-1], (0, 2, 3, 1))
 
-        # No-memory embedding: bias added to image embeddings
-        # (matches the SAM2 video model's no_memory_embedding parameter)
         no_mem_embed_layer = SAM2NoMemoryEmbedding(
             hidden_size=self.FPN_HIDDEN_SIZE,
             name="no_memory_embedding",
         )
         image_embeddings = no_mem_embed_layer(image_embeddings)
 
-        # High-res features for skip connections (kept NCHW,
-        # mask decoder transposes internally)
         high_res_feat_s0 = fpn_hidden_states_list[0]
         high_res_feat_s1 = fpn_hidden_states_list[1]
 
-        # ---- Image-wide positional embeddings ----
         image_embedding_size = input_shape[0] // self.PROMPT_ENCODER_PATCH_SIZE
 
         shared_image_embedding = SAM2PositionalEmbedding(
@@ -391,14 +390,12 @@ class SAM2(keras.Model):
             name="shared_image_embedding",
         )
 
-        # Image-wide PE from shared embedding (not FPN sine PE)
         image_pe = SAM2ImagePositionalEmbeddings(
             image_embedding_size,
             shared_image_embedding,
             name="image_positional_embeddings",
         )(image_embeddings)
 
-        # ---- Prompt encoder ----
         prompt_results = SAM2PromptEncoderLayer(
             hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
             image_embedding_size=image_embedding_size,
@@ -411,7 +408,6 @@ class SAM2(keras.Model):
         sparse_embeddings = prompt_results["sparse_embeddings"]
         dense_embeddings = prompt_results["dense_embeddings"]
 
-        # ---- Mask decoder ----
         decoder_output = SAM2MaskDecoderLayer(
             hidden_size=self.MASK_DECODER_HIDDEN_SIZE,
             num_hidden_layers=self.MASK_DECODER_NUM_HIDDEN_LAYERS,
@@ -433,8 +429,6 @@ class SAM2(keras.Model):
             ]
         )
 
-        # multimask_output=True: skip single-mask token (index 0),
-        # return 3 multimask outputs + matching IoU scores.
         pred_masks = decoder_output["pred_masks"][:, :, 1:, :, :]
         iou_scores = decoder_output["iou_scores"][:, :, 1:]
         object_score_logits = decoder_output["object_score_logits"]
@@ -489,91 +483,6 @@ class SAM2(keras.Model):
         return cls(**config)
 
 
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM2HieraPositionEmbedding(layers.Layer):
-    """Windowed positional embedding for the Hiera backbone.
-
-    Combines a global positional embedding (bicubic-interpolated to
-    match the input spatial size) with a tiled window-level
-    positional embedding.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-        - `Hiera <https://arxiv.org/abs/2306.00989>`_
-
-    Args:
-        hidden_size: Integer, channel dimension.
-        spatial_size: Tuple ``(H, W)`` of the feature map.
-        window_size: Integer, first-stage window size for the tiled
-            window embedding.
-        bg_size: Tuple ``(H, W)`` background size for the global
-            embedding. Defaults to ``(7, 7)``.
-        **kwargs: Additional keyword arguments.
-    """
-
-    def __init__(
-        self, hidden_size, spatial_size, window_size, bg_size=(7, 7), **kwargs
-    ):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.spatial_size = tuple(spatial_size)
-        self.window_size = window_size
-        self.bg_size = tuple(bg_size)
-
-    def build(self, input_shape):
-        self.pos_embed = self.add_weight(
-            name="pos_embed",
-            shape=(1, self.bg_size[0], self.bg_size[1], self.hidden_size),
-            initializer="zeros",
-        )
-        self.pos_embed_window = self.add_weight(
-            name="pos_embed_window",
-            shape=(1, self.window_size, self.window_size, self.hidden_size),
-            initializer="zeros",
-        )
-        self.built = True
-
-    def call(self, hidden_states):
-        """Add windowed positional embedding to hidden states.
-
-        Args:
-            hidden_states: Tensor ``(B, H, W, C)``.
-
-        Returns:
-            Tensor ``(B, H, W, C)`` with positional information.
-        """
-        h = ops.shape(hidden_states)[1]
-        w = ops.shape(hidden_states)[2]
-
-        # Bicubic interpolate global pos_embed to feature map size
-        pos = ops.image.resize(
-            self.pos_embed,
-            size=(h, w),
-            interpolation="bicubic",
-            antialias=False,
-        )
-
-        # Tile window pos_embed to cover the spatial extent
-        tile_h = h // self.window_size
-        tile_w = w // self.window_size
-        window_pos = ops.tile(self.pos_embed_window, (1, tile_h, tile_w, 1))
-        pos = pos + window_pos
-
-        return hidden_states + pos
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "spatial_size": self.spatial_size,
-                "window_size": self.window_size,
-                "bg_size": self.bg_size,
-            }
-        )
-        return config
-
-
 def _create_sam2_model(
     variant,
     input_shape=None,
@@ -590,7 +499,7 @@ def _create_sam2_model(
 
     Args:
         variant: String, model variant name (e.g.,
-            ``"SAM2_Hiera_Tiny"``).
+            ``"Sam2Tiny"``).
         input_shape: Optional tuple of integers specifying the
             input shape ``(H, W, C)``.
         input_tensor: Optional Keras tensor to use as the model
@@ -653,28 +562,14 @@ def _create_sam2_model(
 
 
 @register_model
-def SAM2_Hiera_Tiny(
+def Sam2Tiny(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Tiny backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
-        "SAM2_Hiera_Tiny",
+        "Sam2Tiny",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -683,28 +578,14 @@ def SAM2_Hiera_Tiny(
 
 
 @register_model
-def SAM2_Hiera_Small(
+def Sam2Small(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Small backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
-        "SAM2_Hiera_Small",
+        "Sam2Small",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -713,28 +594,14 @@ def SAM2_Hiera_Small(
 
 
 @register_model
-def SAM2_Hiera_Base_Plus(
+def Sam2BasePlus(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Base-Plus backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
-        "SAM2_Hiera_Base_Plus",
+        "Sam2BasePlus",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -743,28 +610,14 @@ def SAM2_Hiera_Base_Plus(
 
 
 @register_model
-def SAM2_Hiera_Large(
+def Sam2Large(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
-    """SAM2 with Hiera-Large backbone.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        input_shape: Optional tuple ``(H, W, C)``.
-        input_tensor: Optional Keras input tensor.
-        weights: ``None``, a weight name, or a file path.
-        **kwargs: Passed to ``SAM2``.
-
-    Returns:
-        A ``SAM2`` model instance.
-    """
     return _create_sam2_model(
-        "SAM2_Hiera_Large",
+        "Sam2Large",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,

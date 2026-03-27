@@ -1,5 +1,5 @@
 SAM2_MODEL_CONFIG = {
-    "SAM2_Hiera_Tiny": {
+    "Sam2Tiny": {
         "hidden_size": 96,
         "blocks_per_stage": [1, 2, 7, 2],
         "embed_dim_per_stage": [96, 192, 384, 768],
@@ -8,7 +8,7 @@ SAM2_MODEL_CONFIG = {
         "global_attention_blocks": [5, 7, 9],
         "backbone_channel_list": [768, 384, 192, 96],
     },
-    "SAM2_Hiera_Small": {
+    "Sam2Small": {
         "hidden_size": 96,
         "blocks_per_stage": [1, 2, 11, 2],
         "embed_dim_per_stage": [96, 192, 384, 768],
@@ -17,7 +17,7 @@ SAM2_MODEL_CONFIG = {
         "global_attention_blocks": [7, 10, 13],
         "backbone_channel_list": [768, 384, 192, 96],
     },
-    "SAM2_Hiera_Base_Plus": {
+    "Sam2BasePlus": {
         "hidden_size": 112,
         "blocks_per_stage": [2, 3, 16, 3],
         "embed_dim_per_stage": [112, 224, 448, 896],
@@ -27,7 +27,7 @@ SAM2_MODEL_CONFIG = {
         "backbone_channel_list": [896, 448, 224, 112],
         "window_pos_embed_bg_size": [14, 14],
     },
-    "SAM2_Hiera_Large": {
+    "Sam2Large": {
         "hidden_size": 144,
         "blocks_per_stage": [2, 6, 36, 4],
         "embed_dim_per_stage": [144, 288, 576, 1152],
@@ -39,8 +39,24 @@ SAM2_MODEL_CONFIG = {
 }
 
 SAM2_WEIGHTS_CONFIG = {
-    "SAM2_Hiera_Tiny": {},
-    "SAM2_Hiera_Small": {},
-    "SAM2_Hiera_Base_Plus": {},
-    "SAM2_Hiera_Large": {},
+    "Sam2Tiny": {
+        "sav": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_tiny.weights.h5",
+        },
+    },
+    "Sam2Small": {
+        "sav": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_small.weights.h5",
+        },
+    },
+    "Sam2BasePlus": {
+        "sav": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_base_plus.weights.h5",
+        },
+    },
+    "Sam2Large": {
+        "sav": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/sam2/sam2_hiera_large.weights.h5",
+        },
+    },
 }

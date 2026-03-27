@@ -33,6 +33,7 @@ from kmodels.models import (
     resnext,
     rf_detr,
     sam,
+    sam2,
     segformer,
     senet,
     siglip,

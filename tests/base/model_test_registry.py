@@ -365,10 +365,10 @@ MODEL_TEST_CONFIGS = {
         "model_type": "backbone",
         "init_kwargs": {
             "weights": None,
-            "input_shape": (32, 32, 3),
+            "input_shape": (224, 224, 3),
             "include_top": True,
         },
-        "input_shape": (2, 32, 32, 3),
+        "input_shape": (2, 224, 224, 3),
         "expected_output_shape": (2, 1000),
     },
     "ViTTiny16": {

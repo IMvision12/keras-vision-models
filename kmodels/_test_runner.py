@@ -8,14 +8,19 @@ Commands:
     backend-torch        Backend tests on torch
     backend-jax          Backend tests on jax
     backend-tf           Backend tests on tensorflow
-    backend-numpy        Backend tests on numpy
-    serialization        Serialization roundtrip tests
-    saving               Model save/load tests
-    data-format          channels_first/last tests (torch)
-    data-format-gpu      channels_first on TF GPU
+    backend-np           Backend tests on numpy
+    sas-torch            Serialization + saving on torch
+    sas-tf               Serialization + saving on tensorflow
+    sas-jax              Serialization + saving on jax
+    sas-np               Serialization + saving on numpy
+    df-torch             Data format tests on torch
+    df-tf                Data format tests on tensorflow (GPU auto-skip)
+    df-jax               Data format tests on jax
+    df-np                Data format tests on numpy
     layers               Layer unit tests
     links                Link validation (slow, requires network)
-    gpu                  All GPU-only tests
+    gpu                  GPU-marked tests only
+    gpu-all              Full test suite on GPU (torch + tf)
     help                 Show this message
 """
 
@@ -77,35 +82,58 @@ def test_backend_tf():
     return _run("tensorflow", "tests/integration/test_backend_compatibility.py", "-v")
 
 
-@command("backend-numpy")
+@command("backend-np")
 def test_backend_numpy():
     return _run("numpy", "tests/integration/test_backend_compatibility.py", "-v")
 
 
-@command("serialization")
-def test_serialization():
-    return _run("torch", "tests/integration/test_serialization.py", "-v")
+SAS_FILES = [
+    "tests/integration/test_serialization.py",
+    "tests/integration/test_model_saving.py",
+]
 
 
-@command("saving")
-def test_saving():
-    return _run("torch", "tests/integration/test_model_saving.py", "-v")
+@command("sas-torch")
+def test_sas_torch():
+    return _run("torch", *SAS_FILES, "-v")
 
 
-@command("data-format")
-def test_data_format():
-    return _run("torch", "tests/integration/test_data_formats.py", "-v")
+@command("sas-tf")
+def test_sas_tf():
+    return _run("tensorflow", *SAS_FILES, "-v")
 
 
-@command("data-format-gpu")
-def test_data_format_gpu():
-    return _run(
-        "tensorflow",
-        "tests/integration/test_data_formats.py",
-        "-v",
-        "-k",
-        "channels_first",
-    )
+@command("sas-jax")
+def test_sas_jax():
+    return _run("jax", *SAS_FILES, "-v")
+
+
+@command("sas-np")
+def test_sas_np():
+    return _run("numpy", *SAS_FILES, "-v")
+
+
+DF_FILE = "tests/integration/test_data_formats.py"
+
+
+@command("df-torch")
+def test_df_torch():
+    return _run("torch", DF_FILE, "-v")
+
+
+@command("df-tf")
+def test_df_tf():
+    return _run("tensorflow", DF_FILE, "-v")
+
+
+@command("df-jax")
+def test_df_jax():
+    return _run("jax", DF_FILE, "-v")
+
+
+@command("df-np")
+def test_df_np():
+    return _run("numpy", DF_FILE, "-v")
 
 
 @command("layers")
@@ -133,6 +161,27 @@ def test_gpu():
         "-v",
         "-k",
         "channels_first",
+    )
+    return rc1 or rc2
+
+
+@command("gpu-all")
+def test_gpu_all():
+    rc1 = _run(
+        "torch",
+        "tests/",
+        "-v",
+        "--durations=20",
+        "-m",
+        "not slow and not link_validation",
+    )
+    rc2 = _run(
+        "tensorflow",
+        "tests/",
+        "-v",
+        "--durations=20",
+        "-m",
+        "not slow and not link_validation",
     )
     return rc1 or rc2
 

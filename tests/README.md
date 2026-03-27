@@ -16,14 +16,19 @@ pip install -e ".[test]"
 | `backend-torch` | Forward pass, 43 models | torch |
 | `backend-jax` | Forward pass, 43 models | jax |
 | `backend-tf` | Forward pass, 43 models | tensorflow |
-| `backend-numpy` | Forward pass, 43 models | numpy |
-| `serialization` | Config + keras serialization roundtrip | torch |
-| `saving` | `.weights.h5` save/load roundtrip | torch |
-| `data-format` | `channels_last` + `channels_first` | torch |
-| `data-format-gpu` | `channels_first` on TF (**requires GPU**) | tensorflow |
+| `backend-np` | Forward pass, 43 models | numpy |
+| `sas-torch` | Serialization + saving | torch |
+| `sas-tf` | Serialization + saving | tensorflow |
+| `sas-jax` | Serialization + saving | jax |
+| `sas-np` | Serialization + saving | numpy |
+| `df-torch` | Data format (channels_first/last) | torch |
+| `df-tf` | Data format (auto-skips channels_first without GPU) | tensorflow |
+| `df-jax` | Data format (channels_first/last) | jax |
+| `df-np` | Data format (channels_last only) | numpy |
 | `layers` | Layer unit tests | torch |
 | `links` | 381 weight URL validation | — |
-| `gpu` | All GPU-only tests | torch + tf |
+| `gpu` | GPU-marked tests only | torch + tf |
+| `gpu-all` | **Full test suite on GPU** (torch + tf) | torch, tf |
 
 ## CI/CD (automatic, CPU)
 

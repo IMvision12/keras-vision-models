@@ -1,14 +1,3 @@
-"""Keras layers for SAM2 (Segment Anything Model 2).
-
-Implements the Hiera backbone, FPN neck, prompt encoder, and mask
-decoder components following the same conventions as
-``kmodels.models.sam``.
-
-Reference:
-    - `SAM 2: Segment Anything in Images and Videos
-      <https://arxiv.org/abs/2408.00714>`_
-"""
-
 import math
 
 import keras
@@ -22,7 +11,9 @@ class SAM2SinePositionEmbedding(layers.Layer):
 
     Generates dense positional encodings using sine and cosine
     functions, similar to the attention-is-all-you-need positional
-    encoding generalised to 2-D grids.
+    encoding generalised to 2-D grids. The coordinate grid is
+    normalized to ``[0, scale]`` and encoded via alternating sine
+    and cosine functions at different frequencies.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -38,12 +29,14 @@ class SAM2SinePositionEmbedding(layers.Layer):
         scale: Float or ``None``, scaling factor applied to the
             normalised coordinates. If ``None``, defaults to
             ``2 * pi``. Defaults to ``None``.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
 
-    Returns:
-        Positional encoding tensor of shape
-        ``(batch_size, 2 * num_pos_feats, H, W)``.
+    Input Shape:
+        4D tensor: ``(batch_size, H, W, C)``.
+
+    Output Shape:
+        4D tensor: ``(1, 2 * num_pos_feats, H, W)``.
     """
 
     def __init__(
@@ -63,17 +56,6 @@ class SAM2SinePositionEmbedding(layers.Layer):
         self.scale = scale
 
     def call(self, inputs):
-        """Generate 2-D sine position encoding.
-
-        Args:
-            inputs: Tensor of shape
-                ``(batch_size, H, W, C)`` (channels-last) used only
-                for its spatial dimensions.
-
-        Returns:
-            Positional encoding of shape
-            ``(1, 2 * num_pos_feats, H, W)``.
-        """
         shape = ops.shape(inputs)
         batch_size = shape[0]
         height = shape[1]
@@ -130,7 +112,10 @@ class SAM2MultiScaleAttention(layers.Layer):
     """Multi-head attention with optional query pooling for Hiera.
 
     Standard multi-head attention where the query can optionally be
-    spatially downsampled via max-pooling at stage transitions.
+    spatially downsampled via max-pooling at stage transitions. This
+    enables efficient hierarchical feature extraction in the Hiera
+    backbone by reducing the spatial resolution of queries while
+    maintaining full-resolution keys and values.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -143,8 +128,16 @@ class SAM2MultiScaleAttention(layers.Layer):
         query_stride: Integer or ``None``. When set, applies max
             pooling with this stride to the query before attention.
             Defaults to ``None``.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, H, W, dim)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H', W', dim_out)`` where ``H'``
+        and ``W'`` are ``H // query_stride`` and ``W // query_stride``
+        when query pooling is applied.
     """
 
     def __init__(self, dim, dim_out, num_heads, query_stride=None, **kwargs):
@@ -170,18 +163,6 @@ class SAM2MultiScaleAttention(layers.Layer):
         self.built = True
 
     def call(self, hidden_states):
-        """Apply multi-scale attention.
-
-        Args:
-            hidden_states: Tensor of shape
-                ``(batch_size, H, W, dim)``.
-
-        Returns:
-            Output tensor of shape
-            ``(batch_size, H', W', dim_out)`` where ``H'`` and ``W'``
-            are ``H // query_stride`` and ``W // query_stride`` when
-            query pooling is applied.
-        """
         shape = ops.shape(hidden_states)
         batch_size = shape[0]
         height = shape[1]
@@ -244,6 +225,9 @@ class SAM2MultiScaleBlock(layers.Layer):
     attention, global attention, and optional query pooling at stage
     transitions. When the input and output dimensions differ (stage
     boundary), a linear projection is applied to the residual path.
+    The block consists of layer normalization, multi-scale attention,
+    another layer normalization, and a two-layer MLP with GELU
+    activation.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -261,8 +245,14 @@ class SAM2MultiScaleBlock(layers.Layer):
             pooling at this stride. Defaults to ``None``.
         layer_norm_eps: Float, epsilon for layer normalization.
             Defaults to ``1e-6``.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, H, W, dim)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H', W', dim_out)``.
     """
 
     def __init__(
@@ -322,16 +312,6 @@ class SAM2MultiScaleBlock(layers.Layer):
         self.built = True
 
     def _window_partition(self, hidden_states, window_size):
-        """Partition spatial tensor into non-overlapping windows.
-
-        Args:
-            hidden_states: Tensor ``(B, H, W, C)``.
-            window_size: Integer, window side length.
-
-        Returns:
-            Tuple of (windows, (padded_H, padded_W)) where windows
-            has shape ``(B * num_windows, window_size, window_size, C)``.
-        """
         shape = ops.shape(hidden_states)
         batch_size = shape[0]
         height = shape[1]
@@ -367,17 +347,6 @@ class SAM2MultiScaleBlock(layers.Layer):
         return hidden_states, (padded_h, padded_w)
 
     def _window_unpartition(self, windows, window_size, pad_hw, original_hw):
-        """Reverse window partition and remove padding.
-
-        Args:
-            windows: Tensor ``(B * num_windows, ws, ws, C)``.
-            window_size: Integer, window side length.
-            pad_hw: Tuple ``(padded_H, padded_W)``.
-            original_hw: Tuple ``(H, W)`` before padding.
-
-        Returns:
-            Tensor ``(B, H, W, C)``.
-        """
         padded_h, padded_w = pad_hw
         height, width = original_hw
         num_windows_h = padded_h // window_size
@@ -402,14 +371,6 @@ class SAM2MultiScaleBlock(layers.Layer):
         return x
 
     def call(self, hidden_states):
-        """Apply multi-scale transformer block.
-
-        Args:
-            hidden_states: Tensor of shape ``(B, H, W, dim)``.
-
-        Returns:
-            Tensor of shape ``(B, H', W', dim_out)``.
-        """
         residual = hidden_states
         hidden_states = self.layer_norm1(hidden_states)
 
@@ -476,6 +437,8 @@ class SAM2PositionalEmbedding(layers.Layer):
     Gaussian matrix, then applies sine and cosine to produce the
     final encoding. Used by the prompt encoder for point and box
     prompts and by the model for image-wide positional embeddings.
+    The random Gaussian matrix is initialized once and remains
+    frozen during training.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -485,11 +448,14 @@ class SAM2PositionalEmbedding(layers.Layer):
             Defaults to ``128``.
         scale: Float, standard deviation of the random Gaussian
             initialisation. Defaults to ``1.0``.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
 
-    Returns:
-        Encoding tensor of shape ``(..., 2 * num_pos_feats)``.
+    Input Shape:
+        Tensor of shape ``(..., 2)`` with normalized coordinates.
+
+    Output Shape:
+        Tensor of shape ``(..., 2 * num_pos_feats)``.
     """
 
     def __init__(self, num_pos_feats=128, scale=1.0, **kwargs):
@@ -507,15 +473,6 @@ class SAM2PositionalEmbedding(layers.Layer):
         self.built = True
 
     def call(self, coordinates):
-        """Encode 2-D coordinates via random Fourier features.
-
-        Args:
-            coordinates: Tensor of shape ``(..., 2)`` with values
-                normalised to ``[0, 1]``.
-
-        Returns:
-            Encoding tensor of shape ``(..., 2 * num_pos_feats)``.
-        """
         coordinates = 2 * coordinates - 1
         coordinates = ops.cast(coordinates, dtype=self.positional_embedding.dtype)
         coordinates = ops.matmul(coordinates, self.positional_embedding)
@@ -543,10 +500,6 @@ class SAM2ImagePositionalEmbeddings(layers.Layer):
     resulting tensor provides fixed positional information that is
     added to the keys in the mask decoder's cross-attention layers.
 
-    This computation depends on the ``positional_embedding`` weight
-    inside the shared embedding layer, so it must be a ``Layer``
-    subclass to remain part of the Keras computation graph.
-
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
 
@@ -560,11 +513,11 @@ class SAM2ImagePositionalEmbeddings(layers.Layer):
             ``Layer`` class.
 
     Input Shape:
-        Not used. A dummy input is required to trigger the
-        ``call`` method in Keras functional API.
+        Dummy input tensor (not used for computation).
 
     Output Shape:
-        4D tensor: ``(1, H, W, 2 * num_pos_feats)``.
+        4D tensor: ``(1, image_embedding_size, image_embedding_size,
+        2 * num_pos_feats)``.
     """
 
     def __init__(self, image_embedding_size, shared_embedding, **kwargs):
@@ -581,7 +534,6 @@ class SAM2ImagePositionalEmbeddings(layers.Layer):
         x_embed = x_embed / size
         coords = ops.stack([x_embed, y_embed], axis=-1)
         pe = self.shared_embedding(coords)
-        # Output NHWC: (1, H, W, C)
         pe = ops.expand_dims(pe, axis=0)
         return pe
 
@@ -600,8 +552,11 @@ class SAM2PromptEncoderLayer(layers.Layer):
     """Encodes sparse and dense prompts for SAM2 mask prediction.
 
     Sparse prompts (points, boxes) are encoded using Fourier
-    positional encoding with learned type embeddings. Dense prompts
-    (masks) are encoded through a small convolutional network.
+    positional encoding with learned type embeddings that distinguish
+    foreground points, background points, and box corners. Dense
+    prompts (masks) are encoded through a small convolutional network.
+    When no mask prompt is provided, a learned ``no_mask_embed`` is
+    broadcast to the image embedding spatial size.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -619,12 +574,20 @@ class SAM2PromptEncoderLayer(layers.Layer):
         shared_embedding: A ``SAM2PositionalEmbedding`` layer
             instance shared with the image positional embedding
             generator.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
 
-    Returns:
-        Dictionary with keys ``"sparse_embeddings"`` and
-        ``"dense_embeddings"``.
+    Input Shape:
+        List of two tensors:
+        - ``input_points``: ``(batch_size, num_prompts, num_points, 2)``
+        - ``input_labels``: ``(batch_size, num_prompts, num_points)``
+
+    Output Shape:
+        Dictionary with:
+        - ``"sparse_embeddings"``: ``(batch_size, num_prompts,
+          num_points + 1, hidden_size)``
+        - ``"dense_embeddings"``: ``(batch_size, image_embedding_size,
+          image_embedding_size, hidden_size)``
     """
 
     def __init__(
@@ -669,8 +632,6 @@ class SAM2PromptEncoderLayer(layers.Layer):
         if pad:
             points = ops.pad(points, [[0, 0], [0, 0], [0, 1], [0, 0]])
             labels = ops.pad(labels, [[0, 0], [0, 0], [0, 1]], constant_values=-1)
-        # Normalize coordinates inline instead of passing input_shape
-        # to avoid non-tensor positional args in Keras functional API
         point_embedding = self.shared_embedding(
             points / ops.cast(self.image_size, dtype=points.dtype)
         )
@@ -724,20 +685,6 @@ class SAM2PromptEncoderLayer(layers.Layer):
         return corner_embedding
 
     def call(self, inputs):
-        """Encode point and label prompts.
-
-        Args:
-            inputs: List of ``[input_points, input_labels]`` where
-                ``input_points`` has shape
-                ``(B, num_prompts, num_points, 2)`` and
-                ``input_labels`` has shape
-                ``(B, num_prompts, num_points)``.
-
-        Returns:
-            Dictionary with:
-            - ``"sparse_embeddings"``: ``(B, num_prompts, N, hidden_size)``
-            - ``"dense_embeddings"``: ``(B, H, H, hidden_size)``
-        """
         input_points, input_labels = inputs[0], inputs[1]
         sparse_embeddings = self._embed_points(input_points, input_labels)
 
@@ -778,7 +725,9 @@ class SAM2TwoWayAttention(layers.Layer):
 
     Supports downsampling the internal dimension by a configurable
     rate, enabling efficient cross-attention between prompt tokens
-    and image embeddings.
+    and image embeddings. The internal dimension is computed as
+    ``hidden_size // downsample_rate``, reducing memory and
+    computation for cross-attention operations.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -790,8 +739,18 @@ class SAM2TwoWayAttention(layers.Layer):
             Defaults to ``8``.
         downsample_rate: Integer, factor by which the internal
             dimension is reduced. Defaults to ``1``.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        Three tensors:
+        - ``query``: ``(batch_size, point_batch, num_queries, hidden_size)``
+        - ``key``: ``(batch_size, point_batch, num_keys, hidden_size)``
+        - ``value``: ``(batch_size, point_batch, num_values, hidden_size)``
+
+    Output Shape:
+        Tensor of shape ``(batch_size, point_batch, num_queries,
+        hidden_size)``.
     """
 
     def __init__(self, hidden_size=256, num_heads=8, downsample_rate=1, **kwargs):
@@ -814,17 +773,6 @@ class SAM2TwoWayAttention(layers.Layer):
         self.built = True
 
     def call(self, query, key, value, attention_similarity=None):
-        """Apply two-way attention.
-
-        Args:
-            query: Tensor ``(B, P, N_q, hidden_size)``.
-            key: Tensor ``(B, P, N_k, hidden_size)``.
-            value: Tensor ``(B, P, N_v, hidden_size)``.
-            attention_similarity: Optional additive bias tensor.
-
-        Returns:
-            Tensor ``(B, P, N_q, hidden_size)``.
-        """
         batch_size = ops.shape(query)[0]
         point_batch = ops.shape(query)[1]
 
@@ -882,7 +830,14 @@ class SAM2MaskDecoderLayer(layers.Layer):
     a lightweight two-way transformer, then predicts segmentation
     masks via hypernetwork MLPs and quality scores via an IoU
     prediction head. Extends SAM v1 with object score prediction and
-    high-resolution feature skip connections.
+    high-resolution feature skip connections. The decoder first
+    concatenates learned object score, IoU, and mask tokens with the
+    sparse prompt embeddings, then alternates self-attention on
+    tokens, cross-attention from tokens to image features, an MLP
+    block, and cross-attention from image features back to tokens.
+    After the transformer, image features are upscaled via two
+    transposed convolutions with high-resolution skip connections,
+    and per-mask predictions are generated by hypernetwork MLPs.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -906,12 +861,26 @@ class SAM2MaskDecoderLayer(layers.Layer):
             cross-attention. Defaults to ``2``.
         layer_norm_eps: Float, epsilon for layer normalization.
             Defaults to ``1e-6``.
-        **kwargs: Additional keyword arguments passed to
-            ``keras.layers.Layer``.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
 
-    Returns:
-        Dictionary with keys ``"pred_masks"``, ``"iou_scores"``,
-        and ``"object_score_logits"``.
+    Input Shape:
+        List of six tensors:
+        - ``image_embeddings``: ``(batch_size, H, W, hidden_size)``
+        - ``image_pe``: ``(batch_size, H, W, hidden_size)``
+        - ``sparse_embeddings``: ``(batch_size, num_prompts,
+          num_tokens, hidden_size)``
+        - ``dense_embeddings``: ``(batch_size, H, W, hidden_size)``
+        - ``high_res_feat_s0``: ``(batch_size, hidden_size, 4*H, 4*W)``
+        - ``high_res_feat_s1``: ``(batch_size, hidden_size, 2*H, 2*W)``
+
+    Output Shape:
+        Dictionary with:
+        - ``"pred_masks"``: ``(batch_size, num_prompts,
+          num_mask_tokens, 4*H, 4*W)``
+        - ``"iou_scores"``: ``(batch_size, num_prompts,
+          num_mask_tokens)``
+        - ``"object_score_logits"``: ``(batch_size, num_prompts, 1)``
     """
 
     def __init__(
@@ -1120,19 +1089,6 @@ class SAM2MaskDecoderLayer(layers.Layer):
         self.built = True
 
     def call(self, inputs):
-        """Predict masks and scores from image and prompt embeddings.
-
-        Args:
-            inputs: List of ``[image_embeddings, image_pe,
-                sparse_embeddings, dense_embeddings,
-                high_res_feat_s0, high_res_feat_s1]``.
-
-        Returns:
-            Dictionary with:
-            - ``"pred_masks"``: ``(B, P, num_mask_tokens, 4H, 4W)``
-            - ``"iou_scores"``: ``(B, P, num_mask_tokens)``
-            - ``"object_score_logits"``: ``(B, P, 1)``
-        """
         (
             image_embeddings,
             image_pe,
@@ -1356,7 +1312,11 @@ class SAM2HieraPositionEmbedding(layers.Layer):
 
     Combines a global positional embedding (bicubic-interpolated to
     match the input spatial size) with a tiled window-level
-    positional embedding.
+    positional embedding. The global embedding provides coarse
+    positional information across the entire feature map, while the
+    window embedding adds fine-grained positional information within
+    each window. Both embeddings are learned parameters that are
+    added to the input features.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -1369,7 +1329,14 @@ class SAM2HieraPositionEmbedding(layers.Layer):
             window embedding.
         bg_size: Tuple ``(H, W)`` background size for the global
             embedding. Defaults to ``(7, 7)``.
-        **kwargs: Additional keyword arguments.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, H, W, hidden_size)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H, W, hidden_size)``.
     """
 
     def __init__(

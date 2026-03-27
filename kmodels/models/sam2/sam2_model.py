@@ -35,12 +35,23 @@ class SAM2NoMemoryEmbedding(layers.Layer):
     In the SAM2 video model this embedding indicates the absence of
     memory from previous frames. For image-only inference the
     parameter is still present and must be transferred during weight
-    conversion.
+    conversion. The embedding is a trainable weight that is broadcast
+    and added to the image embeddings.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
 
     Args:
         hidden_size: Integer, channel dimension of the image
             embeddings. Defaults to ``256``.
-        **kwargs: Additional keyword arguments.
+        **kwargs: Additional keyword arguments passed to the
+            ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, H, W, hidden_size)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H, W, hidden_size)``.
     """
 
     def __init__(self, hidden_size=256, **kwargs):
@@ -120,14 +131,15 @@ class SAM2(keras.Model):
     1. **Hiera Backbone** – a hierarchical ViT with multi-scale
        blocks, windowed attention, query pooling at stage transitions,
        and windowed positional embeddings. An FPN neck produces
-       multi-scale feature maps.
+       multi-scale feature maps with sine-cosine positional encodings.
     2. **Prompt Encoder** – encodes sparse prompts (points, boxes)
        via Fourier positional encoding with learned type embeddings,
        and dense prompts (masks) via a small CNN.
     3. **Mask Decoder** – a lightweight two-way transformer that
        jointly attends between prompt tokens and image embeddings,
        then predicts multiple segmentation masks, IoU quality scores,
-       and object-presence scores via hypernetwork MLPs.
+       and object-presence scores via hypernetwork MLPs. High-resolution
+       feature skip connections from the FPN improve mask quality.
 
     Reference:
         - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
@@ -149,10 +161,14 @@ class SAM2(keras.Model):
         backbone_channel_list: List of integers, channel dimensions
             for FPN lateral connections (high-to-low resolution).
             Defaults to ``[768, 384, 192, 96]``.
+        window_pos_embed_bg_size: Tuple of integers ``(H, W)``,
+            background size for windowed positional embeddings.
+            Defaults to ``(7, 7)``.
         num_multimask_outputs: Integer, number of mask outputs
             beyond the single-mask token. Defaults to ``3``.
         input_shape: Optional tuple of integers specifying the
-            input image shape ``(H, W, C)``.
+            input image shape ``(H, W, C)``. Defaults to
+            ``(1024, 1024, 3)``.
         input_tensor: Optional Keras tensor to use as the model
             input.
         name: String, the name of the model.
@@ -162,9 +178,11 @@ class SAM2(keras.Model):
 
     Returns:
         A ``keras.Model`` instance with dict outputs:
-        - ``"pred_masks"``: ``(B, P, num_mask_tokens, 4H, 4W)``
-        - ``"iou_scores"``: ``(B, P, num_mask_tokens)``
-        - ``"object_score_logits"``: ``(B, P, 1)``
+        - ``"pred_masks"``: ``(batch_size, num_prompts,
+          num_multimask_outputs, 4*H, 4*W)``
+        - ``"iou_scores"``: ``(batch_size, num_prompts,
+          num_multimask_outputs)``
+        - ``"object_score_logits"``: ``(batch_size, num_prompts, 1)``
 
     Example:
         ```python

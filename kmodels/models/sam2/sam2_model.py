@@ -235,9 +235,6 @@ class SAM2(keras.Model):
             shape=(None, None), name="input_labels", dtype="int32"
         )
 
-        # ---- Hiera backbone ----
-        # Patch embedding (7x7 kernel, stride 4, padding 3)
-        # Use explicit symmetric padding to match PyTorch Conv2d(padding=3)
         padded = layers.ZeroPadding2D(
             padding=self.PATCH_PADDING,
             name="backbone_patch_embed_padding",
@@ -251,7 +248,6 @@ class SAM2(keras.Model):
             name="backbone_patch_embed_projection",
         )(padded)
 
-        # Positional embedding: global + tiled window
         pos_embed_h = input_shape[0] // self.PATCH_STRIDE[0]
         pos_embed_w = input_shape[1] // self.PATCH_STRIDE[1]
         pos_embed_layer = SAM2HieraPositionEmbedding(
@@ -263,7 +259,6 @@ class SAM2(keras.Model):
         )
         hidden_states = pos_embed_layer(hidden_states)
 
-        # Backbone blocks
         stage_ends = (np.cumsum(blocks_per_stage) - 1).tolist()
         intermediate_hidden_states = []
         total_block_idx = 0
@@ -306,7 +301,6 @@ class SAM2(keras.Model):
 
                 total_block_idx += 1
 
-        # ---- FPN Neck ----
         fpn_position_encoding = SAM2SinePositionEmbedding(
             num_pos_feats=self.FPN_HIDDEN_SIZE // 2,
             normalize=True,
@@ -318,7 +312,6 @@ class SAM2(keras.Model):
         fpn_hidden_states_list = []
         fpn_pe_list = []
 
-        # Build lateral convolutions
         for i, in_channels in enumerate(backbone_channel_list):
             conv = layers.Conv2D(
                 self.FPN_HIDDEN_SIZE,
@@ -330,11 +323,9 @@ class SAM2(keras.Model):
 
         fpn_top_down_levels = [2, 3]
 
-        # Forward in top-down order (from low to high resolution)
         prev_features = None
         for i in range(n, -1, -1):
             stage_features = intermediate_hidden_states[i]
-            # NHWC -> NCHW for FPN processing
             lateral_features = layers.Permute((3, 1, 2), name=f"neck_permute_{i}")(
                 stage_features
             )
@@ -353,35 +344,25 @@ class SAM2(keras.Model):
                     [lateral_features, top_down]
                 )
 
-            # Position encoding expects NHWC input
             pe = fpn_position_encoding(ops.transpose(prev_features, (0, 2, 3, 1)))
             fpn_hidden_states_list.append(prev_features)
             fpn_pe_list.append(pe)
 
-        # Select last num_feature_levels and reverse (high-to-low res)
         fpn_hidden_states_list = fpn_hidden_states_list[-self.NUM_FEATURE_LEVELS :][
             ::-1
         ]
         fpn_pe_list = fpn_pe_list[-self.NUM_FEATURE_LEVELS :][::-1]
-
-        # conv_s0 and conv_s1 are inside the mask decoder layer
-        # Image embeddings: lowest-res FPN output, NCHW -> NHWC
         image_embeddings = ops.transpose(fpn_hidden_states_list[-1], (0, 2, 3, 1))
 
-        # No-memory embedding: bias added to image embeddings
-        # (matches the SAM2 video model's no_memory_embedding parameter)
         no_mem_embed_layer = SAM2NoMemoryEmbedding(
             hidden_size=self.FPN_HIDDEN_SIZE,
             name="no_memory_embedding",
         )
         image_embeddings = no_mem_embed_layer(image_embeddings)
 
-        # High-res features for skip connections (kept NCHW,
-        # mask decoder transposes internally)
         high_res_feat_s0 = fpn_hidden_states_list[0]
         high_res_feat_s1 = fpn_hidden_states_list[1]
 
-        # ---- Image-wide positional embeddings ----
         image_embedding_size = input_shape[0] // self.PROMPT_ENCODER_PATCH_SIZE
 
         shared_image_embedding = SAM2PositionalEmbedding(
@@ -390,14 +371,12 @@ class SAM2(keras.Model):
             name="shared_image_embedding",
         )
 
-        # Image-wide PE from shared embedding (not FPN sine PE)
         image_pe = SAM2ImagePositionalEmbeddings(
             image_embedding_size,
             shared_image_embedding,
             name="image_positional_embeddings",
         )(image_embeddings)
 
-        # ---- Prompt encoder ----
         prompt_results = SAM2PromptEncoderLayer(
             hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
             image_embedding_size=image_embedding_size,
@@ -410,7 +389,6 @@ class SAM2(keras.Model):
         sparse_embeddings = prompt_results["sparse_embeddings"]
         dense_embeddings = prompt_results["dense_embeddings"]
 
-        # ---- Mask decoder ----
         decoder_output = SAM2MaskDecoderLayer(
             hidden_size=self.MASK_DECODER_HIDDEN_SIZE,
             num_hidden_layers=self.MASK_DECODER_NUM_HIDDEN_LAYERS,
@@ -432,8 +410,6 @@ class SAM2(keras.Model):
             ]
         )
 
-        # multimask_output=True: skip single-mask token (index 0),
-        # return 3 multimask outputs + matching IoU scores.
         pred_masks = decoder_output["pred_masks"][:, :, 1:, :, :]
         iou_scores = decoder_output["iou_scores"][:, :, 1:]
         object_score_logits = decoder_output["object_score_logits"]
@@ -533,18 +509,9 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         self.built = True
 
     def call(self, hidden_states):
-        """Add windowed positional embedding to hidden states.
-
-        Args:
-            hidden_states: Tensor ``(B, H, W, C)``.
-
-        Returns:
-            Tensor ``(B, H, W, C)`` with positional information.
-        """
         h = ops.shape(hidden_states)[1]
         w = ops.shape(hidden_states)[2]
 
-        # Bicubic interpolate global pos_embed to feature map size
         pos = ops.image.resize(
             self.pos_embed,
             size=(h, w),
@@ -552,7 +519,6 @@ class SAM2HieraPositionEmbedding(layers.Layer):
             antialias=False,
         )
 
-        # Tile window pos_embed to cover the spatial extent
         tile_h = h // self.window_size
         tile_w = w // self.window_size
         window_pos = ops.tile(self.pos_embed_window, (1, tile_h, tile_w, 1))

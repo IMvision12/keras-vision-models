@@ -91,7 +91,7 @@ jobs:
           python -m pip install --upgrade pip setuptools
           pip install -U keras>=3.11.0 pytest pytest-cov
           pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
-          pip install sentencepiece matplotlib>=3.8.0
+          pip install sentencepiece matplotlib>=3.8.0 pillow
           pip install -e .
       - name: Run model core tests
         run: |
@@ -137,7 +137,7 @@ jobs:
           python -m pip install --upgrade pip setuptools
           pip install -U keras>=3.11.0 pytest pytest-cov
           pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
-          pip install sentencepiece
+          pip install sentencepiece pillow
           pip install -e .
       - name: Run serialization & saving tests
         run: |
@@ -185,7 +185,7 @@ jobs:
           python -m pip install --upgrade pip setuptools
           pip install -U keras>=3.11.0 pytest pytest-cov
           pip install torch>=2.5.0 jax[cpu]
-          pip install sentencepiece
+          pip install sentencepiece pillow
           pip install -e .
       - name: Run data format tests
         run: pytest tests/integration/test_data_formats.py -v --durations=20

@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR), segmentation (SAM, SAM2, SegFormer, DeepLabV3, EoMT), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RF-DETR), segmentation (SAM, SAM2, SegFormer, DeepLabV3, EoMT), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -43,6 +43,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
 | Model | Description |
 |-------|-------------|
 | [DETR](docs/detr.md) | End-to-end object detection with Transformers (ResNet-50/101 backbones) |
+| [RT-DETR](docs/rt_detr.md) | Real-time DETR with ResNet-vd backbone and hybrid encoder (ResNet-18/34/50/101 variants) |
 | [RF-DETR](docs/rf_detr.md) | Real-time detection transformer (Nano, Small, Medium, Base, Large variants) |
 
 **Vision-Language Models**
@@ -99,6 +100,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | DETR | [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872) | `transformers`|
+    | RT-DETR | [DETRs Beat YOLOs on Real-time Object Detection](https://arxiv.org/abs/2304.08069) | `transformers` |
     | RF-DETR | [RF-DETR: Real-Time Detection Transformer](https://arxiv.org/abs/2502.18860) | `rfdetr` |
 
 <br>
@@ -110,7 +112,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
     | EoMT | [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
-    | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `sam2` |
+    | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
     | SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers`|
 
 <br>

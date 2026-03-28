@@ -871,8 +871,8 @@ class SAM2MaskDecoderLayer(layers.Layer):
         - ``sparse_embeddings``: ``(batch_size, num_prompts,
           num_tokens, hidden_size)``
         - ``dense_embeddings``: ``(batch_size, H, W, hidden_size)``
-        - ``high_res_feat_s0``: ``(batch_size, hidden_size, 4*H, 4*W)``
-        - ``high_res_feat_s1``: ``(batch_size, hidden_size, 2*H, 2*W)``
+        - ``high_res_feat_s0``: ``(batch_size, 4*H, 4*W, hidden_size)``
+        - ``high_res_feat_s1``: ``(batch_size, 2*H, 2*W, hidden_size)``
 
     Output Shape:
         Dictionary with:
@@ -1203,8 +1203,8 @@ class SAM2MaskDecoderLayer(layers.Layer):
             (batch_size * point_batch_size, height, width, num_channels),
         )
 
-        feat_s1 = ops.transpose(high_res_feat_s1, (0, 2, 3, 1))
-        feat_s1 = ops.expand_dims(feat_s1, axis=1)
+        # High-res features are NHWC from FPN (no transpose needed)
+        feat_s1 = ops.expand_dims(high_res_feat_s1, axis=1)
         feat_s1 = ops.broadcast_to(
             feat_s1,
             (
@@ -1220,8 +1220,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
             (-1, ops.shape(feat_s1)[2], ops.shape(feat_s1)[3], ops.shape(feat_s1)[4]),
         )
 
-        feat_s0 = ops.transpose(high_res_feat_s0, (0, 2, 3, 1))
-        feat_s0 = ops.expand_dims(feat_s0, axis=1)
+        feat_s0 = ops.expand_dims(high_res_feat_s0, axis=1)
         feat_s0 = ops.broadcast_to(
             feat_s0,
             (

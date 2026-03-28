@@ -1362,11 +1362,12 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         self.built = True
 
     def call(self, hidden_states):
-        h = ops.shape(hidden_states)[1]
-        w = ops.shape(hidden_states)[2]
+        # Use concrete spatial_size (known at build time) to avoid
+        # symbolic shape issues with JAX backend.
+        h, w = self.spatial_size
 
         pos = ops.image.resize(
-            self.pos_embed,
+            ops.convert_to_tensor(self.pos_embed),
             size=(h, w),
             interpolation="bicubic",
             antialias=False,
@@ -1378,6 +1379,9 @@ class SAM2HieraPositionEmbedding(layers.Layer):
         pos = pos + window_pos
 
         return hidden_states + pos
+
+    def compute_output_spec(self, hidden_states):
+        return keras.KerasTensor(hidden_states.shape, dtype=hidden_states.dtype)
 
     def get_config(self):
         config = super().get_config()

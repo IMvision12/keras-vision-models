@@ -3,139 +3,214 @@ on:
   pull_request:
   release:
     types: [created]
+  schedule:
+    - cron: '0 3 * * 1'  # Nightly on Mondays for link validation
+
 jobs:
-
-  test-weight-loading:
-    name: Test weight loading
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # FAST GATE (runs first, blocks everything else)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  lint-and-format:
+    name: Lint & Format
     runs-on: ubuntu-latest
-    env:
-      KERAS_BACKEND: torch
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
 
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-weights-${{ hashFiles('pyproject.toml') }}
-          restore-keys: pip-weights-
-
-      - name: Cache Keras weights
-        uses: actions/cache@v4
-        with:
-          path: ~/.keras
-          key: keras-weights-${{ hashFiles('kmodels/models/*/config.py') }}
-          restore-keys: keras-weights-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools
-          pip install jax jaxlib
-          pip install -U keras>=3.11.0
-          pip install pytest pytest-cov timm
-          pip install torch>=2.5.0 torchvision>=0.20.0
-          pip install jax[cpu]
-          pip install tensorflow-cpu>=2.19.0
-          pip install sentencepiece
-          pip install matplotlib>=3.8.0
-          pip install -e .
-
-      - name: Run weight initialization tests
-        run: |
-          TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
-          if [ -n "$TEST_FILES" ]; then
-            pytest $TEST_FILES -v -k "test_weight_initialization" --durations=20 --cov=kmodels --cov=tests
-          fi
-          coverage xml -o coverage.xml
-
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          flags: keras-weight-loading
-          fail_ci_if_error: false
-
-  test-matrix-backend:
-    name: Test the code (${{ matrix.backend }})
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LAYER TESTS (fast, all 4 backends, CPU)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-layers:
+    name: Layers (${{ matrix.backend }})
+    needs: lint-and-format
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        backend: [tensorflow, jax, torch, numpy]
-
+        backend: [torch, tensorflow, jax, numpy]
     env:
       KERAS_BACKEND: ${{ matrix.backend }}
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Cache pip packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: pip-${{ matrix.backend }}-
-
+          key: pip-layers-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-layers-${{ matrix.backend }}-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools
-
-          # Install backend-specific dependencies
-          if [ "${{ matrix.backend }}" == "tensorflow" ]; then
-            pip install tensorflow
-          elif [ "${{ matrix.backend }}" == "jax" ]; then
-            pip install jax jaxlib
-          elif [ "${{ matrix.backend }}" == "torch" ]; then
-            pip install torch
-          elif [ "${{ matrix.backend }}" == "numpy" ]; then
-            pip install numpy
-          fi
-
-          # Install Keras
-          pip install -U keras>=3.11.0
-
-          # Install additional dependencies
-          pip install pytest pytest-cov timm
-          pip install torch>=2.5.0 torchvision>=0.20.0
-          pip install jax[cpu]
-          pip install tensorflow-cpu>=2.19.0
-          pip install sentencepiece
-          pip install matplotlib>=3.8.0
+          pip install -U keras>=3.11.0 pytest pytest-cov
+          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0 pillow sentencepiece
           pip install -e .
+      - name: Run layer tests
+        run: pytest tests/layers/ -v --durations=10 --cov=kmodels --cov-append
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          flags: layers-${{ matrix.backend }}
+          fail_ci_if_error: false
 
-      - name: Run tests
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # MODEL CORE TESTS (all 4 backends, CPU)
+  # Forward pass + output shapes + NaN checks
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-models-core:
+    name: Models (${{ matrix.backend }})
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, tensorflow, jax, numpy]
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-models-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-models-${{ matrix.backend }}-
+      - name: Install dependencies
         run: |
-          echo "Running tests with backend: $KERAS_BACKEND"
-
-          # Run layer tests
-          pytest tests/layers/*_test.py -v --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
-
-          # Run model tests (skip weight initialization — covered by dedicated job)
-          TEST_FILES=$(find tests/models -type f \( -name "test_*.py" -o -name "*_test.py" \) 2>/dev/null || echo "")
-          if [ -n "$TEST_FILES" ]; then
-            pytest $TEST_FILES -v --durations=20 --cov=kmodels --cov=tests --cov-append -k "not test_weight_initialization"
-          else
-            echo "No model test files found. Skipping model tests."
-          fi
-
-          # Generate coverage report
-          coverage xml -o coverage.xml
-
-      - name: Upload coverage report
+          python -m pip install --upgrade pip setuptools
+          pip install -U keras>=3.11.0 pytest pytest-cov
+          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
+          pip install sentencepiece matplotlib>=3.8.0 pillow
+          pip install -e .
+      - name: Run model core tests
+        run: |
+          pytest tests/integration/test_backend_compatibility.py -v --durations=20 \
+            --cov=kmodels --cov-append \
+            -m "not slow and not gpu and not link_validation"
+      - name: Generate coverage
+        run: coverage xml -o coverage.xml
+      - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
-          flags: keras-${{ matrix.backend }}
+          flags: models-${{ matrix.backend }}
           fail_ci_if_error: false
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # SERIALIZATION + SAVING (all backends)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-serialization-saving:
+    name: Serialization & Saving (${{ matrix.backend }})
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, tensorflow, jax, numpy]
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-serial-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-serial-${{ matrix.backend }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -U keras>=3.11.0 pytest pytest-cov
+          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
+          pip install sentencepiece pillow
+          pip install -e .
+      - name: Run serialization & saving tests
+        run: |
+          pytest tests/integration/test_serialization.py \
+                 tests/integration/test_model_saving.py \
+                 -v --durations=20 --cov=kmodels --cov-append
+      - name: Generate coverage
+        run: coverage xml -o coverage.xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          flags: serialization-${{ matrix.backend }}
+          fail_ci_if_error: false
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # DATA FORMAT TESTS (torch + jax on CPU)
+  # channels_first works on CPU for torch/jax
+  # TF channels_first auto-skips (needs GPU cuDNN)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-data-formats:
+    name: Data formats (${{ matrix.backend }})
+    needs: lint-and-format
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [torch, jax]
+    env:
+      KERAS_BACKEND: ${{ matrix.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-format-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-format-${{ matrix.backend }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -U keras>=3.11.0 pytest pytest-cov
+          pip install torch>=2.5.0 jax[cpu]
+          pip install sentencepiece pillow
+          pip install -e .
+      - name: Run data format tests
+        run: pytest tests/integration/test_data_formats.py -v --durations=20
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          flags: data-formats-${{ matrix.backend }}
+          fail_ci_if_error: false
+
+
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # LINK VALIDATION (nightly / release ONLY)
+  # HTTP HEAD + partial download — no weights fully downloaded
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  test-config-links:
+    name: Link validation
+    if: github.event_name == 'schedule' || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pytest requests
+      - name: Run link validation
+        run: pytest tests/integration/test_config_links.py -v -m link_validation

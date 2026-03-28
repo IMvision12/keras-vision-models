@@ -1,6 +1,8 @@
+from typing import Dict, List, Tuple, Union
+
 import keras
 import numpy as np
-import torch  # noqa: F401 - must import before keras
+import torch
 from tqdm import tqdm
 from transformers import RTDetrForObjectDetection
 
@@ -10,406 +12,341 @@ from kmodels.models.rt_detr.rt_detr_model import (
     RTDETRResNet50,
     RTDETRResNet101,
 )
-from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights
+from kmodels.utils.weight_transfer_torch_to_keras import (
+    compare_keras_torch_names,
+    transfer_nested_layer_weights,
+    transfer_weights,
+)
 
+backbone_name_mapping: Dict[str, str] = {
+    "kernel": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+    "moving_mean": "running_mean",
+    "moving_variance": "running_var",
+}
 
-def _set_dense(layer, w, b):
-    """Set Dense layer kernel and bias via variable list."""
-    for v in layer.variables:
-        if v.name == "kernel":
-            v.assign(w)
-        elif v.name == "bias":
-            v.assign(b)
-
-
-def _set_ln(layer, w, b):
-    """Set LayerNorm gamma and beta."""
-    for v in layer.variables:
-        if v.name == "gamma":
-            v.assign(w)
-        elif v.name == "beta":
-            v.assign(b)
-
-
-def _transfer_conv_norm(keras_model, sd, keras_name, hf_prefix):
-    """Transfer Conv+BN weights."""
-    k_conv = keras_model.get_layer(f"{keras_name}_conv")
-    transfer_weights("conv_kernel", k_conv.kernel, sd[f"{hf_prefix}.conv.weight"])
-    k_bn = keras_model.get_layer(f"{keras_name}_norm")
-    k_bn.gamma.assign(sd[f"{hf_prefix}.norm.weight"])
-    k_bn.beta.assign(sd[f"{hf_prefix}.norm.bias"])
-    k_bn.moving_mean.assign(sd[f"{hf_prefix}.norm.running_mean"])
-    k_bn.moving_variance.assign(sd[f"{hf_prefix}.norm.running_var"])
-
-
-_D = {"input_shape": (640, 640, 3), "num_queries": 300, "num_labels": 80}
-
-model_configs = [
+model_configs: List[Dict[str, Union[str, type]]] = [
     {
-        "keras_model_cls": RTDETRResNet50,
-        "hf_model_name": "PekingU/rtdetr_r50vd",
-        "weights_name": "coco",
-        **_D,
+        "keras_cls": RTDETRResNet50,
+        "hf_name": "PekingU/rtdetr_r50vd",
+        "output": "rtdetr_r50vd_coco.weights.h5",
     },
     {
-        "keras_model_cls": RTDETRResNet18,
-        "hf_model_name": "PekingU/rtdetr_r18vd",
-        "weights_name": "coco",
-        **_D,
+        "keras_cls": RTDETRResNet18,
+        "hf_name": "PekingU/rtdetr_r18vd",
+        "output": "rtdetr_r18vd_coco.weights.h5",
     },
     {
-        "keras_model_cls": RTDETRResNet34,
-        "hf_model_name": "PekingU/rtdetr_r34vd",
-        "weights_name": "coco",
-        **_D,
+        "keras_cls": RTDETRResNet34,
+        "hf_name": "PekingU/rtdetr_r34vd",
+        "output": "rtdetr_r34vd_coco.weights.h5",
     },
     {
-        "keras_model_cls": RTDETRResNet101,
-        "hf_model_name": "PekingU/rtdetr_r101vd",
-        "weights_name": "coco",
-        **_D,
+        "keras_cls": RTDETRResNet101,
+        "hf_name": "PekingU/rtdetr_r101vd",
+        "output": "rtdetr_r101vd_coco.weights.h5",
     },
     {
-        "keras_model_cls": RTDETRResNet18,
-        "hf_model_name": "PekingU/rtdetr_r18vd_coco_o365",
-        "weights_name": "coco_o365",
-        **_D,
+        "keras_cls": RTDETRResNet18,
+        "hf_name": "PekingU/rtdetr_r18vd_coco_o365",
+        "output": "rtdetr_r18vd_coco_o365.weights.h5",
     },
     {
-        "keras_model_cls": RTDETRResNet50,
-        "hf_model_name": "PekingU/rtdetr_r50vd_coco_o365",
-        "weights_name": "coco_o365",
-        **_D,
+        "keras_cls": RTDETRResNet50,
+        "hf_name": "PekingU/rtdetr_r50vd_coco_o365",
+        "output": "rtdetr_r50vd_coco_o365.weights.h5",
     },
     {
-        "keras_model_cls": RTDETRResNet101,
-        "hf_model_name": "PekingU/rtdetr_r101vd_coco_o365",
-        "weights_name": "coco_o365",
-        **_D,
+        "keras_cls": RTDETRResNet101,
+        "hf_name": "PekingU/rtdetr_r101vd_coco_o365",
+        "output": "rtdetr_r101vd_coco_o365.weights.h5",
     },
 ]
 
 for model_config in model_configs:
+    hf_name = model_config["hf_name"]
+    output = model_config["output"]
+
     print(f"\n{'=' * 60}")
-    print(f"Converting {model_config['hf_model_name']}...")
+    print(f"Converting {hf_name}...")
     print(f"{'=' * 60}")
 
     torch_model = RTDetrForObjectDetection.from_pretrained(
-        model_config["hf_model_name"],
+        hf_name,
         attn_implementation="eager",
     ).eval()
-    sd = {k: v.cpu().numpy() for k, v in torch_model.state_dict().items()}
+    sd: Dict[str, np.ndarray] = {
+        k: v.cpu().numpy() for k, v in torch_model.state_dict().items()
+    }
 
-    keras_model = model_config["keras_model_cls"](
+    keras_model: keras.Model = model_config["keras_cls"](
         weights=None,
-        input_shape=model_config["input_shape"],
-        num_queries=model_config["num_queries"],
-        num_labels=model_config["num_labels"],
+        input_shape=(640, 640, 3),
+        num_queries=300,
+        num_labels=80,
     )
+    print(f"  Parameters: {keras_model.count_params():,}")
 
-    # ---- Backbone stem ----
-    print("Transferring backbone stem...")
-    for i in range(3):
-        hf_pre = f"model.backbone.model.embedder.embedder.{i}"
-        k_conv = keras_model.get_layer(f"backbone_embedder_{i}_conv")
-        transfer_weights(
-            "conv_kernel", k_conv.kernel, sd[f"{hf_pre}.convolution.weight"]
-        )
-
-        k_bn = keras_model.get_layer(f"backbone_embedder_{i}_bn")
-        k_bn.gamma.assign(sd[f"{hf_pre}.normalization.weight"])
-        k_bn.beta.assign(sd[f"{hf_pre}.normalization.bias"])
-        k_bn.moving_mean.assign(sd[f"{hf_pre}.normalization.running_mean"])
-        k_bn.moving_variance.assign(sd[f"{hf_pre}.normalization.running_var"])
-
-    # ---- Backbone stages ----
     bb_cfg = torch_model.model.backbone.model.config
     block_repeats = bb_cfg.depths
     layer_type = bb_cfg.layer_type
     num_convs = 2 if layer_type == "basic" else 3
-    print(f"Transferring backbone stages ({layer_type})...")
-    for stage_idx, num_blocks in enumerate(block_repeats):
-        for block_idx in range(num_blocks):
-            hf_pre = (
-                f"model.backbone.model.encoder.stages.{stage_idx}.layers.{block_idx}"
-            )
-            k_pre = f"backbone_stage{stage_idx}_{block_idx}"
 
+    for i in tqdm(range(3), desc="Transferring backbone stem"):
+        hf_pre = f"model.backbone.model.embedder.embedder.{i}"
+        conv = keras_model.get_layer(f"backbone_embedder_{i}_conv")
+        transfer_weights("conv_kernel", conv.kernel, sd[f"{hf_pre}.convolution.weight"])
+        bn = keras_model.get_layer(f"backbone_embedder_{i}_bn")
+        skipped = transfer_nested_layer_weights(
+            bn,
+            sd,
+            f"{hf_pre}.normalization",
+            name_mapping=backbone_name_mapping,
+        )
+
+    stage_pairs: List[Tuple[str, str]] = []
+    for si, nb in enumerate(block_repeats):
+        for bi in range(nb):
+            hf_pre = f"model.backbone.model.encoder.stages.{si}.layers.{bi}"
+            k_pre = f"backbone_stage{si}_{bi}"
             for ci in range(num_convs):
-                hf_conv = f"{hf_pre}.layer.{ci}.convolution.weight"
-                hf_bn_w = f"{hf_pre}.layer.{ci}.normalization.weight"
-                hf_bn_b = f"{hf_pre}.layer.{ci}.normalization.bias"
-                hf_bn_m = f"{hf_pre}.layer.{ci}.normalization.running_mean"
-                hf_bn_v = f"{hf_pre}.layer.{ci}.normalization.running_var"
+                stage_pairs.append(
+                    (f"{k_pre}_conv{ci + 1}", f"{hf_pre}.layer.{ci}.convolution")
+                )
+                stage_pairs.append(
+                    (f"{k_pre}_bn{ci + 1}", f"{hf_pre}.layer.{ci}.normalization")
+                )
+            suf = "shortcut" if si == 0 and bi == 0 else "shortcut.1"
+            stage_pairs.append(
+                (f"{k_pre}_shortcut_conv", f"{hf_pre}.{suf}.convolution")
+            )
+            stage_pairs.append(
+                (f"{k_pre}_shortcut_bn", f"{hf_pre}.{suf}.normalization")
+            )
 
-                k_conv_name = f"{k_pre}_conv{ci + 1}"
-                k_bn_name = f"{k_pre}_bn{ci + 1}"
-
-                k_conv = keras_model.get_layer(k_conv_name)
-                transfer_weights("conv_kernel", k_conv.kernel, sd[hf_conv])
-
-                k_bn = keras_model.get_layer(k_bn_name)
-                k_bn.gamma.assign(sd[hf_bn_w])
-                k_bn.beta.assign(sd[hf_bn_b])
-                k_bn.moving_mean.assign(sd[hf_bn_m])
-                k_bn.moving_variance.assign(sd[hf_bn_v])
-
-            # Shortcut
-            sc_conv_name = f"{k_pre}_shortcut_conv"
-            sc_bn_name = f"{k_pre}_shortcut_bn"
-            try:
-                k_sc_conv = keras_model.get_layer(sc_conv_name)
-            except ValueError:
+    for keras_name, hf_prefix in tqdm(
+        stage_pairs, desc=f"Transferring backbone stages ({layer_type})"
+    ):
+        try:
+            layer = keras_model.get_layer(keras_name)
+        except ValueError:
+            continue
+        if keras_name.endswith("_conv"):
+            hf_key = f"{hf_prefix}.weight"
+            if not compare_keras_torch_names(
+                keras_name, layer.kernel, hf_key, sd[hf_key]
+            ):
                 continue
+            transfer_weights("conv_kernel", layer.kernel, sd[hf_key])
+        else:
+            transfer_nested_layer_weights(
+                layer,
+                sd,
+                hf_prefix,
+                name_mapping=backbone_name_mapping,
+            )
 
-            if stage_idx == 0 and block_idx == 0:
-                hf_sc_conv = f"{hf_pre}.shortcut.convolution.weight"
-                hf_sc_bn_w = f"{hf_pre}.shortcut.normalization.weight"
-                hf_sc_bn_b = f"{hf_pre}.shortcut.normalization.bias"
-                hf_sc_bn_m = f"{hf_pre}.shortcut.normalization.running_mean"
-                hf_sc_bn_v = f"{hf_pre}.shortcut.normalization.running_var"
-            else:
-                hf_sc_conv = f"{hf_pre}.shortcut.1.convolution.weight"
-                hf_sc_bn_w = f"{hf_pre}.shortcut.1.normalization.weight"
-                hf_sc_bn_b = f"{hf_pre}.shortcut.1.normalization.bias"
-                hf_sc_bn_m = f"{hf_pre}.shortcut.1.normalization.running_mean"
-                hf_sc_bn_v = f"{hf_pre}.shortcut.1.normalization.running_var"
+    for i in tqdm(range(3), desc="Transferring encoder input projections"):
+        conv = keras_model.get_layer(f"encoder_input_proj_{i}_conv")
+        transfer_weights(
+            "conv_kernel", conv.kernel, sd[f"model.encoder_input_proj.{i}.0.weight"]
+        )
+        bn = keras_model.get_layer(f"encoder_input_proj_{i}_bn")
+        transfer_nested_layer_weights(
+            bn,
+            sd,
+            f"model.encoder_input_proj.{i}.1",
+            name_mapping=backbone_name_mapping,
+        )
 
-            transfer_weights("conv_kernel", k_sc_conv.kernel, sd[hf_sc_conv])
-            k_sc_bn = keras_model.get_layer(sc_bn_name)
-            k_sc_bn.gamma.assign(sd[hf_sc_bn_w])
-            k_sc_bn.beta.assign(sd[hf_sc_bn_b])
-            k_sc_bn.moving_mean.assign(sd[hf_sc_bn_m])
-            k_sc_bn.moving_variance.assign(sd[hf_sc_bn_v])
-
-    # ---- Encoder input projections ----
-    print("Transferring encoder input projections...")
-    for i in range(3):
-        hf_conv = f"model.encoder_input_proj.{i}.0.weight"
-        hf_bn_w = f"model.encoder_input_proj.{i}.1.weight"
-        hf_bn_b = f"model.encoder_input_proj.{i}.1.bias"
-        hf_bn_m = f"model.encoder_input_proj.{i}.1.running_mean"
-        hf_bn_v = f"model.encoder_input_proj.{i}.1.running_var"
-
-        k_conv = keras_model.get_layer(f"encoder_input_proj_{i}_conv")
-        transfer_weights("conv_kernel", k_conv.kernel, sd[hf_conv])
-
-        k_bn = keras_model.get_layer(f"encoder_input_proj_{i}_bn")
-        k_bn.gamma.assign(sd[hf_bn_w])
-        k_bn.beta.assign(sd[hf_bn_b])
-        k_bn.moving_mean.assign(sd[hf_bn_m])
-        k_bn.moving_variance.assign(sd[hf_bn_v])
-
-    # ---- AIFI encoder ----
     print("Transferring AIFI encoder...")
     hf_aifi = "model.encoder.aifi.0.layers.0"
-    k_aifi = "aifi_0_layers_0"
+    sa = keras_model.get_layer("aifi_0_layers_0_self_attn")
 
-    sa = keras_model.get_layer(f"{k_aifi}_self_attn")
-    for kp, hp in [
-        ("q_proj", "q_proj"),
-        ("k_proj", "k_proj"),
-        ("v_proj", "v_proj"),
-        ("out_proj", "o_proj"),
+    aifi_sa_mapping: Dict[str, str] = {
+        "aifi_0_layers_0_self_attn_": "",
+        "out_proj": "o_proj",
+        "kernel": "weight",
+        "gamma": "weight",
+        "beta": "bias",
+    }
+    transfer_nested_layer_weights(
+        sa,
+        sd,
+        f"{hf_aifi}.self_attn",
+        name_mapping=aifi_sa_mapping,
+    )
+
+    for layer_name, hf_suffix in [
+        ("aifi_0_layers_0_self_attn_layer_norm", "self_attn_layer_norm"),
+        ("aifi_0_layers_0_final_layer_norm", "final_layer_norm"),
     ]:
-        proj = getattr(sa, kp)
-        _set_dense(
-            proj,
-            sd[f"{hf_aifi}.self_attn.{hp}.weight"].T,
-            sd[f"{hf_aifi}.self_attn.{hp}.bias"],
-        )
-
-    _set_ln(
-        keras_model.get_layer(f"{k_aifi}_self_attn_layer_norm"),
-        sd[f"{hf_aifi}.self_attn_layer_norm.weight"],
-        sd[f"{hf_aifi}.self_attn_layer_norm.bias"],
-    )
-    _set_dense(
-        keras_model.get_layer(f"{k_aifi}_fc1"),
-        sd[f"{hf_aifi}.mlp.fc1.weight"].T,
-        sd[f"{hf_aifi}.mlp.fc1.bias"],
-    )
-    _set_dense(
-        keras_model.get_layer(f"{k_aifi}_fc2"),
-        sd[f"{hf_aifi}.mlp.fc2.weight"].T,
-        sd[f"{hf_aifi}.mlp.fc2.bias"],
-    )
-    _set_ln(
-        keras_model.get_layer(f"{k_aifi}_final_layer_norm"),
-        sd[f"{hf_aifi}.final_layer_norm.weight"],
-        sd[f"{hf_aifi}.final_layer_norm.bias"],
-    )
-
-    # ---- CCFM: lateral convs, fpn_blocks, downsample_convs, pan_blocks ----
-    print("Transferring CCFM (FPN + PAN)...")
-    for i in range(2):
-        _transfer_conv_norm(
-            keras_model, sd, f"lateral_convs_{i}", f"model.encoder.lateral_convs.{i}"
-        )
-        _transfer_conv_norm(
-            keras_model,
+        ln = keras_model.get_layer(layer_name)
+        transfer_nested_layer_weights(
+            ln,
             sd,
-            f"downsample_convs_{i}",
-            f"model.encoder.downsample_convs.{i}",
+            f"{hf_aifi}.{hf_suffix}",
+            name_mapping=backbone_name_mapping,
         )
 
+    aifi_fc_mapping: Dict[str, str] = {
+        "aifi_0_layers_0_": "",
+        "kernel": "weight",
+        "beta": "bias",
+    }
+    for layer_name, hf_suffix in [
+        ("aifi_0_layers_0_fc1", "mlp.fc1"),
+        ("aifi_0_layers_0_fc2", "mlp.fc2"),
+    ]:
+        fc = keras_model.get_layer(layer_name)
+        transfer_nested_layer_weights(
+            fc,
+            sd,
+            f"{hf_aifi}.{hf_suffix}",
+            name_mapping=aifi_fc_mapping,
+        )
+
+    conv_norm_pairs: List[Tuple[str, str]] = []
+    for i in range(2):
+        conv_norm_pairs.append(
+            (f"lateral_convs_{i}", f"model.encoder.lateral_convs.{i}")
+        )
+        conv_norm_pairs.append(
+            (f"downsample_convs_{i}", f"model.encoder.downsample_convs.{i}")
+        )
     for block_type in ["fpn_blocks", "pan_blocks"]:
         for i in range(2):
             hf_blk = f"model.encoder.{block_type}.{i}"
             k_blk = f"{block_type}_{i}"
-
-            _transfer_conv_norm(keras_model, sd, f"{k_blk}_conv1", f"{hf_blk}.conv1")
-            _transfer_conv_norm(keras_model, sd, f"{k_blk}_conv2", f"{hf_blk}.conv2")
-
-            # conv3 exists when hidden_expansion != 1.0
+            conv_norm_pairs.append((f"{k_blk}_conv1", f"{hf_blk}.conv1"))
+            conv_norm_pairs.append((f"{k_blk}_conv2", f"{hf_blk}.conv2"))
             if f"{hf_blk}.conv3.conv.weight" in sd:
-                _transfer_conv_norm(
-                    keras_model, sd, f"{k_blk}_conv3", f"{hf_blk}.conv3"
-                )
-
+                conv_norm_pairs.append((f"{k_blk}_conv3", f"{hf_blk}.conv3"))
             for bi in range(3):
-                _transfer_conv_norm(
-                    keras_model,
-                    sd,
-                    f"{k_blk}_bottlenecks_{bi}_conv1",
-                    f"{hf_blk}.bottlenecks.{bi}.conv1",
+                conv_norm_pairs.append(
+                    (
+                        f"{k_blk}_bottlenecks_{bi}_conv1",
+                        f"{hf_blk}.bottlenecks.{bi}.conv1",
+                    )
                 )
-                _transfer_conv_norm(
-                    keras_model,
-                    sd,
-                    f"{k_blk}_bottlenecks_{bi}_conv2",
-                    f"{hf_blk}.bottlenecks.{bi}.conv2",
+                conv_norm_pairs.append(
+                    (
+                        f"{k_blk}_bottlenecks_{bi}_conv2",
+                        f"{hf_blk}.bottlenecks.{bi}.conv2",
+                    )
                 )
 
-    # ---- Decoder input projections ----
-    print("Transferring decoder input projections...")
-    for i in range(3):
-        k_conv = keras_model.get_layer(f"decoder_input_proj_{i}_conv")
+    for keras_name, hf_prefix in tqdm(
+        conv_norm_pairs, desc="Transferring CCFM (FPN + PAN)"
+    ):
+        conv = keras_model.get_layer(f"{keras_name}_conv")
+        transfer_weights("conv_kernel", conv.kernel, sd[f"{hf_prefix}.conv.weight"])
+        bn = keras_model.get_layer(f"{keras_name}_norm")
+        transfer_nested_layer_weights(
+            bn,
+            sd,
+            f"{hf_prefix}.norm",
+            name_mapping=backbone_name_mapping,
+        )
+
+    for i in tqdm(range(3), desc="Transferring decoder input projections"):
+        conv = keras_model.get_layer(f"decoder_input_proj_{i}_conv")
         transfer_weights(
-            "conv_kernel", k_conv.kernel, sd[f"model.decoder_input_proj.{i}.0.weight"]
+            "conv_kernel", conv.kernel, sd[f"model.decoder_input_proj.{i}.0.weight"]
         )
-        k_bn = keras_model.get_layer(f"decoder_input_proj_{i}_bn")
-        k_bn.gamma.assign(sd[f"model.decoder_input_proj.{i}.1.weight"])
-        k_bn.beta.assign(sd[f"model.decoder_input_proj.{i}.1.bias"])
-        k_bn.moving_mean.assign(sd[f"model.decoder_input_proj.{i}.1.running_mean"])
-        k_bn.moving_variance.assign(sd[f"model.decoder_input_proj.{i}.1.running_var"])
+        bn = keras_model.get_layer(f"decoder_input_proj_{i}_bn")
+        transfer_nested_layer_weights(
+            bn,
+            sd,
+            f"model.decoder_input_proj.{i}.1",
+            name_mapping=backbone_name_mapping,
+        )
 
-    # ---- Encoder output ----
     print("Transferring encoder output heads...")
-    _set_dense(
-        keras_model.get_layer("enc_output_linear"),
-        sd["model.enc_output.0.weight"].T,
-        sd["model.enc_output.0.bias"],
+    for keras_name, hf_key in [
+        ("enc_output_linear", "model.enc_output.0"),
+        ("enc_score_head", "model.enc_score_head"),
+    ]:
+        layer = keras_model.get_layer(keras_name)
+        transfer_weights("kernel", layer.weights[0], sd[f"{hf_key}.weight"])
+        layer.weights[1].assign(sd[f"{hf_key}.bias"])
+
+    enc_ln = keras_model.get_layer("enc_output_layernorm")
+    transfer_nested_layer_weights(
+        enc_ln,
+        sd,
+        "model.enc_output.1",
+        name_mapping=backbone_name_mapping,
     )
-    _set_ln(
-        keras_model.get_layer("enc_output_layernorm"),
-        sd["model.enc_output.1.weight"],
-        sd["model.enc_output.1.bias"],
-    )
-    _set_dense(
-        keras_model.get_layer("enc_score_head"),
-        sd["model.enc_score_head.weight"].T,
-        sd["model.enc_score_head.bias"],
-    )
+
     for j in range(3):
-        _set_dense(
-            keras_model.get_layer(f"enc_bbox_head_{j}"),
-            sd[f"model.enc_bbox_head.layers.{j}.weight"].T,
-            sd[f"model.enc_bbox_head.layers.{j}.bias"],
+        layer = keras_model.get_layer(f"enc_bbox_head_{j}")
+        transfer_weights(
+            "kernel", layer.weights[0], sd[f"model.enc_bbox_head.layers.{j}.weight"]
         )
+        layer.weights[1].assign(sd[f"model.enc_bbox_head.layers.{j}.bias"])
 
-    print("Transferring decoder...")
-    _set_dense(
-        keras_model.get_layer("query_pos_head_0"),
-        sd["model.decoder.query_pos_head.layers.0.weight"].T,
-        sd["model.decoder.query_pos_head.layers.0.bias"],
-    )
-    _set_dense(
-        keras_model.get_layer("query_pos_head_1"),
-        sd["model.decoder.query_pos_head.layers.1.weight"].T,
-        sd["model.decoder.query_pos_head.layers.1.bias"],
-    )
+    for j in range(2):
+        layer = keras_model.get_layer(f"query_pos_head_{j}")
+        transfer_weights(
+            "kernel",
+            layer.weights[0],
+            sd[f"model.decoder.query_pos_head.layers.{j}.weight"],
+        )
+        layer.weights[1].assign(sd[f"model.decoder.query_pos_head.layers.{j}.bias"])
 
-    # ---- Decoder layers ----
     num_dec = torch_model.config.decoder_layers
     for i in tqdm(range(num_dec), desc="Transferring decoder layers"):
-        hf_pre = f"model.decoder.layers.{i}"
-        k_pre = f"decoder_layers_{i}"
+        hf_dl = f"model.decoder.layers.{i}"
+        k_dl = f"decoder_layers_{i}"
+        dec_layer = keras_model.get_layer(k_dl)
 
-        # Self-attention
-        dl = keras_model.get_layer(f"{k_pre}")
-        for kp, hp in [
-            ("q_proj", "q_proj"),
-            ("k_proj", "k_proj"),
-            ("v_proj", "v_proj"),
-            ("out_proj", "o_proj"),
-        ]:
-            _set_dense(
-                getattr(dl.self_attn, kp),
-                sd[f"{hf_pre}.self_attn.{hp}.weight"].T,
-                sd[f"{hf_pre}.self_attn.{hp}.bias"],
-            )
+        decoder_name_mapping: Dict[str, str] = {
+            f"{k_dl}_self_attn.{k_dl}_self_attn_": "self_attn.",
+            f"{k_dl}_encoder_attn.": "encoder_attn.",
+            f"{k_dl}_self_attn_layer_norm.": "self_attn_layer_norm.",
+            f"{k_dl}_encoder_attn_layer_norm.": "encoder_attn_layer_norm.",
+            f"{k_dl}_final_layer_norm.": "final_layer_norm.",
+            f"{k_dl}_fc1.": "mlp.fc1.",
+            f"{k_dl}_fc2.": "mlp.fc2.",
+            "out_proj": "o_proj",
+            "kernel": "weight",
+            "gamma": "weight",
+            "beta": "bias",
+        }
 
-        _set_ln(
-            dl.self_attn_layer_norm,
-            sd[f"{hf_pre}.self_attn_layer_norm.weight"],
-            sd[f"{hf_pre}.self_attn_layer_norm.bias"],
+        skipped = transfer_nested_layer_weights(
+            dec_layer,
+            sd,
+            hf_dl,
+            name_mapping=decoder_name_mapping,
         )
+        if skipped:
+            for w, path in skipped:
+                print(f"  WARNING: Skipped {path}")
 
-        ea = dl.encoder_attn
-        for k_attr, hf_name in [
-            ("sampling_offsets", "sampling_offsets"),
-            ("attention_weights_proj", "attention_weights"),
-            ("value_proj", "value_proj"),
-            ("output_proj", "output_proj"),
-        ]:
-            _set_dense(
-                getattr(ea, k_attr),
-                sd[f"{hf_pre}.encoder_attn.{hf_name}.weight"].T,
-                sd[f"{hf_pre}.encoder_attn.{hf_name}.bias"],
-            )
-
-        _set_ln(
-            dl.encoder_attn_layer_norm,
-            sd[f"{hf_pre}.encoder_attn_layer_norm.weight"],
-            sd[f"{hf_pre}.encoder_attn_layer_norm.bias"],
-        )
-
-        _set_dense(
-            dl.fc1, sd[f"{hf_pre}.mlp.fc1.weight"].T, sd[f"{hf_pre}.mlp.fc1.bias"]
-        )
-        _set_dense(
-            dl.fc2, sd[f"{hf_pre}.mlp.fc2.weight"].T, sd[f"{hf_pre}.mlp.fc2.bias"]
-        )
-        _set_ln(
-            dl.final_layer_norm,
-            sd[f"{hf_pre}.final_layer_norm.weight"],
-            sd[f"{hf_pre}.final_layer_norm.bias"],
-        )
-
-    # ---- Per-layer class_embed and bbox_embed ----
-    print("Transferring detection heads...")
-    for i in range(num_dec):
+    for i in tqdm(range(num_dec), desc="Transferring detection heads"):
         try:
-            _set_dense(
-                keras_model.get_layer(f"class_embed_{i}"),
-                sd[f"model.decoder.class_embed.{i}.weight"].T,
-                sd[f"model.decoder.class_embed.{i}.bias"],
+            cls = keras_model.get_layer(f"class_embed_{i}")
+            transfer_weights(
+                "kernel", cls.weights[0], sd[f"model.decoder.class_embed.{i}.weight"]
             )
+            cls.weights[1].assign(sd[f"model.decoder.class_embed.{i}.bias"])
         except ValueError:
             pass
 
         for j in range(3):
-            _set_dense(
-                keras_model.get_layer(f"bbox_embed_{i}_{j}"),
-                sd[f"model.decoder.bbox_embed.{i}.layers.{j}.weight"].T,
-                sd[f"model.decoder.bbox_embed.{i}.layers.{j}.bias"],
+            bbox = keras_model.get_layer(f"bbox_embed_{i}_{j}")
+            transfer_weights(
+                "kernel",
+                bbox.weights[0],
+                sd[f"model.decoder.bbox_embed.{i}.layers.{j}.weight"],
             )
+            bbox.weights[1].assign(sd[f"model.decoder.bbox_embed.{i}.layers.{j}.bias"])
 
-    print("Weight transfer complete!")
+    print("\nVerifying model equivalence...")
 
-    # ---- Verification ----
-    print("Verifying model equivalence...")
     np.random.seed(42)
     test_input = np.random.rand(1, 640, 640, 3).astype(np.float32)
 
@@ -426,36 +363,41 @@ for model_config in model_configs:
     logits_diff = np.max(np.abs(hf_logits - keras_logits))
     boxes_diff = np.max(np.abs(hf_boxes - keras_boxes))
 
-    print(f"Max logits diff:  {logits_diff:.6f}")
-    print(f"Max boxes diff:   {boxes_diff:.6f}")
+    hf_flat = hf_logits.flatten()
+    k_flat = keras_logits.flatten()
+    logits_cos = float(
+        np.dot(hf_flat, k_flat)
+        / (np.linalg.norm(hf_flat) * np.linalg.norm(k_flat) + 1e-8)
+    )
+
+    print(f"Max logits diff:   {logits_diff:.6f}")
+    print(f"Max boxes diff:    {boxes_diff:.6f}")
+    print(f"Logits cosine sim: {logits_cos:.6f}")
 
     if logits_diff > 1e-3 or boxes_diff > 1e-3:
-        # Top-k query selection can differ for some checkpoints due to
-        # float32 accumulation in deep encoders. Verify pre-top-k encoder
-        # scores instead, which are deterministic.
         sub_enc = keras.Model(
             inputs=keras_model.input,
             outputs=keras_model.get_layer("enc_score_head").output,
         )
         keras_enc_scores = np.asarray(sub_enc.predict(test_input, verbose=0))
         with torch.no_grad():
-            hf_model_out = torch_model.model(
-                torch.tensor(test_input).permute(0, 3, 1, 2),
-            )
+            hf_model_out = torch_model.model(hf_input)
             hf_enc_scores = hf_model_out.enc_outputs_class.cpu().numpy()
         enc_diff = np.max(np.abs(keras_enc_scores - hf_enc_scores))
         print(f"  Encoder scores diff: {enc_diff:.6f} (fallback check)")
         assert enc_diff < 1e-3, (
-            f"Model equivalence test failed on encoder scores (diff: {enc_diff:.6f})"
+            f"Equivalence test failed on encoder scores (diff: {enc_diff:.6f})"
         )
 
-    print("Model equivalence test passed!")
+    if logits_cos < 0.95:
+        raise ValueError(
+            f"Equivalence test failed: logits cosine similarity {logits_cos:.4f} < 0.95"
+        )
 
-    hf_name = model_config["hf_model_name"].split("/")[-1]
-    wt_name = model_config.get("weights_name", "coco")
-    model_filename = f"{hf_name}_{wt_name}.weights.h5"
-    keras_model.save_weights(model_filename)
-    print(f"Model saved as {model_filename}")
+    print("Equivalence test passed!")
+
+    keras_model.save_weights(output)
+    print(f"Model saved as {output}")
 
     del keras_model, torch_model, sd
     torch.cuda.empty_cache() if torch.cuda.is_available() else None

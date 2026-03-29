@@ -728,7 +728,7 @@ class RTDETR(keras.Model):
         idx3 = ops.expand_dims(topk_idx, -1)
         target = ops.take_along_axis(enc_out, idx3, axis=1)
         target = ops.stop_gradient(target)
-        idx4 = ops.broadcast_to(idx3, [ops.shape(topk_idx)[0], num_queries, 4])
+        idx4 = ops.repeat(idx3, 4, axis=-1)
         ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
         ref_logit = ops.stop_gradient(ref_logit)
 
@@ -741,9 +741,7 @@ class RTDETR(keras.Model):
         for di in range(decoder_layers):
             query_pos = qp_d1(qp_d0(ref_pts))
             rp_in = ops.expand_dims(ref_pts, axis=2)
-            rp_in = ops.broadcast_to(
-                rp_in, [ops.shape(ref_pts)[0], num_queries, num_feature_levels, 4]
-            )
+            rp_in = ops.repeat(rp_in, num_feature_levels, axis=2)
             dl = RTDETRDecoderLayer(
                 d_model=d_model,
                 num_heads=decoder_num_heads,

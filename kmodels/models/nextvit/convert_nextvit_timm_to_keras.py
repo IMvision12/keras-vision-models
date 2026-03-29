@@ -50,6 +50,60 @@ model_configs: List[Dict[str, Union[str, type]]] = [
         "input_shape": [224, 224, 3],
         "num_classes": 1000,
     },
+    {
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_ssld_6m_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_ssld_6m_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_ssld_6m_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_ssld_6m_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_ssld_6m_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_ssld_6m_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
 ]
 
 for model_config in model_configs:

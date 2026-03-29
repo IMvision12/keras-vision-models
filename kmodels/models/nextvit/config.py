@@ -30,14 +30,41 @@ NEXTVIT_WEIGHTS_CONFIG = {
         "bd_in1k_224": {
             "url": "",
         },
+        "bd_in1k_384": {
+            "url": "",
+        },
+        "bd_ssld_6m_in1k_224": {
+            "url": "",
+        },
+        "bd_ssld_6m_in1k_384": {
+            "url": "",
+        },
     },
     "NextViTBase": {
         "bd_in1k_224": {
             "url": "",
         },
+        "bd_in1k_384": {
+            "url": "",
+        },
+        "bd_ssld_6m_in1k_224": {
+            "url": "",
+        },
+        "bd_ssld_6m_in1k_384": {
+            "url": "",
+        },
     },
     "NextViTLarge": {
         "bd_in1k_224": {
+            "url": "",
+        },
+        "bd_in1k_384": {
+            "url": "",
+        },
+        "bd_ssld_6m_in1k_224": {
+            "url": "",
+        },
+        "bd_ssld_6m_in1k_384": {
             "url": "",
         },
     },

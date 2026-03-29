@@ -86,6 +86,8 @@ filterwarnings = [
     "ignore::DeprecationWarning:importlib._bootstrap",
     "ignore:__array__ implementation doesn't accept a copy keyword:DeprecationWarning",
     "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+    "ignore:You are using a softmax over axis .* of a tensor of shape .* This axis has size 1:UserWarning",
+    "ignore:The structure of `inputs` doesn't match the expected structure:UserWarning",
 ]
 markers = [
     "serialization: serialization roundtrip tests",

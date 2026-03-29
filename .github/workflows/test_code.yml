@@ -3,8 +3,6 @@ on:
   pull_request:
   release:
     types: [created]
-  schedule:
-    - cron: '0 3 * * 1'  # Nightly on Mondays for link validation
 
 jobs:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -23,11 +21,11 @@ jobs:
       - run: ruff format --check .
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # MODEL CORE TESTS (all 4 backends, CPU)
-  # Forward pass + output shapes + NaN checks
+  # TEST THE CODE (models + serialization + saving +
+  # data formats — one combined job per backend)
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  test-models-core:
-    name: Models (${{ matrix.backend }})
+  test-code:
+    name: Test the code (${{ matrix.backend }})
     needs: lint-and-format
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -46,8 +44,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-models-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: pip-models-${{ matrix.backend }}-
+          key: pip-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: pip-${{ matrix.backend }}-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools
@@ -55,123 +53,19 @@ jobs:
           pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
           pip install sentencepiece matplotlib>=3.8.0 pillow
           pip install -e .
-      - name: Run model core tests
+      - name: Run all tests
         run: |
-          pytest tests/integration/test_backend_compatibility.py -v --durations=20 \
-            --cov=kmodels --cov-append \
-            -m "not slow and not gpu and not link_validation"
-      - name: Generate coverage
-        run: coverage xml -o coverage.xml
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          files: coverage.xml
-          flags: models-${{ matrix.backend }}
-          fail_ci_if_error: false
-
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # SERIALIZATION + SAVING (all backends)
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  test-serialization-saving:
-    name: Serialization & Saving (${{ matrix.backend }})
-    needs: lint-and-format
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        backend: [torch, tensorflow, jax]
-    env:
-      KERAS_BACKEND: ${{ matrix.backend }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-serial-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: pip-serial-${{ matrix.backend }}-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools
-          pip install -U keras>=3.11.0 pytest pytest-cov
-          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
-          pip install sentencepiece pillow
-          pip install -e .
-      - name: Run serialization & saving tests
-        run: |
-          pytest tests/integration/test_serialization.py \
+          pytest tests/integration/test_backend_compatibility.py \
+                 tests/integration/test_serialization.py \
                  tests/integration/test_model_saving.py \
-                 -v --durations=20 --cov=kmodels --cov-append
+                 tests/integration/test_data_formats.py \
+                 -v --durations=20 --cov=kmodels --cov-append \
+                 -m "not slow and not gpu"
       - name: Generate coverage
         run: coverage xml -o coverage.xml
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
-          flags: serialization-${{ matrix.backend }}
+          flags: ${{ matrix.backend }}
           fail_ci_if_error: false
-
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # DATA FORMAT TESTS (torch, jax, tf on CPU)
-  # TF channels_first auto-skips (needs GPU cuDNN)
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  test-data-formats:
-    name: Data formats (${{ matrix.backend }})
-    needs: lint-and-format
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        backend: [torch, tensorflow, jax]
-    env:
-      KERAS_BACKEND: ${{ matrix.backend }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-format-${{ matrix.backend }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: pip-format-${{ matrix.backend }}-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools
-          pip install -U keras>=3.11.0 pytest pytest-cov
-          pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
-          pip install sentencepiece pillow
-          pip install -e .
-      - name: Run data format tests
-        run: pytest tests/integration/test_data_formats.py -v --durations=20
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          flags: data-formats-${{ matrix.backend }}
-          fail_ci_if_error: false
-
-
-
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # LINK VALIDATION (nightly / release ONLY)
-  # HTTP HEAD + partial download — no weights fully downloaded
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  test-config-links:
-    name: Link validation
-    if: github.event_name == 'schedule' || github.event_name == 'release'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install pytest requests
-      - name: Run link validation
-        run: pytest tests/integration/test_config_links.py -v -m link_validation

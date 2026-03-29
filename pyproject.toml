@@ -93,7 +93,6 @@ markers = [
     "serialization: serialization roundtrip tests",
     "saving: model save/load tests",
     "data_format: channels first/last tests",
-    "link_validation: weight URL + download tests (requires network)",
     "slow: slow tests excluded from default runs",
     "gpu: tests that require GPU (skipped on CI)",
 ]

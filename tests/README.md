@@ -22,7 +22,6 @@ pip install -e ".[test]"
 | `df-torch` | Data format (channels_first/last) | torch |
 | `df-tf` | Data format (channels_last + channels_first auto-skips without GPU) | tensorflow |
 | `df-jax` | Data format (channels_first/last) | jax |
-| `links` | 381 weight URL validation | — |
 | `gpu` | GPU-marked tests only | torch + tf |
 | `gpu-all` | **Full test suite on GPU** (torch + tf) | torch, tf |
 
@@ -31,10 +30,7 @@ pip install -e ".[test]"
 | Job | Backends | Trigger |
 |-----|----------|---------|
 | Lint & Format | — | PR, release |
-| Models Core (forward pass + NaN) | torch, tf, jax | PR, release |
-| Serialization & Saving | torch, tf, jax | PR, release |
-| Data Formats | torch, tf, jax | PR, release |
-| Link Validation | — | Monday nightly, release |
+| Test the code | torch, tf, jax | PR, release |
 
 ## Local GPU (manual)
 

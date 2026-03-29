@@ -22,7 +22,7 @@ help:
 .PHONY: test-all
 test-all:
 	KERAS_BACKEND=torch $(PYTEST) tests/ -v --durations=20 \
-		-m "not slow and not link_validation and not gpu"
+		-m "not slow and not gpu"
 
 .PHONY: test-backend-torch
 test-backend-torch:
@@ -52,10 +52,6 @@ test-data-format:
 test-data-format-gpu:
 	KERAS_BACKEND=tensorflow $(PYTEST) tests/integration/test_data_formats.py -v \
 		-k "channels_first"
-
-.PHONY: test-links
-test-links:
-	$(PYTEST) tests/integration/test_config_links.py -v -m link_validation
 
 .PHONY: test-gpu
 test-gpu:

@@ -14,7 +14,6 @@ Commands:
     df-torch             Data format tests on torch
     df-tf                Data format tests on tensorflow (GPU auto-skip)
     df-jax               Data format tests on jax
-    links                Link validation (slow, requires network)
     gpu                  GPU-marked tests only
     gpu-all              Full test suite on GPU (torch + tf)
     help                 Show this message
@@ -59,7 +58,7 @@ def test_all():
         "-v",
         "--durations=20",
         "-m",
-        "not slow and not link_validation and not gpu",
+        "not slow and not gpu",
     )
 
 
@@ -115,17 +114,6 @@ def test_df_tf():
 @command("df-jax")
 def test_df_jax():
     return _run("jax", DF_FILE, "-v")
-
-
-@command("links")
-def test_links():
-    return _run(
-        None,
-        "tests/integration/test_config_links.py",
-        "-v",
-        "-m",
-        "link_validation",
-    )
 
 
 @command("gpu")

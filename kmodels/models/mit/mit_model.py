@@ -118,7 +118,7 @@ def overlap_patch_embedding_block(
         H, W = shape[1], shape[2]
     x = layers.Reshape((-1, out_channels))(x)
     x = layers.LayerNormalization(
-        axis=channels_axis,
+        axis=-1,
         epsilon=1e-5,
         name=f"patch_embed_{pytorch_stage_idx}_layernorm",
     )(x)
@@ -172,7 +172,7 @@ def hierarchical_transformer_encoder_block(
     drop_path_layer = StochasticDepth(drop_prob)
 
     norm1 = layers.LayerNormalization(
-        axis=channels_axis,
+        axis=-1,
         epsilon=1e-6,
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_1",
     )(x)
@@ -190,7 +190,7 @@ def hierarchical_transformer_encoder_block(
     add1 = layers.Add()([x, attn_out])
 
     norm2 = layers.LayerNormalization(
-        axis=channels_axis,
+        axis=-1,
         epsilon=1e-6,
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_2",
     )(add1)
@@ -385,7 +385,7 @@ class MixTransformer(keras.Model):
                 cur_block += 1
 
             x = layers.LayerNormalization(
-                name=f"final_layernorm_{i}", axis=channels_axis, epsilon=1e-5
+                name=f"final_layernorm_{i}", axis=-1, epsilon=1e-5
             )(x)
             if data_format == "channels_first":
                 x = layers.Reshape((embed_dims[i], H, W))(x)

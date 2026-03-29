@@ -89,7 +89,7 @@ def transformer_block(
 
     # Attention branch
     x = layers.LayerNormalization(
-        epsilon=1e-6, axis=channels_axis, name=f"blocks_{block_idx}_layernorm_1"
+        epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
     x = MultiHeadSelfAttention(
         dim=dim,
@@ -110,7 +110,7 @@ def transformer_block(
     # MLP branch
     y = layers.LayerNormalization(
         epsilon=1e-6,
-        axis=channels_axis,
+        axis=-1,
         name=f"blocks_{block_idx}_layernorm_2",
     )(x)
     y = mlp_block(
@@ -368,9 +368,7 @@ class VisionTransformer(keras.Model):
             )
             features.append(x)
 
-        x = layers.LayerNormalization(
-            epsilon=1e-6, axis=channels_axis, name="final_layernorm"
-        )(x)
+        x = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_layernorm")(x)
 
         if include_top:
             if use_distillation:

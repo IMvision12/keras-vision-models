@@ -39,7 +39,7 @@ def mixer_block(
     inputs = x
 
     x = layers.LayerNormalization(
-        axis=channels_axis, epsilon=1e-6, name=f"blocks_{block_idx}_layernorm_1"
+        axis=-1, epsilon=1e-6, name=f"blocks_{block_idx}_layernorm_1"
     )(x)
     x_t = layers.Permute((2, 1), name=f"blocks_{block_idx}_permute_1")(x)
     x_t = layers.Dense(
@@ -58,7 +58,7 @@ def mixer_block(
 
     inputs = x
     x = layers.LayerNormalization(
-        axis=channels_axis, epsilon=1e-6, name=f"blocks_{block_idx}_layernorm_2"
+        axis=-1, epsilon=1e-6, name=f"blocks_{block_idx}_layernorm_2"
     )(x)
     x = layers.Dense(
         channel_mlp_dim,
@@ -240,9 +240,7 @@ class MLPMixer(keras.Model):
             if i in features_at:
                 features.append(x)
 
-        x = layers.LayerNormalization(
-            axis=channels_axis, epsilon=1e-6, name="final_layernomr"
-        )(x)
+        x = layers.LayerNormalization(axis=-1, epsilon=1e-6, name="final_layernomr")(x)
 
         if include_top:
             x = layers.GlobalAveragePooling1D(data_format=data_format, name="avg_pool")(

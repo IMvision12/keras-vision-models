@@ -114,7 +114,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
                 name=f"{self.block_prefix}_attn_sr",
             )
             self.norm = layers.LayerNormalization(
-                axis=self.channels_axis,
+                axis=-1,
                 epsilon=self.epsilon,
                 dtype=self.dtype_policy,
                 name=f"{self.block_prefix}_attn_norm",

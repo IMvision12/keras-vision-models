@@ -16,7 +16,6 @@ MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 def _skip_if_incompatible(model_name):
     """Skip models with inherent backend/hardware incompatibilities."""
     if BACKEND == "tensorflow" and model_name == "Sam2Tiny":
-        # Check if GPU is available (TF supports NCHW on GPU, not CPU)
         try:
             import tensorflow as tf
 

@@ -11,6 +11,21 @@ from kmodels.utils import get_all_weight_names, load_weights_from_config
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_CONFIG
 
 
+def _spatial_layer_norm(x, data_format, epsilon=1e-6, name=None):
+    """Apply LayerNormalization over channels for spatial (4D) feature maps.
+
+    PyTorch's layer_norm only supports normalizing over trailing dimensions,
+    so for channels_first (B, C, H, W) we permute to (B, H, W, C), normalize
+    over the last axis, then permute back.
+    """
+    if data_format == "channels_first":
+        x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
+    x = layers.LayerNormalization(axis=-1, epsilon=epsilon, name=name)(x)
+    if data_format == "channels_first":
+        x = layers.Permute((3, 1, 2), name=f"{name}_to_cf" if name else None)(x)
+    return x
+
+
 def convnext_block(
     inputs,
     projection_dim,
@@ -51,9 +66,7 @@ def convnext_block(
         data_format=data_format,
         name=name + "_depthwise_conv",
     )(inputs)
-    x = layers.LayerNormalization(
-        axis=channels_axis, epsilon=1e-6, name=name + "_layernorm"
-    )(x)
+    x = _spatial_layer_norm(x, data_format, epsilon=1e-6, name=name + "_layernorm")
     if use_conv:
         x = layers.Conv2D(
             projection_dim * 4, 1, data_format=data_format, name=name + "_conv_1"
@@ -230,20 +243,19 @@ class ConvNeXt(keras.Model):
             data_format=data_format,
             name="stem_conv",
         )(x)
-        x = layers.LayerNormalization(
-            axis=channels_axis, epsilon=1e-6, name="stem_layernorm"
-        )(x)
+        x = _spatial_layer_norm(x, data_format, epsilon=1e-6, name="stem_layernorm")
         features.append(x)
 
         depth_drop_rates = np.linspace(0.0, drop_path_rate, sum(depths))
         cur = 0
         for i in range(len(depths)):
             if i > 0:
-                x = layers.LayerNormalization(
-                    axis=channels_axis,
+                x = _spatial_layer_norm(
+                    x,
+                    data_format,
                     epsilon=1e-6,
                     name=f"stages_{i}_downsampling_layernorm",
-                )(x)
+                )
                 x = layers.Conv2D(
                     projection_dims[i],
                     kernel_size=2,
@@ -273,7 +285,7 @@ class ConvNeXt(keras.Model):
                 x
             )
             x = layers.LayerNormalization(
-                axis=channels_axis, epsilon=1e-6, name="final_layernorm"
+                axis=-1, epsilon=1e-6, name="final_layernorm"
             )(x)
             x = layers.Dense(
                 num_classes, activation=classifier_activation, name="predictions"

@@ -2,7 +2,10 @@ import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
-from .config import NEXTVIT_MODEL_CONFIG
+from kmodels.model_registry import register_model
+from kmodels.utils import get_all_weight_names, load_weights_from_config
+
+from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHTS_CONFIG
 from .nextvit_layers import EfficientAttention
 
 
@@ -549,6 +552,7 @@ class NextViT(keras.Model):
         return cls(**config)
 
 
+@register_model
 def NextViTSmall(
     include_top=True,
     include_normalization=True,
@@ -562,24 +566,6 @@ def NextViTSmall(
     name="NextViTSmall",
     **kwargs,
 ):
-    """Instantiate NextViT-Small model.
-
-    Args:
-        include_top: Whether to include the classification head.
-        include_normalization: Whether to include input normalization.
-        normalization_mode: Normalization mode.
-        weights: Path to pretrained weights or None.
-        input_tensor: Optional input tensor.
-        input_shape: Input shape tuple.
-        pooling: Pooling mode when include_top=False.
-        num_classes: Number of output classes.
-        classifier_activation: Activation for classification.
-        name: Model name.
-        **kwargs: Additional arguments.
-
-    Returns:
-        A Keras Model instance.
-    """
     model = NextViT(
         **NEXTVIT_MODEL_CONFIG["NextViTSmall"],
         include_top=include_top,
@@ -594,12 +580,17 @@ def NextViTSmall(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights is not None:
+    if weights in get_all_weight_names(NEXTVIT_WEIGHTS_CONFIG):
+        load_weights_from_config("NextViTSmall", weights, model, NEXTVIT_WEIGHTS_CONFIG)
+    elif weights is not None:
         model.load_weights(weights)
+    else:
+        print("No weights loaded.")
 
     return model
 
 
+@register_model
 def NextViTBase(
     include_top=True,
     include_normalization=True,
@@ -613,7 +604,6 @@ def NextViTBase(
     name="NextViTBase",
     **kwargs,
 ):
-    """Instantiate NextViT-Base model."""
     model = NextViT(
         **NEXTVIT_MODEL_CONFIG["NextViTBase"],
         include_top=include_top,
@@ -628,12 +618,17 @@ def NextViTBase(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights is not None:
+    if weights in get_all_weight_names(NEXTVIT_WEIGHTS_CONFIG):
+        load_weights_from_config("NextViTBase", weights, model, NEXTVIT_WEIGHTS_CONFIG)
+    elif weights is not None:
         model.load_weights(weights)
+    else:
+        print("No weights loaded.")
 
     return model
 
 
+@register_model
 def NextViTLarge(
     include_top=True,
     include_normalization=True,
@@ -647,7 +642,6 @@ def NextViTLarge(
     name="NextViTLarge",
     **kwargs,
 ):
-    """Instantiate NextViT-Large model."""
     model = NextViT(
         **NEXTVIT_MODEL_CONFIG["NextViTLarge"],
         include_top=include_top,
@@ -662,7 +656,11 @@ def NextViTLarge(
         classifier_activation=classifier_activation,
         **kwargs,
     )
-    if weights is not None:
+    if weights in get_all_weight_names(NEXTVIT_WEIGHTS_CONFIG):
+        load_weights_from_config("NextViTLarge", weights, model, NEXTVIT_WEIGHTS_CONFIG)
+    elif weights is not None:
         model.load_weights(weights)
+    else:
+        print("No weights loaded.")
 
     return model

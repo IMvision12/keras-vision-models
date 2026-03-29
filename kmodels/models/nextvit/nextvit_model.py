@@ -3,7 +3,52 @@ from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
 from .config import NEXTVIT_MODEL_CONFIG
-from .nextvit_layers import ConvAttention, EfficientAttention
+from .nextvit_layers import EfficientAttention
+
+
+def nextvit_conv_attention(x, out_chs, head_dim=32, prefix=""):
+    """Multi-Head Convolutional Attention (MHCA).
+
+    Applies grouped 3x3 convolution followed by batch normalization,
+    ReLU activation, and 1x1 projection. Operates on NHWC spatial
+    tensors.
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C)``.
+        out_chs: Integer, number of output channels.
+        head_dim: Integer, dimension per head (determines number of
+            groups). Defaults to ``32``.
+        prefix: String, name prefix for all sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, H, W, out_chs)``.
+    """
+    num_groups = out_chs // head_dim
+    out = layers.Conv2D(
+        out_chs,
+        3,
+        strides=1,
+        padding="same",
+        groups=num_groups,
+        use_bias=False,
+        data_format="channels_last",
+        name=prefix + "mhca_group_conv3x3",
+    )(x)
+    out = layers.BatchNormalization(
+        axis=-1,
+        epsilon=1e-5,
+        momentum=0.9,
+        name=prefix + "mhca_norm",
+    )(out)
+    out = layers.ReLU()(out)
+    out = layers.Conv2D(
+        out_chs,
+        1,
+        use_bias=False,
+        data_format="channels_last",
+        name=prefix + "mhca_projection",
+    )(out)
+    return out
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -145,12 +190,7 @@ def next_conv_block(
     x = patch_embed_block(x, in_chs, out_chs, use_pool, prefix=prefix)
 
     # MHCA + residual
-    mhca_out = ConvAttention(
-        out_chs,
-        head_dim=head_dim,
-        prefix=prefix,
-        name=prefix + "mhca",
-    )(x)
+    mhca_out = nextvit_conv_attention(x, out_chs, head_dim=head_dim, prefix=prefix)
     x = layers.Add()([x, mhca_out])
 
     # Norm -> MLP + residual
@@ -249,12 +289,9 @@ def next_transformer_block(
     )(proj_out)
 
     # MHCA on projected features + residual
-    mhca_out = ConvAttention(
-        mhca_out_chs,
-        head_dim=head_dim,
-        prefix=prefix,
-        name=prefix + "mhca",
-    )(proj_out)
+    mhca_out = nextvit_conv_attention(
+        proj_out, mhca_out_chs, head_dim=head_dim, prefix=prefix
+    )
     proj_out = layers.Add()([proj_out, mhca_out])
 
     # Concat MHSA and MHCA branches along channel axis

@@ -85,20 +85,26 @@ class EoMTPatchEmbeddings(layers.Layer):
         self.hidden_size = hidden_size
         self.patch_size = patch_size
         self.num_channels = num_channels
+        self.data_format = keras.config.image_data_format()
         self.projection = layers.Conv2D(
             hidden_size,
             kernel_size=patch_size,
             strides=patch_size,
             padding="valid",
             use_bias=True,
+            data_format=self.data_format,
             name="projection",
         )
 
     def call(self, pixel_values):
-        # pixel_values: (B, H, W, C) in channels_last
-        x = self.projection(pixel_values)  # (B, H/P, W/P, hidden_size)
+        x = self.projection(pixel_values)
         shape = ops.shape(x)
-        x = ops.reshape(x, (shape[0], shape[1] * shape[2], shape[3]))
+        if self.data_format == "channels_first":
+            # (B, C, H, W) -> (B, H*W, C)
+            x = ops.transpose(x, (0, 2, 3, 1))
+            x = ops.reshape(x, (shape[0], shape[2] * shape[3], self.hidden_size))
+        else:
+            x = ops.reshape(x, (shape[0], shape[1] * shape[2], shape[3]))
         return x
 
     def get_config(self):

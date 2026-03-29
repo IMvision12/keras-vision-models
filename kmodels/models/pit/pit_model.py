@@ -142,10 +142,10 @@ def conv_pooling(
     new_height = (height + stride - 1) // stride
     new_width = (width + stride - 1) // stride
 
+    # Token sequence is always (B, H*W, C) - reshape to spatial for Conv2D
+    spatial = layers.Reshape((height, width, in_channels))(spatial)
     if data_format == "channels_first":
-        spatial = layers.Reshape((in_channels, height, width))(spatial)
-    else:
-        spatial = layers.Reshape((height, width, in_channels))(spatial)
+        spatial = layers.Permute((3, 1, 2))(spatial)  # (B,H,W,C) -> (B,C,H,W)
     spatial = layers.ZeroPadding2D(data_format=data_format, padding=stride // 2)(
         spatial
     )
@@ -160,10 +160,8 @@ def conv_pooling(
 
     tokens = layers.Dense(units=out_channels, name=block_prefix + "_dense")(tokens)
     if data_format == "channels_first":
-        spatial = layers.Reshape((out_channels, new_height * new_width))(spatial)
-        spatial = layers.Permute((2, 1))(spatial)
-    else:
-        spatial = layers.Reshape((new_height * new_width, out_channels))(spatial)
+        spatial = layers.Permute((2, 3, 1))(spatial)  # (B,C,H,W) -> (B,H,W,C)
+    spatial = layers.Reshape((new_height * new_width, out_channels))(spatial)
     output = layers.Concatenate(axis=1)([tokens, spatial])
 
     return output, (new_height, new_width)
@@ -282,7 +280,8 @@ class PoolingVisionTransformer(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else -3
+        # Token sequences are always (B, seq_len, dim), so channels_axis=-1
+        channels_axis = -1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
@@ -333,6 +332,8 @@ class PoolingVisionTransformer(keras.Model):
         grid_w = (width - patch_size) // stride + 1
         input_size = (grid_h, grid_w)
 
+        if data_format == "channels_first":
+            x = layers.Permute((2, 3, 1), name="patch_to_nhwc")(x)
         x = layers.Reshape(
             (grid_h * grid_w, embed_dim[0]), name="patch_tokens_reshape"
         )(x)

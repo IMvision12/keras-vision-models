@@ -79,7 +79,7 @@ def swin_block(
     if height_padding > 0 or width_padding > 0:
         x = layers.ZeroPadding2D(
             padding=((0, height_padding), (0, width_padding)),
-            data_format=keras.config.image_data_format(),
+            data_format="channels_last",
         )(x)
     padded_x = x
 
@@ -492,7 +492,8 @@ class SwinTransformer(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
-        channels_axis = -1 if data_format == "channels_last" else 1
+        # Internal operations always use NHWC; we transpose at boundaries
+        channels_axis = -1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
@@ -528,9 +529,10 @@ class SwinTransformer(keras.Model):
             data_format=data_format,
             name="stem_conv",
         )(x)
-        x = layers.LayerNormalization(
-            epsilon=1.001e-5, axis=channels_axis, name="stem_norm"
-        )(x)
+        # Swin internal operations (window attention, patch merging) assume NHWC
+        if data_format == "channels_first":
+            x = layers.Permute((2, 3, 1), name="stem_to_nhwc")(x)
+        x = layers.LayerNormalization(epsilon=1.001e-5, axis=-1, name="stem_norm")(x)
         x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
         features.append(x)
 
@@ -563,14 +565,12 @@ class SwinTransformer(keras.Model):
                 )
             features.append(x)
 
-        x = layers.LayerNormalization(
-            epsilon=1.001e-5, axis=channels_axis, name="final_norm"
-        )(x)
+        x = layers.LayerNormalization(epsilon=1.001e-5, axis=-1, name="final_norm")(x)
 
         if include_top:
-            x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(
-                x
-            )
+            x = layers.GlobalAveragePooling2D(
+                data_format="channels_last", name="avg_pool"
+            )(x)
             x = layers.Dense(
                 num_classes,
                 activation=classifier_activation,
@@ -581,12 +581,12 @@ class SwinTransformer(keras.Model):
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
-                    data_format=data_format, name="avg_pool"
+                    data_format="channels_last", name="avg_pool"
                 )(x)
             elif pooling == "max":
-                x = layers.GlobalMaxPooling2D(data_format=data_format, name="max_pool")(
-                    x
-                )
+                x = layers.GlobalMaxPooling2D(
+                    data_format="channels_last", name="max_pool"
+                )(x)
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
 

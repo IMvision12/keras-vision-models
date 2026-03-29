@@ -146,7 +146,10 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         if self.sr_ratio > 1:
             h = ops.sqrt(ops.cast(seq_length, "float32"))
             h = ops.cast(h, "int32")
-            spatial_shape = (batch_dim, h, h, feature_dim)
+            if self.data_format == "channels_first":
+                spatial_shape = (batch_dim, feature_dim, h, h)
+            else:
+                spatial_shape = (batch_dim, h, h, feature_dim)
 
             self.sr.build(spatial_shape)
 
@@ -177,8 +180,12 @@ class EfficientMultiheadSelfAttention(layers.Layer):
 
         if self.sr_ratio > 1:
             x_ = ops.reshape(ops.transpose(x, (0, 2, 1)), (B, C, H, W))
-            x_ = self.sr(ops.transpose(x_, (0, 2, 3, 1)))
-            x_ = ops.reshape(ops.transpose(x_, (0, 3, 1, 2)), (B, C, -1))
+            if self.data_format == "channels_last":
+                x_ = ops.transpose(x_, (0, 2, 3, 1))  # BCHW -> BHWC
+            x_ = self.sr(x_)
+            if self.data_format == "channels_last":
+                x_ = ops.transpose(x_, (0, 3, 1, 2))  # BHWC -> BCHW
+            x_ = ops.reshape(x_, (B, C, -1))
             x_ = ops.transpose(x_, (0, 2, 1))
             x_ = self.norm(x_)
             k = self.k(x_)

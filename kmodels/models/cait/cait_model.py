@@ -313,8 +313,12 @@ class CaiT(keras.Model):
             name="stem_conv",
         )(x)
 
-        grid_h = input_shape[0] // patch_size
-        grid_w = input_shape[1] // patch_size
+        if data_format == "channels_first":
+            grid_h = input_shape[1] // patch_size
+            grid_w = input_shape[2] // patch_size
+        else:
+            grid_h = input_shape[0] // patch_size
+            grid_w = input_shape[1] // patch_size
 
         x = layers.Reshape((-1, embed_dim))(x)
 

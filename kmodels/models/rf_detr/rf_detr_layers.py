@@ -79,19 +79,26 @@ class DinoV2PatchEmbeddings(layers.Layer):
         self.hidden_size = hidden_size
         self.patch_size = patch_size
         self.num_channels = num_channels
+        self.data_format = keras.config.image_data_format()
         self.projection = layers.Conv2D(
             self.hidden_size,
             kernel_size=self.patch_size,
             strides=self.patch_size,
             padding="valid",
-            data_format="channels_last",
+            data_format=self.data_format,
             name="conv_projection",
         )
 
     def call(self, pixel_values):
         x = self.projection(pixel_values)
-        shape = ops.shape(x)
-        x = ops.reshape(x, [shape[0], shape[1] * shape[2], self.hidden_size])
+        if self.data_format == "channels_first":
+            # (B, C, H, W) -> (B, H*W, C)
+            shape = ops.shape(x)
+            x = ops.transpose(x, [0, 2, 3, 1])
+            x = ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_size])
+        else:
+            shape = ops.shape(x)
+            x = ops.reshape(x, [shape[0], shape[1] * shape[2], self.hidden_size])
         return x
 
     def get_config(self):
@@ -197,7 +204,11 @@ class DinoV2Embeddings(layers.Layer):
         )
         patch_pos_embed = ops.cast(patch_pos_embed, "float32")
         patch_pos_embed = ops.image.resize(
-            patch_pos_embed, (h, w), interpolation="bicubic", antialias=True
+            patch_pos_embed,
+            (h, w),
+            interpolation="bicubic",
+            antialias=True,
+            data_format="channels_last",
         )
         patch_pos_embed = ops.cast(patch_pos_embed, embeddings.dtype)
         patch_pos_embed = ops.reshape(patch_pos_embed, [1, h * w, self.hidden_size])
@@ -205,8 +216,13 @@ class DinoV2Embeddings(layers.Layer):
 
     def call(self, pixel_values):
         batch_size = ops.shape(pixel_values)[0]
-        height = ops.shape(pixel_values)[1]
-        width = ops.shape(pixel_values)[2]
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            height = ops.shape(pixel_values)[2]
+            width = ops.shape(pixel_values)[3]
+        else:
+            height = ops.shape(pixel_values)[1]
+            width = ops.shape(pixel_values)[2]
 
         embeddings = self.patch_embeddings(pixel_values)
 
@@ -249,10 +265,15 @@ class DinoV2Embeddings(layers.Layer):
         return embeddings
 
     def compute_output_spec(self, input_spec, **kwargs):
+        data_format = keras.config.image_data_format()
         if not self.patch_embeddings.projection.built:
             self.patch_embeddings.projection.build(input_spec.shape)
-        h = input_spec.shape[1] // self.patch_size
-        w = input_spec.shape[2] // self.patch_size
+        if data_format == "channels_first":
+            h = input_spec.shape[2] // self.patch_size
+            w = input_spec.shape[3] // self.patch_size
+        else:
+            h = input_spec.shape[1] // self.patch_size
+            w = input_spec.shape[2] // self.patch_size
         tokens_per_window = (
             (h // self.num_windows) * (w // self.num_windows)
             if self.num_windows > 1

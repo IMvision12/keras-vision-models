@@ -196,6 +196,7 @@ def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
         strides=2,
         padding="valid",
         use_bias=True,
+        data_format="channels_last",
         name=f"{block_prefix}_conv1",
     )(x)
     x = layers.Activation("gelu", name=f"{block_prefix}_gelu")(x)
@@ -203,6 +204,7 @@ def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
         kernel_size=3,
         padding="same",
         use_bias=False,
+        data_format="channels_last",
         name=f"{block_prefix}_conv2",
     )(x)
     x = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm")(x)
@@ -358,7 +360,11 @@ class EoMT(keras.Model):
         else:
             img_input = layers.Input(shape=input_shape)
 
-        image_size = input_shape[0]
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            image_size = input_shape[1]
+        else:
+            image_size = input_shape[0]
         grid_h = image_size // patch_size
         grid_w = image_size // patch_size
         num_prefix_tokens = 1 + num_register_tokens

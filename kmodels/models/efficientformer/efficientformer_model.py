@@ -346,7 +346,6 @@ class EfficientFormer(keras.Model):
             weights=weights,
         )
 
-        # Compute spatial height for attention resolution (like ViT's grid_h)
         if data_format == "channels_last":
             _img_h = input_shape[0]
         else:
@@ -369,8 +368,6 @@ class EfficientFormer(keras.Model):
             else inputs
         )
 
-        # Stem: 4x downsampling
-        # Use explicit padding to match PyTorch behavior (padding=1 for 3x3 conv stride 2)
         x = layers.ZeroPadding2D(padding=1, data_format=data_format, name="stem_pad1")(
             x
         )
@@ -403,14 +400,11 @@ class EfficientFormer(keras.Model):
         )(x)
         x = layers.Activation("relu", name="stem_act2")(x)
 
-        # Calculate drop path rates
         num_stages = len(depths)
         dpr = np.linspace(0.0, drop_path_rate, sum(depths))
         cur = 0
 
-        # Build stages
         for i in range(num_stages):
-            # Downsampling (except first stage)
             if i > 0:
                 x = layers.ZeroPadding2D(
                     padding=1,
@@ -429,25 +423,20 @@ class EfficientFormer(keras.Model):
                     axis=channels_axis, epsilon=1e-5, name=f"stages_{i}_downsample_norm"
                 )(x)
 
-            # Determine if this stage uses transformers
             is_last_stage = i == num_stages - 1
             use_transformer = is_last_stage and num_vit > 0
 
-            # Add blocks
             for j in range(depths[i]):
                 remain_idx = depths[i] - j - 1
 
-                # Flatten before transformer blocks
                 if (
                     use_transformer
                     and num_vit > remain_idx
                     and j == depths[i] - num_vit
                 ):
-                    # Stem does 4x downsample, each subsequent stage does 2x
                     resolution = _img_h // (4 * (2**i))
                     x = layers.Reshape((-1, x.shape[-1]), name=f"stages_{i}_flat")(x)
 
-                # Choose block type
                 if use_transformer and num_vit > remain_idx:
                     x = meta_block_1d(
                         x,
@@ -485,7 +474,6 @@ class EfficientFormer(keras.Model):
             )
             x = layers.Dropout(drop_rate, name="head_drop")(x)
 
-            # Distillation heads (EfficientFormer uses distillation)
             x_cls = layers.Dense(
                 num_classes, activation=None, name="head", use_bias=True
             )(x)
@@ -493,7 +481,6 @@ class EfficientFormer(keras.Model):
                 num_classes, activation=None, name="head_dist", use_bias=True
             )(x)
 
-            # Average predictions
             x = layers.Average(name="avg_predictions")([x_cls, x_dist])
             if classifier_activation:
                 x = layers.Activation(classifier_activation, name="predictions")(x)
@@ -502,7 +489,7 @@ class EfficientFormer(keras.Model):
             x = features
         else:
             if pooling == "avg":
-                if len(x.shape) == 3:  # Already flattened
+                if len(x.shape) == 3:
                     x = layers.Lambda(
                         lambda v: keras.ops.mean(v, axis=1), name="avg_pool"
                     )(x)

@@ -133,7 +133,6 @@ class Attention4D(layers.Layer):
         return x
 
     def load_own_variables(self, store):
-        # Infer source resolution from the saved attention_biases shape.
         bias_idx = None
         target_vars = self.trainable_variables + self.non_trainable_variables
         for i, var in enumerate(target_vars):

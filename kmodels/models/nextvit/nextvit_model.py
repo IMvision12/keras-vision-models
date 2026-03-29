@@ -332,6 +332,7 @@ class NextViT(keras.Model):
         sr_ratios: List of spatial reduction ratios per stage. Defaults to [8, 4, 2, 1].
         drop_path_rate: Maximum drop path rate. Defaults to 0.1.
         include_top: Whether to include the classification head. Defaults to True.
+        as_backbone: Whether to output intermediate feature maps. Defaults to False.
         include_normalization: Whether to include input normalization. Defaults to True.
         normalization_mode: Normalization mode. Defaults to 'imagenet'.
         weights: Path to weights or None.
@@ -353,6 +354,7 @@ class NextViT(keras.Model):
         sr_ratios=(8, 4, 2, 1),
         drop_path_rate=0.1,
         include_top=True,
+        as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
         weights=None,
@@ -368,6 +370,18 @@ class NextViT(keras.Model):
             raise ValueError(
                 "If `include_top` is True, `num_classes` must be specified. "
                 f"Received: {num_classes}"
+            )
+
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
+            )
+
+        if pooling is not None and pooling not in ["avg", "max"]:
+            raise ValueError(
+                "The `pooling` argument should be one of 'avg', 'max', or None. "
+                f"Received: pooling={pooling}"
             )
 
         data_format = keras.config.image_data_format()
@@ -398,8 +412,6 @@ class NextViT(keras.Model):
         else:
             x = inputs
 
-        # ===== Stem =====
-        # 4 ConvNormAct layers: Conv(3->64,s=2), Conv(64->32,s=1), Conv(32->64,s=1), Conv(64->64,s=2)
         stem_configs = [
             (3, stem_chs[0], 2),
             (stem_chs[0], stem_chs[1], 1),
@@ -407,7 +419,6 @@ class NextViT(keras.Model):
             (stem_chs[2], stem_chs[2], 2),
         ]
         for i, (in_c, out_c, stride) in enumerate(stem_configs):
-            # PyTorch uses padding=1 (symmetric), Keras 'same' is asymmetric for stride=2
             if stride == 2:
                 x = layers.ZeroPadding2D(
                     padding=1,
@@ -431,13 +442,12 @@ class NextViT(keras.Model):
             )(x)
             x = layers.Activation("relu", name=f"stem_{i}_act")(x)
 
-        # ===== Stages =====
         stage_out_chs = _get_stage_out_chs(depths)
         stage_block_types = _get_stage_block_types(depths)
         dpr = _calculate_drop_path_rates(drop_path_rate, depths)
         strides = [1, 2, 2, 2]
 
-        in_chs = stem_chs[-1]  # 64
+        in_chs = stem_chs[-1]
 
         for stage_idx in range(4):
             block_chs = stage_out_chs[stage_idx]
@@ -476,7 +486,6 @@ class NextViT(keras.Model):
                     )
                 in_chs = out_chs
 
-        # ===== Final Norm =====
         x = layers.BatchNormalization(
             axis=-1,
             epsilon=1e-5,
@@ -484,7 +493,6 @@ class NextViT(keras.Model):
             name="norm",
         )(x)
 
-        # ===== Head =====
         if include_top:
             x = layers.GlobalAveragePooling2D(
                 data_format="channels_last",
@@ -495,6 +503,8 @@ class NextViT(keras.Model):
                 activation=classifier_activation,
                 name="head_fc",
             )(x)
+        elif as_backbone:
+            x = x
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -516,6 +526,7 @@ class NextViT(keras.Model):
         self.sr_ratios = list(sr_ratios)
         self.drop_path_rate = drop_path_rate
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -534,6 +545,7 @@ class NextViT(keras.Model):
                 "sr_ratios": self.sr_ratios,
                 "drop_path_rate": self.drop_path_rate,
                 "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
@@ -555,6 +567,7 @@ class NextViT(keras.Model):
 @register_model
 def NextViTSmall(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights=None,
@@ -569,6 +582,7 @@ def NextViTSmall(
     model = NextViT(
         **NEXTVIT_MODEL_CONFIG["NextViTSmall"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
         weights=weights,
@@ -593,6 +607,7 @@ def NextViTSmall(
 @register_model
 def NextViTBase(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights=None,
@@ -607,6 +622,7 @@ def NextViTBase(
     model = NextViT(
         **NEXTVIT_MODEL_CONFIG["NextViTBase"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
         weights=weights,
@@ -631,6 +647,7 @@ def NextViTBase(
 @register_model
 def NextViTLarge(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights=None,
@@ -645,6 +662,7 @@ def NextViTLarge(
     model = NextViT(
         **NEXTVIT_MODEL_CONFIG["NextViTLarge"],
         include_top=include_top,
+        as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
         weights=weights,

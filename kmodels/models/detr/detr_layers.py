@@ -90,6 +90,11 @@ class DETRFlattenFeatures(layers.Layer):
 
     def call(self, inputs):
         shape = ops.shape(inputs)
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            # (B, C, H, W) -> (B, H*W, C)
+            x = ops.transpose(inputs, [0, 2, 3, 1])
+            return ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_dim])
         return ops.reshape(inputs, [shape[0], shape[1] * shape[2], self.hidden_dim])
 
     def get_config(self):
@@ -152,8 +157,13 @@ class DETRPositionEmbeddingSine(layers.Layer):
     def call(self, inputs):
         shape = ops.shape(inputs)
         batch_size = shape[0]
-        h = shape[1]
-        w = shape[2]
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            h = shape[2]
+            w = shape[3]
+        else:
+            h = shape[1]
+            w = shape[2]
 
         y_embed = ops.cast(
             ops.repeat(
@@ -199,6 +209,9 @@ class DETRPositionEmbeddingSine(layers.Layer):
         pos = ops.concatenate([pos_y, pos_x], axis=-1)
         pos = ops.expand_dims(pos, axis=0)
         pos = ops.broadcast_to(pos, [batch_size, h, w, self.hidden_dim])
+
+        if data_format == "channels_first":
+            pos = ops.transpose(pos, [0, 3, 1, 2])
 
         return pos
 

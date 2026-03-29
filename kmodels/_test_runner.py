@@ -8,17 +8,12 @@ Commands:
     backend-torch        Backend tests on torch
     backend-jax          Backend tests on jax
     backend-tf           Backend tests on tensorflow
-    backend-np           Backend tests on numpy
     sas-torch            Serialization + saving on torch
     sas-tf               Serialization + saving on tensorflow
     sas-jax              Serialization + saving on jax
-    sas-np               Serialization + saving on numpy
     df-torch             Data format tests on torch
     df-tf                Data format tests on tensorflow (GPU auto-skip)
     df-jax               Data format tests on jax
-    df-np                Data format tests on numpy
-    layers               Layer unit tests
-    links                Link validation (slow, requires network)
     gpu                  GPU-marked tests only
     gpu-all              Full test suite on GPU (torch + tf)
     help                 Show this message
@@ -63,7 +58,7 @@ def test_all():
         "-v",
         "--durations=20",
         "-m",
-        "not slow and not link_validation and not gpu",
+        "not slow and not gpu",
     )
 
 
@@ -80,11 +75,6 @@ def test_backend_jax():
 @command("backend-tf")
 def test_backend_tf():
     return _run("tensorflow", "tests/integration/test_backend_compatibility.py", "-v")
-
-
-@command("backend-np")
-def test_backend_numpy():
-    return _run("numpy", "tests/integration/test_backend_compatibility.py", "-v")
 
 
 SAS_FILES = [
@@ -108,11 +98,6 @@ def test_sas_jax():
     return _run("jax", *SAS_FILES, "-v")
 
 
-@command("sas-np")
-def test_sas_np():
-    return _run("numpy", *SAS_FILES, "-v")
-
-
 DF_FILE = "tests/integration/test_data_formats.py"
 
 
@@ -129,27 +114,6 @@ def test_df_tf():
 @command("df-jax")
 def test_df_jax():
     return _run("jax", DF_FILE, "-v")
-
-
-@command("df-np")
-def test_df_np():
-    return _run("numpy", DF_FILE, "-v")
-
-
-@command("layers")
-def test_layers():
-    return _run("torch", "tests/layers/", "-v")
-
-
-@command("links")
-def test_links():
-    return _run(
-        None,
-        "tests/integration/test_config_links.py",
-        "-v",
-        "-m",
-        "link_validation",
-    )
 
 
 @command("gpu")

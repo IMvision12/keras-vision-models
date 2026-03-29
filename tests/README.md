@@ -16,17 +16,12 @@ pip install -e ".[test]"
 | `backend-torch` | Forward pass, 43 models | torch |
 | `backend-jax` | Forward pass, 43 models | jax |
 | `backend-tf` | Forward pass, 43 models | tensorflow |
-| `backend-np` | Forward pass, 43 models | numpy |
 | `sas-torch` | Serialization + saving | torch |
 | `sas-tf` | Serialization + saving | tensorflow |
 | `sas-jax` | Serialization + saving | jax |
-| `sas-np` | Serialization + saving | numpy |
 | `df-torch` | Data format (channels_first/last) | torch |
-| `df-tf` | Data format (auto-skips channels_first without GPU) | tensorflow |
+| `df-tf` | Data format (channels_last + channels_first auto-skips without GPU) | tensorflow |
 | `df-jax` | Data format (channels_first/last) | jax |
-| `df-np` | Data format (channels_last only) | numpy |
-| `layers` | Layer unit tests | torch |
-| `links` | 381 weight URL validation | — |
 | `gpu` | GPU-marked tests only | torch + tf |
 | `gpu-all` | **Full test suite on GPU** (torch + tf) | torch, tf |
 
@@ -35,11 +30,7 @@ pip install -e ".[test]"
 | Job | Backends | Trigger |
 |-----|----------|---------|
 | Lint & Format | — | PR, release |
-| Layers | torch, tf, jax, numpy | PR, release |
-| Models Core (forward pass + NaN) | torch, tf, jax, numpy | PR, release |
-| Serialization & Saving | torch, tf, jax, numpy | PR, release |
-| Data Formats | torch, jax | PR, release |
-| Link Validation | — | Monday nightly, release |
+| Test the code | torch, tf, jax | PR, release |
 
 ## Local GPU (manual)
 

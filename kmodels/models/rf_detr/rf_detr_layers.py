@@ -79,22 +79,26 @@ class DinoV2PatchEmbeddings(layers.Layer):
         self.hidden_size = hidden_size
         self.patch_size = patch_size
         self.num_channels = num_channels
-
-    def build(self, input_shape):
+        self.data_format = keras.config.image_data_format()
         self.projection = layers.Conv2D(
             self.hidden_size,
             kernel_size=self.patch_size,
             strides=self.patch_size,
             padding="valid",
-            data_format="channels_last",
+            data_format=self.data_format,
             name="conv_projection",
         )
-        super().build(input_shape)
 
     def call(self, pixel_values):
         x = self.projection(pixel_values)
-        shape = ops.shape(x)
-        x = ops.reshape(x, [shape[0], shape[1] * shape[2], self.hidden_size])
+        if self.data_format == "channels_first":
+            # (B, C, H, W) -> (B, H*W, C)
+            shape = ops.shape(x)
+            x = ops.transpose(x, [0, 2, 3, 1])
+            x = ops.reshape(x, [shape[0], shape[2] * shape[3], self.hidden_size])
+        else:
+            shape = ops.shape(x)
+            x = ops.reshape(x, [shape[0], shape[1] * shape[2], self.hidden_size])
         return x
 
     def get_config(self):
@@ -159,6 +163,12 @@ class DinoV2Embeddings(layers.Layer):
         self.num_windows = num_windows
         self.positional_encoding_size = positional_encoding_size
         self.num_patches = positional_encoding_size * positional_encoding_size
+        self.patch_embeddings = DinoV2PatchEmbeddings(
+            self.hidden_size,
+            self.patch_size,
+            self.num_channels,
+            name="patch_embeddings",
+        )
 
     def build(self, input_shape):
         self.cls_token = self.add_weight(
@@ -177,12 +187,6 @@ class DinoV2Embeddings(layers.Layer):
                 shape=(1, self.num_register_tokens, self.hidden_size),
                 initializer="zeros",
             )
-        self.patch_embeddings = DinoV2PatchEmbeddings(
-            self.hidden_size,
-            self.patch_size,
-            self.num_channels,
-            name="patch_embeddings",
-        )
         super().build(input_shape)
 
     def _interpolate_pos_encoding(self, embeddings, height, width):
@@ -200,7 +204,11 @@ class DinoV2Embeddings(layers.Layer):
         )
         patch_pos_embed = ops.cast(patch_pos_embed, "float32")
         patch_pos_embed = ops.image.resize(
-            patch_pos_embed, (h, w), interpolation="bicubic", antialias=True
+            patch_pos_embed,
+            (h, w),
+            interpolation="bicubic",
+            antialias=True,
+            data_format="channels_last",
         )
         patch_pos_embed = ops.cast(patch_pos_embed, embeddings.dtype)
         patch_pos_embed = ops.reshape(patch_pos_embed, [1, h * w, self.hidden_size])
@@ -208,8 +216,13 @@ class DinoV2Embeddings(layers.Layer):
 
     def call(self, pixel_values):
         batch_size = ops.shape(pixel_values)[0]
-        height = ops.shape(pixel_values)[1]
-        width = ops.shape(pixel_values)[2]
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            height = ops.shape(pixel_values)[2]
+            width = ops.shape(pixel_values)[3]
+        else:
+            height = ops.shape(pixel_values)[1]
+            width = ops.shape(pixel_values)[2]
 
         embeddings = self.patch_embeddings(pixel_values)
 
@@ -252,8 +265,15 @@ class DinoV2Embeddings(layers.Layer):
         return embeddings
 
     def compute_output_spec(self, input_spec, **kwargs):
-        h = input_spec.shape[1] // self.patch_size
-        w = input_spec.shape[2] // self.patch_size
+        data_format = keras.config.image_data_format()
+        if not self.patch_embeddings.projection.built:
+            self.patch_embeddings.projection.build(input_spec.shape)
+        if data_format == "channels_first":
+            h = input_spec.shape[2] // self.patch_size
+            w = input_spec.shape[3] // self.patch_size
+        else:
+            h = input_spec.shape[1] // self.patch_size
+            w = input_spec.shape[2] // self.patch_size
         tokens_per_window = (
             (h // self.num_windows) * (w // self.num_windows)
             if self.num_windows > 1
@@ -482,7 +502,6 @@ class RFDETRMSDeformableAttention(layers.Layer):
         self.spatial_shapes = spatial_shapes or []
         self.level_start_index = level_start_index or [0]
 
-    def build(self, input_shape):
         self.sampling_offsets = layers.Dense(
             self.n_heads * self.n_levels * self.n_points * 2,
             name="sampling_offsets",
@@ -493,7 +512,6 @@ class RFDETRMSDeformableAttention(layers.Layer):
         )
         self.value_proj = layers.Dense(self.d_model, name="value_proj")
         self.output_proj = layers.Dense(self.d_model, name="output_proj")
-        super().build(input_shape)
 
     def call(self, query, reference_points, input_flatten, input_padding_mask=None):
         input_spatial_shapes = self.spatial_shapes
@@ -634,7 +652,6 @@ class RFDETRDecoderLayer(layers.Layer):
         self.spatial_shapes = spatial_shapes or []
         self.level_start_index = level_start_index or [0]
 
-    def build(self, input_shape):
         self.self_attn_q = layers.Dense(self.d_model, name="self_attn_q_proj")
         self.self_attn_k = layers.Dense(self.d_model, name="self_attn_k_proj")
         self.self_attn_v = layers.Dense(self.d_model, name="self_attn_v_proj")
@@ -659,7 +676,6 @@ class RFDETRDecoderLayer(layers.Layer):
         self.norm3 = layers.LayerNormalization(epsilon=1e-5, name="norm3")
         self.dropout3 = layers.Dropout(self.dropout_rate)
         self.dropout_ffn = layers.Dropout(self.dropout_rate)
-        super().build(input_shape)
 
     def _self_attention(self, q, k, v, training=None):
         batch = ops.shape(q)[0]
@@ -721,6 +737,33 @@ class RFDETRDecoderLayer(layers.Layer):
         return tgt
 
     def compute_output_spec(self, tgt_spec, *args, **kwargs):
+        d = self.d_model
+        shape = (None, d)
+        for layer in [
+            self.self_attn_q,
+            self.self_attn_k,
+            self.self_attn_v,
+            self.self_attn_out,
+            self.norm1,
+            self.linear1,
+        ]:
+            if not layer.built:
+                layer.build(shape)
+        if not self.linear2.built:
+            self.linear2.build((None, self.dim_feedforward))
+        if not self.norm2.built:
+            self.norm2.build(shape)
+        if not self.norm3.built:
+            self.norm3.build(shape)
+        ca = self.cross_attn
+        for sub in [
+            ca.sampling_offsets,
+            ca.attention_weights_proj,
+            ca.value_proj,
+            ca.output_proj,
+        ]:
+            if not sub.built:
+                sub.build(shape)
         return keras.KerasTensor(
             shape=tgt_spec.shape,
             dtype=tgt_spec.dtype,

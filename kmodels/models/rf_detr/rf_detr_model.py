@@ -216,7 +216,11 @@ def rf_detr_encoder_output_proposals(memory, spatial_shapes, bbox_reparam=True):
         proposals.append(proposal)
 
     output_proposals = ops.concatenate(proposals, axis=1)
-    output_proposals = output_proposals + ops.zeros_like(memory[:, :, :4])
+    # Broadcast proposals to match memory's batch dimension.
+    # Multiply by 0 and sum to get a (B, 1, 1) zero tensor that
+    # carries the dynamic batch dimension without slicing.
+    batch_zero = ops.sum(memory * 0, axis=(1, 2), keepdims=True)
+    output_proposals = batch_zero + output_proposals
 
     valid = ops.all(
         (output_proposals > 0.01) & (output_proposals < 0.99),
@@ -301,7 +305,9 @@ def rf_detr_conv_bn(
         Output tensor of shape ``(B, H', W', filters)``.
     """
     padding = (kernel_size // 2, kernel_size // 2)
-    x = layers.ZeroPadding2D(padding=padding, name=f"{name}_pad")(x)
+    x = layers.ZeroPadding2D(
+        padding=padding, data_format="channels_last", name=f"{name}_pad"
+    )(x)
     x = layers.Conv2D(
         filters,
         kernel_size,
@@ -799,8 +805,13 @@ class RFDETR(keras.Model):
             name="backbone_encoder",
         )
 
-        num_h = input_shape[0] // patch_size
-        num_w = input_shape[1] // patch_size
+        data_format = keras.config.image_data_format()
+        if data_format == "channels_first":
+            num_h = input_shape[1] // patch_size
+            num_w = input_shape[2] // patch_size
+        else:
+            num_h = input_shape[0] // patch_size
+            num_w = input_shape[1] // patch_size
 
         unwindowed_features = []
         for i, feat in enumerate(encoder_features):
@@ -829,7 +840,7 @@ class RFDETR(keras.Model):
         )
         projected = RFDETRChannelLayerNorm(name="projector_ln")(projected)
 
-        proj_shape = (input_shape[0] // patch_size, input_shape[1] // patch_size)
+        proj_shape = (num_h, num_w)
         num_feature_levels = 1
         spatial_shapes = [proj_shape]
         level_start_index = [0]

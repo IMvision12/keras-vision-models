@@ -42,7 +42,10 @@ def mlp_block(x, H, W, channels, mid_channels, data_format, name_prefix):
     x = layers.Dense(mid_channels, name=f"{name_prefix}_dense_1")(x)
 
     input_shape = ops.shape(x)
-    x = layers.Reshape((H, W, input_shape[-1]))(x)
+    if data_format == "channels_first":
+        x = layers.Reshape((input_shape[-1], H, W))(x)
+    else:
+        x = layers.Reshape((H, W, input_shape[-1]))(x)
 
     x = layers.DepthwiseConv2D(
         kernel_size=3,
@@ -109,10 +112,13 @@ def overlap_patch_embedding_block(
         name=f"patch_embed_{pytorch_stage_idx}_conv_proj",
     )(x)
     shape = ops.shape(x)
-    H, W = shape[1], shape[2]
+    if data_format == "channels_first":
+        H, W = shape[2], shape[3]
+    else:
+        H, W = shape[1], shape[2]
     x = layers.Reshape((-1, out_channels))(x)
     x = layers.LayerNormalization(
-        axis=channels_axis,
+        axis=-1,
         epsilon=1e-5,
         name=f"patch_embed_{pytorch_stage_idx}_layernorm",
     )(x)
@@ -166,7 +172,7 @@ def hierarchical_transformer_encoder_block(
     drop_path_layer = StochasticDepth(drop_prob)
 
     norm1 = layers.LayerNormalization(
-        axis=channels_axis,
+        axis=-1,
         epsilon=1e-6,
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_1",
     )(x)
@@ -184,7 +190,7 @@ def hierarchical_transformer_encoder_block(
     add1 = layers.Add()([x, attn_out])
 
     norm2 = layers.LayerNormalization(
-        axis=channels_axis,
+        axis=-1,
         epsilon=1e-6,
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_2",
     )(add1)
@@ -379,9 +385,12 @@ class MixTransformer(keras.Model):
                 cur_block += 1
 
             x = layers.LayerNormalization(
-                name=f"final_layernorm_{i}", axis=channels_axis, epsilon=1e-5
+                name=f"final_layernorm_{i}", axis=-1, epsilon=1e-5
             )(x)
-            x = layers.Reshape((H, W, embed_dims[i]))(x)
+            if data_format == "channels_first":
+                x = layers.Reshape((embed_dims[i], H, W))(x)
+            else:
+                x = layers.Reshape((H, W, embed_dims[i]))(x)
             features.append(x)
 
         if include_top:

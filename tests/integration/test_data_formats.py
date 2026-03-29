@@ -75,9 +75,6 @@ def test_channels_first(model_name):
     if model_name in SKIP_DATA_FORMAT:
         pytest.skip(f"{model_name} doesn't support data format switching")
 
-    if BACKEND == "numpy":
-        pytest.skip("numpy backend doesn't support channels_first")
-
     if BACKEND == "tensorflow":
         try:
             import tensorflow as tf

@@ -227,6 +227,18 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
+    "NextViTSmall": {
+        "module": "kmodels.models.nextvit",
+        "model_cls": "NextViTSmall",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (32, 32, 3),
+            "include_top": True,
+        },
+        "input_shape": (2, 32, 32, 3),
+        "expected_output_shape": (2, 1000),
+    },
     "MobileViTXXS": {
         "module": "kmodels.models.mobilevit",
         "model_cls": "MobileViTXXS",
@@ -409,6 +421,22 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": {
             "logits": (2, 10, 92),
+            "pred_boxes": (2, 10, 4),
+        },
+    },
+    "RTDETRResNet18": {
+        "module": "kmodels.models.rt_detr",
+        "model_cls": "RTDETRResNet18",
+        "model_type": "object_detection",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (128, 128, 3),
+            "num_queries": 10,
+            "num_labels": 80,
+        },
+        "input_shape": (2, 128, 128, 3),
+        "expected_output_shape": {
+            "logits": (2, 10, 80),
             "pred_boxes": (2, 10, 4),
         },
     },

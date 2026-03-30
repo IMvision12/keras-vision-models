@@ -5,62 +5,104 @@ import timm
 import torch
 from tqdm import tqdm
 
-from kmodels.models import mlp_mixer
+from kmodels.models.nextvit.nextvit_model import NextViTBase, NextViTLarge, NextViTSmall
 from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kmodels.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
+    transfer_attention_weights,
     transfer_weights,
 )
 
 weight_name_mapping = {
     "_": ".",
-    "layernorm.1": "norm1",
-    "layernorm.2": "norm2",
-    "dense.1": "mlp_tokens.fc1",
-    "dense.2": "mlp_tokens.fc2",
-    "dense.3": "mlp_channels.fc1",
-    "dense.4": "mlp_channels.fc2",
-    "stem.conv": "stem.proj",
-    "final.layernomr": "norm",
+    "e.mhsa": "e_mhsa",
+    "group.conv3x3": "group_conv3x3",
+    "patch.embed": "patch_embed",
+    "moving.mean": "running_mean",
+    "moving.variance": "running_var",
     "kernel": "weight",
     "gamma": "weight",
     "beta": "bias",
-    "bias": "bias",
-    "predictions": "head",
+}
+
+e_mhsa_name_replacements: Dict[str, str] = {
+    "e.mhsa": "e_mhsa",
 }
 
 model_configs: List[Dict[str, Union[str, type]]] = [
     {
-        "keras_cls": mlp_mixer.MLPMixerB16,
-        "torch_name": "mixer_b16_224.goog_in21k_ft_in1k",
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_in1k",
         "input_shape": [224, 224, 3],
         "num_classes": 1000,
     },
     {
-        "keras_cls": mlp_mixer.MLPMixerB16,
-        "torch_name": "mixer_b16_224.goog_in21k",
-        "input_shape": [224, 224, 3],
-        "num_classes": 21843,
-    },
-    {
-        "keras_cls": mlp_mixer.MLPMixerB16,
-        "torch_name": "mixer_b16_224.miil_in21k_ft_in1k",
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_in1k",
         "input_shape": [224, 224, 3],
         "num_classes": 1000,
     },
     {
-        "keras_cls": mlp_mixer.MLPMixerL16,
-        "torch_name": "mixer_l16_224.goog_in21k_ft_in1k",
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_in1k",
         "input_shape": [224, 224, 3],
         "num_classes": 1000,
     },
     {
-        "keras_cls": mlp_mixer.MLPMixerL16,
-        "torch_name": "mixer_l16_224.goog_in21k",
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_ssld_6m_in1k",
         "input_shape": [224, 224, 3],
-        "num_classes": 21843,
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_ssld_6m_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_ssld_6m_in1k",
+        "input_shape": [224, 224, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTSmall,
+        "torch_name": "nextvit_small.bd_ssld_6m_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTBase,
+        "torch_name": "nextvit_base.bd_ssld_6m_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
+    },
+    {
+        "keras_cls": NextViTLarge,
+        "torch_name": "nextvit_large.bd_ssld_6m_in1k_384",
+        "input_shape": [384, 384, 3],
+        "num_classes": 1000,
     },
 ]
 
@@ -106,6 +148,15 @@ for model_config in model_configs:
                 keras_name_part, torch_name_part
             )
 
+        if "e_mhsa" in keras_weight_name:
+            transfer_attention_weights(
+                keras_weight_name,
+                keras_weight,
+                torch_weights_dict,
+                name_replacements=e_mhsa_name_replacements,
+            )
+            continue
+
         if torch_weight_name not in torch_weights_dict:
             raise WeightMappingError(keras_weight_name, torch_weight_name)
 
@@ -120,8 +171,10 @@ for model_config in model_configs:
                 torch_weight_name,
                 torch_weight.shape,
             )
-
-        transfer_weights(keras_weight_name, keras_weight, torch_weight)
+        transfer_name = keras_weight_name
+        if len(keras_weight.shape) == 4 and "conv" not in keras_weight_name.lower():
+            transfer_name = "conv_" + keras_weight_name
+        transfer_weights(transfer_name, keras_weight, torch_weight)
 
     results = verify_cls_model_equivalence(
         model_a=torch_model,
@@ -129,8 +182,6 @@ for model_config in model_configs:
         input_shape=tuple(model_config["input_shape"]),
         output_specs={"num_classes": model_config["num_classes"]},
         run_performance=False,
-        atol=1e-4,
-        rtol=1e-4,
     )
 
     if not results["standard_input"]:

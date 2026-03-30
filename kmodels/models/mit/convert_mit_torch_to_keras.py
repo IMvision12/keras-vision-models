@@ -170,8 +170,6 @@ for model_config in model_configs:
         comparison_type="hf_to_keras",
         output_specs={"num_classes": 1000},
         run_performance=False,
-        atol=1e-3,
-        rtol=1e-3,
     )
 
     if not results["standard_input"]:

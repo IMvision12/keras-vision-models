@@ -173,7 +173,7 @@ def hierarchical_transformer_encoder_block(
 
     norm1 = layers.LayerNormalization(
         axis=-1,
-        epsilon=1e-6,
+        epsilon=1e-5,
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_1",
     )(x)
 
@@ -191,7 +191,7 @@ def hierarchical_transformer_encoder_block(
 
     norm2 = layers.LayerNormalization(
         axis=-1,
-        epsilon=1e-6,
+        epsilon=1e-5,
         name=f"block_{pytorch_stage_idx}_{block_idx}_layernorm_2",
     )(add1)
 

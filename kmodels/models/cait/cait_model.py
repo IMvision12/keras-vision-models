@@ -355,7 +355,8 @@ class CaiT(keras.Model):
             if i == depth_token_only - 1:
                 features.append(cls_token)
 
-        x = layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(cls_token)
+        x = layers.Concatenate(axis=1, name="cat_cls_patch")([cls_token, x])
+        x = layers.LayerNormalization(epsilon=1e-6, name="final_layernorm")(x)
 
         if include_top:
             x = layers.Dense(

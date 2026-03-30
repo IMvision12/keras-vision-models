@@ -81,7 +81,7 @@ class ClassDistToken(layers.Layer):
                     [cls_broadcasted, dist_broadcasted, inputs], axis=1
                 )
             else:
-                return ops.concatenate([cls_broadcasted, inputs], axis=1)
+                return cls_broadcasted
 
     def get_config(self):
         config = super().get_config()

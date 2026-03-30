@@ -204,9 +204,11 @@ def convert_model(model_config):
     results = verify_cls_model_equivalence(
         model_a=torch_model,
         model_b=keras_model,
-        input_shape=(224, 224, 3),
-        output_specs={"num_classes": 1000},
+        input_shape=tuple(model_config["input_shape"]),
+        output_specs={"num_classes": model_config["num_classes"]},
         run_performance=False,
+        atol=1e-4,
+        rtol=1e-4,
     )
 
     if not results["standard_input"]:

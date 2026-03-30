@@ -1,6 +1,7 @@
 import keras
 from keras import layers, ops, utils
 
+from kmodels.layers import ImageNormalizationLayer
 from kmodels.model_registry import register_model
 from kmodels.models.detr.detr_layers import (
     DETRExpandQueryEmbedding,
@@ -198,6 +199,8 @@ def build_detr_backbone(
     backbone_variant,
     include_normalization,
     normalization_mode,
+    data_format="channels_last",
+    channels_axis=-1,
 ):
     """Build a ResNet backbone for DETR feature extraction.
 
@@ -221,15 +224,13 @@ def build_detr_backbone(
             `ImageNormalizationLayer` for input preprocessing.
         normalization_mode: String, normalization mode passed to
             `ImageNormalizationLayer` (e.g., `"imagenet"`).
+        data_format: String, image data format. Defaults to
+            `"channels_last"`.
+        channels_axis: Integer, channel axis index. Defaults to ``-1``.
 
     Returns:
-        Feature tensor from the last ResNet stage (C5) of shape
-        `(batch_size, height // 32, width // 32, 2048)`.
+        Feature tensor from the last ResNet stage (C5).
     """
-    from kmodels.layers import ImageNormalizationLayer
-
-    data_format = keras.config.image_data_format()
-    channels_axis = -1 if data_format == "channels_last" else 1
 
     block_repeats = {
         "ResNet50": [3, 4, 6, 3],
@@ -455,8 +456,6 @@ class DETR(keras.Model):
         name="DETR",
         **kwargs,
     ):
-        data_format = keras.config.image_data_format()
-
         if input_shape is None:
             input_shape = (800, 800, 3)
 
@@ -470,15 +469,18 @@ class DETR(keras.Model):
 
         inputs = img_input
 
-        # --- Backbone ---
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
         backbone_features = build_detr_backbone(
             inputs,
             backbone_variant=backbone_variant,
             include_normalization=include_normalization,
             normalization_mode=normalization_mode,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
 
-        # --- Input projection ---
         projected = layers.Conv2D(
             hidden_dim,
             1,
@@ -487,17 +489,14 @@ class DETR(keras.Model):
             name="input_projection",
         )(backbone_features)
 
-        # --- Position embedding ---
         pos_embed = DETRPositionEmbeddingSine(
             hidden_dim=hidden_dim,
             name="position_embedding",
         )(projected)
 
-        # Flatten spatial dims: (B, H, W, C) -> (B, H*W, C)
         src = DETRFlattenFeatures(hidden_dim, name="flatten_src")(projected)
         pos = DETRFlattenFeatures(hidden_dim, name="flatten_pos")(pos_embed)
 
-        # --- Transformer Encoder ---
         encoder_output = src
         for i in range(num_encoder_layers):
             encoder_output = detr_encoder_layer(
@@ -510,7 +509,6 @@ class DETR(keras.Model):
                 block_prefix=f"encoder_layers_{i}",
             )
 
-        # --- Object queries (learned embeddings) ---
         query_embed_layer = DETRExpandQueryEmbedding(
             num_queries,
             hidden_dim,
@@ -518,10 +516,8 @@ class DETR(keras.Model):
         )
         query_embed = query_embed_layer(encoder_output)
 
-        # Decoder input: zeros
         decoder_input = ops.zeros_like(query_embed)
 
-        # --- Transformer Decoder ---
         decoder_output = decoder_input
         for i in range(num_decoder_layers):
             decoder_output = detr_decoder_layer(
@@ -541,7 +537,6 @@ class DETR(keras.Model):
             name="decoder_layernorm",
         )(decoder_output)
 
-        # --- Prediction heads ---
         logits = layers.Dense(
             num_classes,
             name="class_labels_classifier",
@@ -560,7 +555,6 @@ class DETR(keras.Model):
 
         super().__init__(inputs=inputs, outputs=outputs, name=name, **kwargs)
 
-        # Store config
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.num_encoder_layers = num_encoder_layers

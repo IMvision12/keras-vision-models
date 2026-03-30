@@ -51,7 +51,13 @@ def rt_detr_sine_pos_embed_np(height, width, embed_dim, temperature=10000):
 
 
 def rt_detr_backbone(
-    input_tensor, block_repeats, hidden_sizes, embedding_size, layer_type="bottleneck"
+    input_tensor,
+    block_repeats,
+    hidden_sizes,
+    embedding_size,
+    layer_type="bottleneck",
+    data_format="channels_last",
+    channels_axis=-1,
 ):
     """Build a ResNet-vd backbone for RT-DETR feature extraction.
 
@@ -77,12 +83,13 @@ def rt_detr_backbone(
         layer_type: String, ``"bottleneck"`` for 3-layer blocks
             (ResNet-50/101) or ``"basic"`` for 2-layer blocks
             (ResNet-18/34). Defaults to ``"bottleneck"``.
+        data_format: String, image data format. Defaults to
+            ``"channels_last"``.
+        channels_axis: Integer, channel axis index. Defaults to ``-1``.
 
     Returns:
         Tuple of three feature tensors from stages 1, 2, and 3.
     """
-    data_format = keras.config.image_data_format()
-    channels_axis = -1 if data_format == "channels_last" else 1
     x = input_tensor
     stem_cfgs = [
         (embedding_size // 2, 2),
@@ -604,6 +611,8 @@ class RTDETR(keras.Model):
             list(backbone_hidden_sizes),
             backbone_embedding_size,
             layer_type=backbone_layer_type,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
         bk_feats = [feat_s3, feat_s4, feat_s5]
 

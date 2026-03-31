@@ -9,26 +9,20 @@ from .config import NEXTVIT_MODEL_CONFIG, NEXTVIT_WEIGHTS_CONFIG
 from .nextvit_layers import EfficientAttention
 
 
-def nextvit_conv_attention(
-    x, out_chs, head_dim=32, data_format="channels_last", prefix=""
-):
+def nextvit_conv_attention(x, out_chs, head_dim, channels_axis, data_format, prefix=""):
     """Multi-Head Convolutional Attention (MHCA).
-
-    Applies grouped 3x3 convolution followed by batch normalization,
-    ReLU activation, and 1x1 projection.
 
     Args:
         x: Input tensor.
-        out_chs: Integer, number of output channels.
-        head_dim: Integer, dimension per head (determines number of
-            groups). Defaults to ``32``.
-        data_format: String, image data format.
-        prefix: String, name prefix for all sub-layers.
+        out_chs: int, number of output channels.
+        head_dim: int, dimension per head (determines number of groups).
+        channels_axis: int, axis for the channel dimension.
+        data_format: string, image data format.
+        prefix: string, name prefix for all sub-layers.
 
     Returns:
         Output tensor.
     """
-    channels_axis = -1 if data_format == "channels_last" else 1
     num_groups = out_chs // head_dim
     out = layers.Conv2D(
         out_chs,
@@ -58,7 +52,6 @@ def nextvit_conv_attention(
 
 
 def _make_divisible(v, divisor, min_value=None):
-    """Round value to be divisible by divisor."""
     if min_value is None:
         min_value = divisor
     new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
@@ -68,7 +61,6 @@ def _make_divisible(v, divisor, min_value=None):
 
 
 def _calculate_drop_path_rates(drop_path_rate, depths):
-    """Generate stagewise drop path rates."""
     total_depth = sum(depths)
     rates = []
     idx = 0
@@ -84,7 +76,6 @@ def _calculate_drop_path_rates(drop_path_rate, depths):
 
 
 def _get_stage_out_chs(depths):
-    """Compute per-block output channels for each stage."""
     return [
         [96] * depths[0],
         [192] * (depths[1] - 1) + [256],
@@ -94,7 +85,6 @@ def _get_stage_out_chs(depths):
 
 
 def _get_stage_block_types(depths):
-    """Compute per-block type ('conv' or 'transformer') for each stage."""
     return [
         ["conv"] * depths[0],
         ["conv"] * (depths[1] - 1) + ["transformer"],
@@ -104,28 +94,22 @@ def _get_stage_block_types(depths):
 
 
 def conv_mlp(
-    x,
-    in_features,
-    hidden_features,
-    out_features=None,
-    data_format="channels_last",
-    prefix="",
+    x, in_features, hidden_features, out_features, channels_axis, data_format, prefix=""
 ):
-    """ConvMlp: 1x1 Conv -> ReLU -> 1x1 Conv.
+    """ConvMlp block with two 1x1 convolutions and ReLU activation.
 
     Args:
         x: Input tensor.
-        in_features: Number of input channels.
-        hidden_features: Number of hidden channels.
-        out_features: Number of output channels. Defaults to in_features.
-        data_format: String, image data format.
-        prefix: Name prefix for layers.
+        in_features: int, number of input channels.
+        hidden_features: int, number of hidden channels.
+        out_features: int, number of output channels.
+        channels_axis: int, axis for the channel dimension.
+        data_format: string, image data format.
+        prefix: string, name prefix for layers.
 
     Returns:
         Output tensor.
     """
-    if out_features is None:
-        out_features = in_features
     x = layers.Conv2D(
         hidden_features,
         1,
@@ -145,22 +129,22 @@ def conv_mlp(
 
 
 def patch_embed_block(
-    x, in_chs, out_chs, use_pool, data_format="channels_last", prefix=""
+    x, in_chs, out_chs, use_pool, channels_axis, data_format, prefix=""
 ):
-    """PatchEmbed: optional pool -> conv1x1 -> BN, or identity if in_chs == out_chs and no pool.
+    """Patch embedding with optional average pooling and 1x1 projection.
 
     Args:
         x: Input tensor.
-        in_chs: Input channels.
-        out_chs: Output channels.
-        use_pool: Whether to apply 2x2 average pooling (stride=2).
-        data_format: String, image data format.
-        prefix: Name prefix for layers.
+        in_chs: int, input channels.
+        out_chs: int, output channels.
+        use_pool: bool, whether to apply 2x2 average pooling.
+        channels_axis: int, axis for the channel dimension.
+        data_format: string, image data format.
+        prefix: string, name prefix for layers.
 
     Returns:
         Output tensor.
     """
-    channels_axis = -1 if data_format == "channels_last" else 1
     if use_pool:
         x = layers.AveragePooling2D(
             pool_size=2,
@@ -194,38 +178,36 @@ def next_conv_block(
     drop_path_rate,
     head_dim,
     mlp_ratio,
-    data_format="channels_last",
+    channels_axis,
+    data_format,
     prefix="",
 ):
-    """NextConvBlock: patch_embed -> mhca + residual -> norm -> conv_mlp + residual.
+    """NextConvBlock with patch embedding, MHCA, and ConvMLP.
 
     Args:
         x: Input tensor.
-        in_chs: Input channels.
-        out_chs: Output channels.
-        stride: Stride for patch embed (1 or 2).
-        drop_path_rate: Drop path rate for stochastic depth.
-        head_dim: Head dimension for ConvAttention groups.
-        mlp_ratio: MLP expansion ratio (3.0 for ConvBlocks).
-        data_format: String, image data format.
-        prefix: Name prefix for layers.
+        in_chs: int, input channels.
+        out_chs: int, output channels.
+        stride: int, stride for patch embedding (1 or 2).
+        drop_path_rate: float, drop path rate for stochastic depth.
+        head_dim: int, head dimension for MHCA groups.
+        mlp_ratio: float, MLP expansion ratio.
+        channels_axis: int, axis for the channel dimension.
+        data_format: string, image data format.
+        prefix: string, name prefix for layers.
 
     Returns:
         Output tensor.
     """
-    channels_axis = -1 if data_format == "channels_last" else 1
     use_pool = stride == 2
     x = patch_embed_block(
-        x, in_chs, out_chs, use_pool, data_format=data_format, prefix=prefix
+        x, in_chs, out_chs, use_pool, channels_axis, data_format, prefix=prefix
     )
-
-    # MHCA + residual
     mhca_out = nextvit_conv_attention(
-        x, out_chs, head_dim=head_dim, data_format=data_format, prefix=prefix
+        x, out_chs, head_dim, channels_axis, data_format, prefix=prefix
     )
     x = layers.Add()([x, mhca_out])
 
-    # Norm -> MLP + residual
     residual = x
     out = layers.BatchNormalization(
         axis=channels_axis,
@@ -238,7 +220,8 @@ def next_conv_block(
         out_chs,
         int(out_chs * mlp_ratio),
         out_chs,
-        data_format=data_format,
+        channels_axis,
+        data_format,
         prefix=prefix,
     )
     x = layers.Add()([residual, out])
@@ -255,48 +238,46 @@ def next_transformer_block(
     sr_ratio,
     mix_block_ratio,
     mlp_ratio,
-    data_format="channels_last",
+    channels_axis,
+    data_format,
     prefix="",
 ):
-    """NextTransformerBlock: patch_embed -> E-MHSA + residual -> projection -> MHCA -> concat -> norm -> MLP + residual.
+    """NextTransformerBlock with E-MHSA and MHCA branches.
 
-    The block splits the output channels between MHSA and MHCA branches using
-    mix_block_ratio. The MHSA branch gets mhsa_out_chs = round(out_chs * mix_block_ratio)
-    and the MHCA branch gets mhca_out_chs = out_chs - mhsa_out_chs.
+    Splits output channels between an E-MHSA branch and an MHCA branch using
+    mix_block_ratio, then concatenates and applies ConvMLP with residual.
 
     Args:
         x: Input tensor.
-        in_chs: Input channels.
-        out_chs: Output channels.
-        stride: Stride for patch embed.
-        drop_path_rate: Drop path rate.
-        head_dim: Head dimension.
-        sr_ratio: Spatial reduction ratio for E-MHSA.
-        mix_block_ratio: Ratio for splitting channels between MHSA and MHCA.
-        mlp_ratio: MLP expansion ratio (2.0 for TransformerBlocks).
-        data_format: String, image data format.
-        prefix: Name prefix for layers.
+        in_chs: int, input channels.
+        out_chs: int, output channels.
+        stride: int, stride for patch embedding.
+        drop_path_rate: float, drop path rate.
+        head_dim: int, head dimension.
+        sr_ratio: int, spatial reduction ratio for E-MHSA.
+        mix_block_ratio: float, channel split ratio between MHSA and MHCA.
+        mlp_ratio: float, MLP expansion ratio.
+        channels_axis: int, axis for the channel dimension.
+        data_format: string, image data format.
+        prefix: string, name prefix for layers.
 
     Returns:
         Output tensor.
     """
-    channels_axis = -1 if data_format == "channels_last" else 1
     mhsa_out_chs = _make_divisible(int(out_chs * mix_block_ratio), 32)
     mhca_out_chs = out_chs - mhsa_out_chs
 
     use_pool = stride == 2
     x = patch_embed_block(
-        x, in_chs, mhsa_out_chs, use_pool, data_format=data_format, prefix=prefix
+        x, in_chs, mhsa_out_chs, use_pool, channels_axis, data_format, prefix=prefix
     )
 
-    # E-MHSA branch: BN -> reshape to (B, N, C) -> attention -> reshape back
     out = layers.BatchNormalization(
         axis=channels_axis,
         epsilon=1e-5,
         momentum=0.9,
         name=prefix + "norm1",
     )(x)
-    # Spatial -> (B, N, C) for attention
     if data_format == "channels_first":
         out = layers.Permute((2, 3, 1), name=prefix + "to_seq_perm")(out)
     out = layers.Reshape((-1, mhsa_out_chs), name=prefix + "reshape_to_seq")(out)
@@ -309,7 +290,6 @@ def next_transformer_block(
         name=prefix + "e_mhsa",
     )(out)
 
-    # (B, N, C) -> spatial: get H, W from x
     x_shape = ops.shape(x)
     if data_format == "channels_first":
         h_idx, w_idx = 2, 3
@@ -324,7 +304,6 @@ def next_transformer_block(
 
     x = layers.Add()([x, out])
 
-    # Projection: conv 1x1 from mhsa_out_chs -> mhca_out_chs (with BN)
     proj_out = layers.Conv2D(
         mhca_out_chs,
         1,
@@ -339,20 +318,18 @@ def next_transformer_block(
         name=prefix + "projection_norm",
     )(proj_out)
 
-    # MHCA on projected features + residual
     mhca_out = nextvit_conv_attention(
         proj_out,
         mhca_out_chs,
-        head_dim=head_dim,
-        data_format=data_format,
+        head_dim,
+        channels_axis,
+        data_format,
         prefix=prefix,
     )
     proj_out = layers.Add()([proj_out, mhca_out])
 
-    # Concat MHSA and MHCA branches along channel axis
     x = layers.Concatenate(axis=channels_axis)([x, proj_out])
 
-    # Norm -> MLP + residual
     residual = x
     out = layers.BatchNormalization(
         axis=channels_axis,
@@ -365,7 +342,8 @@ def next_transformer_block(
         out_chs,
         int(out_chs * mlp_ratio),
         out_chs,
-        data_format=data_format,
+        channels_axis,
+        data_format,
         prefix=prefix,
     )
     x = layers.Add()([residual, out])
@@ -374,34 +352,43 @@ def next_transformer_block(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class NextViT(keras.Model):
-    """NextViT: Next Vision Transformer.
+    """Instantiates the NextViT architecture.
 
-    A hybrid CNN-Transformer architecture that combines convolutional attention
-    blocks with efficient multi-head self-attention blocks for image classification.
+    A hybrid CNN-Transformer that combines convolutional attention (MHCA)
+    blocks with efficient multi-head self-attention (E-MHSA) blocks.
 
-    References:
-        - [Next-ViT: Next Generation Vision Transformer for Efficient Deployment
-          in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501)
+    Reference:
+    - [Next-ViT: Next Generation Vision Transformer for Efficient Deployment
+      in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501)
 
     Args:
-        depths: List of block depths for each of the 4 stages.
-        stem_chs: List of 3 channel dimensions for the stem convolutions.
-        head_dim: Dimension per attention head. Defaults to 32.
-        mix_block_ratio: Ratio for splitting channels in TransformerBlocks. Defaults to 0.75.
-        sr_ratios: List of spatial reduction ratios per stage. Defaults to [8, 4, 2, 1].
-        drop_path_rate: Maximum drop path rate. Defaults to 0.1.
-        include_top: Whether to include the classification head. Defaults to True.
-        as_backbone: Whether to output intermediate feature maps. Defaults to False.
-        include_normalization: Whether to include input normalization. Defaults to True.
-        normalization_mode: Normalization mode. Defaults to 'imagenet'.
-        weights: Path to weights or None.
-        input_shape: Input shape tuple.
-        input_tensor: Optional input tensor.
-        pooling: Pooling mode when include_top=False.
-        num_classes: Number of output classes. Defaults to 1000.
-        classifier_activation: Activation for the classification head. Defaults to 'softmax'.
-        name: Model name. Defaults to 'NextViT'.
-        **kwargs: Additional keyword arguments.
+        depths: List of integers, number of blocks per stage.
+        stem_chs: List of 3 integers, channel dimensions for the stem.
+        head_dim: int, dimension per attention head. Defaults to ``32``.
+        mix_block_ratio: float, channel split ratio in TransformerBlocks.
+            Defaults to ``0.75``.
+        sr_ratios: List of integers, spatial reduction ratios per stage.
+            Defaults to ``[8, 4, 2, 1]``.
+        drop_path_rate: float, maximum drop path rate. Defaults to ``0.1``.
+        include_top: bool, whether to include the classification head.
+            Defaults to ``True``.
+        as_backbone: bool, whether to output intermediate feature maps.
+            Defaults to ``False``.
+        include_normalization: bool, whether to include input normalization.
+            Defaults to ``True``.
+        normalization_mode: string, normalization mode. Defaults to ``"imagenet"``.
+        weights: string, path to pretrained weights or weight identifier.
+        input_shape: Optional tuple, shape of the input data.
+        input_tensor: Optional Keras tensor to use as model input.
+        pooling: Optional string, pooling mode when ``include_top=False``:
+            ``None``, ``"avg"``, or ``"max"``.
+        num_classes: int, number of output classes. Defaults to ``1000``.
+        classifier_activation: string or callable, activation for the
+            classification head. Defaults to ``"softmax"``.
+        name: string, model name. Defaults to ``"NextViT"``.
+
+    Returns:
+        A Keras ``Model`` instance.
     """
 
     def __init__(
@@ -444,6 +431,7 @@ class NextViT(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
@@ -471,9 +459,6 @@ class NextViT(keras.Model):
         else:
             x = inputs
 
-        channels_axis = -1 if data_format == "channels_last" else 1
-
-        # ===== Stem =====
         stem_configs = [
             (3, stem_chs[0], 2),
             (stem_chs[0], stem_chs[1], 1),
@@ -525,32 +510,33 @@ class NextViT(keras.Model):
                 if block_type == "conv":
                     x = next_conv_block(
                         x,
-                        in_chs=in_chs,
-                        out_chs=out_chs,
-                        stride=stride,
-                        drop_path_rate=dp_rate,
-                        head_dim=head_dim,
-                        mlp_ratio=3.0,
-                        data_format=data_format,
+                        in_chs,
+                        out_chs,
+                        stride,
+                        dp_rate,
+                        head_dim,
+                        3.0,
+                        channels_axis,
+                        data_format,
                         prefix=prefix,
                     )
                 else:
                     x = next_transformer_block(
                         x,
-                        in_chs=in_chs,
-                        out_chs=out_chs,
-                        stride=stride,
-                        drop_path_rate=dp_rate,
-                        head_dim=head_dim,
-                        sr_ratio=sr_ratios[stage_idx],
-                        mix_block_ratio=mix_block_ratio,
-                        mlp_ratio=2.0,
-                        data_format=data_format,
+                        in_chs,
+                        out_chs,
+                        stride,
+                        dp_rate,
+                        head_dim,
+                        sr_ratios[stage_idx],
+                        mix_block_ratio,
+                        2.0,
+                        channels_axis,
+                        data_format,
                         prefix=prefix,
                     )
                 in_chs = out_chs
 
-        # ===== Final Norm =====
         x = layers.BatchNormalization(
             axis=channels_axis,
             epsilon=1e-5,
@@ -558,7 +544,6 @@ class NextViT(keras.Model):
             name="norm",
         )(x)
 
-        # ===== Head =====
         if include_top:
             x = layers.GlobalAveragePooling2D(
                 data_format=data_format,

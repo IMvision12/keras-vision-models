@@ -4,19 +4,30 @@ from keras import layers, ops
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class EfficientAttention(layers.Layer):
-    """Efficient Multi-Head Self-Attention with optional spatial reduction.
+    """Efficient Multi-Head Self-Attention (E-MHSA) with optional spatial reduction.
 
-    Operates on sequence format (B, N, C). When sr_ratio > 1, applies
-    AvgPool1d to reduce the spatial dimension of keys and values.
+    Operates on sequence tensors of shape ``(B, N, C)``. When ``sr_ratio > 1``,
+    keys and values are spatially reduced via average pooling followed by batch
+    normalization before computing attention, reducing the quadratic cost from
+    ``O(N^2)`` to ``O(N * N/sr_ratio^2)``.
+
+    Reference:
+    - [Next-ViT: Next Generation Vision Transformer for Efficient Deployment
+      in Realistic Industrial Scenarios](https://arxiv.org/abs/2207.05501)
 
     Args:
-        dim: Input dimension.
-        head_dim: Dimension per attention head. Defaults to 32.
-        sr_ratio: Spatial reduction ratio. Defaults to 1.
-        attn_drop: Dropout rate for attention weights. Defaults to 0.0.
-        proj_drop: Dropout rate for projection output. Defaults to 0.0.
-        prefix: Name prefix for sublayers.
-        **kwargs: Additional keyword arguments passed to the Layer class.
+        dim: int, input and output feature dimension.
+        head_dim: int, dimension per attention head. The number of heads is
+            ``dim // head_dim``. Defaults to ``32``.
+        sr_ratio: int, spatial reduction ratio for keys and values.
+            When ``1``, no reduction is applied. Defaults to ``1``.
+        attn_drop: float, dropout rate for attention weights.
+            Defaults to ``0.0``.
+        proj_drop: float, dropout rate for the output projection.
+            Defaults to ``0.0``.
+        prefix: string, name prefix for all sub-layers.
+            Defaults to ``""``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
     """
 
     def __init__(
@@ -46,6 +57,8 @@ class EfficientAttention(layers.Layer):
 
         self.use_sr = sr_ratio > 1
         if self.use_sr:
+            # BN on transposed (B, C, N_reduced) — axis=1 is always the
+            # channel dimension in this internal representation
             self.norm = layers.BatchNormalization(
                 axis=1,
                 epsilon=1e-5,

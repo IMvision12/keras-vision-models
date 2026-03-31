@@ -180,7 +180,11 @@ def split_model_weights(
         RuntimeError: If weight extraction fails
     """
     try:
-        if isinstance(model, nn.Module):
+        # Check Keras first: on torch backend, Keras models inherit nn.Module
+        if isinstance(model, keras.Model):
+            return separate_keras_weights(model, return_stats)
+
+        elif isinstance(model, nn.Module):
             if not hasattr(model, "state_dict"):
                 raise ValueError("Invalid PyTorch model: missing state_dict")
 
@@ -197,9 +201,6 @@ def split_model_weights(
                 custom_irrelevant,
                 custom_non_trainable,
             )
-
-        elif isinstance(model, keras.Model):
-            return separate_keras_weights(model, return_stats)
 
         else:
             raise ValueError(f"Unsupported model type: {type(model)}")

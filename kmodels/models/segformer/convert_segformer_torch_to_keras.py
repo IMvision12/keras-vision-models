@@ -8,10 +8,7 @@ from transformers import SegformerForSemanticSegmentation
 
 from kmodels.models import segformer
 from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kmodels.utils.weight_split_torch_and_keras import (
-    separate_keras_weights,
-    split_model_weights,
-)
+from kmodels.utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_attention_weights,
@@ -189,7 +186,7 @@ for config in SEGFORMER_WEIGHTS_CONFIG:
     trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
         torch_model
     )
-    trainable_keras_weights, non_trainable_keras_weights = separate_keras_weights(
+    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
         keras_model.backbone
     )
 

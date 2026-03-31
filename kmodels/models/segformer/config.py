@@ -16,7 +16,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B0_city_768.weights.h5",
         },
         "ade20k_512": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B0_ade_512.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B0_ade.weights.h5",
         },
     },
     "SegFormerB1": {
@@ -24,7 +24,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B1_city_1024.weights.h5",
         },
         "ade20k_512": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B1_ade_512.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B1_ade.weights.h5",
         },
     },
     "SegFormerB2": {
@@ -32,7 +32,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B2_city_1024.weights.h5",
         },
         "ade20k_512": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B2_ade_512.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B2_ade.weights.h5",
         },
     },
     "SegFormerB3": {
@@ -40,7 +40,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B3_city_1024.weights.h5",
         },
         "ade20k_512": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B3_ade_512.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B3_ade.weights.h5",
         },
     },
     "SegFormerB4": {
@@ -48,7 +48,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B4_city_1024.weights.h5",
         },
         "ade20k_512": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B4_ade_512.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B4_ade.weights.h5",
         },
     },
     "SegFormerB5": {
@@ -56,7 +56,7 @@ SEGFORMER_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B5_city_1024.weights.h5",
         },
         "ade20k_512": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B5_ade_640.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/v0.3/SegFormer_B5_ade.weights.h5",
         },
     },
 }

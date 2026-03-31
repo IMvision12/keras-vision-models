@@ -297,6 +297,33 @@ for config in SEGFORMER_WEIGHTS_CONFIG:
         pytorch_state_dict["decode_head.classifier.bias"].cpu().numpy()
     )
 
+    # Verify equivalence (compare at classifier level before final upsample,
+    # since Keras upsamples to input size but HF outputs at 1/4 resolution)
+    print("Verifying model equivalence...")
+    np.random.seed(42)
+    test_input = np.random.rand(1, *input_shape).astype(np.float32)
+    hf_input = torch.tensor(test_input).permute(0, 3, 1, 2)
+
+    with torch.no_grad():
+        hf_output = torch_model(pixel_values=hf_input).logits.numpy()
+    hf_output = np.transpose(hf_output, (0, 2, 3, 1))
+
+    classifier_layer = keras_model.get_layer(f"{variant_name}_head_classifier")
+    sub_model = keras.Model(keras_model.input, classifier_layer.output)
+    keras_output = np.array(sub_model.predict(test_input, verbose=0))
+
+    max_diff = np.max(np.abs(hf_output - keras_output))
+    print(f"Max logits diff: {max_diff:.6f}")
+
+    if max_diff > 1e-3:
+        raise ValueError(
+            f"Equivalence test failed for {variant_name} - max diff {max_diff:.6f} > 1e-3"
+        )
+    print("Model equivalence test passed!")
+
     # Save the model
     keras_model.save_weights(output_file)
     print(f"Saved {output_file}")
+
+    del keras_model, torch_model
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None

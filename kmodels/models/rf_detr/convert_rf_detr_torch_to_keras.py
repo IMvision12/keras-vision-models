@@ -167,7 +167,10 @@ for model_config in model_configs:
         emb_layer,
         pytorch_state_dict,
         emb_prefix,
-        name_mapping={"conv_projection": "projection", "kernel": "weight"},
+        name_mapping={
+            "conv_projection": "patch_embeddings.projection",
+            "kernel": "weight",
+        },
     )
 
     pt_proj = "backbone.0.projector.stages.0"

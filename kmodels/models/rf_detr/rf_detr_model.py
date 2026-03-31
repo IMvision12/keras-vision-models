@@ -140,7 +140,13 @@ def rf_detr_gen_sineembed_for_position(pos_tensor, dim=128):
 
 
 def rf_detr_unwindow_features(
-    hidden_state, num_h, num_w, num_windows, hidden_size, num_register_tokens
+    hidden_state,
+    num_h,
+    num_w,
+    num_windows,
+    hidden_size,
+    num_register_tokens,
+    data_format="channels_last",
 ):
     """Convert windowed features back to spatial feature map format.
 
@@ -153,13 +159,12 @@ def rf_detr_unwindow_features(
         num_h: Number of patches in height dimension.
         num_w: Number of patches in width dimension.
         num_windows: Number of windows along each spatial dimension.
-            Windowed attention divides the spatial grid into windows.
         hidden_size: Feature dimension.
-        num_register_tokens: Number of DINOv2 register tokens to remove
-            from the beginning of the sequence.
+        num_register_tokens: Number of DINOv2 register tokens to remove.
+        data_format: String, image data format. Default ``"channels_last"``.
 
     Returns:
-        Unwindowed feature tensor of shape ``(B, num_h, num_w, hidden_size)``.
+        Unwindowed feature tensor.
     """
     hidden_state = hidden_state[:, num_register_tokens + 1 :, :]
 
@@ -176,6 +181,8 @@ def rf_detr_unwindow_features(
         hidden_state = ops.transpose(hidden_state, [0, 2, 1, 3, 4])
 
     hidden_state = ops.reshape(hidden_state, [-1, num_h, num_w, hidden_size])
+    if data_format == "channels_first":
+        hidden_state = ops.transpose(hidden_state, [0, 3, 1, 2])
     return hidden_state
 
 
@@ -283,30 +290,30 @@ def rf_detr_conv_bn(
     groups=1,
     activation="relu",
     use_layer_norm=False,
+    data_format="channels_last",
+    channels_axis=-1,
     name="conv_bn",
 ):
     """Apply convolution followed by batch normalization and activation.
 
-    A convenience layer that combines Conv2D, BatchNormalization (or
-    RFDETRChannelLayerNorm), and activation into a single block.
-
     Args:
-        x: Input tensor of shape ``(B, H, W, C_in)``.
+        x: Input tensor.
         filters: Number of output filters (channels).
         kernel_size: Convolution kernel size. Default 3.
         strides: Convolution stride. Default 1.
         groups: Number of groups for grouped convolution. Default 1.
         activation: Activation function name. Default "relu".
-        use_layer_norm: If True, use RFDETRChannelLayerNorm instead of BatchNorm.
-            Default False.
+        use_layer_norm: If True, use RFDETRChannelLayerNorm. Default False.
+        data_format: String, image data format. Default ``"channels_last"``.
+        channels_axis: Integer, channel axis index. Default ``-1``.
         name: Layer name prefix. Default "conv_bn".
 
     Returns:
-        Output tensor of shape ``(B, H', W', filters)``.
+        Output tensor.
     """
     padding = (kernel_size // 2, kernel_size // 2)
     x = layers.ZeroPadding2D(
-        padding=padding, data_format="channels_last", name=f"{name}_pad"
+        padding=padding, data_format=data_format, name=f"{name}_pad"
     )(x)
     x = layers.Conv2D(
         filters,
@@ -315,14 +322,14 @@ def rf_detr_conv_bn(
         padding="valid",
         groups=groups,
         use_bias=False,
-        data_format="channels_last",
+        data_format=data_format,
         name=f"{name}_conv",
     )(x)
     if use_layer_norm:
         x = RFDETRChannelLayerNorm(name=f"{name}_ln")(x)
     else:
         x = layers.BatchNormalization(
-            axis=-1,
+            axis=channels_axis,
             epsilon=1e-5,
             momentum=0.1,
             name=f"{name}_bn",
@@ -338,30 +345,28 @@ def rf_detr_bottleneck(
     expansion=1.0,
     activation="silu",
     use_layer_norm=False,
+    data_format="channels_last",
+    channels_axis=-1,
     name="bottleneck",
 ):
     """Apply a bottleneck block with optional residual connection.
 
-    A lightweight bottleneck that applies two 3x3 convolutions with an
-    optional skip connection, used in C2F modules.
-
     Args:
-        x: Input tensor of shape ``(B, H, W, C_in)``.
+        x: Input tensor.
         out_channels: Number of output channels.
-        shortcut: Whether to add residual connection. Only applied when
-            input and output channels match. Default True.
-        expansion: Hidden channel expansion ratio. The intermediate channels
-            are ``out_channels * expansion``. Default 1.0.
+        shortcut: Whether to add residual connection. Default True.
+        expansion: Hidden channel expansion ratio. Default 1.0.
         activation: Activation function name. Default "silu".
-        use_layer_norm: If True, use RFDETRChannelLayerNorm instead of BatchNorm.
-            Default False.
+        use_layer_norm: If True, use RFDETRChannelLayerNorm. Default False.
+        data_format: String, image data format. Default ``"channels_last"``.
+        channels_axis: Integer, channel axis index. Default ``-1``.
         name: Layer name prefix. Default "bottleneck".
 
     Returns:
-        Output tensor of shape ``(B, H, W, out_channels)``.
+        Output tensor.
     """
     hidden = int(out_channels * expansion)
-    in_channels = x.shape[-1]
+    in_channels = x.shape[channels_axis]
     residual = x
     x = rf_detr_conv_bn(
         x,
@@ -369,6 +374,8 @@ def rf_detr_bottleneck(
         3,
         activation=activation,
         use_layer_norm=use_layer_norm,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_cv1",
     )
     x = rf_detr_conv_bn(
@@ -377,6 +384,8 @@ def rf_detr_bottleneck(
         3,
         activation=activation,
         use_layer_norm=use_layer_norm,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_cv2",
     )
     if shortcut and in_channels == out_channels:
@@ -392,27 +401,26 @@ def rf_detr_c2f(
     expansion=0.5,
     activation="silu",
     use_layer_norm=False,
+    data_format="channels_last",
+    channels_axis=-1,
     name="c2f",
 ):
     """Apply a C2F (CSP Bottleneck with 2 convolutions) module from YOLO.
 
-    Implements the C2F module that splits features and processes through
-    a series of bottleneck blocks, then concatenates and fuses outputs.
-
     Args:
-        x: Input tensor of shape ``(B, H, W, C_in)``.
+        x: Input tensor.
         out_channels: Number of output channels.
-        num_blocks: Number of bottleneck blocks to apply. Default 1.
-        shortcut: Whether to use residual connections in bottlenecks.
-            Default False.
-        expansion: Hidden channel expansion ratio for the split. Default 0.5.
+        num_blocks: Number of bottleneck blocks. Default 1.
+        shortcut: Whether to use residual connections. Default False.
+        expansion: Hidden channel expansion ratio. Default 0.5.
         activation: Activation function name. Default "silu".
-        use_layer_norm: If True, use RFDETRChannelLayerNorm instead of BatchNorm.
-            Default False.
+        use_layer_norm: If True, use RFDETRChannelLayerNorm. Default False.
+        data_format: String, image data format. Default ``"channels_last"``.
+        channels_axis: Integer, channel axis index. Default ``-1``.
         name: Layer name prefix. Default "c2f".
 
     Returns:
-        Output tensor of shape ``(B, H, W, out_channels)``.
+        Output tensor.
     """
     c = int(out_channels * expansion)
     x = rf_detr_conv_bn(
@@ -421,9 +429,11 @@ def rf_detr_c2f(
         1,
         activation=activation,
         use_layer_norm=use_layer_norm,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_cv1",
     )
-    chunks = ops.split(x, 2, axis=-1)
+    chunks = ops.split(x, 2, axis=channels_axis)
     y = [chunks[0], chunks[1]]
     for i in range(num_blocks):
         y.append(
@@ -434,42 +444,53 @@ def rf_detr_c2f(
                 expansion=1.0,
                 activation=activation,
                 use_layer_norm=use_layer_norm,
+                data_format=data_format,
+                channels_axis=channels_axis,
                 name=f"{name}_bottleneck_{i}",
             )
         )
-    x = ops.concatenate(y, axis=-1)
+    x = ops.concatenate(y, axis=channels_axis)
     x = rf_detr_conv_bn(
         x,
         out_channels,
         1,
         activation=activation,
         use_layer_norm=use_layer_norm,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_cv2",
     )
     return x
 
 
-def rf_detr_simple_projector(x, out_channels, name="projector"):
+def rf_detr_simple_projector(
+    x,
+    out_channels,
+    data_format="channels_last",
+    channels_axis=-1,
+    name="projector",
+):
     """Apply a simple 2-layer projector with convolution and normalization.
 
-    Projects features from backbone dimension to decoder dimension using
-    two convolutional layers with SwiGLU-style activation and LayerNorm.
-
     Args:
-        x: Input tensor of shape ``(B, H, W, C_in)``.
+        x: Input tensor.
         out_channels: Number of output channels (decoder hidden dimension).
+        data_format: String, image data format. Default ``"channels_last"``.
+        channels_axis: Integer, channel axis index. Default ``-1``.
         name: Layer name prefix. Default "projector".
 
     Returns:
-        Output tensor of shape ``(B, H, W, out_channels)``.
+        Output tensor.
     """
-    in_dim = x.shape[-1]
+    in_dim = x.shape[channels_axis]
     x = rf_detr_conv_bn(
         x,
         in_dim * 2,
         3,
         activation="silu",
         use_layer_norm=True,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_convx1",
     )
     x = rf_detr_conv_bn(
@@ -478,6 +499,8 @@ def rf_detr_simple_projector(x, out_channels, name="projector"):
         3,
         activation="silu",
         use_layer_norm=True,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_convx2",
     )
     x = RFDETRChannelLayerNorm(name=f"{name}_ln")(x)
@@ -765,6 +788,9 @@ class RFDETR(keras.Model):
         if out_feature_indexes is None:
             out_feature_indexes = [2, 5, 8, 11]
 
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
+
         if input_shape is None:
             input_shape = (resolution, resolution, 3)
 
@@ -805,7 +831,6 @@ class RFDETR(keras.Model):
             name="backbone_encoder",
         )
 
-        data_format = keras.config.image_data_format()
         if data_format == "channels_first":
             num_h = input_shape[1] // patch_size
             num_w = input_shape[2] // patch_size
@@ -822,10 +847,11 @@ class RFDETR(keras.Model):
                 num_windows,
                 backbone_hidden_size,
                 num_register_tokens,
+                data_format=data_format,
             )
             unwindowed_features.append(uw)
 
-        concat_feat = layers.Concatenate(axis=-1, name="concat_features")(
+        concat_feat = layers.Concatenate(axis=channels_axis, name="concat_features")(
             unwindowed_features
         )
         projected = rf_detr_c2f(
@@ -836,6 +862,8 @@ class RFDETR(keras.Model):
             expansion=0.5,
             activation="silu",
             use_layer_norm=True,
+            data_format=data_format,
+            channels_axis=channels_axis,
             name="projector_c2f",
         )
         projected = RFDETRChannelLayerNorm(name="projector_ln")(projected)
@@ -845,6 +873,9 @@ class RFDETR(keras.Model):
         spatial_shapes = [proj_shape]
         level_start_index = [0]
 
+        # Flatten spatial dims to sequence: (B, H, W, C) or (B, C, H, W) -> (B, H*W, C)
+        if data_format == "channels_first":
+            projected = ops.transpose(projected, [0, 2, 3, 1])
         src_flat = ops.reshape(
             projected, [-1, proj_shape[0] * proj_shape[1], hidden_dim]
         )

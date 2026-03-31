@@ -28,44 +28,44 @@ NEXTVIT_MODEL_CONFIG = {
 NEXTVIT_WEIGHTS_CONFIG = {
     "NextViTSmall": {
         "bd_in1k_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_small_bd_in1k.weights.h5",
         },
         "bd_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_small_bd_in1k_384.weights.h5",
         },
         "bd_ssld_6m_in1k_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_small_bd_ssld_6m_in1k.weights.h5",
         },
         "bd_ssld_6m_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_small_bd_ssld_6m_in1k_384.weights.h5",
         },
     },
     "NextViTBase": {
         "bd_in1k_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_base_bd_in1k.weights.h5",
         },
         "bd_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_base_bd_in1k_384.weights.h5",
         },
         "bd_ssld_6m_in1k_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_base_bd_ssld_6m_in1k.weights.h5",
         },
         "bd_ssld_6m_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_base_bd_ssld_6m_in1k_384.weights.h5",
         },
     },
     "NextViTLarge": {
         "bd_in1k_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_large_bd_in1k.weights.h5",
         },
         "bd_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_large_bd_in1k_384.weights.h5",
         },
         "bd_ssld_6m_in1k_224": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_large_bd_ssld_6m_in1k.weights.h5",
         },
         "bd_ssld_6m_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/nextvit/nextvit_large_bd_ssld_6m_in1k_384.weights.h5",
         },
     },
 }

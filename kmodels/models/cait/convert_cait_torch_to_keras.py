@@ -182,31 +182,19 @@ for model_config in model_configs:
 
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    test_keras_with_weights = model_config["keras_cls"](
-        weights=None,
-        num_classes=model_config["num_classes"],
-        include_top=True,
-        include_normalization=True,
-        input_shape=model_config["input_shape"],
-        classifier_activation="softmax",
-    )
-    test_keras_with_weights.set_weights(keras_model.get_weights())
-
     results = verify_cls_model_equivalence(
-        model_a=None,
-        model_b=test_keras_with_weights,
+        model_a=torch_model,
+        model_b=keras_model,
         input_shape=tuple(model_config["input_shape"]),
         output_specs={"num_classes": model_config["num_classes"]},
         run_performance=False,
-        test_imagenet_image=True,
+        atol=1e-4,
+        rtol=1e-4,
     )
 
-    del test_keras_with_weights
-
-    if not results["imagenet_test"]["all_passed"]:
+    if not results["standard_input"]:
         raise ValueError(
-            f"Model equivalence test failed for {torch_model_name} - "
-            "model outputs do not match for ImageNet test image"
+            "Model equivalence test failed - model outputs do not match for standard input"
         )
 
     model_filename: str = f"{torch_model_name.replace('.', '_')}.weights.h5"

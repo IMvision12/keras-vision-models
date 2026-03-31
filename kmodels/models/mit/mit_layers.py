@@ -59,7 +59,7 @@ class EfficientMultiheadSelfAttention(layers.Layer):
         num_heads=8,
         attn_drop=0.1,
         proj_drop=0.1,
-        epsilon=1e-6,
+        epsilon=1e-5,
         **kwargs,
     ):
         super().__init__(**kwargs)

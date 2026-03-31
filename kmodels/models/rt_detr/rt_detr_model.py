@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
@@ -12,14 +11,12 @@ from .rt_detr_layers import (
 )
 
 
-def rt_detr_sine_pos_embed_np(height, width, embed_dim, temperature=10000):
-    """Compute 2D sinusoidal position embedding as a numpy array.
+def rt_detr_sine_pos_embed(height, width, embed_dim, temperature=10000):
+    """Compute 2D sinusoidal position embedding.
 
     Generates non-learnable sine/cosine positional encodings for a 2D
     spatial grid. The embedding dimension is split into four equal parts
-    encoding height-sin, height-cos, width-sin, and width-cos. Used by
-    the AIFI encoder to add spatial information to flattened feature
-    tokens.
+    encoding height-sin, height-cos, width-sin, and width-cos.
 
     Reference:
         - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
@@ -33,21 +30,21 @@ def rt_detr_sine_pos_embed_np(height, width, embed_dim, temperature=10000):
             sinusoidal frequencies. Defaults to ``10000``.
 
     Returns:
-        Numpy array of shape ``(1, height * width, embed_dim)``.
+        Tensor of shape ``(1, height * width, embed_dim)``.
     """
     pos_dim = embed_dim // 4
-    dim_t = np.arange(pos_dim, dtype=np.float32) / pos_dim
+    dim_t = ops.cast(ops.arange(pos_dim), "float32") / pos_dim
     dim_t = 1.0 / (temperature**dim_t)
-    grid_w = np.arange(width, dtype=np.float32)
-    grid_h = np.arange(height, dtype=np.float32)
-    grid_w, grid_h = np.meshgrid(grid_w, grid_h)
-    out_w = grid_w.reshape(-1, 1) * dim_t.reshape(1, -1)
-    out_h = grid_h.reshape(-1, 1) * dim_t.reshape(1, -1)
-    pos = np.concatenate(
-        [np.sin(out_h), np.cos(out_h), np.sin(out_w), np.cos(out_w)],
+    grid_w = ops.cast(ops.arange(width), "float32")
+    grid_h = ops.cast(ops.arange(height), "float32")
+    grid_h, grid_w = ops.meshgrid(grid_h, grid_w, indexing="ij")
+    out_w = ops.reshape(grid_w, [-1, 1]) * ops.reshape(dim_t, [1, -1])
+    out_h = ops.reshape(grid_h, [-1, 1]) * ops.reshape(dim_t, [1, -1])
+    pos = ops.concatenate(
+        [ops.sin(out_h), ops.cos(out_h), ops.sin(out_w), ops.cos(out_w)],
         axis=-1,
     )
-    return pos[np.newaxis].astype(np.float32)
+    return ops.expand_dims(pos, axis=0)
 
 
 def rt_detr_backbone(
@@ -594,6 +591,7 @@ class RTDETR(keras.Model):
     ):
         data_format = keras.config.image_data_format()
         channels_axis = -1 if data_format == "channels_last" else 1
+
         if input_shape is None:
             input_shape = (640, 640, 3)
         if input_tensor is None:
@@ -648,9 +646,7 @@ class RTDETR(keras.Model):
             flat = layers.Reshape(
                 (h * w, encoder_hidden_dim), name=f"aifi_{ai}_flatten"
             )(feat)
-            pe = ops.convert_to_tensor(
-                rt_detr_sine_pos_embed_np(h, w, encoder_hidden_dim, 10000)
-            )
+            pe = rt_detr_sine_pos_embed(h, w, encoder_hidden_dim, 10000)
             for li in range(encoder_layers):
                 flat = rt_detr_aifi_encoder_layer(
                     flat,
@@ -775,24 +771,29 @@ class RTDETR(keras.Model):
         gs = 0.05
         anc_parts = []
         for lvl, (hi, wi) in enumerate(spatial_shapes):
-            gy, gx = np.meshgrid(
-                np.arange(hi, dtype=np.float32),
-                np.arange(wi, dtype=np.float32),
+            gy, gx = ops.meshgrid(
+                ops.cast(ops.arange(hi), "float32"),
+                ops.cast(ops.arange(wi), "float32"),
                 indexing="ij",
             )
-            xy = np.stack([gx, gy], -1).reshape(1, hi * wi, 2)
-            xy = xy + 0.5
-            xy[..., 0] /= wi
-            xy[..., 1] /= hi
-            wh = np.ones_like(xy) * gs * (2.0**lvl)
-            anc_parts.append(np.concatenate([xy, wh], -1))
-        anc_np = np.concatenate(anc_parts, 1).astype(np.float32)
-        vmask = ((anc_np > 1e-2) & (anc_np < 1 - 1e-2)).all(-1, keepdims=True)
-        anc_logit = np.where(
-            vmask, np.log(anc_np / (1 - anc_np)), np.finfo(np.float32).max
-        ).astype(np.float32)
-        anchors_t = ops.convert_to_tensor(anc_logit)
-        vmask_t = ops.convert_to_tensor(vmask.astype(np.float32))
+            xy = ops.reshape(ops.stack([gx, gy], axis=-1), [1, hi * wi, 2])
+            xy = (xy + 0.5) / ops.convert_to_tensor(
+                [[[float(wi), float(hi)]]], dtype="float32"
+            )
+            wh = ops.ones_like(xy) * gs * (2.0**lvl)
+            anc_parts.append(ops.concatenate([xy, wh], axis=-1))
+        anchors = ops.concatenate(anc_parts, axis=1)
+        vmask = ops.cast(
+            ops.all((anchors > 1e-2) & (anchors < 1 - 1e-2), axis=-1, keepdims=True),
+            "float32",
+        )
+        anc_logit = ops.where(
+            vmask > 0.5,
+            ops.log(anchors / (1 - anchors)),
+            ops.convert_to_tensor(3.4028235e38, dtype="float32"),
+        )
+        anchors_t = anc_logit
+        vmask_t = vmask
 
         memory = source_flat * vmask_t
         enc_out = layers.Dense(d_model, name="enc_output_linear")(memory)

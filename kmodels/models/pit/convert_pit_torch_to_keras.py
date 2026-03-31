@@ -218,42 +218,20 @@ for model_config in model_configs:
 
         transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
-    if model_config["distilled"]:
-        test_keras_with_weights = model_config["keras_model_cls"](
-            weights=None,
-            num_classes=model_config["num_classes"],
-            include_top=model_config["include_top"],
-            include_normalization=True,
-            input_shape=model_config["input_shape"],
-            classifier_activation="softmax",
-        )
-        test_keras_with_weights.set_weights(keras_model.get_weights())
+    results = verify_cls_model_equivalence(
+        model_a=torch_model,
+        model_b=keras_model,
+        input_shape=tuple(model_config["input_shape"]),
+        output_specs={"num_classes": model_config["num_classes"]},
+        run_performance=False,
+        atol=1e-3,
+        rtol=1e-3,
+    )
 
-        results = verify_cls_model_equivalence(
-            model_a=None,
-            model_b=test_keras_with_weights,
-            input_shape=(224, 224, 3),
-            output_specs={"num_classes": 1000},
-            run_performance=False,
-            test_imagenet_image=True,
-        )
-
-        del test_keras_with_weights
-
-    else:
-        results = verify_cls_model_equivalence(
-            model_a=torch_model,
-            model_b=keras_model,
-            input_shape=(224, 224, 3),
-            output_specs={"num_classes": 1000},
-            run_performance=False,
-        )
-
-    if ("standard_input" in results and not results["standard_input"]) or (
-        "imagenet_test" in results and not results["imagenet_test"]["all_passed"]
-    ):
+    if not results["standard_input"]:
         raise ValueError(
-            "Model equivalence test failed - model outputs do not match for standard input"
+            f"Model equivalence test failed for {model_config['torch_model_name']} - "
+            "model outputs do not match for standard input"
         )
 
     model_filename: str = (

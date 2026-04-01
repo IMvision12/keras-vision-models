@@ -1,14 +1,3 @@
-"""SAM2 (Segment Anything Model 2) for Keras.
-
-Provides the ``SAM2`` model class and factory functions for all four
-Hiera-based variants. The model follows the same functional-API
-construction pattern as ``kmodels.models.sam``.
-
-Reference:
-    - `SAM 2: Segment Anything in Images and Videos
-      <https://arxiv.org/abs/2408.00714>`_
-"""
-
 import keras
 import numpy as np
 from keras import layers, utils
@@ -22,56 +11,10 @@ from .sam2_layers import (
     SAM2ImagePositionalEmbeddings,
     SAM2MaskDecoderLayer,
     SAM2MultiScaleBlock,
+    SAM2NoMemoryEmbedding,
     SAM2PositionalEmbedding,
     SAM2PromptEncoderLayer,
 )
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM2NoMemoryEmbedding(layers.Layer):
-    """Learnable bias added to image embeddings.
-
-    In the SAM2 video model this embedding indicates the absence of
-    memory from previous frames. For image-only inference the
-    parameter is still present and must be transferred during weight
-    conversion. The embedding is a trainable weight that is broadcast
-    and added to the image embeddings.
-
-    Reference:
-        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
-
-    Args:
-        hidden_size: Integer, channel dimension of the image
-            embeddings. Defaults to ``256``.
-        **kwargs: Additional keyword arguments passed to the
-            ``Layer`` class.
-
-    Input Shape:
-        4D tensor: ``(batch_size, H, W, hidden_size)``.
-
-    Output Shape:
-        4D tensor: ``(batch_size, H, W, hidden_size)``.
-    """
-
-    def __init__(self, hidden_size=256, **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-
-    def build(self, input_shape):
-        self.embedding = self.add_weight(
-            name="embedding",
-            shape=(1, 1, 1, self.hidden_size),
-            initializer="zeros",
-        )
-        self.built = True
-
-    def call(self, image_embeddings):
-        return image_embeddings + self.embedding
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"hidden_size": self.hidden_size})
-        return config
 
 
 def sam2_mask_embedding(
@@ -230,11 +173,16 @@ class SAM2(keras.Model):
         name="SAM2",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         if window_pos_embed_bg_size is None:
             window_pos_embed_bg_size = self.WINDOW_POS_EMBED_BG_SIZE
 
         if input_shape is None:
-            input_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 3)
+            if data_format == "channels_first":
+                input_shape = (3, self.IMAGE_SIZE, self.IMAGE_SIZE)
+            else:
+                input_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 3)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
@@ -255,6 +203,7 @@ class SAM2(keras.Model):
 
         padded = layers.ZeroPadding2D(
             padding=self.PATCH_PADDING,
+            data_format=data_format,
             name="backbone_patch_embed_padding",
         )(pixel_values)
         hidden_states = layers.Conv2D(
@@ -263,16 +212,22 @@ class SAM2(keras.Model):
             strides=self.PATCH_STRIDE,
             padding="valid",
             use_bias=True,
+            data_format=data_format,
             name="backbone_patch_embed_projection",
         )(padded)
 
-        pos_embed_h = input_shape[0] // self.PATCH_STRIDE[0]
-        pos_embed_w = input_shape[1] // self.PATCH_STRIDE[1]
+        if data_format == "channels_first":
+            spatial_h, spatial_w = input_shape[1], input_shape[2]
+        else:
+            spatial_h, spatial_w = input_shape[0], input_shape[1]
+        pos_embed_h = spatial_h // self.PATCH_STRIDE[0]
+        pos_embed_w = spatial_w // self.PATCH_STRIDE[1]
         pos_embed_layer = SAM2HieraPositionEmbedding(
             hidden_size=hidden_size,
             spatial_size=(pos_embed_h, pos_embed_w),
             window_size=window_size_per_stage[0],
             bg_size=window_pos_embed_bg_size,
+            data_format=data_format,
             name="backbone_pos_embed",
         )
         hidden_states = pos_embed_layer(hidden_states)
@@ -311,6 +266,7 @@ class SAM2(keras.Model):
                     window_size=win,
                     query_stride=q_stride,
                     layer_norm_eps=self.LAYER_NORM_EPS,
+                    data_format=data_format,
                     name=f"backbone_blocks_{total_block_idx}",
                 )(hidden_states)
 
@@ -327,14 +283,13 @@ class SAM2(keras.Model):
             conv = layers.Conv2D(
                 self.FPN_HIDDEN_SIZE,
                 kernel_size=1,
+                data_format=data_format,
                 name=f"neck_convs_{i}",
             )
             fpn_convs.append(conv)
 
         fpn_top_down_levels = [2, 3]
 
-        # FPN operates entirely in NHWC (channels_last) for full
-        # backend compatibility including TF CPU.
         prev_features = None
         for i in range(n, -1, -1):
             stage_features = intermediate_hidden_states[i]
@@ -346,6 +301,7 @@ class SAM2(keras.Model):
                 top_down = layers.UpSampling2D(
                     size=2,
                     interpolation="nearest",
+                    data_format=data_format,
                     name=f"neck_upsample_{i}",
                 )(prev_features)
                 prev_features = layers.Add(name=f"neck_add_{i}")(
@@ -361,15 +317,15 @@ class SAM2(keras.Model):
 
         no_mem_embed_layer = SAM2NoMemoryEmbedding(
             hidden_size=self.FPN_HIDDEN_SIZE,
+            data_format=data_format,
             name="no_memory_embedding",
         )
         image_embeddings = no_mem_embed_layer(image_embeddings)
 
-        # High-res features are now NHWC from FPN
         high_res_feat_s0 = fpn_hidden_states_list[0]
         high_res_feat_s1 = fpn_hidden_states_list[1]
 
-        image_embedding_size = input_shape[0] // self.PROMPT_ENCODER_PATCH_SIZE
+        image_embedding_size = spatial_h // self.PROMPT_ENCODER_PATCH_SIZE
 
         shared_image_embedding = SAM2PositionalEmbedding(
             num_pos_feats=self.PROMPT_ENCODER_HIDDEN_SIZE // 2,
@@ -389,6 +345,7 @@ class SAM2(keras.Model):
             image_size=self.IMAGE_SIZE,
             num_point_embeddings=self.PROMPT_ENCODER_NUM_POINT_EMBEDDINGS,
             shared_embedding=shared_image_embedding,
+            data_format=data_format,
             name="prompt_encoder",
         )([input_points, input_labels])
 
@@ -404,6 +361,7 @@ class SAM2(keras.Model):
             iou_head_depth=self.MASK_DECODER_IOU_HEAD_DEPTH,
             iou_head_hidden_dim=self.MASK_DECODER_IOU_HEAD_HIDDEN_DIM,
             attention_downsample_rate=self.MASK_DECODER_ATTENTION_DOWNSAMPLE_RATE,
+            data_format=data_format,
             name="mask_decoder",
         )(
             [
@@ -518,7 +476,11 @@ def _create_sam2_model(
 
     if input_shape is None:
         image_size = SAM2.IMAGE_SIZE
-        input_shape = (image_size, image_size, 3)
+        df = keras.config.image_data_format()
+        if df == "channels_first":
+            input_shape = (3, image_size, image_size)
+        else:
+            input_shape = (image_size, image_size, 3)
         print(f"Using default input shape {input_shape}.")
 
     model = SAM2(

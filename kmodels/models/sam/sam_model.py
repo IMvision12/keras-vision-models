@@ -15,33 +15,30 @@ from .sam_layers import (
 )
 
 
-def sam_vision_neck(inputs, output_channels, name="vision_encoder_neck"):
+def sam_vision_neck(
+    inputs, output_channels, data_format="channels_last", name="vision_encoder_neck"
+):
     """Projection neck from vision encoder to mask decoder dimension.
-
-    Projects the vision encoder output to the mask decoder hidden
-    size using two convolutional layers with layer normalization.
-    The first 1x1 convolution reduces the channel dimension, and
-    the second 3x3 convolution refines spatial features with
-    same-padding.
 
     Reference:
         - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        inputs: Input tensor of shape
-            ``(batch_size, H, W, encoder_channels)`` from the
-            vision encoder.
-        output_channels: Integer, output channel dimension
-            matching the mask decoder hidden size.
-        name: String, name prefix for all sub-layers.
+        inputs: Input tensor from the vision encoder.
+        output_channels: int, output channel dimension.
+        data_format: string, image data format. Defaults to ``"channels_last"``.
+        name: string, name prefix for sub-layers.
             Defaults to ``"vision_encoder_neck"``.
 
     Returns:
-        Output tensor of shape
-        ``(batch_size, H, W, output_channels)``.
+        Output tensor.
     """
     x = layers.Conv2D(
-        output_channels, kernel_size=1, use_bias=False, name=f"{name}_conv1"
+        output_channels,
+        kernel_size=1,
+        use_bias=False,
+        data_format=data_format,
+        name=f"{name}_conv1",
     )(inputs)
     x = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_layer_norm1")(x)
     x = layers.Conv2D(
@@ -49,6 +46,7 @@ def sam_vision_neck(inputs, output_channels, name="vision_encoder_neck"):
         kernel_size=3,
         padding="same",
         use_bias=False,
+        data_format=data_format,
         name=f"{name}_conv2",
     )(x)
     x = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_layer_norm2")(x)
@@ -99,48 +97,54 @@ def sam_feed_forward(
 
 
 def sam_mask_embedding(
-    inputs, hidden_size=256, mask_input_channels=16, layer_norm_eps=1e-6, name=""
+    inputs,
+    hidden_size=256,
+    mask_input_channels=16,
+    layer_norm_eps=1e-6,
+    data_format="channels_last",
+    name="",
 ):
     """Embeds dense mask prompts through a small convolutional network.
-
-    Downsamples a single-channel mask input by 4x total through
-    three Conv2D layers with GELU activations and layer
-    normalization, mapping it to ``hidden_size`` channels at the
-    image embedding spatial resolution. Used when the user provides
-    a mask prompt to the SAM model.
 
     Reference:
         - `Segment Anything <https://arxiv.org/abs/2304.02643>`_
 
     Args:
-        inputs: Input mask tensor of shape
-            ``(batch_size, 4*H, 4*W, 1)``.
-        hidden_size: Integer, output embedding dimension.
-            Defaults to ``256``.
-        mask_input_channels: Integer, intermediate channel count
-            after the second convolution.
-            Defaults to ``16``.
-        layer_norm_eps: Float, epsilon for layer normalization.
-            Defaults to ``1e-6``.
-        name: String, name prefix for all sub-layers.
-            Defaults to ``""``.
+        inputs: Input mask tensor.
+        hidden_size: int, output embedding dimension. Defaults to ``256``.
+        mask_input_channels: int, intermediate channel count. Defaults to ``16``.
+        layer_norm_eps: float, epsilon for layer normalization. Defaults to ``1e-6``.
+        data_format: string, image data format. Defaults to ``"channels_last"``.
+        name: string, name prefix for sub-layers. Defaults to ``""``.
 
     Returns:
-        Dense embedding tensor of shape
-        ``(batch_size, H, W, hidden_size)``.
+        Dense embedding tensor.
     """
     inner_channels = mask_input_channels // 4
-    x = layers.Conv2D(inner_channels, kernel_size=2, strides=2, name=f"{name}_conv1")(
-        inputs
-    )
+    x = layers.Conv2D(
+        inner_channels,
+        kernel_size=2,
+        strides=2,
+        data_format=data_format,
+        name=f"{name}_conv1",
+    )(inputs)
     x = layers.LayerNormalization(epsilon=layer_norm_eps, name=f"{name}_layer_norm1")(x)
     x = layers.Activation("gelu", name=f"{name}_gelu_1")(x)
     x = layers.Conv2D(
-        mask_input_channels, kernel_size=2, strides=2, name=f"{name}_conv2"
+        mask_input_channels,
+        kernel_size=2,
+        strides=2,
+        data_format=data_format,
+        name=f"{name}_conv2",
     )(x)
     x = layers.LayerNormalization(epsilon=layer_norm_eps, name=f"{name}_layer_norm2")(x)
     x = layers.Activation("gelu", name=f"{name}_gelu_2")(x)
-    x = layers.Conv2D(hidden_size, kernel_size=1, name=f"{name}_conv3")(x)
+    x = layers.Conv2D(
+        hidden_size,
+        kernel_size=1,
+        data_format=data_format,
+        name=f"{name}_conv3",
+    )(x)
     return x
 
 
@@ -237,6 +241,8 @@ class SAM(keras.Model):
         name="SAM",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         if input_shape is None:
             input_shape = (self.VISION_IMAGE_SIZE, self.VISION_IMAGE_SIZE, 3)
 
@@ -250,7 +256,11 @@ class SAM(keras.Model):
         else:
             pixel_values = layers.Input(shape=input_shape, name="pixel_values")
 
-        image_embedding_size = input_shape[0] // self.VISION_PATCH_SIZE
+        if data_format == "channels_first":
+            spatial_size = input_shape[1]
+        else:
+            spatial_size = input_shape[0]
+        image_embedding_size = spatial_size // self.VISION_PATCH_SIZE
 
         input_points = layers.Input(
             shape=(None, None, 2), name="input_points", dtype="float32"
@@ -264,12 +274,14 @@ class SAM(keras.Model):
             strides=self.VISION_PATCH_SIZE,
             padding="valid",
             use_bias=True,
+            data_format=data_format,
             name="vision_encoder_patch_embed_projection",
         )(pixel_values)
 
         pos_embed_layer = SAMAbsolutePositionEmbedding(
             vision_hidden_size,
             image_embedding_size,
+            data_format=data_format,
             name="vision_encoder_pos_embed",
         )
         hidden_states = pos_embed_layer(hidden_states)
@@ -287,12 +299,14 @@ class SAM(keras.Model):
                 window_size=win_size,
                 image_size=image_embedding_size,
                 layer_norm_eps=self.VISION_LAYER_NORM_EPS,
+                data_format=data_format,
                 name=f"vision_encoder_layers_{i}",
             )(hidden_states)
 
         image_embeddings = sam_vision_neck(
             hidden_states,
             self.VISION_OUTPUT_CHANNELS,
+            data_format=data_format,
             name="vision_encoder_neck",
         )
 
@@ -315,6 +329,7 @@ class SAM(keras.Model):
             image_size=self.VISION_IMAGE_SIZE,
             num_point_embeddings=self.PROMPT_ENCODER_NUM_POINT_EMBEDDINGS,
             shared_embedding=shared_image_embedding,
+            data_format=data_format,
             name="prompt_encoder",
         )([input_points, input_labels])
 
@@ -329,6 +344,7 @@ class SAM(keras.Model):
             num_multimask_outputs=num_multimask_outputs,
             iou_head_depth=self.MASK_DECODER_IOU_HEAD_DEPTH,
             iou_head_hidden_dim=self.MASK_DECODER_IOU_HEAD_HIDDEN_DIM,
+            data_format=data_format,
             name="mask_decoder",
         )(
             [
@@ -431,7 +447,11 @@ def _create_sam_model(
 
     if input_shape is None:
         image_size = SAM.VISION_IMAGE_SIZE
-        input_shape = (image_size, image_size, 3)
+        df = keras.config.image_data_format()
+        if df == "channels_first":
+            input_shape = (3, image_size, image_size)
+        else:
+            input_shape = (image_size, image_size, 3)
         print(f"Using default input shape {input_shape}.")
 
     model = SAM(

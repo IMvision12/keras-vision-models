@@ -13,8 +13,7 @@ from tests.base.model_test_registry import (
 BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
-# SAM/SAM2 models don't support data format switching (hardcoded internals)
-SKIP_DATA_FORMAT = {"SAM_ViT_Base", "Sam2Tiny"}
+SKIP_DATA_FORMAT = set()
 
 
 def _adapt_input_shape_for_format(init_kwargs, data_format):

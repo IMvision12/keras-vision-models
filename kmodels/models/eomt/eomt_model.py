@@ -168,27 +168,23 @@ def eomt_encoder_layer(
     return hidden_states
 
 
-def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
+def eomt_scale_layer(
+    x, hidden_size, data_format="channels_last", block_prefix="upscale_block_0"
+):
     """Single 2x spatial upscaling layer for mask feature decoding.
-
-    Applies a transposed convolution with stride 2 for spatial
-    upsampling, followed by GELU activation, a depthwise convolution
-    for local refinement, and layer normalization.
 
     Reference:
     - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
     Args:
-        x: Input tensor of shape
-            `(batch_size, height, width, hidden_size)`.
-        hidden_size: Integer, number of channels (preserved through
-            the layer).
-        block_prefix: String, name prefix for all sub-layers.
-            Defaults to `"upscale_block_0"`.
+        x: Input tensor.
+        hidden_size: int, number of channels.
+        data_format: string, image data format. Defaults to ``"channels_last"``.
+        block_prefix: string, name prefix for sub-layers.
+            Defaults to ``"upscale_block_0"``.
 
     Returns:
-        Output tensor of shape
-        `(batch_size, 2 * height, 2 * width, hidden_size)`.
+        Output tensor with 2x spatial resolution.
     """
     x = layers.Conv2DTranspose(
         hidden_size,
@@ -196,7 +192,7 @@ def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
         strides=2,
         padding="valid",
         use_bias=True,
-        data_format="channels_last",
+        data_format=data_format,
         name=f"{block_prefix}_conv1",
     )(x)
     x = layers.Activation("gelu", name=f"{block_prefix}_gelu")(x)
@@ -204,37 +200,37 @@ def eomt_scale_layer(x, hidden_size, block_prefix="upscale_block_0"):
         kernel_size=3,
         padding="same",
         use_bias=False,
-        data_format="channels_last",
+        data_format=data_format,
         name=f"{block_prefix}_conv2",
     )(x)
+    if data_format == "channels_first":
+        x = layers.Permute((2, 3, 1))(x)
     x = layers.LayerNormalization(epsilon=1e-6, name=f"{block_prefix}_layernorm")(x)
+    if data_format == "channels_first":
+        x = layers.Permute((3, 1, 2))(x)
     return x
 
 
-def eomt_scale_block(x, hidden_size, num_upscale_blocks=2):
+def eomt_scale_block(x, hidden_size, num_upscale_blocks=2, data_format="channels_last"):
     """Stack of spatial upscaling layers for mask feature decoding.
 
-    Applies `num_upscale_blocks` consecutive `eomt_scale_layer`
-    blocks, each doubling the spatial resolution. With the default
-    of 2 blocks, the resolution increases by 4x total.
-
-    Reference:
-    - [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
-
     Args:
-        x: Input tensor of shape
-            `(batch_size, height, width, hidden_size)`.
-        hidden_size: Integer, number of channels (preserved through
-            all layers).
-        num_upscale_blocks: Integer, number of 2x upscaling layers
-            to stack. Defaults to `2`.
+        x: Input tensor.
+        hidden_size: int, number of channels.
+        num_upscale_blocks: int, number of 2x upscaling layers.
+            Defaults to ``2``.
+        data_format: string, image data format. Defaults to ``"channels_last"``.
 
     Returns:
-        Output tensor of shape
-        `(batch_size, height * 2^num_upscale_blocks, width * 2^num_upscale_blocks, hidden_size)`.
+        Output tensor with upscaled spatial resolution.
     """
     for i in range(num_upscale_blocks):
-        x = eomt_scale_layer(x, hidden_size, block_prefix=f"upscale_block_{i}")
+        x = eomt_scale_layer(
+            x,
+            hidden_size,
+            data_format=data_format,
+            block_prefix=f"upscale_block_{i}",
+        )
     return x
 
 
@@ -361,6 +357,7 @@ class EoMT(keras.Model):
             img_input = layers.Input(shape=input_shape)
 
         data_format = keras.config.image_data_format()
+
         if data_format == "channels_first":
             image_size = input_shape[1]
         else:
@@ -369,7 +366,6 @@ class EoMT(keras.Model):
         grid_w = image_size // patch_size
         num_prefix_tokens = 1 + num_register_tokens
 
-        # Embeddings
         embeddings_layer = EoMTEmbeddings(
             hidden_size=hidden_size,
             patch_size=patch_size,
@@ -379,10 +375,7 @@ class EoMT(keras.Model):
         )
         hidden_states = embeddings_layer(img_input)
 
-        # Query injection layer
         query_injection = EoMTQueryInjection(num_queries, hidden_size, name="query")
-
-        # Transformer layers
         query_injection_idx = num_hidden_layers - num_blocks
 
         for i in range(num_hidden_layers):
@@ -402,33 +395,39 @@ class EoMT(keras.Model):
                 block_prefix=f"layers_{i}",
             )
 
-        # Final layer norm
         sequence_output = layers.LayerNormalization(
             epsilon=layer_norm_eps, name="layernorm"
         )(hidden_states)
 
-        # Extract query tokens and patch tokens
         query_output = sequence_output[:, :num_queries, :]
         patch_output = sequence_output[:, num_queries + num_prefix_tokens :, :]
 
-        # Class prediction
         class_logits = layers.Dense(num_labels + 1, name="class_predictor")(
             query_output
         )
 
-        # Mask prediction
         query_mask_tokens = eomt_mask_head(query_output, hidden_size)
 
-        # Reshape patch tokens to spatial grid
-        patch_spatial = ops.reshape(patch_output, (-1, grid_h, grid_w, hidden_size))
+        if data_format == "channels_first":
+            patch_spatial = ops.reshape(patch_output, (-1, hidden_size, grid_h, grid_w))
+        else:
+            patch_spatial = ops.reshape(patch_output, (-1, grid_h, grid_w, hidden_size))
 
-        # Upscale
         upscaled_features = eomt_scale_block(
-            patch_spatial, hidden_size, num_upscale_blocks
+            patch_spatial,
+            hidden_size,
+            num_upscale_blocks,
+            data_format=data_format,
         )
 
-        # Mask logits via einsum: (B, Q, C) x (B, H, W, C) -> (B, Q, H, W)
-        mask_logits = ops.einsum("bqc,bhwc->bqhw", query_mask_tokens, upscaled_features)
+        if data_format == "channels_first":
+            mask_logits = ops.einsum(
+                "bqc,bchw->bqhw", query_mask_tokens, upscaled_features
+            )
+        else:
+            mask_logits = ops.einsum(
+                "bqc,bhwc->bqhw", query_mask_tokens, upscaled_features
+            )
 
         super().__init__(
             inputs=img_input,

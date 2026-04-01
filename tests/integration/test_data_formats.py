@@ -13,8 +13,7 @@ from tests.base.model_test_registry import (
 BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
-# SAM/SAM2 models don't support data format switching (hardcoded internals)
-SKIP_DATA_FORMAT = {"SAM_ViT_Base", "Sam2Tiny"}
+SKIP_DATA_FORMAT = set()
 
 
 def _adapt_input_shape_for_format(init_kwargs, data_format):
@@ -31,7 +30,7 @@ def _transpose_input(input_data, data_format):
     if isinstance(input_data, dict):
         result = {}
         for k, v in input_data.items():
-            if len(v.shape) == 4:  # (B, H, W, C) -> (B, C, H, W)
+            if k in ("pixel_values", "images") and len(v.shape) == 4:
                 result[k] = ops.transpose(v, (0, 3, 1, 2))
             else:
                 result[k] = v

@@ -1,3 +1,7 @@
+import os
+
+os.environ["KERAS_BACKEND"] = "torch"
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -78,6 +82,7 @@ for model_config in model_configs:
     pos_layer.pos_embed.assign(np.transpose(pos_embed_hf, (0, 2, 3, 1)))
     pos_embed_window_hf = hf_state_dict["vision_encoder.backbone.pos_embed_window"]
     pos_layer.pos_embed_window.assign(np.transpose(pos_embed_window_hf, (0, 2, 3, 1)))
+    pos_layer._recompute_full_pos()
 
     total_blocks = sum(keras_model.blocks_per_stage)
     for i in tqdm(range(total_blocks), desc="Transferring backbone blocks"):

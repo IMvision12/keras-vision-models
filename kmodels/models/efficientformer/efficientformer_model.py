@@ -16,29 +16,24 @@ def conv_mlp_block(
     hidden_features,
     out_features,
     drop=0.0,
+    channels_axis=-1,
     data_format="channels_last",
     name=None,
 ):
     """MLP block with 1x1 convolutions for 2D spatial feature maps.
 
-    Applies two sequential 1x1 convolutions with batch normalization,
-    GELU activation, and dropout. Used in the convolutional (2D) stages
-    of EfficientFormer.
-
     Args:
-        inputs: Input tensor of shape `(batch_size, height, width, channels)`.
-        hidden_features: Integer, number of filters in the first convolution.
-        out_features: Integer, number of filters in the second convolution.
-        drop: Float, dropout rate applied after each convolution.
-            Defaults to `0.0`.
-        data_format: String, either `"channels_last"` or `"channels_first"`.
-            Defaults to `"channels_last"`.
-        name: String, name prefix for all layers in this block.
+        inputs: Input tensor.
+        hidden_features: int, number of filters in the first convolution.
+        out_features: int, number of filters in the second convolution.
+        drop: float, dropout rate. Defaults to ``0.0``.
+        channels_axis: int, channel axis index. Defaults to ``-1``.
+        data_format: string, image data format. Defaults to ``"channels_last"``.
+        name: string, name prefix for layers.
 
     Returns:
-        Output tensor of shape `(batch_size, height, width, out_features)`.
+        Output tensor.
     """
-    channels_axis = -1 if data_format == "channels_last" else 1
 
     x = layers.Conv2D(
         hidden_features,
@@ -100,42 +95,38 @@ def meta_block_2d(
     drop=0.0,
     drop_path=0.0,
     layer_scale_init_value=1e-5,
+    channels_axis=-1,
     data_format="channels_last",
     name=None,
 ):
     """2D MetaBlock with pooling token mixer for convolutional stages.
 
-    Applies a pooling-based token mixer followed by a convolutional MLP,
-    each with residual connections, layer scaling, and optional stochastic
-    depth. Used in the early (2D spatial) stages of EfficientFormer.
-
     Reference:
     - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
 
     Args:
-        inputs: Input tensor of shape
-            `(batch_size, height, width, channels)`.
-        dim: Integer, feature dimension (number of channels).
-        pool_size: Integer, kernel size for the average pooling token
-            mixer. Defaults to `3`.
-        mlp_ratio: Float, expansion ratio for the hidden dimension in
-            the MLP. Defaults to `4.0`.
-        drop: Float, dropout rate applied in the MLP.
-            Defaults to `0.0`.
-        drop_path: Float, stochastic depth rate for dropping the
-            residual branch. Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for the learnable
-            layer scale parameters. Defaults to `1e-5`.
-        data_format: String, either `"channels_last"` or
-            `"channels_first"`. Defaults to `"channels_last"`.
-        name: String, name prefix for all layers in this block.
+        inputs: Input tensor.
+        dim: int, feature dimension (number of channels).
+        pool_size: int, kernel size for pooling token mixer. Defaults to ``3``.
+        mlp_ratio: float, MLP expansion ratio. Defaults to ``4.0``.
+        drop: float, dropout rate. Defaults to ``0.0``.
+        drop_path: float, stochastic depth rate. Defaults to ``0.0``.
+        layer_scale_init_value: float, initial layer scale value.
+            Defaults to ``1e-5``.
+        channels_axis: int, channel axis index. Defaults to ``-1``.
+        data_format: string, image data format. Defaults to ``"channels_last"``.
+        name: string, name prefix for layers.
 
     Returns:
-        Output tensor of shape `(batch_size, height, width, channels)`.
+        Output tensor.
     """
     # Token mixer (pooling)
     pooled = layers.AveragePooling2D(
-        pool_size=pool_size, strides=1, padding="same", name=f"{name}_pool_pool"
+        pool_size=pool_size,
+        strides=1,
+        padding="same",
+        data_format=data_format,
+        name=f"{name}_pool_pool",
     )(inputs)
     x = layers.Subtract(name=f"{name}_pool_sub")([pooled, inputs])
     x = LayerScale(layer_scale_init_value, name=f"{name}_ls1")(x)
@@ -149,6 +140,7 @@ def meta_block_2d(
         hidden_features=int(dim * mlp_ratio),
         out_features=dim,
         drop=drop,
+        channels_axis=channels_axis,
         data_format=data_format,
         name=f"{name}_mlp",
     )
@@ -171,40 +163,30 @@ def meta_block_1d(
 ):
     """1D MetaBlock with self-attention token mixer for transformer stages.
 
-    Applies layer-normalized multi-head self-attention followed by a
-    dense MLP, each with residual connections, layer scaling, and
-    optional stochastic depth. Used in the final (1D sequence) stage
-    of EfficientFormer.
+    Operates on flattened 1D sequences ``(B, N, C)`` where the channel
+    dimension is always the last axis regardless of the image data format.
 
     Reference:
     - [EfficientFormer: Vision Transformers at MobileNet Speed](https://arxiv.org/abs/2206.01191)
 
     Args:
         inputs: Input tensor of shape
-            `(batch_size, seq_len, channels)`.
-        dim: Integer, feature dimension (number of channels).
-        mlp_ratio: Float, expansion ratio for the hidden dimension in
-            the MLP. Defaults to `4.0`.
-        drop: Float, dropout rate applied in the MLP.
-            Defaults to `0.0`.
-        drop_path: Float, stochastic depth rate for dropping the
-            residual branch. Defaults to `0.0`.
-        layer_scale_init_value: Float, initial value for the learnable
-            layer scale parameters. Defaults to `1e-5`.
-        resolution: Integer, spatial resolution of the feature map.
-            Used to compute the relative position bias in the
-            attention layer. Defaults to `7`.
-        name: String, name prefix for all layers in this block.
+            ``(batch_size, seq_len, channels)``.
+        dim: int, feature dimension (number of channels).
+        mlp_ratio: float, expansion ratio for hidden MLP dimension.
+            Defaults to ``4.0``.
+        drop: float, dropout rate. Defaults to ``0.0``.
+        drop_path: float, stochastic depth rate. Defaults to ``0.0``.
+        layer_scale_init_value: float, initial value for layer scale.
+            Defaults to ``1e-5``.
+        resolution: int, spatial resolution for attention bias.
+            Defaults to ``7``.
+        name: string, name prefix for layers.
 
     Returns:
-        Output tensor of shape `(batch_size, seq_len, channels)`.
+        Output tensor of shape ``(batch_size, seq_len, channels)``.
     """
-    channels_axis = -1
-
-    # Attention
-    y = layers.LayerNormalization(
-        epsilon=1e-6, axis=channels_axis, name=f"{name}_norm1"
-    )(inputs)
+    y = layers.LayerNormalization(epsilon=1e-6, axis=-1, name=f"{name}_norm1")(inputs)
     y = Attention4D(dim=dim, resolution=resolution, name=f"{name}_attn")(y)
     y = LayerScale(layer_scale_init_value, name=f"{name}_ls1")(y)
     if drop_path > 0.0:
@@ -212,9 +194,7 @@ def meta_block_1d(
     x = layers.Add(name=f"{name}_add1")([inputs, y])
 
     # MLP
-    y = layers.LayerNormalization(
-        epsilon=1e-6, axis=channels_axis, name=f"{name}_norm2"
-    )(x)
+    y = layers.LayerNormalization(epsilon=1e-6, axis=-1, name=f"{name}_norm2")(x)
     y = mlp_block(
         y,
         hidden_features=int(dim * mlp_ratio),
@@ -435,7 +415,10 @@ class EfficientFormer(keras.Model):
                     and j == depths[i] - num_vit
                 ):
                     resolution = _img_h // (4 * (2**i))
-                    x = layers.Reshape((-1, x.shape[-1]), name=f"stages_{i}_flat")(x)
+                    ch = x.shape[channels_axis]
+                    if data_format == "channels_first":
+                        x = layers.Permute((2, 3, 1), name=f"stages_{i}_to_nhwc")(x)
+                    x = layers.Reshape((-1, ch), name=f"stages_{i}_flat")(x)
 
                 if use_transformer and num_vit > remain_idx:
                     x = meta_block_1d(
@@ -457,6 +440,7 @@ class EfficientFormer(keras.Model):
                         drop=drop_rate,
                         drop_path=dpr[cur + j],
                         layer_scale_init_value=layer_scale_init_value,
+                        channels_axis=channels_axis,
                         data_format=data_format,
                         name=f"stages_{i}_blocks_{j}",
                     )
@@ -466,9 +450,7 @@ class EfficientFormer(keras.Model):
 
         # Head
         if include_top:
-            x = layers.LayerNormalization(
-                epsilon=1e-6, axis=channels_axis, name="final_norm"
-            )(x)
+            x = layers.LayerNormalization(epsilon=1e-6, axis=-1, name="final_norm")(x)
             x = layers.Lambda(lambda v: keras.ops.mean(v, axis=1), name="global_pool")(
                 x
             )

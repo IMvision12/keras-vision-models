@@ -30,7 +30,7 @@ def _transpose_input(input_data, data_format):
     if isinstance(input_data, dict):
         result = {}
         for k, v in input_data.items():
-            if len(v.shape) == 4:  # (B, H, W, C) -> (B, C, H, W)
+            if k in ("pixel_values", "images") and len(v.shape) == 4:
                 result[k] = ops.transpose(v, (0, 3, 1, 2))
             else:
                 result[k] = v

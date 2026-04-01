@@ -210,15 +210,13 @@ class DFineMultiHeadAttention(layers.Layer):
         self.attn_dropout = layers.Dropout(dropout_rate)
 
     def call(self, query, key, value, training=None):
-        batch_size = ops.shape(query)[0]
-
         q = self.q_proj(query)
         k = self.k_proj(key)
         v = self.v_proj(value)
 
-        q = ops.reshape(q, [batch_size, -1, self.num_heads, self.head_dim])
-        k = ops.reshape(k, [batch_size, -1, self.num_heads, self.head_dim])
-        v = ops.reshape(v, [batch_size, -1, self.num_heads, self.head_dim])
+        q = ops.reshape(q, [-1, ops.shape(q)[1], self.num_heads, self.head_dim])
+        k = ops.reshape(k, [-1, ops.shape(k)[1], self.num_heads, self.head_dim])
+        v = ops.reshape(v, [-1, ops.shape(v)[1], self.num_heads, self.head_dim])
 
         q = ops.transpose(q, [0, 2, 1, 3])
         k = ops.transpose(k, [0, 2, 1, 3])
@@ -230,7 +228,9 @@ class DFineMultiHeadAttention(layers.Layer):
 
         attn_output = ops.matmul(attn_weights, v)
         attn_output = ops.transpose(attn_output, [0, 2, 1, 3])
-        attn_output = ops.reshape(attn_output, [batch_size, -1, self.hidden_dim])
+        attn_output = ops.reshape(
+            attn_output, [-1, ops.shape(attn_output)[1], self.hidden_dim]
+        )
         return self.out_proj(attn_output)
 
     def compute_output_spec(self, query, key, value, **kwargs):

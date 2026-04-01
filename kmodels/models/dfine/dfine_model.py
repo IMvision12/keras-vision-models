@@ -856,22 +856,20 @@ def dfine_weighting_function(max_num_bins, up, reg_scale):
     """
     abs_up = ops.abs(up)
     abs_rs = ops.abs(reg_scale)
-    upper_bound1 = abs_up * abs_rs
-    upper_bound2 = abs_up * abs_rs * 2.0
-    step = (upper_bound1 + 1.0) ** (2.0 / (max_num_bins - 2))
+    upper_bound1 = ops.multiply(abs_up, abs_rs)
+    upper_bound2 = ops.multiply(upper_bound1, 2.0)
+    step = ops.power(upper_bound1 + 1.0, 2.0 / (max_num_bins - 2))
 
     values = []
-    neg_ub2 = ops.reshape(-upper_bound2, [1])
-    values.append(neg_ub2)
+    values.append(ops.reshape(ops.negative(upper_bound2), [1]))
     for i in range(max_num_bins // 2 - 1, 0, -1):
-        val = -(step**i) + 1.0
+        val = ops.negative(ops.power(step, float(i))) + 1.0
         values.append(ops.reshape(val, [1]))
     values.append(ops.zeros([1], dtype=up.dtype))
     for i in range(1, max_num_bins // 2):
-        val = (step**i) - 1.0
+        val = ops.power(step, float(i)) - 1.0
         values.append(ops.reshape(val, [1]))
-    pos_ub2 = ops.reshape(upper_bound2, [1])
-    values.append(pos_ub2)
+    values.append(ops.reshape(upper_bound2, [1]))
 
     return ops.concatenate(values, axis=0)
 
@@ -887,15 +885,14 @@ def dfine_integral(pred_corners, project, max_num_bins):
     Returns:
         Tensor of shape ``(B, Q, 4)`` with distances.
     """
-    B = ops.shape(pred_corners)[0]
-    Q = ops.shape(pred_corners)[1]
     nbins = max_num_bins + 1
+    orig_shape = pred_corners.shape
     flat = ops.reshape(pred_corners, [-1, nbins])
     flat = ops.softmax(flat, axis=1)
     proj = ops.reshape(project, [nbins, 1])
     flat = ops.matmul(flat, proj)
     flat = ops.reshape(flat, [-1, 4])
-    return ops.reshape(flat, [B, Q, 4])
+    return ops.reshape(flat, [-1, orig_shape[1], 4])
 
 
 def dfine_distance2bbox(points, distance, reg_scale):
@@ -910,14 +907,21 @@ def dfine_distance2bbox(points, distance, reg_scale):
         Tensor ``(B, Q, 4)`` in ``(cx, cy, w, h)`` format.
     """
     rs = ops.abs(reg_scale)
-    x1 = points[..., 0] - (0.5 * rs + distance[..., 0]) * (points[..., 2] / rs)
-    y1 = points[..., 1] - (0.5 * rs + distance[..., 1]) * (points[..., 3] / rs)
-    x2 = points[..., 0] + (0.5 * rs + distance[..., 2]) * (points[..., 2] / rs)
-    y2 = points[..., 1] + (0.5 * rs + distance[..., 3]) * (points[..., 3] / rs)
-    cx = (x1 + x2) / 2.0
-    cy = (y1 + y2) / 2.0
-    w = x2 - x1
-    h = y2 - y1
+    half_rs = ops.multiply(ops.convert_to_tensor(0.5, dtype=rs.dtype), rs)
+    pw = ops.divide(points[..., 2], rs)
+    ph = ops.divide(points[..., 3], rs)
+    x1 = ops.subtract(
+        points[..., 0], ops.multiply(ops.add(half_rs, distance[..., 0]), pw)
+    )
+    y1 = ops.subtract(
+        points[..., 1], ops.multiply(ops.add(half_rs, distance[..., 1]), ph)
+    )
+    x2 = ops.add(points[..., 0], ops.multiply(ops.add(half_rs, distance[..., 2]), pw))
+    y2 = ops.add(points[..., 1], ops.multiply(ops.add(half_rs, distance[..., 3]), ph))
+    cx = ops.divide(ops.add(x1, x2), 2.0)
+    cy = ops.divide(ops.add(y1, y2), 2.0)
+    w = ops.subtract(x2, x1)
+    h = ops.subtract(y2, y1)
     return ops.stack([cx, cy, w, h], axis=-1)
 
 
@@ -1332,11 +1336,8 @@ class DFine(keras.Model):
 
         output_detach = ops.zeros_like(hs)
         max_num_bins = self.MAX_NUM_BINS
-        pred_corners_accum = ops.zeros(
-            [ops.shape(hs)[0], num_queries, 4 * (max_num_bins + 1)]
-        )
-
         nbins_out = 4 * (max_num_bins + 1)
+        pred_corners_accum = None
 
         ref_points_initial = None
         all_logits = []
@@ -1381,7 +1382,9 @@ class DFine(keras.Model):
                 nbins_out,
                 name=f"bbox_embed_{di}_2",
             )(bb_i)
-            pred_corners = bb_i + pred_corners_accum
+            pred_corners = (
+                bb_i if pred_corners_accum is None else bb_i + pred_corners_accum
+            )
 
             up_val = decoder_params.up
             rs_val = decoder_params.reg_scale
@@ -1403,16 +1406,13 @@ class DFine(keras.Model):
             )(hs)
 
             prob = ops.softmax(
-                ops.reshape(
-                    pred_corners,
-                    [ops.shape(hs)[0], num_queries, 4, max_num_bins + 1],
-                ),
+                ops.reshape(pred_corners, [-1, num_queries, 4, max_num_bins + 1]),
                 axis=-1,
             )
             prob_topk, _ = ops.top_k(prob, k=4)
             prob_mean = ops.mean(prob_topk, axis=-1, keepdims=True)
             stat = ops.concatenate([prob_topk, prob_mean], axis=-1)
-            stat = ops.reshape(stat, [ops.shape(hs)[0], num_queries, -1])
+            stat = ops.reshape(stat, [-1, num_queries, 4 * 5])
             quality_score = layers.Dense(
                 64,
                 activation="relu",

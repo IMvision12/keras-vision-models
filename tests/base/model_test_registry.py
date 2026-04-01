@@ -407,6 +407,22 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 71, 71, 3),
         "expected_output_shape": (2, 1000),
     },
+    "DFineSmall": {
+        "module": "kmodels.models.dfine",
+        "model_cls": "DFineSmall",
+        "model_type": "object_detection",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (320, 320, 3),
+            "num_queries": 10,
+            "num_labels": 80,
+        },
+        "input_shape": (2, 320, 320, 3),
+        "expected_output_shape": {
+            "logits": (2, 10, 80),
+            "pred_boxes": (2, 10, 4),
+        },
+    },
     "DETRResNet50": {
         "module": "kmodels.models.detr",
         "model_cls": "DETRResNet50",

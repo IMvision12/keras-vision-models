@@ -18,6 +18,19 @@ from kmodels.utils import get_all_weight_names, load_weights_from_config
 from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_CONFIG
 
 
+def _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
+    """LayerNorm over channels for spatial feature maps.
+
+    For channels_first, permutes to NHWC, normalizes, then permutes back.
+    """
+    if data_format == "channels_first":
+        x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
+    x = layers.LayerNormalization(axis=-1, epsilon=epsilon, name=name)(x)
+    if data_format == "channels_first":
+        x = layers.Permute((3, 1, 2), name=f"{name}_to_cf" if name else None)(x)
+    return x
+
+
 def swin_block(
     inputs,
     shift_size,
@@ -27,64 +40,53 @@ def swin_block(
     num_heads,
     bias_table_window_size,
     channels_axis,
+    data_format,
     dropout_rate=0.0,
     drop_path_rate=0.0,
     name="swin_block",
 ):
-    """
-    Implements a Swin Transformer block with shifted window-based self-attention.
-
-    The block consists of two main components:
-    1. Shifted Window-based Multi-Head Self-Attention (SW-MSA) with LayerNorm
-    2. Multi-Layer Perceptron (MLP) layer with LayerNorm
-
-    Both components use layer normalization and residual connections with optional
-    stochastic depth for regularization.
+    """Swin Transformer block with shifted window self-attention.
 
     Args:
-        inputs: Input tensor to the Swin Transformer block.
-        shift_size: Size of the shift for the shifted window-based attention.
-            Usually set to 0 or window_size // 2.
-        window_size: Size of the local window for computing self-attention.
-        relative_index: Tensor containing relative position indices for computing
-            positional embeddings in window-based attention.
-        attention_mask: Mask tensor for window-based attention to handle padding
-            and shifted windows.
-        num_heads: Number of attention heads in the multi-head attention mechanism.
-        bias_table_window_size: Size of the relative position bias table for window-based
-            attention. Determines the range of relative positions that can be represented
-            in the bias table.
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        dropout_rate: Dropout rate for the attention and MLP layers. Default is 0.
-        drop_path_rate: Drop path rate for stochastic depth regularization.
-            Default is 0.
-        name: String prefix used for naming layers in the block. Default is 'swin_block'.
+        inputs: Input tensor.
+        shift_size: int, shift size for shifted window attention.
+        window_size: int, local window size.
+        relative_index: Tensor, relative position indices.
+        attention_mask: Tensor, attention mask for shifted windows.
+        num_heads: int, number of attention heads.
+        bias_table_window_size: int, relative position bias table size.
+        channels_axis: int, channel axis index.
+        data_format: string, image data format.
+        dropout_rate: float, dropout rate. Default 0.0.
+        drop_path_rate: float, stochastic depth rate. Default 0.0.
+        name: string, layer name prefix. Default ``"swin_block"``.
 
     Returns:
-        Output tensor after passing through the Swin Transformer block,
-        with the same shape and dimensionality as the input.
+        Output tensor.
     """
-    feature_dim = ops.shape(inputs)[-1]
-    img_height, img_width = ops.shape(inputs)[1], ops.shape(inputs)[2]
-    x = layers.LayerNormalization(
+    cf = data_format == "channels_first"
+    h_ax, w_ax = (2, 3) if cf else (1, 2)
+    feature_dim = ops.shape(inputs)[1] if cf else ops.shape(inputs)[-1]
+    img_height = ops.shape(inputs)[h_ax]
+    img_width = ops.shape(inputs)[w_ax]
+
+    x = _spatial_layer_norm(
+        inputs,
+        data_format,
         epsilon=1.001e-5,
-        gamma_initializer="ones",
-        axis=channels_axis,
         name=f"{name}_layernorm_1",
-    )(inputs)
+    )
 
     height_padding = int((window_size - img_height % window_size) % window_size)
     width_padding = int((window_size - img_width % window_size) % window_size)
     if height_padding > 0 or width_padding > 0:
         x = layers.ZeroPadding2D(
             padding=((0, height_padding), (0, width_padding)),
-            data_format="channels_last",
+            data_format=data_format,
         )(x)
-    padded_x = x
 
-    orig_height, orig_width = ops.shape(inputs)[1], ops.shape(inputs)[2]
-    shifted_x = RollLayer(shift=[-shift_size, -shift_size], axis=[1, 2])(padded_x)
+    padded_x = x
+    shifted_x = RollLayer(shift=[-shift_size, -shift_size], axis=[h_ax, w_ax])(padded_x)
 
     attention_layer = WindowAttention(
         dim=feature_dim,
@@ -92,108 +94,109 @@ def swin_block(
         window_size=window_size,
         bias_table_window_size=bias_table_window_size,
         proj_drop=dropout_rate,
+        data_format=data_format,
         block_prefix=name,
     )
-
     attended_x = attention_layer(
         [shifted_x, window_size, relative_index, attention_mask]
     )
-    unshifted_x = RollLayer(shift=[shift_size, shift_size], axis=[1, 2])(attended_x)
-    trimmed_x = unshifted_x[:, :orig_height, :orig_width]
+    unshifted_x = RollLayer(shift=[shift_size, shift_size], axis=[h_ax, w_ax])(
+        attended_x
+    )
+
+    if cf:
+        trimmed_x = unshifted_x[:, :, :img_height, :img_width]
+    else:
+        trimmed_x = unshifted_x[:, :img_height, :img_width]
 
     dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
-    norm_layer2 = layers.LayerNormalization(
+    normalized_x = _spatial_layer_norm(
+        skip_x1,
+        data_format,
         epsilon=1.001e-5,
-        gamma_initializer="ones",
-        axis=channels_axis,
         name=f"{name}_layernorm_2",
     )
-    normalized_x = norm_layer2(skip_x1)
-    mlp_x = mlp_block(inputs=normalized_x, dropout=dropout_rate, name=f"{name}_mlp")
-    skip_x2 = skip_x1 + dropout_layer(mlp_x)
 
+    if cf:
+        mlp_in = ops.transpose(normalized_x, [0, 2, 3, 1])
+    else:
+        mlp_in = normalized_x
+    mlp_x = mlp_block(inputs=mlp_in, dropout=dropout_rate, name=f"{name}_mlp")
+    if cf:
+        mlp_x = ops.transpose(mlp_x, [0, 3, 1, 2])
+
+    skip_x2 = skip_x1 + dropout_layer(mlp_x)
     return skip_x2
 
 
 def mlp_block(inputs, dropout=0.0, name="mlp"):
-    """
-    Implements a Multi-Layer Perceptron (MLP) block with GELU activation and dropout.
+    """MLP block with two Dense layers and GELU activation.
 
-    The block consists of two dense layers with the following structure:
-    1. Dense layer with expansion ratio of 4x followed by GELU activation and dropout
-    2. Dense layer projecting back to input dimension followed by dropout
-
-    This is commonly used as the feed-forward network in transformer architectures.
+    Operates on the last dimension (channels_last layout expected).
 
     Args:
-        inputs: Input tensor to the MLP block.
-        dropout: Dropout rate for regularization between dense layers.
-            Applied after both dense layers. Default is 0.
-        name: String prefix used for naming layers in the block.
-            Default is 'mlp'.
+        inputs: Input tensor of shape ``(B, H, W, C)``.
+        dropout: float, dropout rate. Default 0.0.
+        name: string, layer name prefix. Default ``"mlp"``.
 
     Returns:
-        Output tensor after passing through the MLP block,
-        with the same number of channels as the input.
+        Output tensor.
     """
     channels = inputs.shape[-1]
-
     x = layers.Dense(int(channels * 4.0), name=f"{name}_dense_1")(inputs)
     x = layers.Activation("gelu")(x)
     x = layers.Dropout(dropout, name=f"{name}_dropout_1")(x)
-
     x = layers.Dense(channels, name=f"{name}_dense_2")(x)
     x = layers.Dropout(dropout, name=f"{name}_dropout_2")(x)
-
     return x
 
 
-def patch_merging(inputs, channels_axis, name="patch_merging"):
-    """
-    Implements a patch merging layer to reduce spatial dimensions and increase channels.
-
-    This layer performs the following operations:
-    1. Handles odd spatial dimensions with padding
-    2. Merges 2x2 neighboring patches into one
-    3. Rearranges the channels with a specific permutation
-    4. Applies layer normalization
-    5. Projects to the final dimension using a dense layer
-
-    The spatial dimensions are reduced by a factor of 2, while the channel
-    dimension is increased by a factor of 2.
+def patch_merging(inputs, channels_axis, data_format, name="patch_merging"):
+    """Patch merging layer that halves spatial dims and doubles channels.
 
     Args:
-        inputs: Input tensor with shape (batch_size, height, width, channels).
-            Height and width should be divisible by 2 after padding.
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        name: String prefix used for naming layers in the block.
-            Default is 'patch_merging'.
+        inputs: Input tensor.
+        channels_axis: int, channel axis index.
+        data_format: string, image data format.
+        name: string, layer name prefix. Default ``"patch_merging"``.
 
     Returns:
-        Output tensor with shape (batch_size, height//2, width//2, channels*2).
-        The spatial dimensions are halved while the channel dimension is doubled.
+        Output tensor with halved spatial dimensions and doubled channels.
     """
-    channels = inputs.shape[-1]
+    cf = data_format == "channels_first"
+    channels = inputs.shape[1] if cf else inputs.shape[-1]
+    h_ax, w_ax = (2, 3) if cf else (1, 2)
 
-    height, width = ops.shape(inputs)[1:3]
+    height = ops.shape(inputs)[h_ax]
+    width = ops.shape(inputs)[w_ax]
     hpad, wpad = height % 2, width % 2
-    paddings = [[0, 0], [0, hpad], [0, wpad], [0, 0]]
+
+    if cf:
+        paddings = [[0, 0], [0, 0], [0, hpad], [0, wpad]]
+    else:
+        paddings = [[0, 0], [0, hpad], [0, wpad], [0, 0]]
     x = ops.pad(inputs, paddings)
 
-    h = ops.shape(x)[1] // 2
-    w = ops.shape(x)[2] // 2
+    h = ops.shape(x)[h_ax] // 2
+    w = ops.shape(x)[w_ax] // 2
 
-    x = ops.reshape(x, (-1, h, 2, w, 2, channels))
-    x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
-    x = ops.reshape(x, (-1, h, w, 4 * channels))
+    if cf:
+        x = ops.reshape(x, (-1, channels, h, 2, w, 2))
+        x = ops.transpose(x, (0, 1, 2, 4, 3, 5))
+        x = ops.reshape(x, (-1, 4 * channels, h, w))
+    else:
+        x = ops.reshape(x, (-1, h, 2, w, 2, channels))
+        x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
+        x = ops.reshape(x, (-1, h, w, 4 * channels))
 
     perm = np.arange(channels * 4).reshape((4, -1))
     perm[[1, 2]] = perm[[2, 1]]
     perm = perm.ravel()
 
+    if cf:
+        x = ops.transpose(x, (0, 2, 3, 1))
     x_reshaped = ops.reshape(x, (-1, 4 * channels))
     perm_matrix = np.zeros((4 * channels, 4 * channels), dtype=np.float32)
     for i, j in enumerate(perm):
@@ -205,11 +208,14 @@ def patch_merging(inputs, channels_axis, name="patch_merging"):
         epsilon=1.001e-5,
         name=f"{name}_pm_layernorm",
         dtype=inputs.dtype,
-        axis=channels_axis,
+        axis=-1,
     )(x)
     x = layers.Dense(
         channels * 2, use_bias=False, name=f"{name}_pm_dense", dtype=inputs.dtype
     )(x)
+
+    if cf:
+        x = ops.transpose(x, (0, 3, 1, 2))
 
     return x
 
@@ -221,47 +227,33 @@ def swin_stage(
     window_size,
     bias_table_window_size,
     channels_axis,
+    data_format,
     dropout_rate=0.0,
     drop_path_rate=0.0,
     name="swin_stage",
 ):
-    """
-    Implements a stage in the Swin Transformer architecture consisting of multiple Swin blocks.
-
-    This stage performs the following operations:
-    1. Computes window sizes and shift sizes based on input dimensions
-    2. Generates relative position indices and attention masks for window attention
-    3. Creates a sequence of Swin Transformer blocks with alternating regular and
-       shifted window attention
-
-    The stage maintains the input resolution while processing the features through
-    multiple Swin Transformer blocks with window-based self-attention.
+    """Swin Transformer stage with multiple blocks.
 
     Args:
-        inputs: Input tensor with shape (batch_size, height, width, channels).
-        depth: Number of Swin Transformer blocks in this stage.
-        num_heads: Number of attention heads in each Swin block.
-        window_size: Size of the local window for computing self-attention.
-            Will be automatically adjusted if larger than input dimensions.
-        bias_table_window_size: Size of the relative position bias table for window-based
-            attention. Determines the range of relative positions that can be represented
-            in the bias table.
-        channels_axis: int, axis along which the channels are defined (-1 for
-            'channels_last', 1 for 'channels_first').
-        dropout_rate: Dropout rate for attention and MLP layers in Swin blocks.
-            Default is 0.
-        drop_path_rate: Drop path rate or list of rates for stochastic depth.
-            If float, same rate applied to all blocks.
-            If list, should have length equal to depth.
-            Default is 0.
-        name: String prefix used for naming layers in the stage.
-            Default is 'swin_stage'.
+        inputs: Input tensor.
+        depth: int, number of Swin blocks.
+        num_heads: int, number of attention heads.
+        window_size: int, local window size.
+        bias_table_window_size: int, relative position bias table size.
+        channels_axis: int, channel axis index.
+        data_format: string, image data format.
+        dropout_rate: float, dropout rate. Default 0.0.
+        drop_path_rate: float or list, stochastic depth rate. Default 0.0.
+        name: string, layer name prefix. Default ``"swin_stage"``.
 
     Returns:
-        Output tensor after passing through the Swin Transformer stage,
-        with the same shape as the input tensor.
+        Output tensor.
     """
-    h, w = ops.shape(inputs)[1:3]
+    cf = data_format == "channels_first"
+    h_ax, w_ax = (2, 3) if cf else (1, 2)
+
+    h = ops.shape(inputs)[h_ax]
+    w = ops.shape(inputs)[w_ax]
     min_dim = ops.minimum(h, w)
     win_size = ops.minimum(window_size, min_dim)
 
@@ -286,12 +278,18 @@ def swin_stage(
     ) + (ops.reshape(rel_pos_y, [-1]) + win_size - 1)
 
     dtype = keras.backend.floatx()
-    partitioner = WindowPartition(window_size=win_size, fused=False)
+    partitioner = WindowPartition(
+        window_size=win_size,
+        fused=False,
+        data_format="channels_last",
+    )
 
     ones = ops.ones((1, h, w, 1), dtype="int32")
     pad_mask = ops.pad(ones, [[0, 0], [0, pad_h - h], [0, pad_w - w], [0, 0]])
-
-    mask_wins = ops.squeeze(partitioner(pad_mask, height=pad_h, width=pad_w), axis=-1)
+    mask_wins = ops.squeeze(
+        partitioner(pad_mask, height=pad_h, width=pad_w),
+        axis=-1,
+    )
     win_diffs = mask_wins[:, None] - mask_wins[:, :, None]
 
     id_mask = ops.where(
@@ -304,7 +302,6 @@ def swin_stage(
         pattern = ops.convert_to_tensor(
             [[0, 1, 2], [3, 4, 5], [6, 7, 8]], dtype="int32"
         )
-
         expanded_h = ops.concatenate(
             [
                 ops.tile(pattern[0:1, :], [pad_h - win_size, 1]),
@@ -313,8 +310,6 @@ def swin_stage(
             ],
             axis=0,
         )
-
-        # Then expand horizontally
         shift_base = ops.concatenate(
             [
                 ops.tile(expanded_h[:, 0:1], [1, pad_w - win_size]),
@@ -323,11 +318,10 @@ def swin_stage(
             ],
             axis=1,
         )
-
         shift_wins = ops.squeeze(
-            partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w), axis=-1
+            partitioner(shift_base[None, ..., None], height=pad_h, width=pad_w),
+            axis=-1,
         )
-
         shift_diffs = shift_wins[:, None] - shift_wins[:, :, None]
         shift_mask = ops.where(
             (shift_diffs == 0) & (win_diffs == 0),
@@ -357,6 +351,7 @@ def swin_stage(
             num_heads=num_heads,
             bias_table_window_size=bias_table_window_size,
             channels_axis=channels_axis,
+            data_format=data_format,
             dropout_rate=dropout_rate,
             drop_path_rate=drop_rates[i],
             name=f"{name}_blocks_{i}",
@@ -367,83 +362,38 @@ def swin_stage(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SwinTransformer(keras.Model):
-    """Instantiates the Swin Transformer architecture for vision tasks.
+    """Instantiates the Swin Transformer architecture.
 
-    This implementation provides the hierarchical vision transformer that uses shifted
-    windows for self-attention computation. It supports various configurations through
-    different depths and embedding dimensions.
-
-    References:
-    - [Swin Transformer: Hierarchical Vision Transformer using Shifted Windows](https://arxiv.org/abs/2103.14030)
+    Reference:
+    - [Swin Transformer: Hierarchical Vision Transformer using Shifted
+      Windows](https://arxiv.org/abs/2103.14030)
 
     Args:
-        pretrain_size: Integer, the input image size used during pretraining.
-            This is used to properly initialize the position embedding.
-        window_size: Integer, size of the window for local self-attention computation.
-            Defines the region where self-attention is computed locally.
-        embed_dim: Integer, the initial embedding dimension for the transformer.
-            This dimension is progressively increased through the network stages.
-        depths: List of integers, specifying the number of transformer blocks in each stage.
-            For example, [2, 2, 6, 2] creates 4 stages with respective numbers of blocks.
-        num_heads: List of integers, number of attention heads in each stage.
-            Should match the length of depths, e.g., [3, 6, 12, 24].
-        dropout_rate: Float, dropout rate applied to attention and MLP layers.
-            Defaults to `0.0`.
-        drop_path_rate: Float, stochastic depth rate applied to blocks.
-            Helps prevent overfitting. Defaults to `0.1`.
-        include_top: Boolean, whether to include the classification head.
-            Defaults to `True`.
-        as_backbone: Boolean, whether to output intermediate features for use as a
-            backbone network. When True, returns a list of feature maps at different
-            stages. Defaults to `False`.
-        include_normalization: Boolean, whether to include normalization layers at the start
-            of the network. When True, input images should be in uint8 format with values
-            in [0, 255]. Defaults to `True`.
-        normalization_mode: String, specifying the normalization mode to use. Must be one of:
-            'imagenet' (default), 'inception', 'dpn', 'clip', 'zero_to_one', or
-            'minus_one_to_one'. Only used when include_normalization=True.
-        weights: String, specifying the path to pretrained weights or one of the
-            available options in `keras-vision`.
-        input_shape: Optional tuple specifying the shape of the input data.
-            Should be (height, width, channels). Height and width should be divisible
-            by the patch size (4 by default).
-        input_tensor: Optional Keras tensor as input.
-            Useful for connecting the model to other Keras components.
-        pooling: Optional pooling mode when `include_top=False`:
-            - `None`: output is the last transformer block's output
-            - `"avg"`: global average pooling is applied
-            - `"max"`: global max pooling is applied
-        num_classes: Integer, the number of output classes for classification.
-            Defaults to `1000`.
-        classifier_activation: String or callable, activation function for the top layer.
-            Set to `None` to return logits. Defaults to `"softmax"`.
-        name: String, the name of the model. Defaults to `"SwinTransformer"`.
+        pretrain_size: int, input image size used during pretraining.
+        window_size: int, local window size for self-attention.
+        embed_dim: int, initial embedding dimension.
+        depths: List of integers, number of blocks per stage.
+        num_heads: List of integers, attention heads per stage.
+        dropout_rate: float, dropout rate. Defaults to ``0.0``.
+        drop_path_rate: float, stochastic depth rate. Defaults to ``0.1``.
+        include_top: bool, whether to include the classification head.
+            Defaults to ``True``.
+        as_backbone: bool, whether to output intermediate feature maps.
+            Defaults to ``False``.
+        include_normalization: bool, whether to include input normalization.
+            Defaults to ``True``.
+        normalization_mode: string, normalization mode. Defaults to ``"imagenet"``.
+        weights: string, path to pretrained weights or weight identifier.
+        input_shape: Optional tuple, input shape.
+        input_tensor: Optional Keras tensor as model input.
+        pooling: Optional string, pooling mode when ``include_top=False``.
+        num_classes: int, number of output classes. Defaults to ``1000``.
+        classifier_activation: string or callable, activation for the head.
+            Defaults to ``"softmax"``.
+        name: string, model name. Defaults to ``"SwinTransformer"``.
 
     Returns:
-        A Keras `Model` instance.
-
-    Example:
-        ```python
-        # Basic Swin-T (tiny) configuration
-        model = SwinTransformer(
-            pretrain_size=224,
-            window_size=7,
-            embed_dim=96,
-            depths=[2, 2, 6, 2],
-            num_heads=[3, 6, 12, 24],
-            input_shape=(224, 224, 3)
-        )
-
-        # Swin-B (base) configuration
-        model = SwinTransformer(
-            pretrain_size=224,
-            window_size=7,
-            embed_dim=128,
-            depths=[2, 2, 18, 2],
-            num_heads=[4, 8, 16, 32],
-            input_shape=(224, 224, 3)
-        )
-        ```
+        A Keras ``Model`` instance.
     """
 
     def __init__(
@@ -459,7 +409,7 @@ class SwinTransformer(keras.Model):
         as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
-        weights="ms_in22k_ft_in1k",
+        weights="ms_in1k",
         input_shape=None,
         input_tensor=None,
         pooling=None,
@@ -480,20 +430,15 @@ class SwinTransformer(keras.Model):
                 f"Received: pooling={pooling}"
             )
 
-        if (
-            include_top
-            and weights is not None
-            and weights == "ms_in22k"
-            and num_classes != 21841
-        ):
-            raise ValueError(
-                f"When using 'ms_in22k' weights, num_classes must be 21841. "
-                f"Received num_classes: {num_classes}"
-            )
+        if weights and "in22k" in weights and "ft" not in weights:
+            if num_classes != 21841:
+                raise ValueError(
+                    "When using 'ms_in22k' weights, num_classes must be 21841. "
+                    f"Received num_classes: {num_classes}"
+                )
 
         data_format = keras.config.image_data_format()
-        # Internal operations always use NHWC; we transpose at boundaries
-        channels_axis = -1
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
@@ -529,19 +474,22 @@ class SwinTransformer(keras.Model):
             data_format=data_format,
             name="stem_conv",
         )(x)
-        # Swin internal operations (window attention, patch merging) assume NHWC
-        if data_format == "channels_first":
-            x = layers.Permute((2, 3, 1), name="stem_to_nhwc")(x)
-        x = layers.LayerNormalization(epsilon=1.001e-5, axis=-1, name="stem_norm")(x)
+        x = _spatial_layer_norm(
+            x,
+            data_format,
+            epsilon=1.001e-5,
+            name="stem_norm",
+        )
         x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
         features.append(x)
 
         path_drops = ops.convert_to_numpy(
             ops.linspace(0.0, drop_path_rate, sum(depths))
         )
-        scale_factors = 2 ** ops.arange(2, 6)  # [4, 8, 16, 32]
+        scale_factors = 2 ** ops.arange(2, 6)
         pretrain_windows = pretrain_size // scale_factors
         bias_table_window_size = ops.minimum(window_size, pretrain_windows)
+
         for i in range(len(depths)):
             start_idx = sum(depths[:i])
             end_idx = sum(depths[: i + 1])
@@ -555,21 +503,31 @@ class SwinTransformer(keras.Model):
                 window_size=window_size,
                 bias_table_window_size=bias_table_window_size[i],
                 channels_axis=channels_axis,
+                data_format=data_format,
                 dropout_rate=dropout_rate,
                 drop_path_rate=path_drop_values,
                 name=f"layers_{i}",
             )
             if not_last:
                 x = patch_merging(
-                    x, channels_axis=channels_axis, name=f"layers_{i + 1}_downsample"
+                    x,
+                    channels_axis=channels_axis,
+                    data_format=data_format,
+                    name=f"layers_{i + 1}_downsample",
                 )
             features.append(x)
 
-        x = layers.LayerNormalization(epsilon=1.001e-5, axis=-1, name="final_norm")(x)
+        x = _spatial_layer_norm(
+            x,
+            data_format,
+            epsilon=1.001e-5,
+            name="final_norm",
+        )
 
         if include_top:
             x = layers.GlobalAveragePooling2D(
-                data_format="channels_last", name="avg_pool"
+                data_format=data_format,
+                name="avg_pool",
             )(x)
             x = layers.Dense(
                 num_classes,
@@ -581,11 +539,13 @@ class SwinTransformer(keras.Model):
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
-                    data_format="channels_last", name="avg_pool"
+                    data_format=data_format,
+                    name="avg_pool",
                 )(x)
             elif pooling == "max":
                 x = layers.GlobalMaxPooling2D(
-                    data_format="channels_last", name="max_pool"
+                    data_format=data_format,
+                    name="max_pool",
                 )(x)
 
         super().__init__(inputs=inputs, outputs=x, name=name, **kwargs)
@@ -658,10 +618,10 @@ def SwinTinyP4W7(
         as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
-        name=name,
         weights=weights,
-        input_shape=input_shape,
+        name=name,
         input_tensor=input_tensor,
+        input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
@@ -682,7 +642,7 @@ def SwinSmallP4W7(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="ms_in22k_ft_in1k",
+    weights="ms_in1k",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -697,10 +657,10 @@ def SwinSmallP4W7(
         as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
-        name=name,
         weights=weights,
-        input_shape=input_shape,
+        name=name,
         input_tensor=input_tensor,
+        input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
@@ -736,10 +696,10 @@ def SwinBaseP4W7(
         as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
-        name=name,
         weights=weights,
-        input_shape=input_shape,
+        name=name,
         input_tensor=input_tensor,
+        input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
@@ -775,10 +735,10 @@ def SwinBaseP4W12(
         as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
-        name=name,
         weights=weights,
-        input_shape=input_shape,
+        name=name,
         input_tensor=input_tensor,
+        input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
@@ -814,10 +774,10 @@ def SwinLargeP4W7(
         as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
-        name=name,
         weights=weights,
-        input_shape=input_shape,
+        name=name,
         input_tensor=input_tensor,
+        input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,
@@ -853,10 +813,10 @@ def SwinLargeP4W12(
         as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
-        name=name,
         weights=weights,
-        input_shape=input_shape,
+        name=name,
         input_tensor=input_tensor,
+        input_shape=input_shape,
         pooling=pooling,
         num_classes=num_classes,
         classifier_activation=classifier_activation,

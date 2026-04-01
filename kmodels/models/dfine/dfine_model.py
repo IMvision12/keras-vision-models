@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import load_weights_from_config
+from kmodels.utils import get_all_weight_names, load_weights_from_config
 
 from .config import DFINE_MODEL_CONFIG, DFINE_WEIGHTS_CONFIG
 from .dfine_layers import (
@@ -1553,16 +1553,12 @@ def _create_dfine_model(
         name=name or variant,
         **kwargs,
     )
-    if weights in DFINE_WEIGHTS_CONFIG.get(variant, {}):
-        url = DFINE_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            load_weights_from_config(variant, weights, model, DFINE_WEIGHTS_CONFIG)
-        else:
-            print(f"Weight URL for '{weights}' not yet available.")
-    elif weights is not None and weights != "coco":
+    if weights in get_all_weight_names(DFINE_WEIGHTS_CONFIG):
+        load_weights_from_config(variant, weights, model, DFINE_WEIGHTS_CONFIG)
+    elif weights is not None:
         model.load_weights(weights)
-    elif weights == "coco":
-        print("COCO weights URL not yet configured.")
+    else:
+        print("No weights loaded.")
     return model
 
 

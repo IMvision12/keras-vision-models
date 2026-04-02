@@ -13,9 +13,11 @@ DFINE_MODEL_CONFIG = {
         "decoder_layers": 3,
         "decoder_n_points": [6, 6],
         "hidden_expansion": 0.34,
+        "ccfm_num_blocks": 2,
         "num_feature_levels": 2,
         "feat_strides": [16, 32],
         "encode_proj_layers": [1],
+        "encoder_ffn_dim": 512,
         "decoder_ffn_dim": 512,
     },
     "DFineSmall": {
@@ -40,6 +42,7 @@ DFINE_MODEL_CONFIG = {
         "stage_numb_of_layers": [4, 4, 4, 4],
         "use_lab": True,
         "encoder_in_channels": [384, 768, 1536],
+        "ccfm_num_blocks": 2,
         "decoder_layers": 4,
         "decoder_n_points": [3, 6, 3],
     },
@@ -52,6 +55,7 @@ DFINE_MODEL_CONFIG = {
         "stage_numb_of_layers": [6, 6, 6, 6],
         "use_lab": False,
         "encoder_in_channels": [512, 1024, 2048],
+        "ccfm_num_blocks": 3,
         "decoder_layers": 6,
         "decoder_n_points": [3, 6, 3],
     },
@@ -65,8 +69,10 @@ DFINE_MODEL_CONFIG = {
         "use_lab": False,
         "encoder_in_channels": [512, 1024, 2048],
         "encoder_hidden_dim": 384,
+        "ccfm_num_blocks": 3,
         "decoder_layers": 6,
         "decoder_n_points": [3, 6, 3],
+        "encoder_ffn_dim": 2048,
     },
 }
 

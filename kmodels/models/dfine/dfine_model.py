@@ -863,11 +863,11 @@ def dfine_weighting_function(max_num_bins, up, reg_scale):
     values = []
     values.append(ops.reshape(ops.negative(upper_bound2), [1]))
     for i in range(max_num_bins // 2 - 1, 0, -1):
-        val = ops.negative(ops.power(step, float(i))) + 1.0
+        val = ops.negative(ops.power(step, i)) + 1.0
         values.append(ops.reshape(val, [1]))
     values.append(ops.zeros([1], dtype=up.dtype))
     for i in range(1, max_num_bins // 2):
-        val = ops.power(step, float(i)) - 1.0
+        val = ops.power(step, i) - 1.0
         values.append(ops.reshape(val, [1]))
     values.append(ops.reshape(upper_bound2, [1]))
 
@@ -972,6 +972,7 @@ class DFine(keras.Model):
         encoder_activation_function: Activation in the AIFI FFN.
         activation_function: Activation in CCFM (FPN/PAN) blocks.
         hidden_expansion: CSP hidden channel expansion ratio.
+        ccfm_num_blocks: Number of RepVGG bottleneck blocks in CCFM.
         d_model: Decoder model dimension.
         decoder_layers: Number of decoder layers.
         decoder_ffn_dim: FFN dim in decoder.
@@ -1014,6 +1015,7 @@ class DFine(keras.Model):
         encoder_ffn_dim=1024,
         encode_proj_layers=(2,),
         hidden_expansion=1.0,
+        ccfm_num_blocks=1,
         d_model=256,
         decoder_layers=6,
         decoder_ffn_dim=1024,
@@ -1162,6 +1164,7 @@ class DFine(keras.Model):
                     encoder_hidden_dim,
                     hidden_expansion,
                     activation=self.ACTIVATION,
+                    num_blocks=ccfm_num_blocks,
                     data_format=data_format,
                     channels_axis=channels_axis,
                     name=f"fpn_blocks_{idx}",
@@ -1192,6 +1195,7 @@ class DFine(keras.Model):
                     encoder_hidden_dim,
                     hidden_expansion,
                     activation=self.ACTIVATION,
+                    num_blocks=ccfm_num_blocks,
                     data_format=data_format,
                     channels_axis=channels_axis,
                     name=f"pan_blocks_{idx}",
@@ -1443,6 +1447,7 @@ class DFine(keras.Model):
         self._encoder_ffn_dim = encoder_ffn_dim
         self._encode_proj_layers = list(encode_proj_layers)
         self._hidden_expansion = hidden_expansion
+        self._ccfm_num_blocks = ccfm_num_blocks
         self._d_model = d_model
         self._decoder_layers = decoder_layers
         self._decoder_ffn_dim = decoder_ffn_dim
@@ -1469,6 +1474,7 @@ class DFine(keras.Model):
                 "encoder_ffn_dim": self._encoder_ffn_dim,
                 "encode_proj_layers": self._encode_proj_layers,
                 "hidden_expansion": self._hidden_expansion,
+                "ccfm_num_blocks": self._ccfm_num_blocks,
                 "d_model": self._d_model,
                 "decoder_layers": self._decoder_layers,
                 "decoder_ffn_dim": self._decoder_ffn_dim,
@@ -1539,6 +1545,7 @@ def _create_dfine_model(
         encoder_ffn_dim=cfg.get("encoder_ffn_dim", 1024),
         encode_proj_layers=cfg.get("encode_proj_layers", (2,)),
         hidden_expansion=cfg.get("hidden_expansion", 1.0),
+        ccfm_num_blocks=cfg.get("ccfm_num_blocks", 1),
         d_model=cfg.get("d_model", 256),
         decoder_layers=cfg["decoder_layers"],
         decoder_ffn_dim=cfg.get("decoder_ffn_dim", 1024),

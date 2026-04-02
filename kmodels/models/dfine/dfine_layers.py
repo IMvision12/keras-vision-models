@@ -267,7 +267,10 @@ def _ms_deform_attn_core_variable(
     """Multi-scale deformable attention core with variable points per level.
 
     Performs bilinear sampling at learned offset locations across multiple
-    feature levels, weighted by attention scores.
+    feature levels, weighted by attention scores. Uses
+    ``torch.nn.functional.grid_sample`` on the torch backend for exact
+    numerical parity with HuggingFace, and falls back to a pure-ops
+    implementation on JAX and TensorFlow.
 
     Args:
         value: Tensor of shape ``(B, seq_len, n_heads, head_dim)``.
@@ -310,70 +313,92 @@ def _ms_deform_attn_core_variable(
     )
     grids_per_level = ops.split(sampling_grids, npoints_cumulative, axis=2)
 
+    use_torch_grid_sample = keras.config.backend() == "torch"
+    if use_torch_grid_sample:
+        import torch.nn.functional as F
+
     sampling_value_list = []
     for lid, (H, W) in enumerate(value_spatial_shapes):
-        P = num_points_list[lid]
         value_l = ops.reshape(value_list[lid], [B * n_heads, head_dim, H, W])
-        value_l = ops.transpose(value_l, [0, 2, 3, 1])
-        val_flat = ops.reshape(value_l, [B * n_heads, H * W, head_dim])
+        grid_l = grids_per_level[lid]
 
-        grid_l = grids_per_level[lid]  # (B*n_heads, Len_q, P, 2)
+        if use_torch_grid_sample:
+            sampled = F.grid_sample(
+                value_l,
+                grid_l,
+                mode="bilinear",
+                padding_mode="zeros",
+                align_corners=False,
+            )
+        else:
+            P = num_points_list[lid]
+            value_l_t = ops.transpose(value_l, [0, 2, 3, 1])
+            val_flat = ops.reshape(value_l_t, [B * n_heads, H * W, head_dim])
 
-        grid_x = grid_l[..., 0]
-        grid_y = grid_l[..., 1]
+            grid_x = grid_l[..., 0]
+            grid_y = grid_l[..., 1]
 
-        W_f = ops.cast(W, grid_x.dtype)
-        H_f = ops.cast(H, grid_y.dtype)
-        ix = ((grid_x + 1) * W_f - 1) / 2.0
-        iy = ((grid_y + 1) * H_f - 1) / 2.0
+            W_f = ops.cast(W, grid_x.dtype)
+            H_f = ops.cast(H, grid_y.dtype)
+            ix = ((grid_x + 1) * W_f - 1) / 2.0
+            iy = ((grid_y + 1) * H_f - 1) / 2.0
 
-        ix0 = ops.cast(ops.floor(ix), "int32")
-        iy0 = ops.cast(ops.floor(iy), "int32")
-        ix1 = ix0 + 1
-        iy1 = iy0 + 1
+            ix0 = ops.cast(ops.floor(ix), "int32")
+            iy0 = ops.cast(ops.floor(iy), "int32")
+            ix1 = ix0 + 1
+            iy1 = iy0 + 1
 
-        fx = ix - ops.cast(ix0, ix.dtype)
-        fy = iy - ops.cast(iy0, iy.dtype)
+            fx = ix - ops.cast(ix0, ix.dtype)
+            fy = iy - ops.cast(iy0, iy.dtype)
 
-        valid_00 = ops.cast((ix0 >= 0) & (ix0 < W) & (iy0 >= 0) & (iy0 < H), ix.dtype)
-        valid_01 = ops.cast((ix1 >= 0) & (ix1 < W) & (iy0 >= 0) & (iy0 < H), ix.dtype)
-        valid_10 = ops.cast((ix0 >= 0) & (ix0 < W) & (iy1 >= 0) & (iy1 < H), ix.dtype)
-        valid_11 = ops.cast((ix1 >= 0) & (ix1 < W) & (iy1 >= 0) & (iy1 < H), ix.dtype)
+            valid_00 = ops.cast(
+                (ix0 >= 0) & (ix0 < W) & (iy0 >= 0) & (iy0 < H), ix.dtype
+            )
+            valid_01 = ops.cast(
+                (ix1 >= 0) & (ix1 < W) & (iy0 >= 0) & (iy0 < H), ix.dtype
+            )
+            valid_10 = ops.cast(
+                (ix0 >= 0) & (ix0 < W) & (iy1 >= 0) & (iy1 < H), ix.dtype
+            )
+            valid_11 = ops.cast(
+                (ix1 >= 0) & (ix1 < W) & (iy1 >= 0) & (iy1 < H), ix.dtype
+            )
 
-        ix0_c = ops.clip(ix0, 0, W - 1)
-        ix1_c = ops.clip(ix1, 0, W - 1)
-        iy0_c = ops.clip(iy0, 0, H - 1)
-        iy1_c = ops.clip(iy1, 0, H - 1)
+            ix0_c = ops.clip(ix0, 0, W - 1)
+            ix1_c = ops.clip(ix1, 0, W - 1)
+            iy0_c = ops.clip(iy0, 0, H - 1)
+            iy1_c = ops.clip(iy1, 0, H - 1)
 
-        def _gather(val_flat, iy, ix, BN, Len_q, P, H, W, head_dim):
-            idx = iy * W + ix
-            idx_flat = ops.reshape(idx, [BN, Len_q * P])
-            idx_flat = ops.expand_dims(idx_flat, axis=-1)
-            idx_flat = ops.repeat(idx_flat, head_dim, axis=-1)
-            gathered = ops.take_along_axis(val_flat, idx_flat, axis=1)
-            return ops.reshape(gathered, [BN, Len_q, P, head_dim])
+            def _gather(val_flat, iy, ix, BN, Len_q, P, H, W, head_dim):
+                idx = iy * W + ix
+                idx_flat = ops.reshape(idx, [BN, Len_q * P])
+                idx_flat = ops.expand_dims(idx_flat, axis=-1)
+                idx_flat = ops.repeat(idx_flat, head_dim, axis=-1)
+                gathered = ops.take_along_axis(val_flat, idx_flat, axis=1)
+                return ops.reshape(gathered, [BN, Len_q, P, head_dim])
 
-        BN = B * n_heads
-        v00 = _gather(val_flat, iy0_c, ix0_c, BN, Len_q, P, H, W, head_dim)
-        v01 = _gather(val_flat, iy0_c, ix1_c, BN, Len_q, P, H, W, head_dim)
-        v10 = _gather(val_flat, iy1_c, ix0_c, BN, Len_q, P, H, W, head_dim)
-        v11 = _gather(val_flat, iy1_c, ix1_c, BN, Len_q, P, H, W, head_dim)
+            BN = B * n_heads
+            v00 = _gather(val_flat, iy0_c, ix0_c, BN, Len_q, P, H, W, head_dim)
+            v01 = _gather(val_flat, iy0_c, ix1_c, BN, Len_q, P, H, W, head_dim)
+            v10 = _gather(val_flat, iy1_c, ix0_c, BN, Len_q, P, H, W, head_dim)
+            v11 = _gather(val_flat, iy1_c, ix1_c, BN, Len_q, P, H, W, head_dim)
 
-        v00 = v00 * ops.expand_dims(valid_00, axis=-1)
-        v01 = v01 * ops.expand_dims(valid_01, axis=-1)
-        v10 = v10 * ops.expand_dims(valid_10, axis=-1)
-        v11 = v11 * ops.expand_dims(valid_11, axis=-1)
+            v00 = v00 * ops.expand_dims(valid_00, axis=-1)
+            v01 = v01 * ops.expand_dims(valid_01, axis=-1)
+            v10 = v10 * ops.expand_dims(valid_10, axis=-1)
+            v11 = v11 * ops.expand_dims(valid_11, axis=-1)
 
-        fx = ops.expand_dims(fx, axis=-1)
-        fy = ops.expand_dims(fy, axis=-1)
+            fx = ops.expand_dims(fx, axis=-1)
+            fy = ops.expand_dims(fy, axis=-1)
 
-        w00 = (1 - fx) * (1 - fy)
-        w01 = fx * (1 - fy)
-        w10 = (1 - fx) * fy
-        w11 = fx * fy
+            w00 = (1 - fx) * (1 - fy)
+            w01 = fx * (1 - fy)
+            w10 = (1 - fx) * fy
+            w11 = fx * fy
 
-        sampled = w00 * v00 + w01 * v01 + w10 * v10 + w11 * v11
-        sampled = ops.transpose(sampled, [0, 3, 1, 2])
+            sampled = w00 * v00 + w01 * v01 + w10 * v10 + w11 * v11
+            sampled = ops.transpose(sampled, [0, 3, 1, 2])
+
         sampling_value_list.append(sampled)
 
     sampling_values = ops.concatenate(sampling_value_list, axis=-1)

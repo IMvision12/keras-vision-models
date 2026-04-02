@@ -1,7 +1,10 @@
+"""Preprocessing and postprocessing for D-FINE object detection."""
+
 from typing import Dict, List, Optional, Tuple, Union
 
 import keras
 import numpy as np
+from keras import ops
 from PIL import Image
 
 COCO_CLASSES = [
@@ -89,156 +92,147 @@ COCO_CLASSES = [
 
 
 def DFineImageProcessor(
-    image: Union[str, np.ndarray, Image.Image],
-    size: Optional[Dict[str, int]] = None,
-    resample: str = "bilinear",
-    do_rescale: bool = True,
-    rescale_factor: float = 1 / 255,
-    return_tensor: bool = True,
-) -> Union[keras.KerasTensor, np.ndarray]:
+    image: Union[str, np.ndarray, "Image.Image"],
+    target_size: Tuple[int, int] = (640, 640),
+    rescale_factor: float = 1.0 / 255.0,
+):
     """Preprocess an image for D-FINE inference.
 
-    Handles loading, resizing, and rescaling to match the preprocessing
-    used during D-FINE training. Like RT-DETR, D-FINE does **not** apply
-    ImageNet normalization; only rescaling to ``[0, 1]`` is needed.
+    Loads the image (if needed), resizes to ``target_size`` using bilinear
+    interpolation, and rescales pixel values to ``[0, 1]``. D-FINE does
+    **not** apply ImageNet normalisation.
 
     Args:
-        image: Input image as a file path, numpy array, or PIL Image.
-        size: Target size as ``{"height": H, "width": W}``.
-            Default: ``{"height": 640, "width": 640}``.
-        resample: Interpolation method.
-        do_rescale: Whether to divide pixel values by 255.
-        rescale_factor: Rescale factor (default ``1/255``).
-        return_tensor: If True return a Keras tensor, otherwise numpy.
+        image: Input image as a file path, numpy array ``(H, W, 3)`` with
+            values in ``[0, 255]``, or a PIL ``Image``.
+        target_size: ``(height, width)`` to resize to.
+            Defaults to ``(640, 640)``.
+        rescale_factor: Multiplicative rescale factor.
+            Defaults to ``1/255``.
 
     Returns:
-        Preprocessed image with shape ``(1, H, W, 3)``.
+        A Keras tensor of shape ``(1, height, width, 3)`` with float32
+        values in ``[0, 1]``.
     """
-    if size is None:
-        size = {"height": 640, "width": 640}
-
     if isinstance(image, str):
         image = Image.open(image).convert("RGB")
-        image = np.array(image, dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
+
+    if isinstance(image, Image.Image):
+        pil_img = image.convert("RGB")
+        pil_img = pil_img.resize((target_size[1], target_size[0]), Image.BILINEAR)
+        image = np.array(pil_img, dtype=np.float32)
     elif isinstance(image, np.ndarray):
         image = image.astype(np.float32)
         if image.ndim == 4:
             image = image[0]
+        if image.shape[:2] != target_size:
+            pil_tmp = Image.fromarray(image.astype(np.uint8))
+            pil_tmp = pil_tmp.resize((target_size[1], target_size[0]), Image.BILINEAR)
+            image = np.array(pil_tmp, dtype=np.float32)
     else:
-        raise TypeError("Input must be a file path (str), numpy array, or PIL Image.")
+        raise TypeError("image must be a file path (str), numpy array, or PIL Image.")
 
     if image.ndim != 3 or image.shape[-1] != 3:
         raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
 
-    image = keras.ops.convert_to_tensor(image, dtype="float32")
-    image = keras.ops.expand_dims(image, axis=0)
-
-    target_size = (size["height"], size["width"])
-    image = keras.ops.image.resize(
-        image,
-        size=target_size,
-        interpolation=resample,
-    )
-
-    if do_rescale:
-        image = image * rescale_factor
-
-    if not return_tensor:
-        image = keras.ops.convert_to_numpy(image)
-
+    image = ops.convert_to_tensor(image, dtype="float32")
+    image = ops.expand_dims(image, axis=0)
+    image = image * rescale_factor
     return image
 
 
 def DFinePostProcessor(
-    outputs: Dict[str, keras.KerasTensor],
+    outputs: Dict[str, "keras.KerasTensor"],
     threshold: float = 0.5,
-    num_top_queries: int = 300,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
-) -> List[Dict[str, np.ndarray]]:
-    """Post-process raw D-FINE outputs into usable detections.
+    num_top_queries: int = 300,
+):
+    """Post-process raw D-FINE outputs into detection results.
+
+    Applies sigmoid to logits, selects the top scoring ``(query, class)``
+    pairs, converts boxes from ``cxcywh`` normalised format to ``xyxy``
+    pixel coordinates, and filters by confidence threshold. All operations
+    use ``keras.ops`` for backend portability.
 
     Args:
-        outputs: Raw model output dict with keys ``"logits"`` and
-            ``"pred_boxes"``.
-        threshold: Minimum confidence score to keep.
-        num_top_queries: Top ``(query, class)`` pairs to consider.
-        target_sizes: List of ``(height, width)`` tuples for scaling.
+        outputs: Raw model output dict with ``"logits"`` of shape
+            ``(B, Q, C)`` and ``"pred_boxes"`` of shape ``(B, Q, 4)``
+            in normalised ``cxcywh`` format.
+        threshold: Minimum confidence score to keep a detection.
+            Defaults to ``0.5``.
+        target_sizes: Optional list of ``(height, width)`` tuples, one
+            per image in the batch, used to scale boxes to pixel
+            coordinates. If ``None`` boxes stay normalised.
+        num_top_queries: Number of top ``(query, class)`` pairs to
+            consider before thresholding. Defaults to ``300``.
 
     Returns:
-        List of dicts per image with ``"scores"``, ``"labels"``,
-        ``"label_names"``, and ``"boxes"`` in xyxy format.
+        List of dicts (one per image) with keys:
+
+        - ``"scores"``: 1-D tensor of confidence scores.
+        - ``"labels"``: 1-D integer tensor of class indices.
+        - ``"label_names"``: List of class name strings.
+        - ``"boxes"``: Tensor of shape ``(N, 4)`` in ``xyxy`` format.
     """
-    logits = keras.ops.convert_to_numpy(outputs["logits"])
-    boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
+    logits = outputs["logits"]
+    pred_boxes = outputs["pred_boxes"]
 
-    batch_size = logits.shape[0]
-    num_classes = logits.shape[2]
+    batch_size = ops.shape(logits)[0]
+    num_classes = ops.shape(logits)[2]
 
-    probs = _sigmoid(logits)
+    scores = ops.sigmoid(logits)
+
+    cx = pred_boxes[..., 0]
+    cy = pred_boxes[..., 1]
+    w = pred_boxes[..., 2]
+    h = pred_boxes[..., 3]
+    x1 = cx - w / 2.0
+    y1 = cy - h / 2.0
+    x2 = cx + w / 2.0
+    y2 = cy + h / 2.0
+    boxes_xyxy = ops.stack([x1, y1, x2, y2], axis=-1)
 
     results = []
-    for i in range(batch_size):
-        prob_i = probs[i]
-        boxes_i = boxes[i]
+    batch_size_int = int(ops.convert_to_numpy(batch_size))
+    num_classes_int = int(ops.convert_to_numpy(num_classes))
 
-        flat_scores = prob_i.reshape(-1)
-        num_select = min(num_top_queries, flat_scores.shape[0])
-        topk_indices = np.argpartition(flat_scores, -num_select)[-num_select:]
-        topk_indices = topk_indices[np.argsort(-flat_scores[topk_indices])]
+    for i in range(batch_size_int):
+        scores_i = scores[i]  # (Q, C)
+        boxes_i = boxes_xyxy[i]  # (Q, 4)
 
-        topk_scores = flat_scores[topk_indices]
-        topk_box_indices = topk_indices // num_classes
-        topk_labels = topk_indices % num_classes
+        flat_scores = ops.reshape(scores_i, [-1])
 
-        topk_boxes = boxes_i[topk_box_indices]
+        num_select = min(num_top_queries, int(ops.shape(flat_scores)[0]))
+        topk_scores, topk_indices = ops.top_k(flat_scores, k=num_select)
 
-        keep = topk_scores > threshold
-        scores = topk_scores[keep]
-        labels = topk_labels[keep]
-        kept_boxes = topk_boxes[keep]
+        topk_labels = topk_indices % num_classes_int
+        topk_box_idx = ops.cast(topk_indices // num_classes_int, "int32")
 
-        cx, cy, w, h = (
-            kept_boxes[:, 0],
-            kept_boxes[:, 1],
-            kept_boxes[:, 2],
-            kept_boxes[:, 3],
-        )
-        x_min = cx - w / 2
-        y_min = cy - h / 2
-        x_max = cx + w / 2
-        y_max = cy + h / 2
-        xyxy_boxes = np.stack([x_min, y_min, x_max, y_max], axis=-1)
+        topk_boxes = ops.take(boxes_i, topk_box_idx, axis=0)
 
         if target_sizes is not None:
             img_h, img_w = target_sizes[i]
-            scale = np.array(
-                [img_w, img_h, img_w, img_h],
-                dtype=np.float32,
-            )
-            xyxy_boxes = xyxy_boxes * scale
+            scale = ops.convert_to_tensor([img_w, img_h, img_w, img_h], dtype="float32")
+            topk_boxes = topk_boxes * scale
 
+        keep = topk_scores > threshold
+        kept_scores = topk_scores[keep]
+        kept_labels = topk_labels[keep]
+        kept_boxes = topk_boxes[keep]
+
+        labels_np = ops.convert_to_numpy(kept_labels).astype(int)
         label_names = [
-            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}" for l in labels
+            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}"
+            for l in labels_np
         ]
 
         results.append(
             {
-                "scores": scores,
-                "labels": labels,
+                "scores": kept_scores,
+                "labels": kept_labels,
                 "label_names": label_names,
-                "boxes": xyxy_boxes,
+                "boxes": kept_boxes,
             }
         )
 
     return results
-
-
-def _sigmoid(x: np.ndarray) -> np.ndarray:
-    """Numerically stable sigmoid."""
-    return np.where(
-        x >= 0,
-        1.0 / (1.0 + np.exp(-x)),
-        np.exp(x) / (1.0 + np.exp(x)),
-    )

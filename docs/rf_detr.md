@@ -108,3 +108,16 @@ plt.close(fig)
 ```
 
 ![RF-DETR Object Detection Output](../assets/rf_detr_output.jpg)
+
+## Custom Dataset Usage
+
+When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
+
+```python
+MY_CLASSES = ["cat", "dog", "bird"]
+
+results = RFDETRPostProcessor(output, threshold=0.5,
+    target_sizes=[original_size], label_names=MY_CLASSES)
+```
+
+If `label_names` is not provided, COCO class names are used by default.

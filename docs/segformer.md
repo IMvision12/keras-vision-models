@@ -57,28 +57,16 @@ segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone
 
 ```python
 import kmodels
-from kmodels.models.segformer import SegFormerImageProcessor
-from PIL import Image
-import numpy as np
-import keras
+from kmodels.models.segformer import SegFormerImageProcessor, SegFormerPostProcessor
 
 model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 
-image = Image.open("image.jpg").convert("RGB")
-
-processed = SegFormerImageProcessor(image=image, do_resize=True,
-    size={"height": 512, "width": 512}, do_rescale=True, do_normalize=True)
+processed = SegFormerImageProcessor("image.jpg", size={"height": 512, "width": 512})
 
 output = model(processed, training=False)
-pred_mask = np.argmax(keras.ops.convert_to_numpy(output[0]), axis=-1)
 
-# ADE20K class names (150 classes)
-ADE20K_CLASSES = ["wall", "building", "sky", "floor", "tree", "ceiling", "road",
-    "bed", "windowpane", "grass", "cabinet", "sidewalk", "person", "earth",
-    "door", "table", "mountain", "plant", "curtain", "chair", ...]
-
-unique = np.unique(pred_mask)
-print(f"Detected classes: {[ADE20K_CLASSES[c] for c in unique if c < len(ADE20K_CLASSES)]}")
+result = SegFormerPostProcessor(output)
+print(f"Detected classes: {result['class_names']}")
 
 # Output:
 # Detected classes: ['building', 'sky', 'tree', 'road', 'sidewalk',
@@ -92,54 +80,23 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 
 import numpy as np
-import keras
 from PIL import Image
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.segformer import SegFormerB0, SegFormerImageProcessor
-
-ADE20K_CLASSES = [
-    "wall", "building", "sky", "floor", "tree", "ceiling", "road", "bed",
-    "windowpane", "grass", "cabinet", "sidewalk", "person", "earth", "door",
-    "table", "mountain", "plant", "curtain", "chair", "car", "water",
-    "painting", "sofa", "shelf", "house", "sea", "mirror", "rug", "field",
-    "armchair", "seat", "fence", "desk", "rock", "wardrobe", "lamp",
-    "bathtub", "railing", "cushion", "base", "box", "column", "signboard",
-    "chest of drawers", "counter", "sand", "sink", "skyscraper", "fireplace",
-    "refrigerator", "grandstand", "path", "stairs", "runway", "case",
-    "pool table", "pillow", "screen door", "stairway", "river", "bridge",
-    "bookcase", "blind", "coffee table", "toilet", "flower", "book", "hill",
-    "bench", "countertop", "stove", "palm", "kitchen island", "computer",
-    "swivel chair", "boat", "bar", "arcade machine", "hovel", "bus", "towel",
-    "light", "truck", "tower", "chandelier", "awning", "streetlight", "booth",
-    "television", "airplane", "dirt track", "apparel", "pole", "land",
-    "bannister", "escalator", "ottoman", "bottle", "buffet", "poster",
-    "stage", "van", "ship", "fountain", "conveyer belt", "canopy", "washer",
-    "plaything", "swimming pool", "stool", "barrel", "basket", "waterfall",
-    "tent", "bag", "minibike", "cradle", "oven", "ball", "food", "step",
-    "tank", "trade name", "microwave", "pot", "animal", "bicycle", "lake",
-    "dishwasher", "screen", "blanket", "sculpture", "hood", "sconce", "vase",
-    "traffic light", "tray", "ashcan", "fan", "pier", "crt screen", "plate",
-    "monitor", "bulletin board", "shower", "radiator", "glass", "clock", "flag",
-]
+from kmodels.models.segformer import SegFormerB0, SegFormerImageProcessor, SegFormerPostProcessor
 
 model = SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 
 img = Image.open("image.jpg").convert("RGB")
-original_size = img.size  # (W, H)
+original_size = img.size[::-1]  # (H, W)
 
-processed = SegFormerImageProcessor(image=img, do_resize=True,
-    size={"height": 512, "width": 512}, do_rescale=True, do_normalize=True)
-
+processed = SegFormerImageProcessor(img, size={"height": 512, "width": 512})
 output = model(processed, training=False)
-pred_mask = np.argmax(keras.ops.convert_to_numpy(output[0]), axis=-1)
 
-# Resize mask to original size
-mask_resized = np.array(
-    Image.fromarray(pred_mask.astype(np.uint8)).resize(original_size, Image.NEAREST)
-)
+result = SegFormerPostProcessor(output, target_size=original_size)
+mask_resized = result["segmentation"]
 
 # Generate colors per class
 np.random.seed(42)
@@ -154,19 +111,13 @@ fig, ax = plt.subplots(1, 1, figsize=(10, 7))
 ax.imshow(overlay)
 
 # Legend for top classes by area
-unique_classes = np.unique(mask_resized)
-class_areas = [(c, (mask_resized == c).sum()) for c in unique_classes]
+class_areas = [(c, (mask_resized == c).sum()) for c in result["unique_classes"]]
 class_areas.sort(key=lambda x: -x[1])
 top_classes = [c for c, _ in class_areas[:8]]
+top_names = [n for c, n in zip(result["unique_classes"], result["class_names"]) if c in top_classes]
 
-legend_patches = []
-legend_names = []
-for c in top_classes:
-    color = colors[c % 150] / 255.0
-    patch = plt.Rectangle((0, 0), 1, 1, fc=color)
-    legend_patches.append(patch)
-    legend_names.append(ADE20K_CLASSES[c] if c < len(ADE20K_CLASSES) else f"class_{c}")
-ax.legend(legend_patches, legend_names, loc="upper right", fontsize=10)
+legend_patches = [plt.Rectangle((0, 0), 1, 1, fc=colors[c % 150] / 255.0) for c in top_classes]
+ax.legend(legend_patches, top_names, loc="upper right", fontsize=10)
 
 ax.set_title("SegFormer Semantic Segmentation (ADE20K)", fontsize=16)
 ax.axis("off")
@@ -176,3 +127,22 @@ plt.close(fig)
 ```
 
 ![SegFormer Semantic Segmentation Output](../assets/segformer_output.jpg)
+
+## Custom Dataset Usage
+
+When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
+
+```python
+from kmodels.models.segformer import SegFormerPostProcessor, CITYSCAPES_CLASSES
+
+# For Cityscapes fine-tuned models
+result = SegFormerPostProcessor(output, target_size=original_size,
+    label_names=CITYSCAPES_CLASSES)
+
+# For any custom dataset
+MY_CLASSES = ["background", "road", "building", "vegetation"]
+result = SegFormerPostProcessor(output, target_size=original_size,
+    label_names=MY_CLASSES)
+```
+
+If `label_names` is not provided, ADE20K class names (150 classes) are used by default. Built-in class lists `ADE20K_CLASSES` and `CITYSCAPES_CLASSES` are available as imports.

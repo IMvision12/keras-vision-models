@@ -146,6 +146,7 @@ def DFinePostProcessor(
     threshold: float = 0.5,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
     num_top_queries: int = 300,
+    label_names: Optional[List[str]] = None,
 ):
     """Post-process raw D-FINE outputs into detection results.
 
@@ -165,6 +166,9 @@ def DFinePostProcessor(
             coordinates. If ``None`` boxes stay normalised.
         num_top_queries: Number of top ``(query, class)`` pairs to
             consider before thresholding. Defaults to ``300``.
+        label_names: Custom class name list for mapping label indices to
+            names. If ``None``, defaults to COCO class names. Provide this
+            when using a model fine-tuned on a custom dataset.
 
     Returns:
         List of dicts (one per image) with keys:
@@ -221,16 +225,16 @@ def DFinePostProcessor(
         kept_boxes = topk_boxes[keep]
 
         labels_np = ops.convert_to_numpy(kept_labels).astype(int)
-        label_names = [
-            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}"
-            for l in labels_np
+        _names = label_names if label_names is not None else COCO_CLASSES
+        mapped_names = [
+            _names[l] if l < len(_names) else f"class_{l}" for l in labels_np
         ]
 
         results.append(
             {
                 "scores": kept_scores,
                 "labels": kept_labels,
-                "label_names": label_names,
+                "label_names": mapped_names,
                 "boxes": kept_boxes,
             }
         )

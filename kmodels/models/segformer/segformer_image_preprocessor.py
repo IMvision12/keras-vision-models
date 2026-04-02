@@ -1,8 +1,183 @@
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import keras
 import numpy as np
 from PIL import Image
+
+ADE20K_CLASSES = [
+    "wall",
+    "building",
+    "sky",
+    "floor",
+    "tree",
+    "ceiling",
+    "road",
+    "bed",
+    "windowpane",
+    "grass",
+    "cabinet",
+    "sidewalk",
+    "person",
+    "earth",
+    "door",
+    "table",
+    "mountain",
+    "plant",
+    "curtain",
+    "chair",
+    "car",
+    "water",
+    "painting",
+    "sofa",
+    "shelf",
+    "house",
+    "sea",
+    "mirror",
+    "rug",
+    "field",
+    "armchair",
+    "seat",
+    "fence",
+    "desk",
+    "rock",
+    "wardrobe",
+    "lamp",
+    "bathtub",
+    "railing",
+    "cushion",
+    "base",
+    "box",
+    "column",
+    "signboard",
+    "chest of drawers",
+    "counter",
+    "sand",
+    "sink",
+    "skyscraper",
+    "fireplace",
+    "refrigerator",
+    "grandstand",
+    "path",
+    "stairs",
+    "runway",
+    "case",
+    "pool table",
+    "pillow",
+    "screen door",
+    "stairway",
+    "river",
+    "bridge",
+    "bookcase",
+    "blind",
+    "coffee table",
+    "toilet",
+    "flower",
+    "book",
+    "hill",
+    "bench",
+    "countertop",
+    "stove",
+    "palm",
+    "kitchen island",
+    "computer",
+    "swivel chair",
+    "boat",
+    "bar",
+    "arcade machine",
+    "hovel",
+    "bus",
+    "towel",
+    "light",
+    "truck",
+    "tower",
+    "chandelier",
+    "awning",
+    "streetlight",
+    "booth",
+    "television",
+    "airplane",
+    "dirt track",
+    "apparel",
+    "pole",
+    "land",
+    "bannister",
+    "escalator",
+    "ottoman",
+    "bottle",
+    "buffet",
+    "poster",
+    "stage",
+    "van",
+    "ship",
+    "fountain",
+    "conveyer belt",
+    "canopy",
+    "washer",
+    "plaything",
+    "swimming pool",
+    "stool",
+    "barrel",
+    "basket",
+    "waterfall",
+    "tent",
+    "bag",
+    "minibike",
+    "cradle",
+    "oven",
+    "ball",
+    "food",
+    "step",
+    "tank",
+    "trade name",
+    "microwave",
+    "pot",
+    "animal",
+    "bicycle",
+    "lake",
+    "dishwasher",
+    "screen",
+    "blanket",
+    "sculpture",
+    "hood",
+    "sconce",
+    "vase",
+    "traffic light",
+    "tray",
+    "ashcan",
+    "fan",
+    "pier",
+    "crt screen",
+    "plate",
+    "monitor",
+    "bulletin board",
+    "shower",
+    "radiator",
+    "glass",
+    "clock",
+    "flag",
+]
+
+CITYSCAPES_CLASSES = [
+    "road",
+    "sidewalk",
+    "building",
+    "wall",
+    "fence",
+    "pole",
+    "traffic light",
+    "traffic sign",
+    "vegetation",
+    "terrain",
+    "sky",
+    "person",
+    "rider",
+    "car",
+    "truck",
+    "bus",
+    "train",
+    "motorcycle",
+    "bicycle",
+]
 
 
 def SegFormerImageProcessor(
@@ -119,3 +294,70 @@ def SegFormerImageProcessor(
         image = keras.ops.convert_to_numpy(image)
 
     return image
+
+
+def SegFormerPostProcessor(
+    outputs: "keras.KerasTensor",
+    target_size: Optional[Tuple[int, int]] = None,
+    label_names: Optional[List[str]] = None,
+) -> Dict:
+    """Post-process raw SegFormer outputs into semantic segmentation results.
+
+    Takes the raw logits from SegFormer, computes the argmax class map,
+    optionally resizes to the original image size, and maps class indices
+    to human-readable names.
+
+    Args:
+        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``.
+        target_size: Original image ``(height, width)`` for resizing the
+            prediction mask. If ``None``, the mask is returned at model
+            output resolution.
+        label_names: Custom class name list for mapping label indices to
+            names. If ``None``, defaults to ADE20K class names (150
+            classes). Provide this when using a model fine-tuned on a
+            custom dataset (e.g. Cityscapes names via
+            ``CITYSCAPES_CLASSES``).
+
+    Returns:
+        Dict with:
+            - ``"segmentation"``: Integer array of shape ``(H, W)`` with
+              class indices.
+            - ``"class_names"``: List of unique class names detected in the
+              image.
+            - ``"unique_classes"``: Array of unique class indices.
+
+    Example:
+        ```python
+        from kmodels.models.segformer import (
+            SegFormerB0, SegFormerImageProcessor, SegFormerPostProcessor,
+        )
+
+        model = SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
+        img = SegFormerImageProcessor("photo.jpg")
+        output = model(img, training=False)
+        result = SegFormerPostProcessor(output, target_size=(orig_h, orig_w))
+        print(result["class_names"])
+        ```
+    """
+    _names = label_names if label_names is not None else ADE20K_CLASSES
+
+    logits = keras.ops.convert_to_numpy(outputs)
+    pred_mask = np.argmax(logits[0], axis=-1)  # (H, W)
+
+    if target_size is not None:
+        pred_mask = np.array(
+            Image.fromarray(pred_mask.astype(np.uint8)).resize(
+                (target_size[1], target_size[0]), Image.NEAREST
+            )
+        )
+
+    unique_classes = np.unique(pred_mask)
+    class_names = [
+        _names[c] if c < len(_names) else f"class_{c}" for c in unique_classes
+    ]
+
+    return {
+        "segmentation": pred_mask,
+        "class_names": class_names,
+        "unique_classes": unique_classes,
+    }

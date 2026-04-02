@@ -121,3 +121,16 @@ plt.close(fig)
 ```
 
 ![DETR Object Detection Output](../assets/detr_output.jpg)
+
+## Custom Dataset Usage
+
+When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
+
+```python
+MY_CLASSES = ["cat", "dog", "bird"]
+
+results = DETRPostProcessor(output, threshold=0.7,
+    target_sizes=[original_size], label_names=MY_CLASSES)
+```
+
+If `label_names` is not provided, COCO class names are used by default.

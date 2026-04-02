@@ -41,29 +41,17 @@ custom_model = kmodels.models.deeplabv3.DeepLabV3ResNet50(
 ## Inference Example
 
 ```python
-import keras
-import numpy as np
-from PIL import Image
 import kmodels
+from kmodels.models.deeplabv3 import DeepLabV3ImageProcessor, DeepLabV3PostProcessor
 
 model = kmodels.models.deeplabv3.DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
 
-image = Image.open("image.jpg").convert("RGB")
-original_size = image.size
-resized = image.resize((512, 512))
+image = DeepLabV3ImageProcessor("image.jpg", size={"height": 512, "width": 512})
 
-input_tensor = keras.ops.convert_to_tensor(np.array(resized).astype("float32") / 255.0)
-input_tensor = keras.ops.expand_dims(input_tensor, axis=0)  # Shape: (1, 512, 512, 3)
+output = model(image, training=False)  # Output shape: (1, 512, 512, 21)
 
-output = model(input_tensor, training=False)  # Output shape: (1, 512, 512, 21)
-pred_mask = keras.ops.convert_to_numpy(keras.ops.argmax(output, axis=-1)[0])
-
-VOC_CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle",
-    "bus", "car", "cat", "chair", "cow", "dining table", "dog", "horse",
-    "motorbike", "person", "potted plant", "sheep", "sofa", "train", "tv/monitor"]
-
-classes = np.unique(pred_mask)
-print(f"Detected: {[VOC_CLASSES[c] for c in classes if c > 0]}")
+result = DeepLabV3PostProcessor(output)
+print(f"Detected: {[c for c in result['class_names'] if c != 'background']}")
 
 # Output:
 # Detected: ['person']
@@ -76,17 +64,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 
 import numpy as np
-import keras
 from PIL import Image
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.deeplabv3 import DeepLabV3ResNet50
-
-VOC_CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle",
-    "bus", "car", "cat", "chair", "cow", "dining table", "dog", "horse",
-    "motorbike", "person", "potted plant", "sheep", "sofa", "train", "tv/monitor"]
+from kmodels.models.deeplabv3 import DeepLabV3ResNet50, DeepLabV3ImageProcessor, DeepLabV3PostProcessor
 
 VOC_COLORMAP = np.array([
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
@@ -99,19 +82,13 @@ VOC_COLORMAP = np.array([
 model = DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
 
 img = Image.open("image.jpg").convert("RGB")
-original_size = img.size  # (W, H)
-resized = img.resize((512, 512))
+original_size = img.size[::-1]  # (H, W)
 
-input_tensor = keras.ops.convert_to_tensor(np.array(resized).astype("float32") / 255.0)
-input_tensor = keras.ops.expand_dims(input_tensor, axis=0)
+processed = DeepLabV3ImageProcessor(img, size={"height": 512, "width": 512})
+output = model(processed, training=False)
 
-output = model(input_tensor, training=False)
-pred_mask = keras.ops.convert_to_numpy(keras.ops.argmax(output, axis=-1)[0])
-
-# Resize mask to original size
-mask_resized = np.array(
-    Image.fromarray(pred_mask.astype(np.uint8)).resize(original_size, Image.NEAREST)
-)
+result = DeepLabV3PostProcessor(output, target_size=original_size)
+mask_resized = result["segmentation"]
 
 colored_mask = VOC_COLORMAP[mask_resized]
 overlay = np.array(img).copy()
@@ -123,10 +100,11 @@ fig, ax = plt.subplots(1, 1, figsize=(10, 7))
 ax.imshow(overlay)
 
 # Add legend
-unique_classes = [c for c in np.unique(mask_resized) if c > 0]
+unique_classes = [c for c in result["unique_classes"] if c > 0]
 legend_patches = [plt.Rectangle((0, 0), 1, 1, fc=VOC_COLORMAP[c] / 255.0) for c in unique_classes]
 if legend_patches:
-    ax.legend(legend_patches, [VOC_CLASSES[c] for c in unique_classes], loc="upper right", fontsize=11)
+    ax.legend(legend_patches, [n for c, n in zip(result["unique_classes"], result["class_names"]) if c > 0],
+              loc="upper right", fontsize=11)
 
 ax.set_title("DeepLabV3 Semantic Segmentation", fontsize=16)
 ax.axis("off")
@@ -136,3 +114,15 @@ plt.close(fig)
 ```
 
 ![DeepLabV3 Semantic Segmentation Output](../assets/deeplabv3_output.jpg)
+
+## Custom Dataset Usage
+
+When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
+
+```python
+MY_CLASSES = ["background", "crack", "pothole", "patch"]
+
+result = DeepLabV3PostProcessor(output, target_size=original_size, label_names=MY_CLASSES)
+```
+
+If `label_names` is not provided, Pascal VOC class names (21 classes) are used by default.

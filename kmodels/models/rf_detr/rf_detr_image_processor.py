@@ -197,6 +197,7 @@ def RFDETRPostProcessor(
     threshold: float = 0.5,
     num_top_queries: int = 300,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
+    label_names: Optional[List[str]] = None,
 ) -> List[Dict[str, np.ndarray]]:
     """Post-process raw RF-DETR outputs into usable detections.
 
@@ -215,6 +216,9 @@ def RFDETRPostProcessor(
         target_sizes: List of ``(height, width)`` tuples for each image in
             the batch. Used to convert normalized boxes to pixel coordinates.
             If None, boxes are returned in normalized ``[0, 1]`` coordinates.
+        label_names: Custom class name list for mapping label indices to
+            names. If ``None``, defaults to COCO class names. Provide this
+            when using a model fine-tuned on a custom dataset.
 
     Returns:
         List of dicts (one per image in the batch), each containing:
@@ -284,15 +288,14 @@ def RFDETRPostProcessor(
             scale = np.array([img_w, img_h, img_w, img_h], dtype=np.float32)
             xyxy_boxes = xyxy_boxes * scale
 
-        label_names = [
-            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}" for l in labels
-        ]
+        _names = label_names if label_names is not None else COCO_CLASSES
+        mapped_names = [_names[l] if l < len(_names) else f"class_{l}" for l in labels]
 
         results.append(
             {
                 "scores": scores,
                 "labels": labels,
-                "label_names": label_names,
+                "label_names": mapped_names,
                 "boxes": xyxy_boxes,
             }
         )

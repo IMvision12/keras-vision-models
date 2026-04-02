@@ -120,6 +120,19 @@ plt.close(fig)
 
 ![RT-DETR Object Detection Output](../assets/rt_detr_output.jpg)
 
+## Custom Dataset Usage
+
+When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
+
+```python
+MY_CLASSES = ["cat", "dog", "bird"]
+
+results = RTDETRPostProcessor(output, threshold=0.5,
+    target_sizes=[original_size], label_names=MY_CLASSES)
+```
+
+If `label_names` is not provided, COCO class names are used by default.
+
 ## Preprocessing Notes
 
 Unlike DETR and RF-DETR, RT-DETR does **not** apply ImageNet normalization. The model expects input images rescaled to `[0, 1]` (divide by 255) and resized to `640x640`. The `RTDETRImageProcessor` handles this automatically.

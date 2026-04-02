@@ -120,6 +120,19 @@ plt.close(fig)
 
 ![D-FINE Object Detection Output](../assets/dfine_output.jpg)
 
+## Custom Dataset Usage
+
+When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
+
+```python
+MY_CLASSES = ["cat", "dog", "bird"]
+
+results = DFinePostProcessor(output, threshold=0.5,
+    target_sizes=[original_size], label_names=MY_CLASSES)
+```
+
+If `label_names` is not provided, COCO class names are used by default.
+
 ## Preprocessing Notes
 
 Like RT-DETR, D-FINE does **not** apply ImageNet normalization. The model expects input images rescaled to `[0, 1]` (divide by 255) and resized to `640x640`. The `DFineImageProcessor` handles this automatically.

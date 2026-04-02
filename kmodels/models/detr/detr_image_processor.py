@@ -202,6 +202,7 @@ def DETRPostProcessor(
     outputs: Dict[str, keras.KerasTensor],
     threshold: float = 0.7,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
+    label_names: Optional[List[str]] = None,
 ) -> List[Dict[str, np.ndarray]]:
     """Post-process raw DETR outputs into usable detections.
 
@@ -217,6 +218,9 @@ def DETRPostProcessor(
         target_sizes: List of ``(height, width)`` tuples for each image in
             the batch. Used to convert normalized boxes to pixel coordinates.
             If None, boxes are returned in normalized ``[0, 1]`` coordinates.
+        label_names: Custom class name list for mapping label indices to
+            names. If ``None``, defaults to COCO class names. Provide this
+            when using a model fine-tuned on a custom dataset.
 
     Returns:
         List of dicts (one per image in the batch), each containing:
@@ -278,16 +282,15 @@ def DETRPostProcessor(
             scale = np.array([img_w, img_h, img_w, img_h], dtype=np.float32)
             xyxy_boxes = xyxy_boxes * scale
 
-        # Map label indices to COCO names
-        label_names = [
-            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}" for l in labels
-        ]
+        # Map label indices to class names
+        _names = label_names if label_names is not None else COCO_CLASSES
+        mapped_names = [_names[l] if l < len(_names) else f"class_{l}" for l in labels]
 
         results.append(
             {
                 "scores": scores,
                 "labels": labels,
-                "label_names": label_names,
+                "label_names": mapped_names,
                 "boxes": xyxy_boxes,
             }
         )

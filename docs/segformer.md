@@ -81,8 +81,8 @@ unique = np.unique(pred_mask)
 print(f"Detected classes: {[ADE20K_CLASSES[c] for c in unique if c < len(ADE20K_CLASSES)]}")
 
 # Output:
-# Detected classes: ['wall', 'floor', 'ceiling', 'cabinet', 'person', 'door',
-#   'table', 'plant', 'shelf', 'mirror', 'lamp', 'counter', 'sink', 'stove', ...]
+# Detected classes: ['building', 'sky', 'tree', 'road', 'sidewalk',
+#   'person', 'car', 'streetlight']
 ```
 
 ## Full Inference with Visualization

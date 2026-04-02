@@ -1,0 +1,105 @@
+DFINE_MODEL_CONFIG = {
+    "DFineNano": {
+        "stem_channels": [3, 16, 16],
+        "stage_in_channels": [16, 64, 256, 512],
+        "stage_mid_channels": [16, 32, 64, 128],
+        "stage_out_channels": [64, 256, 512, 1024],
+        "stage_num_blocks": [1, 1, 2, 1],
+        "stage_numb_of_layers": [3, 3, 3, 3],
+        "use_lab": True,
+        "encoder_in_channels": [512, 1024],
+        "encoder_hidden_dim": 128,
+        "d_model": 128,
+        "decoder_layers": 3,
+        "decoder_n_points": [6, 6],
+        "hidden_expansion": 0.34,
+        "ccfm_num_blocks": 2,
+        "num_feature_levels": 2,
+        "feat_strides": [16, 32],
+        "encode_proj_layers": [1],
+        "encoder_ffn_dim": 512,
+        "decoder_ffn_dim": 512,
+    },
+    "DFineSmall": {
+        "stem_channels": [3, 16, 16],
+        "stage_in_channels": [16, 64, 256, 512],
+        "stage_mid_channels": [16, 32, 64, 128],
+        "stage_out_channels": [64, 256, 512, 1024],
+        "stage_num_blocks": [1, 1, 2, 1],
+        "stage_numb_of_layers": [3, 3, 3, 3],
+        "use_lab": True,
+        "encoder_in_channels": [256, 512, 1024],
+        "decoder_layers": 3,
+        "decoder_n_points": [3, 6, 3],
+        "hidden_expansion": 0.5,
+    },
+    "DFineMedium": {
+        "stem_channels": [3, 24, 32],
+        "stage_in_channels": [32, 96, 384, 768],
+        "stage_mid_channels": [32, 64, 128, 256],
+        "stage_out_channels": [96, 384, 768, 1536],
+        "stage_num_blocks": [1, 1, 3, 1],
+        "stage_numb_of_layers": [4, 4, 4, 4],
+        "use_lab": True,
+        "encoder_in_channels": [384, 768, 1536],
+        "ccfm_num_blocks": 2,
+        "decoder_layers": 4,
+        "decoder_n_points": [3, 6, 3],
+    },
+    "DFineLarge": {
+        "stem_channels": [3, 32, 48],
+        "stage_in_channels": [48, 128, 512, 1024],
+        "stage_mid_channels": [48, 96, 192, 384],
+        "stage_out_channels": [128, 512, 1024, 2048],
+        "stage_num_blocks": [1, 1, 3, 1],
+        "stage_numb_of_layers": [6, 6, 6, 6],
+        "use_lab": False,
+        "encoder_in_channels": [512, 1024, 2048],
+        "ccfm_num_blocks": 3,
+        "decoder_layers": 6,
+        "decoder_n_points": [3, 6, 3],
+    },
+    "DFineXLarge": {
+        "stem_channels": [3, 32, 64],
+        "stage_in_channels": [64, 128, 512, 1024],
+        "stage_mid_channels": [64, 128, 256, 512],
+        "stage_out_channels": [128, 512, 1024, 2048],
+        "stage_num_blocks": [1, 2, 5, 2],
+        "stage_numb_of_layers": [6, 6, 6, 6],
+        "use_lab": False,
+        "encoder_in_channels": [512, 1024, 2048],
+        "encoder_hidden_dim": 384,
+        "ccfm_num_blocks": 3,
+        "decoder_layers": 6,
+        "decoder_n_points": [3, 6, 3],
+        "encoder_ffn_dim": 2048,
+    },
+}
+
+DFINE_WEIGHTS_CONFIG = {
+    "DFineNano": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_nano_coco.weights.h5",
+        },
+    },
+    "DFineSmall": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_small_coco.weights.h5",
+        },
+    },
+    "DFineMedium": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_medium_coco.weights.h5",
+        },
+    },
+    "DFineLarge": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_large_coco.weights.h5",
+        },
+    },
+    "DFineXLarge": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_xlarge_coco.weights.h5",
+        },
+    },
+}

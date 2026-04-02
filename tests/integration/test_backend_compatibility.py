@@ -12,17 +12,17 @@ from tests.base.model_test_registry import (
 BACKEND = os.environ.get("KERAS_BACKEND", "torch")
 MODEL_IDS = list(MODEL_TEST_CONFIGS.keys())
 
+# TF CPU segfaults in tf.matmul for large SAM models (known TF bug).
+SKIP_TF_CPU = {"SAM_ViT_Base", "Sam2Tiny"}
+
 
 def _skip_if_incompatible(model_name):
-    """Skip models with inherent backend/hardware incompatibilities."""
-    if BACKEND == "tensorflow" and model_name == "Sam2Tiny":
+    if BACKEND == "tensorflow" and model_name in SKIP_TF_CPU:
         try:
             import tensorflow as tf
 
             if not tf.config.list_physical_devices("GPU"):
-                pytest.skip(
-                    f"{model_name} requires GPU on TF (uses NCHW Conv2D internally)"
-                )
+                pytest.skip(f"{model_name}: TF CPU segfaults in matmul")
         except ImportError:
             pass
 

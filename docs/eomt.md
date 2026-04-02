@@ -63,12 +63,11 @@ for seg in result["segments_info"][:6]:
     print(f"{name}: {seg['score']:.2f}")
 
 # Output:
-# building-other-merged: 0.99
-# sky-other-merged: 0.97
-# person: 0.99
-# bicycle: 1.00
-# skateboard: 0.95
-# pavement-merged: 0.94
+# cat: 1.00
+# cat: 1.00
+# couch: 0.95
+# remote: 1.00
+# remote: 1.00
 ```
 
 ## Full Inference with Visualization

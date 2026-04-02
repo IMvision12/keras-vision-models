@@ -66,8 +66,59 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
 # Output:
-# cat: 0.93 at [408, 56, 1562, 1405]
+# person: 0.93 at [352, 13, 640, 475]
+# person: 0.91 at [1, 71, 214, 442]
+# person: 0.89 at [170, 138, 389, 476]
+# person: 0.82 at [502, 16, 557, 163]
+# chair: 0.70 at [341, 129, 497, 163]
+# cup: 0.64 at [598, 423, 640, 480]
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.dfine import DFineLarge, DFineImageProcessor, DFinePostProcessor
+
+model = DFineLarge(weights="coco")
+
+img = Image.open("image.jpg").convert("RGB")
+original_size = img.size[::-1]  # (H, W)
+
+processed = DFineImageProcessor(img)
+output = model(processed, training=False)
+
+results = DFinePostProcessor(output, threshold=0.5, target_sizes=[original_size])
+
+COLORS = plt.cm.tab10.colors
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(np.array(img))
+
+for i, (score, label, box) in enumerate(zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"])):
+    color = COLORS[i % len(COLORS)]
+    x1, y1, x2, y2 = [float(x) for x in box]
+    rect = plt.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=color, facecolor="none")
+    ax.add_patch(rect)
+    ax.text(x1, y1 - 5, f"{label}: {float(score):.2f}", fontsize=11, color="white",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor=color, alpha=0.8))
+
+ax.set_title("D-FINE Object Detection", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("dfine_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![D-FINE Object Detection Output](../assets/dfine_output.jpg)
 
 ## Preprocessing Notes
 

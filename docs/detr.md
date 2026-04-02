@@ -47,7 +47,7 @@ from kmodels.models.detr import DETRImageProcessor, DETRPostProcessor
 from PIL import Image
 
 model = kmodels.models.detr.DETRResNet50(
-    weights="detr_resnet50_coco.weights.h5",
+    weights="coco",
     input_shape=(800, 800, 3),
     include_normalization=False,
 )
@@ -69,5 +69,55 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
 # Output:
-# bird: 0.97 at [209, 44, 430, 393]
+# remote: 1.00 at [39, 71, 178, 117]
+# couch: 1.00 at [0, 1, 640, 474]
+# cat: 1.00 at [12, 52, 315, 469]
+# remote: 1.00 at [334, 74, 370, 188]
+# cat: 1.00 at [345, 24, 640, 371]
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.detr import DETRResNet50, DETRImageProcessor, DETRPostProcessor
+
+model = DETRResNet50(weights="coco", input_shape=(800, 800, 3), include_normalization=False)
+
+img = Image.open("image.jpg").convert("RGB")
+original_size = img.size[::-1]  # (H, W)
+
+processed = DETRImageProcessor(img, size={"height": 800, "width": 800})
+output = model(processed, training=False)
+
+results = DETRPostProcessor(output, threshold=0.7, target_sizes=[original_size])
+
+COLORS = plt.cm.tab10.colors
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(np.array(img))
+
+for i, (score, label, box) in enumerate(zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"])):
+    color = COLORS[i % len(COLORS)]
+    x1, y1, x2, y2 = box
+    rect = plt.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=color, facecolor="none")
+    ax.add_patch(rect)
+    ax.text(x1, y1 - 5, f"{label}: {score:.2f}", fontsize=11, color="white",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor=color, alpha=0.8))
+
+ax.set_title("DETR Object Detection", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("detr_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![DETR Object Detection Output](../assets/detr_output.jpg)

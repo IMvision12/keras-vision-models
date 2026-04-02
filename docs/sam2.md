@@ -226,20 +226,29 @@ from PIL import Image
 image = Image.open("photo.jpg").convert("RGB")
 original_size = image.size  # (width, height)
 
-# Resize to 1024x1024 (maintain aspect ratio with padding if needed)
-image = image.resize((1024, 1024))
-pixel_values = np.array(image).astype(np.float32) / 255.0
-pixel_values = np.expand_dims(pixel_values, axis=0)  # Add batch dim
+# Resize to 1024x1024, rescale, and apply ImageNet normalization
+resized = image.resize((1024, 1024))
+pixel_values = np.array(resized).astype(np.float32) / 255.0
+mean = np.array([0.485, 0.456, 0.406])
+std = np.array([0.229, 0.224, 0.225])
+pixel_values = (pixel_values - mean) / std
+pixel_values = keras.ops.convert_to_tensor(
+    np.expand_dims(pixel_values, axis=0), dtype="float32"
+)
 
 # Load model
-model = kmodels.models.sam2.Sam2BasePlus(
+model = kmodels.models.sam2.Sam2Tiny(
     input_shape=(1024, 1024, 3),
     weights="sav",
 )
 
-# Define prompts (single foreground point)
-input_points = np.array([[[[512, 512]]]])  # Center point
-input_labels = np.array([[[1]]])
+# Define prompts (single foreground point in 1024x1024 space)
+input_points = keras.ops.convert_to_tensor(
+    np.array([[[[512, 512]]]], dtype=np.float32)
+)
+input_labels = keras.ops.convert_to_tensor(
+    np.array([[[1]]], dtype=np.int32)
+)
 
 # Run inference
 outputs = model({
@@ -249,22 +258,115 @@ outputs = model({
 })
 
 # Select best mask based on IoU score
-masks = outputs["pred_masks"][0, 0]  # Shape: (3, 256, 256)
-iou_scores = outputs["iou_scores"][0, 0]  # Shape: (3,)
+masks = keras.ops.convert_to_numpy(outputs["pred_masks"])[0, 0]  # Shape: (3, 256, 256)
+iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]  # Shape: (3,)
 best_mask_idx = np.argmax(iou_scores)
 best_mask = masks[best_mask_idx]
 
 # Resize mask to original image size
-best_mask_resized = keras.ops.image.resize(
-    np.expand_dims(np.expand_dims(best_mask, axis=0), axis=-1),
-    size=original_size[::-1],  # (height, width)
-    interpolation="bilinear",
-)
-best_mask_resized = best_mask_resized[0, :, :, 0] > 0.0
+best_mask_resized = np.array(
+    Image.fromarray((best_mask > 0).astype(np.uint8) * 255).resize(
+        original_size, Image.BILINEAR
+    )
+) > 128
 
 print(f"Best mask IoU score: {iou_scores[best_mask_idx]:.3f}")
 print(f"Object score: {keras.ops.sigmoid(outputs['object_score_logits'][0, 0, 0]):.3f}")
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+import keras
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.sam2 import Sam2Tiny
+
+COLORS = [
+    np.array([0, 180, 255, 128]) / 255.0,    # cyan
+    np.array([255, 100, 50, 128]) / 255.0,    # orange
+    np.array([50, 220, 100, 128]) / 255.0,    # green
+]
+
+
+def show_mask(mask, ax, color):
+    h, w = mask.shape
+    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    ax.imshow(mask_image)
+
+
+def show_points(coords, ax, color, marker_size=375):
+    ax.scatter(coords[0], coords[1], color=color, marker="*",
+               s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
+
+
+model = Sam2Tiny(input_shape=(1024, 1024, 3), weights="sav")
+img = Image.open("cyclist.jpg").convert("RGB")
+original_size = img.size  # (W, H)
+
+# Preprocess: resize to 1024x1024, rescale, ImageNet normalize
+resized = img.resize((1024, 1024))
+pixel_values = np.array(resized).astype(np.float32) / 255.0
+mean = np.array([0.485, 0.456, 0.406])
+std = np.array([0.229, 0.224, 0.225])
+pixel_values = (pixel_values - mean) / std
+pixel_values = keras.ops.convert_to_tensor(
+    np.expand_dims(pixel_values, axis=0), dtype="float32"
+)
+
+# Point prompts for 3 objects (coordinates in 1024x1024 space)
+prompts = [
+    {"points": np.array([[[[426, 560]]]], dtype=np.float32), "labels": np.array([[[1]]], dtype=np.int32), "name": "cyclist"},
+    {"points": np.array([[[[832, 736]]]], dtype=np.float32), "labels": np.array([[[1]]], dtype=np.int32), "name": "dog"},
+    {"points": np.array([[[[387, 928]]]], dtype=np.float32), "labels": np.array([[[1]]], dtype=np.int32), "name": "bench"},
+]
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(np.array(img))
+
+for i, prompt in enumerate(prompts):
+    input_points = keras.ops.convert_to_tensor(prompt["points"], dtype="float32")
+    input_labels = keras.ops.convert_to_tensor(prompt["labels"], dtype="int32")
+
+    outputs = model({
+        "pixel_values": pixel_values,
+        "input_points": input_points,
+        "input_labels": input_labels,
+    })
+
+    masks = keras.ops.convert_to_numpy(outputs["pred_masks"])[0, 0]
+    iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
+    best_idx = np.argmax(iou_scores)
+    best_mask = masks[best_idx]
+
+    mask_pil = Image.fromarray((best_mask > 0).astype(np.uint8) * 255).resize(
+        original_size, Image.BILINEAR
+    )
+    best_mask_full = np.array(mask_pil) > 128
+
+    color = COLORS[i]
+    show_mask(best_mask_full, ax, color)
+
+    pt = prompt["points"][0, 0, 0]
+    pt_orig = (pt[0] * original_size[0] / 1024, pt[1] * original_size[1] / 1024)
+    show_points(pt_orig, ax, color=color[:3])
+    print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
+
+ax.set_title("SAM2 — Multiple Point Prompts", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("sam2_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![SAM2 Multiple Point Prompts Output](../assets/sam2_output.jpg)
 
 ## Citation
 

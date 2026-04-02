@@ -211,31 +211,31 @@ def verify_cls_model_equivalence(
             {
                 "name": "bird",
                 "file_name": "indigo_bunting.png",
-                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/images/bird.png",
+                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/assets/bird.png",
                 "expected_class": "indigo_bunting",
             },
             {
                 "name": "valley",
                 "file_name": "valley_image.png",
-                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/images/valley.png",
+                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/assets/valley.png",
                 "expected_class": "valley",
             },
             {
                 "name": "dam",
                 "file_name": "dam_image.png",
-                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/images/dam.png",
+                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/assets/dam.png",
                 "expected_class": "dam",
             },
             {
                 "name": "space",
                 "file_name": "space_image.png",
-                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/images/space.png",
+                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/assets/space.png",
                 "expected_class": "space_shuttle",
             },
             {
                 "name": "train",
                 "file_name": "train_image.png",
-                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/images/train.png",
+                "url": "https://raw.githubusercontent.com/IMvision12/keras-models/main/assets/train.png",
                 "expected_class": "bullet_train",
             },
         ]

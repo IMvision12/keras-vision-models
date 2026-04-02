@@ -40,34 +40,99 @@ custom_model = kmodels.models.deeplabv3.DeepLabV3ResNet50(
 
 ## Inference Example
 
-Below is a complete example of loading an image, running it through DeepLabV3, and decoding the resulting segmentation mask using `numpy` and `PIL`.
-
 ```python
 import keras
 import numpy as np
 from PIL import Image
 import kmodels
 
-# Load model
 model = kmodels.models.deeplabv3.DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
 
-# Load and preprocess image
-image = Image.open("street.jpg").convert("RGB")
+image = Image.open("image.jpg").convert("RGB")
 original_size = image.size
-image = image.resize((512, 512))
+resized = image.resize((512, 512))
 
-# Convert to tensor and add batch dimension
-input_tensor = keras.ops.convert_to_tensor(np.array(image).astype("float32") / 255.0)
-input_tensor = keras.ops.expand_dims(input_tensor, axis=0) # Shape: (1, 512, 512, 3)
+input_tensor = keras.ops.convert_to_tensor(np.array(resized).astype("float32") / 255.0)
+input_tensor = keras.ops.expand_dims(input_tensor, axis=0)  # Shape: (1, 512, 512, 3)
 
-# Run Inference
-output = model(input_tensor) # Output shape: (1, 512, 512, 21)
+output = model(input_tensor, training=False)  # Output shape: (1, 512, 512, 21)
+pred_mask = keras.ops.convert_to_numpy(keras.ops.argmax(output, axis=-1)[0])
 
-# Get the class index with the highest probability per pixel
-pred_mask = keras.ops.argmax(output, axis=-1)[0].numpy()
+VOC_CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle",
+    "bus", "car", "cat", "chair", "cow", "dining table", "dog", "horse",
+    "motorbike", "person", "potted plant", "sheep", "sofa", "train", "tv/monitor"]
 
-# pred_mask contains pixel-wise class indices (0 to 20).
-# Class 0 is generally the background.
-print(f"Mask shape: {pred_mask.shape}")
-print(f"Predicted classes present in the image: {np.unique(pred_mask)}")
+classes = np.unique(pred_mask)
+print(f"Detected: {[VOC_CLASSES[c] for c in classes if c > 0]}")
+
+# Output:
+# Detected: ['person']
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+import keras
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.deeplabv3 import DeepLabV3ResNet50
+
+VOC_CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle",
+    "bus", "car", "cat", "chair", "cow", "dining table", "dog", "horse",
+    "motorbike", "person", "potted plant", "sheep", "sofa", "train", "tv/monitor"]
+
+VOC_COLORMAP = np.array([
+    [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
+    [128, 0, 128], [0, 128, 128], [128, 128, 128], [64, 0, 0], [192, 0, 0],
+    [64, 128, 0], [192, 128, 0], [64, 0, 128], [192, 0, 128], [64, 128, 128],
+    [192, 128, 128], [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0],
+    [0, 64, 128],
+], dtype=np.uint8)
+
+model = DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
+
+img = Image.open("image.jpg").convert("RGB")
+original_size = img.size  # (W, H)
+resized = img.resize((512, 512))
+
+input_tensor = keras.ops.convert_to_tensor(np.array(resized).astype("float32") / 255.0)
+input_tensor = keras.ops.expand_dims(input_tensor, axis=0)
+
+output = model(input_tensor, training=False)
+pred_mask = keras.ops.convert_to_numpy(keras.ops.argmax(output, axis=-1)[0])
+
+# Resize mask to original size
+mask_resized = np.array(
+    Image.fromarray(pred_mask.astype(np.uint8)).resize(original_size, Image.NEAREST)
+)
+
+colored_mask = VOC_COLORMAP[mask_resized]
+overlay = np.array(img).copy()
+alpha = 0.5
+mask_pixels = mask_resized > 0
+overlay[mask_pixels] = (overlay[mask_pixels] * (1 - alpha) + colored_mask[mask_pixels] * alpha).astype(np.uint8)
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(overlay)
+
+# Add legend
+unique_classes = [c for c in np.unique(mask_resized) if c > 0]
+legend_patches = [plt.Rectangle((0, 0), 1, 1, fc=VOC_COLORMAP[c] / 255.0) for c in unique_classes]
+if legend_patches:
+    ax.legend(legend_patches, [VOC_CLASSES[c] for c in unique_classes], loc="upper right", fontsize=11)
+
+ax.set_title("DeepLabV3 Semantic Segmentation", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("deeplabv3_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![DeepLabV3 Semantic Segmentation Output](../assets/deeplabv3_output.jpg)

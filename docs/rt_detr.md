@@ -67,12 +67,58 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
 # Output:
-# cat: 0.96 at [7, 55, 318, 472]
-# cat: 0.96 at [343, 24, 639, 372]
-# remote: 0.95 at [41, 73, 176, 118]
-# remote: 0.92 at [334, 77, 370, 187]
-# couch: 0.97 at [1, 2, 640, 475]
+# oven: 0.90 at [138, 126, 197, 194]
+# refrigerator: 0.85 at [299, 73, 352, 230]
+# banana: 0.85 at [233, 188, 258, 206]
+# chair: 0.83 at [117, 189, 165, 214]
+# orange: 0.79 at [232, 200, 248, 218]
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.rt_detr import RTDETRResNet50, RTDETRImageProcessor, RTDETRPostProcessor
+
+model = RTDETRResNet50(weights="coco")
+
+img = Image.open("image.jpg").convert("RGB")
+original_size = img.size[::-1]  # (H, W)
+
+processed = RTDETRImageProcessor(img)
+output = model(processed, training=False)
+
+results = RTDETRPostProcessor(output, threshold=0.5, target_sizes=[original_size])
+
+COLORS = plt.cm.tab10.colors
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(np.array(img))
+
+for i, (score, label, box) in enumerate(zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"])):
+    color = COLORS[i % len(COLORS)]
+    x1, y1, x2, y2 = [float(x) for x in box]
+    rect = plt.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=color, facecolor="none")
+    ax.add_patch(rect)
+    ax.text(x1, y1 - 5, f"{label}: {float(score):.2f}", fontsize=11, color="white",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor=color, alpha=0.8))
+
+ax.set_title("RT-DETR Object Detection", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("rt_detr_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![RT-DETR Object Detection Output](../assets/rt_detr_output.jpg)
 
 ## Preprocessing Notes
 

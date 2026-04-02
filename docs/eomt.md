@@ -38,30 +38,97 @@ model_custom = kmodels.models.eomt.EoMT_Base(weights=None, input_shape=(640, 640
 
 ## Inference Example
 
-Below is a complete example of loading an image, running it through the model, and extracting predictions.
+```python
+import kmodels
+from kmodels.models.eomt import EoMTImageProcessor, EoMTPostProcessPanoptic
+from PIL import Image
+
+model = kmodels.models.eomt.EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+
+image = Image.open("image.jpg").convert("RGB")
+original_h, original_w = image.size[1], image.size[0]
+
+# Preprocess: resize, pad to square, rescale, ImageNet normalize
+processed = EoMTImageProcessor(image, target_size=640)
+
+# Inference
+output = model(processed, training=False)
+# output["class_logits"]: (1, num_queries, 134) — class logits per query
+# output["mask_logits"]:  (1, num_queries, mask_h, mask_w) — mask logits
+
+# Post-process: panoptic segmentation with things + stuff classes
+result = EoMTPostProcessPanoptic(output, target_size=(original_h, original_w), threshold=0.8)
+for seg in result["segments_info"][:6]:
+    name = seg["label_name"].replace("things: ", "").replace("stuff: ", "")
+    print(f"{name}: {seg['score']:.2f}")
+
+# Output:
+# cat: 1.00
+# cat: 1.00
+# couch: 0.95
+# remote: 1.00
+# remote: 1.00
+```
+
+## Full Inference with Visualization
 
 ```python
-import keras
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
 import numpy as np
 from PIL import Image
-import kmodels
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
-# Load base model with pre-trained weights
-model = kmodels.models.eomt.EoMT_Base(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+from kmodels.models.eomt import EoMT_Large, EoMTImageProcessor, EoMTPostProcessPanoptic
 
-# Load and preprocess image
-image = Image.open("scene.jpg").convert("RGB")
-original_size = image.size
-# Resize to the model's expected shape
-image = image.resize((640, 640))
+model = EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
 
-# Convert to tensor and add batch dimension
-input_tensor = keras.ops.convert_to_tensor(np.array(image).astype("float32") / 255.0)
-input_tensor = keras.ops.expand_dims(input_tensor, axis=0) # Shape: (1, 640, 640, 3)
+img = Image.open("image.jpg").convert("RGB")
+original_h, original_w = img.size[1], img.size[0]
 
-# Run Inference
-output = model(input_tensor)
+processed = EoMTImageProcessor(img, target_size=640)
+output = model(processed, training=False)
 
-# Output generally provides fused semantic mappings. Process accordingly!
-print(output.keys() if isinstance(output, dict) else output.shape)
+result = EoMTPostProcessPanoptic(output, target_size=(original_h, original_w), threshold=0.8)
+
+segmentation = result["segmentation"]
+segments_info = result["segments_info"]
+
+np.random.seed(42)
+colors = np.random.randint(50, 220, size=(len(segments_info) + 1, 3), dtype=np.uint8)
+
+colored = np.zeros((original_h, original_w, 3), dtype=np.uint8)
+for seg in segments_info:
+    mask = segmentation == seg["id"]
+    colored[mask] = colors[seg["id"]]
+
+overlay = np.array(img).copy()
+alpha = 0.5
+has_seg = segmentation >= 0
+overlay[has_seg] = (overlay[has_seg] * (1 - alpha) + colored[has_seg] * alpha).astype(np.uint8)
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(overlay)
+
+legend_patches = []
+legend_names = []
+for seg in segments_info[:10]:
+    color = colors[seg["id"]] / 255.0
+    patch = plt.Rectangle((0, 0), 1, 1, fc=color)
+    legend_patches.append(patch)
+    name = seg["label_name"].replace("things: ", "").replace("stuff: ", "")
+    legend_names.append(f"{name}: {seg['score']:.2f}")
+if legend_patches:
+    ax.legend(legend_patches, legend_names, loc="upper right", fontsize=10)
+
+ax.set_title("EoMT Panoptic Segmentation", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("eomt_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
 ```
+
+![EoMT Panoptic Segmentation Output](../assets/eomt_output.jpg)

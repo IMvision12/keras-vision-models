@@ -40,59 +40,153 @@ model = kmodels.models.sam.SAM_ViT_Base(
 
 ```python
 import numpy as np
-from kmodels.models.sam import SAM_ViT_Huge, SAMImageProcessorWithPrompts, SAMPostProcessMasks
+import keras
+from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks
 
 # Load model
-model = SAM_ViT_Huge(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
 
-# Preprocess image with point prompts
-inputs = SAMImageProcessorWithPrompts(
-    "photo.jpg",
-    input_points=np.array([[[450, 600]]]),  # (x, y) pixel coordinates
-    input_labels=np.array([[1]]),            # 1 = foreground
-)
+# Segment multiple objects by running separate point prompts
+prompts = [
+    {"points": np.array([[[390, 280]]]), "labels": np.array([[1]])},  # blue bag
+    {"points": np.array([[[300, 260]]]), "labels": np.array([[1]])},  # left brown bag
+    {"points": np.array([[[520, 240]]]), "labels": np.array([[1]])},  # right brown bag
+]
 
-# Run inference
-outputs = model({
-    "pixel_values": inputs["pixel_values"],
-    "input_points": inputs["input_points"],
-    "input_labels": inputs["input_labels"],
-    "input_boxes": inputs["input_boxes"],
-    "input_masks": inputs["input_masks"],
-})
+for prompt in prompts:
+    inputs = SAMImageProcessorWithPrompts(
+        "groceries.jpg",
+        input_points=prompt["points"],  # (x, y) pixel coordinates
+        input_labels=prompt["labels"],  # 1 = foreground
+    )
 
-# Post-process masks to original resolution
-masks = SAMPostProcessMasks(
-    outputs["pred_masks"],
-    original_size=inputs["original_size"],
-    reshaped_size=inputs["reshaped_size"],
-)
+    outputs = model({
+        "pixel_values": inputs["pixel_values"],
+        "input_points": inputs["input_points"],
+        "input_labels": inputs["input_labels"],
+    })
 
-# masks shape: (1, point_batch, num_masks, orig_h, orig_w)
-# iou_scores shape: (1, point_batch, num_masks)
-print(f"Masks shape: {masks.shape}")
-print(f"IoU scores: {outputs['iou_scores']}")
+    masks = SAMPostProcessMasks(
+        outputs["pred_masks"],
+        original_size=inputs["original_size"],
+        reshaped_size=inputs["reshaped_size"],
+    )
+
+    iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
+    best_idx = np.argmax(iou_scores)
+    best_mask = keras.ops.convert_to_numpy(masks)[0, 0, best_idx] > 0.0
+    print(f"IoU: {iou_scores[best_idx]:.3f}, Mask shape: {best_mask.shape}")
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+import keras
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.sam import (
+    SAM_ViT_Base,
+    SAMImageProcessorWithPrompts,
+    SAMPostProcessMasks,
+)
+
+COLORS = [
+    np.array([0, 180, 255, 128]) / 255.0,    # cyan
+    np.array([255, 100, 50, 128]) / 255.0,    # orange
+    np.array([50, 220, 100, 128]) / 255.0,    # green
+]
+
+
+def show_mask(mask, ax, color):
+    h, w = mask.shape
+    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    ax.imshow(mask_image)
+
+
+def show_points(coords, ax, color, marker_size=375):
+    ax.scatter(coords[:, 0], coords[:, 1], color=color, marker="*",
+               s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
+
+
+model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
+img = Image.open("groceries.jpg").convert("RGB")
+
+prompts = [
+    {"points": np.array([[[390, 280]]]), "labels": np.array([[1]]), "name": "blue bag"},
+    {"points": np.array([[[300, 260]]]), "labels": np.array([[1]]), "name": "left brown bag"},
+    {"points": np.array([[[520, 240]]]), "labels": np.array([[1]]), "name": "right brown bag"},
+]
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(np.array(img))
+
+for i, prompt in enumerate(prompts):
+    inputs = SAMImageProcessorWithPrompts(
+        img,
+        input_points=prompt["points"],
+        input_labels=prompt["labels"],
+    )
+
+    outputs = model({
+        "pixel_values": inputs["pixel_values"],
+        "input_points": inputs["input_points"],
+        "input_labels": inputs["input_labels"],
+    })
+
+    masks = SAMPostProcessMasks(
+        outputs["pred_masks"],
+        original_size=inputs["original_size"],
+        reshaped_size=inputs["reshaped_size"],
+    )
+
+    masks_np = keras.ops.convert_to_numpy(masks)[0, 0]
+    iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
+    best_idx = np.argmax(iou_scores)
+    best_mask = masks_np[best_idx] > 0.0
+
+    color = COLORS[i]
+    show_mask(best_mask, ax, color)
+    show_points(prompt["points"][0], ax, color=color[:3])
+    print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
+
+ax.set_title("SAM — Multiple Point Prompts", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("sam_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![SAM Multiple Point Prompts Output](../assets/sam_groceries_output.jpg)
 
 ## Inference with Box Prompts
 
+Box prompts are encoded as two corner points with special labels (`2` = top-left, `3` = bottom-right):
+
 ```python
 import numpy as np
-from kmodels.models.sam import SAM_ViT_Huge, SAMImageProcessorWithPrompts, SAMPostProcessMasks
+from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks
 
-model = SAM_ViT_Huge(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
 
+# Box [x1, y1, x2, y2] encoded as corner points
+box = [100, 200, 400, 500]
 inputs = SAMImageProcessorWithPrompts(
     "photo.jpg",
-    input_boxes=np.array([[100, 200, 400, 500]]),  # (x1, y1, x2, y2)
+    input_points=np.array([[[box[0], box[1]], [box[2], box[3]]]]),
+    input_labels=np.array([[2, 3]]),  # 2=top-left, 3=bottom-right
 )
 
 outputs = model({
     "pixel_values": inputs["pixel_values"],
     "input_points": inputs["input_points"],
     "input_labels": inputs["input_labels"],
-    "input_boxes": inputs["input_boxes"],
-    "input_masks": inputs["input_masks"],
 })
 
 masks = SAMPostProcessMasks(

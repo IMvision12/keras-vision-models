@@ -56,9 +56,55 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
 # Output:
-# cat: 0.96 at [7, 55, 318, 472]
-# cat: 0.93 at [343, 24, 639, 372]
-# remote: 0.90 at [41, 73, 176, 118]
-# remote: 0.73 at [334, 77, 370, 187]
-# couch: 0.67 at [1, 2, 640, 475]
+# tv: 0.94 at [6, 166, 155, 263]
+# person: 0.88 at [415, 157, 463, 298]
+# chair: 0.86 at [293, 219, 353, 317]
+# vase: 0.81 at [166, 233, 187, 267]
+# chair: 0.81 at [366, 219, 418, 319]
 ```
+
+## Full Inference with Visualization
+
+```python
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import numpy as np
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.rf_detr import RFDETRBase, RFDETRImageProcessor, RFDETRPostProcessor
+
+model = RFDETRBase(weights="coco")
+
+img = Image.open("image.jpg").convert("RGB")
+original_size = img.size[::-1]  # (H, W)
+
+processed = RFDETRImageProcessor(img, size={"height": 560, "width": 560})
+output = model(processed, training=False)
+
+results = RFDETRPostProcessor(output, threshold=0.5, target_sizes=[original_size])
+
+COLORS = plt.cm.tab10.colors
+
+fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+ax.imshow(np.array(img))
+
+for i, (score, label, box) in enumerate(zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"])):
+    color = COLORS[i % len(COLORS)]
+    x1, y1, x2, y2 = box
+    rect = plt.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=color, facecolor="none")
+    ax.add_patch(rect)
+    ax.text(x1, y1 - 5, f"{label}: {score:.2f}", fontsize=11, color="white",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor=color, alpha=0.8))
+
+ax.set_title("RF-DETR Object Detection", fontsize=16)
+ax.axis("off")
+plt.tight_layout()
+fig.savefig("rf_detr_output.jpg", bbox_inches="tight", dpi=120)
+plt.close(fig)
+```
+
+![RF-DETR Object Detection Output](../assets/rf_detr_output.jpg)

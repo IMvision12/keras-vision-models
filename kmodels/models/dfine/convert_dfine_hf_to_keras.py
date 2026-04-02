@@ -195,13 +195,20 @@ for model_config in model_configs:
         )
 
     print("Transferring AIFI encoder...")
-    hf_aifi = "model.encoder.encoder.0.layers.0"
+    # transformers v4.x: model.encoder.encoder.0.layers.0
+    # transformers v5.x: model.encoder.aifi.0.layers.0
+    hf_aifi = "model.encoder.aifi.0.layers.0"
+    if f"{hf_aifi}.self_attn.q_proj.weight" not in sd:
+        hf_aifi = "model.encoder.encoder.0.layers.0"
+
     sa = keras_model.get_layer("aifi_0_layers_0_self_attn")
+    # transformers v5.x renamed out_proj -> o_proj
+    hf_out_proj = "o_proj" if f"{hf_aifi}.self_attn.o_proj.weight" in sd else "out_proj"
     for proj_name, hf_proj in [
         ("q_proj", "q_proj"),
         ("k_proj", "k_proj"),
         ("v_proj", "v_proj"),
-        ("out_proj", "out_proj"),
+        ("out_proj", hf_out_proj),
     ]:
         dense = getattr(sa, proj_name)
         transfer_weights(
@@ -220,10 +227,18 @@ for model_config in model_configs:
         f"{hf_aifi}.final_layer_norm",
         name_mapping=backbone_name_mapping,
     )
-    for layer_name, hf_suffix in [
-        ("aifi_0_layers_0_fc1", "fc1"),
-        ("aifi_0_layers_0_fc2", "fc2"),
-    ]:
+    # transformers v5.x renamed fc1/fc2 -> mlp.layers.0/mlp.layers.1
+    if f"{hf_aifi}.mlp.layers.0.weight" in sd:
+        aifi_ffn_map = [
+            ("aifi_0_layers_0_fc1", "mlp.layers.0"),
+            ("aifi_0_layers_0_fc2", "mlp.layers.1"),
+        ]
+    else:
+        aifi_ffn_map = [
+            ("aifi_0_layers_0_fc1", "fc1"),
+            ("aifi_0_layers_0_fc2", "fc2"),
+        ]
+    for layer_name, hf_suffix in aifi_ffn_map:
         fc = keras_model.get_layer(layer_name)
         transfer_weights("kernel", fc.kernel, sd[f"{hf_aifi}.{hf_suffix}.weight"])
         fc.bias.assign(sd[f"{hf_aifi}.{hf_suffix}.bias"])
@@ -362,11 +377,14 @@ for model_config in model_configs:
         dec_layer = keras_model.get_layer(f"decoder_layers_{i}")
 
         sa = dec_layer.self_attn
+        dec_out_proj = (
+            "o_proj" if f"{hf_dl}.self_attn.o_proj.weight" in sd else "out_proj"
+        )
         for proj_name, hf_proj in [
             ("q_proj", "q_proj"),
             ("k_proj", "k_proj"),
             ("v_proj", "v_proj"),
-            ("out_proj", "out_proj"),
+            ("out_proj", dec_out_proj),
         ]:
             dense = getattr(sa, proj_name)
             transfer_weights(
@@ -407,10 +425,16 @@ for model_config in model_configs:
         dec_layer.gateway_norm.gamma.assign(sd[f"{hf_dl}.gateway.norm.weight"])
         dec_layer.gateway_norm.beta.assign(sd[f"{hf_dl}.gateway.norm.bias"])
 
-        transfer_weights("kernel", dec_layer.fc1.kernel, sd[f"{hf_dl}.fc1.weight"])
-        dec_layer.fc1.bias.assign(sd[f"{hf_dl}.fc1.bias"])
-        transfer_weights("kernel", dec_layer.fc2.kernel, sd[f"{hf_dl}.fc2.weight"])
-        dec_layer.fc2.bias.assign(sd[f"{hf_dl}.fc2.bias"])
+        if f"{hf_dl}.mlp.layers.0.weight" in sd:
+            dec_fc1_key = f"{hf_dl}.mlp.layers.0"
+            dec_fc2_key = f"{hf_dl}.mlp.layers.1"
+        else:
+            dec_fc1_key = f"{hf_dl}.fc1"
+            dec_fc2_key = f"{hf_dl}.fc2"
+        transfer_weights("kernel", dec_layer.fc1.kernel, sd[f"{dec_fc1_key}.weight"])
+        dec_layer.fc1.bias.assign(sd[f"{dec_fc1_key}.bias"])
+        transfer_weights("kernel", dec_layer.fc2.kernel, sd[f"{dec_fc2_key}.weight"])
+        dec_layer.fc2.bias.assign(sd[f"{dec_fc2_key}.bias"])
 
         dec_layer.final_layer_norm.gamma.assign(sd[f"{hf_dl}.final_layer_norm.weight"])
         dec_layer.final_layer_norm.beta.assign(sd[f"{hf_dl}.final_layer_norm.bias"])

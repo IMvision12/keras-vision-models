@@ -78,18 +78,28 @@ DFINE_MODEL_CONFIG = {
 
 DFINE_WEIGHTS_CONFIG = {
     "DFineNano": {
-        "coco": {"url": ""},
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_nano_coco.weights.h5",
+        },
     },
     "DFineSmall": {
-        "coco": {"url": ""},
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_small_coco.weights.h5",
+        },
     },
     "DFineMedium": {
-        "coco": {"url": ""},
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_medium_coco.weights.h5",
+        },
     },
     "DFineLarge": {
-        "coco": {"url": ""},
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_large_coco.weights.h5",
+        },
     },
     "DFineXLarge": {
-        "coco": {"url": ""},
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/D-FINE/dfine_xlarge_coco.weights.h5",
+        },
     },
 }

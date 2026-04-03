@@ -286,6 +286,7 @@ class MaxViT(keras.Model):
         se_ratio=0.0625,
         expand_ratio=4,
         include_top=True,
+        as_backbone=False,
         include_normalization=True,
         normalization_mode="imagenet",
         weights=None,
@@ -300,6 +301,12 @@ class MaxViT(keras.Model):
         if include_top and num_classes is None:
             raise ValueError(
                 "If `include_top` is True, `num_classes` must be specified."
+            )
+
+        if include_top and as_backbone:
+            raise ValueError(
+                "Cannot use `as_backbone=True` with `include_top=True`. "
+                f"Received: as_backbone={as_backbone}, include_top={include_top}"
             )
 
         data_format = keras.config.image_data_format()
@@ -366,6 +373,8 @@ class MaxViT(keras.Model):
         cur_H = H // 2
         cur_W = W // 2
 
+        features = [x]
+
         # Stages
         in_ch = stem_width
         for stage_idx in range(len(depths)):
@@ -415,6 +424,7 @@ class MaxViT(keras.Model):
                 )
 
             in_ch = out_ch
+            features.append(x)
 
         # Head
         if include_top:
@@ -438,6 +448,8 @@ class MaxViT(keras.Model):
                 activation=classifier_activation,
                 name="head_fc",
             )(x)
+        elif as_backbone:
+            x = features
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
@@ -461,6 +473,7 @@ class MaxViT(keras.Model):
         self.se_ratio = se_ratio
         self.expand_ratio = expand_ratio
         self.include_top = include_top
+        self.as_backbone = as_backbone
         self.include_normalization = include_normalization
         self.normalization_mode = normalization_mode
         self.input_tensor = input_tensor
@@ -481,6 +494,7 @@ class MaxViT(keras.Model):
                 "se_ratio": self.se_ratio,
                 "expand_ratio": self.expand_ratio,
                 "include_top": self.include_top,
+                "as_backbone": self.as_backbone,
                 "include_normalization": self.include_normalization,
                 "normalization_mode": self.normalization_mode,
                 "input_shape": self.input_shape[1:],
@@ -503,6 +517,7 @@ def _create_maxvit(
     variant,
     weights,
     include_top,
+    as_backbone,
     include_normalization,
     normalization_mode,
     input_tensor,
@@ -517,6 +532,7 @@ def _create_maxvit(
     model = MaxViT(
         **cfg,
         include_top=include_top,
+        as_backbone=as_backbone,
         include_normalization=include_normalization,
         normalization_mode=normalization_mode,
         weights=weights,
@@ -539,6 +555,7 @@ def _create_maxvit(
 @register_model
 def MaxViTTiny(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights="in1k_224",
@@ -554,6 +571,7 @@ def MaxViTTiny(
         "MaxViTTiny",
         weights,
         include_top,
+        as_backbone,
         include_normalization,
         normalization_mode,
         input_tensor,
@@ -569,6 +587,7 @@ def MaxViTTiny(
 @register_model
 def MaxViTSmall(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights="in1k_224",
@@ -584,6 +603,7 @@ def MaxViTSmall(
         "MaxViTSmall",
         weights,
         include_top,
+        as_backbone,
         include_normalization,
         normalization_mode,
         input_tensor,
@@ -599,6 +619,7 @@ def MaxViTSmall(
 @register_model
 def MaxViTBase(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights="in1k_224",
@@ -614,6 +635,7 @@ def MaxViTBase(
         "MaxViTBase",
         weights,
         include_top,
+        as_backbone,
         include_normalization,
         normalization_mode,
         input_tensor,
@@ -629,6 +651,7 @@ def MaxViTBase(
 @register_model
 def MaxViTLarge(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights="in1k_224",
@@ -644,6 +667,7 @@ def MaxViTLarge(
         "MaxViTLarge",
         weights,
         include_top,
+        as_backbone,
         include_normalization,
         normalization_mode,
         input_tensor,
@@ -659,6 +683,7 @@ def MaxViTLarge(
 @register_model
 def MaxViTXLarge(
     include_top=True,
+    as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
     weights="in21k_224",
@@ -674,6 +699,7 @@ def MaxViTXLarge(
         "MaxViTXLarge",
         weights,
         include_top,
+        as_backbone,
         include_normalization,
         normalization_mode,
         input_tensor,

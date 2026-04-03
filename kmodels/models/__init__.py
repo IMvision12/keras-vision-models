@@ -43,6 +43,7 @@ from kmodels.models import (
     siglip,
     siglip2,
     swin,
+    swinv2,
     vgg,
     vit,
     xception,

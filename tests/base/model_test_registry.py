@@ -384,6 +384,18 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
+    "SwinV2TinyW8": {
+        "module": "kmodels.models.swinv2",
+        "model_cls": "SwinV2TinyW8",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (64, 64, 3),
+            "include_top": True,
+        },
+        "input_shape": (2, 64, 64, 3),
+        "expected_output_shape": (2, 1000),
+    },
     "VGG16": {
         "module": "kmodels.models.vgg",
         "model_cls": "VGG16",

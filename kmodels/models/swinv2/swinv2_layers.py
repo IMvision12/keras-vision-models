@@ -1,7 +1,6 @@
 import math
 
 import keras
-import numpy as np
 from keras import layers, ops
 
 
@@ -452,26 +451,24 @@ class SwinV2Attention(layers.Layer):
         self.cpb_dense2.build((None, 512))
 
         ws = self.window_size
-        coords_h = np.arange(-(ws - 1), ws, dtype=np.float32)
-        coords_w = np.arange(-(ws - 1), ws, dtype=np.float32)
-        coords_table = np.stack(np.meshgrid(coords_h, coords_w, indexing="ij"), axis=-1)
+        coords_h = ops.cast(ops.arange(-(ws - 1), ws), "float32")
+        coords_w = ops.cast(ops.arange(-(ws - 1), ws), "float32")
+        grid_h, grid_w = ops.meshgrid(coords_h, coords_w, indexing="ij")
+        coords_table = ops.stack([grid_h, grid_w], axis=-1)
 
-        if self.pretrained_window_size > 0:
-            coords_table[:, :, 0] = coords_table[:, :, 0] / (
-                self.pretrained_window_size - 1
-            )
-            coords_table[:, :, 1] = coords_table[:, :, 1] / (
-                self.pretrained_window_size - 1
-            )
-        else:
-            coords_table[:, :, 0] = coords_table[:, :, 0] / (ws - 1)
-            coords_table[:, :, 1] = coords_table[:, :, 1] / (ws - 1)
+        norm = (
+            (self.pretrained_window_size - 1)
+            if self.pretrained_window_size > 0
+            else (ws - 1)
+        )
+        coords_table = coords_table / norm
 
         coords_table = (
-            np.sign(coords_table)
-            * np.log2(1.0 + np.abs(coords_table) * 8.0)
+            ops.sign(coords_table)
+            * ops.log2(1.0 + ops.abs(coords_table) * 8.0)
             / math.log2(8.0)
         )
+        coords_table = ops.convert_to_numpy(coords_table)
 
         self.relative_coords_table = self.add_weight(
             name=prefix + "attn_relative_coords_table",
@@ -481,10 +478,10 @@ class SwinV2Attention(layers.Layer):
             dtype=self.dtype,
         )
 
-        coords = np.arange(ws)
-        gx, gy = np.meshgrid(coords, coords, indexing="ij")
-        flat_gx = gx.reshape(-1)
-        flat_gy = gy.reshape(-1)
+        coords = ops.arange(ws)
+        gx, gy = ops.meshgrid(coords, coords, indexing="ij")
+        flat_gx = ops.reshape(gx, [-1])
+        flat_gy = ops.reshape(gy, [-1])
 
         rel_pos_x = flat_gx[:, None] - flat_gx[None, :]
         rel_pos_y = flat_gy[:, None] - flat_gy[None, :]
@@ -493,7 +490,8 @@ class SwinV2Attention(layers.Layer):
         rel_pos_y = rel_pos_y + ws - 1
 
         rel_pos_index = rel_pos_x * (2 * ws - 1) + rel_pos_y
-        rel_pos_index = rel_pos_index.reshape(-1).astype(np.int32)
+        rel_pos_index = ops.convert_to_numpy(ops.reshape(rel_pos_index, [-1]))
+        rel_pos_index = rel_pos_index.astype("int32")
 
         self.relative_position_index = self.add_weight(
             name=prefix + "attn_relative_position_index",

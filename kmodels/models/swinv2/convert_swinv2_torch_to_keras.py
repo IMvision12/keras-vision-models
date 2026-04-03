@@ -238,6 +238,8 @@ def convert_model(
         input_shape=tuple(input_shape),
         output_specs={"num_classes": num_classes},
         run_performance=False,
+        atol=1e-5,
+        rtol=1e-5,
     )
 
     if not results["standard_input"]:

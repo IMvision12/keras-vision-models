@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
@@ -203,7 +202,8 @@ def swinv2_patch_merging(
         x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
         x = ops.reshape(x, (-1, h, w, 4 * channels))
 
-    perm = np.arange(channels * 4).reshape((4, -1))
+    perm = ops.reshape(ops.arange(channels * 4), (4, -1))
+    perm = ops.convert_to_numpy(perm)
     perm[[1, 2]] = perm[[2, 1]]
     perm = perm.ravel()
 
@@ -211,7 +211,8 @@ def swinv2_patch_merging(
     if cf:
         x = ops.transpose(x, (0, 2, 3, 1))
     x_reshaped = ops.reshape(x, (-1, 4 * channels))
-    perm_matrix = np.zeros((4 * channels, 4 * channels), dtype=np.float32)
+    perm_matrix = ops.zeros((4 * channels, 4 * channels), dtype="float32")
+    perm_matrix = ops.convert_to_numpy(perm_matrix)
     for i, j in enumerate(perm):
         perm_matrix[i, j] = 1
     x = ops.matmul(x_reshaped, ops.convert_to_tensor(perm_matrix))
@@ -481,6 +482,14 @@ class SwinTransformerV2(keras.Model):
             ops.linspace(0.0, drop_path_rate, sum(depths))
         )
 
+        # Compute per-stage pretrained window sizes (same as timm)
+        # Feature map resolution at stage i: pretrain_size / (4 * 2^i)
+        # Pretrained window = min(pretrained_window_size, feature_res)
+        stage_pretrained_ws = []
+        for i in range(len(depths)):
+            feat_res = pretrain_size // (4 * 2**i)
+            stage_pretrained_ws.append(min(pretrained_window_size, feat_res))
+
         for i in range(len(depths)):
             start_idx = sum(depths[:i])
             end_idx = sum(depths[: i + 1])
@@ -492,7 +501,7 @@ class SwinTransformerV2(keras.Model):
                 depth=depths[i],
                 num_heads=num_heads[i],
                 window_size=window_size,
-                pretrained_window_size=pretrained_window_size,
+                pretrained_window_size=stage_pretrained_ws[i],
                 channels_axis=channels_axis,
                 data_format=data_format,
                 dropout_rate=dropout_rate,

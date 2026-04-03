@@ -1,3 +1,7 @@
+import os
+
+os.environ["KERAS_BACKEND"] = "torch"
+
 import gc
 from typing import Dict, List, Union
 

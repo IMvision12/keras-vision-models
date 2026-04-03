@@ -84,14 +84,16 @@ SWINV2_WEIGHTS_CONFIG = {
         },
     },
     "SwinV2BaseW12": {
-        "ms_in1k": {
+        "ms_in22k": {
             "url": "",
         },
-        "ms_in1k_ft_in1k_256": {
+        "ms_in22k_ft_in1k_256": {
             "url": "",
+            "model_kwargs": {"window_size": 16, "pretrained_window_size": 12},
         },
-        "ms_in1k_ft_in1k_384": {
+        "ms_in22k_ft_in1k_384": {
             "url": "",
+            "model_kwargs": {"window_size": 24, "pretrained_window_size": 12},
         },
     },
     "SwinV2BaseW16": {
@@ -100,14 +102,16 @@ SWINV2_WEIGHTS_CONFIG = {
         },
     },
     "SwinV2LargeW12": {
-        "ms_in1k": {
+        "ms_in22k": {
             "url": "",
         },
-        "ms_in1k_ft_in1k_256": {
+        "ms_in22k_ft_in1k_256": {
             "url": "",
+            "model_kwargs": {"window_size": 16, "pretrained_window_size": 12},
         },
-        "ms_in1k_ft_in1k_384": {
+        "ms_in22k_ft_in1k_384": {
             "url": "",
+            "model_kwargs": {"window_size": 24, "pretrained_window_size": 12},
         },
     },
 }

@@ -408,6 +408,7 @@ class SwinTransformerV2(keras.Model):
         embed_dim,
         depths,
         num_heads,
+        pretrained_window_size=0,
         dropout_rate=0.0,
         drop_path_rate=0.1,
         include_top=True,
@@ -491,7 +492,7 @@ class SwinTransformerV2(keras.Model):
                 depth=depths[i],
                 num_heads=num_heads[i],
                 window_size=window_size,
-                pretrained_window_size=0,
+                pretrained_window_size=pretrained_window_size,
                 channels_axis=channels_axis,
                 data_format=data_format,
                 dropout_rate=dropout_rate,
@@ -537,6 +538,7 @@ class SwinTransformerV2(keras.Model):
         self.embed_dim = embed_dim
         self.depths = depths
         self.num_heads = num_heads
+        self.pretrained_window_size = pretrained_window_size
         self.dropout_rate = dropout_rate
         self.drop_path_rate = drop_path_rate
         self.include_top = include_top
@@ -557,6 +559,7 @@ class SwinTransformerV2(keras.Model):
                 "embed_dim": self.embed_dim,
                 "depths": self.depths,
                 "num_heads": self.num_heads,
+                "pretrained_window_size": self.pretrained_window_size,
                 "dropout_rate": self.dropout_rate,
                 "drop_path_rate": self.drop_path_rate,
                 "include_top": self.include_top,
@@ -594,7 +597,10 @@ def _create_swinv2(
     name,
     **kwargs,
 ):
-    cfg = {**SWINV2_MODEL_CONFIG[variant], **kwargs}
+    # Apply model_kwargs from weight config (e.g. window_size override for ft variants)
+    weight_cfg = SWINV2_WEIGHTS_CONFIG.get(variant, {}).get(weights, {})
+    model_kwargs = weight_cfg.get("model_kwargs", {})
+    cfg = {**SWINV2_MODEL_CONFIG[variant], **model_kwargs, **kwargs}
     model = SwinTransformerV2(
         **cfg,
         include_top=include_top,
@@ -784,7 +790,7 @@ def SwinV2BaseW12(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="ms_in1k",
+    weights="ms_in22k_ft_in1k_256",
     input_tensor=None,
     input_shape=None,
     pooling=None,
@@ -848,7 +854,7 @@ def SwinV2LargeW12(
     as_backbone=False,
     include_normalization=True,
     normalization_mode="imagenet",
-    weights="ms_in1k",
+    weights="ms_in22k_ft_in1k_256",
     input_tensor=None,
     input_shape=None,
     pooling=None,

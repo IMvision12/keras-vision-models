@@ -21,21 +21,15 @@ from kmodels.utils.weight_transfer_torch_to_keras import (
 )
 
 weight_name_mapping: Dict[str, str] = {
-    "cpb_mlp": "CPB§MLPx",
-    "logit_scale": "LOGIT§SCALE",
-    "q_bias": "Q§BIAS",
-    "v_bias": "V§BIAS",
-    "relative_coords_table": "REL§COORDS§TABLE",
-    "relative_position_index": "REL§POS§INDEX",
+    # Protect multi-word tokens before _ -> .
+    # Note: q_bias, v_bias, logit_scale, cpb_mlp, relative_coords_table,
+    # relative_position_index are all inside attention layers and handled
+    # separately via the attention branch — no protection needed here.
     "moving_variance": "MOVVAR",
     "moving_mean": "MOVMEAN",
+    # Replace underscores with dots
     "_": ".",
-    "CPB§MLPx": "cpb_mlp",
-    "LOGIT§SCALE": "logit_scale",
-    "Q§BIAS": "q_bias",
-    "V§BIAS": "v_bias",
-    "REL§COORDS§TABLE": "relative_coords_table",
-    "REL§POS§INDEX": "relative_position_index",
+    # Restore & map to torch names
     "MOVVAR": "running_var",
     "MOVMEAN": "running_mean",
     "stem.conv": "patch_embed.proj",
@@ -95,19 +89,28 @@ def build_model_configs() -> List[Dict[str, Union[type, str, List[int], int, boo
         res = model_cfg["pretrain_size"]
 
         for variant_name in variants:
-            if variant_name == "ms_in1k":
-                torch_model_name = f"swinv2_{size}_window{ws}_{res}.ms_in1k"
+            if variant_name in ("ms_in1k", "ms_in22k"):
+                torch_model_name = f"swinv2_{size}_window{ws}_{res}.{variant_name}"
                 input_size = res
+                num_classes = 21841 if variant_name == "ms_in22k" else 1000
                 overrides = {}
-            elif variant_name.startswith("ms_in1k_ft_in1k_"):
+            elif variant_name.startswith(("ms_in1k_ft_in1k_", "ms_in22k_ft_in1k_")):
                 target_res = int(variant_name.split("_")[-1])
                 target_ws = FT_WINDOW_SIZE_MAP[target_res]
+                # Derive the timm tag: ms_in1k_ft_in1k or ms_in22k_ft_in1k
+                timm_tag = (
+                    "ms_in22k_ft_in1k" if "in22k" in variant_name else "ms_in1k_ft_in1k"
+                )
                 torch_model_name = (
                     f"swinv2_{size}_window{ws}to{target_ws}"
-                    f"_{res}to{target_res}.ms_in1k_ft_in1k"
+                    f"_{res}to{target_res}.{timm_tag}"
                 )
                 input_size = target_res
-                overrides = {"window_size": target_ws}
+                num_classes = 1000
+                overrides = {
+                    "window_size": target_ws,
+                    "pretrained_window_size": ws,
+                }
             else:
                 raise ValueError(f"Unknown variant: {variant_name}")
 
@@ -116,7 +119,7 @@ def build_model_configs() -> List[Dict[str, Union[type, str, List[int], int, boo
                     "keras_model_cls": KERAS_MODEL_CLS_MAP[model_name],
                     "torch_model_name": torch_model_name,
                     "input_shape": [input_size, input_size, 3],
-                    "num_classes": 1000,
+                    "num_classes": num_classes,
                     "include_top": True,
                     "include_normalization": False,
                     "classifier_activation": "linear",

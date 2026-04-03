@@ -27,6 +27,8 @@ def maxvit_mbconv_block(
     expand_ratio=4,
     se_ratio=0.0625,
     stride=1,
+    data_format="channels_last",
+    channels_axis=-1,
     prefix="",
 ):
     """Mobile Inverted Bottleneck Convolution (MBConv) block for MaxViT.
@@ -35,22 +37,19 @@ def maxvit_mbconv_block(
     consists of: BatchNorm -> 1x1 expand -> BN+GELU -> 3x3 depthwise ->
     BN+GELU -> SE -> 1x1 project -> residual add.
 
-    When ``stride > 1`` the shortcut path applies average pooling, and when
-    ``in_channels != out_channels`` a 1x1 convolution aligns the channel
-    dimension.
-
     Args:
-        x: Input tensor of shape ``(B, H, W, in_channels)``.
+        x: Input tensor.
         in_channels: Number of input channels.
         out_channels: Number of output channels.
-        expand_ratio: Channel expansion ratio for the hidden dimension.
-            Defaults to ``4``.
+        expand_ratio: Channel expansion ratio. Defaults to ``4``.
         se_ratio: Squeeze-and-Excitation reduction ratio. Defaults to ``0.0625``.
         stride: Spatial stride for the depthwise convolution. Defaults to ``1``.
-        prefix: String prefix for layer names. Defaults to ``""``.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        channels_axis: Channel axis index (``-1`` or ``1``).
+        prefix: String prefix for layer names.
 
     Returns:
-        Output tensor of shape ``(B, H // stride, W // stride, out_channels)``.
+        Output tensor.
     """
     expanded = out_channels * expand_ratio
     se_reduced = max(1, int(expanded * se_ratio))
@@ -61,7 +60,7 @@ def maxvit_mbconv_block(
             pool_size=2,
             strides=2,
             padding="same",
-            data_format="channels_last",
+            data_format=data_format,
             name=prefix + "conv_shortcut_pool",
         )(shortcut)
     if in_channels != out_channels:
@@ -69,12 +68,12 @@ def maxvit_mbconv_block(
             out_channels,
             1,
             use_bias=True,
-            data_format="channels_last",
+            data_format=data_format,
             name=prefix + "conv_shortcut_expand",
         )(shortcut)
 
     x = layers.BatchNormalization(
-        axis=-1,
+        axis=channels_axis,
         epsilon=1e-3,
         momentum=0.9,
         name=prefix + "conv_pre_norm",
@@ -83,11 +82,11 @@ def maxvit_mbconv_block(
         expanded,
         1,
         use_bias=False,
-        data_format="channels_last",
+        data_format=data_format,
         name=prefix + "conv_conv1_1x1",
     )(x)
     x = layers.BatchNormalization(
-        axis=-1,
+        axis=channels_axis,
         epsilon=1e-3,
         momentum=0.9,
         name=prefix + "conv_norm1",
@@ -98,11 +97,11 @@ def maxvit_mbconv_block(
         strides=stride,
         padding="same",
         use_bias=False,
-        data_format="channels_last",
+        data_format=data_format,
         name=prefix + "conv_conv2_kxk",
     )(x)
     x = layers.BatchNormalization(
-        axis=-1,
+        axis=channels_axis,
         epsilon=1e-3,
         momentum=0.9,
         name=prefix + "conv_norm2",
@@ -111,7 +110,7 @@ def maxvit_mbconv_block(
 
     # Squeeze-and-Excitation
     x_se = layers.GlobalAveragePooling2D(
-        data_format="channels_last",
+        data_format=data_format,
         keepdims=True,
         name=prefix + "se_pool",
     )(x)
@@ -119,7 +118,7 @@ def maxvit_mbconv_block(
         se_reduced,
         1,
         use_bias=True,
-        data_format="channels_last",
+        data_format=data_format,
         name=prefix + "se_fc1",
     )(x_se)
     x_se = layers.Activation("silu", name=prefix + "se_act")(x_se)
@@ -127,7 +126,7 @@ def maxvit_mbconv_block(
         expanded,
         1,
         use_bias=True,
-        data_format="channels_last",
+        data_format=data_format,
         name=prefix + "se_fc2",
     )(x_se)
     x_se = layers.Activation("sigmoid", name=prefix + "se_gate")(x_se)
@@ -137,7 +136,7 @@ def maxvit_mbconv_block(
         out_channels,
         1,
         use_bias=True,
-        data_format="channels_last",
+        data_format=data_format,
         name=prefix + "conv_conv3_1x1",
     )(x)
     x = layers.Add()([x, shortcut])
@@ -152,6 +151,7 @@ def maxvit_partition_attn_block(
     img_size,
     partition_type="block",
     mlp_ratio=4.0,
+    data_format="channels_last",
     prefix="",
 ):
     """Partition-based attention block with MLP for MaxViT.
@@ -160,32 +160,41 @@ def maxvit_partition_attn_block(
     or dilated grids), followed by an MLP branch. Both branches use pre-norm
     residual connections.
 
-    Flow: partition -> LayerNorm -> Attention -> unpartition -> + residual
-          -> LayerNorm -> MLP -> + residual
+    The partition layers convert to channels-last for attention and convert
+    back to the original ``data_format`` after.
 
     Args:
-        x: Input tensor of shape ``(B, H, W, C)``.
-        dim: Channel dimension (must match ``C``).
+        x: Input tensor.
+        dim: Channel dimension.
         num_heads: Number of attention heads.
-        window_size: Window / grid size for partitioning. Int or tuple.
+        window_size: Window / grid size for partitioning.
         img_size: Tuple ``(H, W)`` of the current spatial dimensions.
-        partition_type: ``"block"`` for local window attention or ``"grid"``
-            for dilated grid attention. Defaults to ``"block"``.
+        partition_type: ``"block"`` or ``"grid"``. Defaults to ``"block"``.
         mlp_ratio: MLP hidden-dimension expansion ratio. Defaults to ``4.0``.
-        prefix: String prefix for layer names. Defaults to ``""``.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
+        prefix: String prefix for layer names.
 
     Returns:
-        Output tensor of same shape ``(B, H, W, C)``.
+        Output tensor of same shape as input.
     """
     part_size = (
         (window_size, window_size) if isinstance(window_size, int) else window_size
     )
 
     if partition_type == "block":
-        partitioned = MaxViTWindowPartition(part_size, name=prefix + "win_part")(x)
+        partitioned = MaxViTWindowPartition(
+            part_size,
+            data_format=data_format,
+            name=prefix + "win_part",
+        )(x)
     else:
-        partitioned = MaxViTGridPartition(part_size, name=prefix + "grid_part")(x)
+        partitioned = MaxViTGridPartition(
+            part_size,
+            data_format=data_format,
+            name=prefix + "grid_part",
+        )(x)
 
+    # Attention operates on channels-last (B*windows, wh, ww, C)
     y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm1")(partitioned)
     y = MaxViTAttention(
         dim=dim,
@@ -195,19 +204,41 @@ def maxvit_partition_attn_block(
     )(y)
 
     if partition_type == "block":
-        y = MaxViTWindowReverse(part_size, img_size, name=prefix + "win_rev")(y)
+        y = MaxViTWindowReverse(
+            part_size,
+            img_size,
+            data_format=data_format,
+            name=prefix + "win_rev",
+        )(y)
     else:
-        y = MaxViTGridReverse(part_size, img_size, name=prefix + "grid_rev")(y)
+        y = MaxViTGridReverse(
+            part_size,
+            img_size,
+            data_format=data_format,
+            name=prefix + "grid_rev",
+        )(y)
 
     x = layers.Add()([x, y])
 
     residual = x
-    y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm2")(x)
-    y = layers.Dense(int(dim * mlp_ratio), use_bias=True, name=prefix + "mlp_fc1")(y)
-    y = layers.Activation(maxvit_gelu_approximate, name=prefix + "mlp_gelu")(y)
-    y = layers.Dense(dim, use_bias=True, name=prefix + "mlp_fc2")(y)
-    x = layers.Add()([residual, y])
+    if data_format == "channels_first":
+        y = layers.Permute((2, 3, 1), name=prefix + "mlp_to_cl")(x)
+        y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm2")(y)
+        y = layers.Dense(int(dim * mlp_ratio), use_bias=True, name=prefix + "mlp_fc1")(
+            y
+        )
+        y = layers.Activation(maxvit_gelu_approximate, name=prefix + "mlp_gelu")(y)
+        y = layers.Dense(dim, use_bias=True, name=prefix + "mlp_fc2")(y)
+        y = layers.Permute((3, 1, 2), name=prefix + "mlp_to_cf")(y)
+    else:
+        y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm2")(x)
+        y = layers.Dense(int(dim * mlp_ratio), use_bias=True, name=prefix + "mlp_fc1")(
+            y
+        )
+        y = layers.Activation(maxvit_gelu_approximate, name=prefix + "mlp_gelu")(y)
+        y = layers.Dense(dim, use_bias=True, name=prefix + "mlp_fc2")(y)
 
+    x = layers.Add()([residual, y])
     return x
 
 
@@ -216,7 +247,9 @@ class MaxViT(keras.Model):
     """MaxViT: Multi-Axis Vision Transformer.
 
     Combines MBConv blocks with window and grid attention for efficient
-    multi-scale feature extraction.
+    multi-scale feature extraction. Each MaxViT block applies MBConv for
+    local features, then window attention for local context, then grid
+    attention for global context.
 
     References:
         - [MaxViT: Multi-Axis Vision Transformer](https://arxiv.org/abs/2204.01697)
@@ -270,6 +303,7 @@ class MaxViT(keras.Model):
             )
 
         data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
 
         input_shape = imagenet_utils.obtain_input_shape(
             input_shape,
@@ -309,11 +343,11 @@ class MaxViT(keras.Model):
             strides=2,
             padding="same",
             use_bias=True,
-            data_format="channels_last",
+            data_format=data_format,
             name="stem_conv1",
         )(x)
         x = layers.BatchNormalization(
-            axis=-1,
+            axis=channels_axis,
             epsilon=1e-3,
             momentum=0.9,
             name="stem_norm1",
@@ -325,7 +359,7 @@ class MaxViT(keras.Model):
             strides=1,
             padding="same",
             use_bias=True,
-            data_format="channels_last",
+            data_format=data_format,
             name="stem_conv2",
         )(x)
 
@@ -348,6 +382,8 @@ class MaxViT(keras.Model):
                     expand_ratio=expand_ratio,
                     se_ratio=se_ratio,
                     stride=stride,
+                    data_format=data_format,
+                    channels_axis=channels_axis,
                     prefix=prefix,
                 )
 
@@ -363,6 +399,7 @@ class MaxViT(keras.Model):
                     img_size=(cur_H, cur_W),
                     partition_type="block",
                     mlp_ratio=mlp_ratio,
+                    data_format=data_format,
                     prefix=prefix + "attn_block_",
                 )
                 x = maxvit_partition_attn_block(
@@ -373,6 +410,7 @@ class MaxViT(keras.Model):
                     img_size=(cur_H, cur_W),
                     partition_type="grid",
                     mlp_ratio=mlp_ratio,
+                    data_format=data_format,
                     prefix=prefix + "attn_grid_",
                 )
 
@@ -381,7 +419,7 @@ class MaxViT(keras.Model):
         # Head
         if include_top:
             x = layers.GlobalAveragePooling2D(
-                data_format="channels_last",
+                data_format=data_format,
                 name="head_global_pool",
             )(x)
             x = layers.LayerNormalization(
@@ -403,12 +441,12 @@ class MaxViT(keras.Model):
         else:
             if pooling == "avg":
                 x = layers.GlobalAveragePooling2D(
-                    data_format="channels_last",
+                    data_format=data_format,
                     name="avg_pool",
                 )(x)
             elif pooling == "max":
                 x = layers.GlobalMaxPooling2D(
-                    data_format="channels_last",
+                    data_format=data_format,
                     name="max_pool",
                 )(x)
 

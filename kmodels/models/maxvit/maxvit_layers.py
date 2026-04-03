@@ -6,28 +6,26 @@ from keras import layers, ops
 class MaxViTWindowPartition(layers.Layer):
     """Partition a spatial tensor into non-overlapping local windows.
 
-    Rearranges a ``(B, H, W, C)`` tensor into ``(B * nH * nW, wh, ww, C)``
-    where ``nH = H // wh`` and ``nW = W // ww``. Each output element is one
-    contiguous spatial window.
+    Supports both ``channels_last`` and ``channels_first`` inputs. Output is
+    always ``channels_last`` ``(B * nH * nW, wh, ww, C)`` so that downstream
+    attention layers can operate on a flat sequence.
 
     Args:
         window_size: Tuple ``(wh, ww)`` or int for the window dimensions.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
-
-    Input Shape:
-        4D tensor: ``(batch_size, height, width, channels)``.
-
-    Output Shape:
-        4D tensor: ``(batch_size * num_windows, wh, ww, channels)``.
     """
 
-    def __init__(self, window_size, **kwargs):
+    def __init__(self, window_size, data_format="channels_last", **kwargs):
         super().__init__(**kwargs)
         if isinstance(window_size, int):
             window_size = (window_size, window_size)
         self.window_size = window_size
+        self.data_format = data_format
 
     def call(self, x):
+        if self.data_format == "channels_first":
+            x = ops.transpose(x, [0, 2, 3, 1])
         wh, ww = self.window_size
         x_shape = ops.shape(x)
         B, H, W, C = x_shape[0], x_shape[1], x_shape[2], x_shape[3]
@@ -39,13 +37,18 @@ class MaxViTWindowPartition(layers.Layer):
         return x
 
     def compute_output_shape(self, input_shape):
-        B, H, W, C = input_shape
         wh, ww = self.window_size
+        if self.data_format == "channels_first":
+            C = input_shape[1]
+        else:
+            C = input_shape[-1]
         return (None, wh, ww, C)
 
     def get_config(self):
         config = super().get_config()
-        config.update({"window_size": self.window_size})
+        config.update(
+            {"window_size": self.window_size, "data_format": self.data_format}
+        )
         return config
 
 
@@ -53,27 +56,23 @@ class MaxViTWindowPartition(layers.Layer):
 class MaxViTWindowReverse(layers.Layer):
     """Reverse window partition back to a spatial tensor.
 
-    Inverse of ``MaxViTWindowPartition``. Reassembles windows of shape
-    ``(B * nH * nW, wh, ww, C)`` into ``(B, H, W, C)``.
+    Input is always ``channels_last`` ``(B * nH * nW, wh, ww, C)``. Output
+    format matches ``data_format``.
 
     Args:
         window_size: Tuple ``(wh, ww)`` or int for the window dimensions.
         img_size: Tuple ``(H, W)`` of the original spatial dimensions.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
-
-    Input Shape:
-        4D tensor: ``(batch_size * num_windows, wh, ww, channels)``.
-
-    Output Shape:
-        4D tensor: ``(batch_size, H, W, channels)``.
     """
 
-    def __init__(self, window_size, img_size, **kwargs):
+    def __init__(self, window_size, img_size, data_format="channels_last", **kwargs):
         super().__init__(**kwargs)
         if isinstance(window_size, int):
             window_size = (window_size, window_size)
         self.window_size = window_size
         self.img_size = img_size
+        self.data_format = data_format
 
     def call(self, windows):
         wh, ww = self.window_size
@@ -86,16 +85,26 @@ class MaxViTWindowReverse(layers.Layer):
         x = ops.reshape(windows, [B, nH, nW, wh, ww, C])
         x = ops.transpose(x, [0, 1, 3, 2, 4, 5])
         x = ops.reshape(x, [B, H, W, C])
+        if self.data_format == "channels_first":
+            x = ops.transpose(x, [0, 3, 1, 2])
         return x
 
     def compute_output_shape(self, input_shape):
         H, W = self.img_size
         C = input_shape[-1]
+        if self.data_format == "channels_first":
+            return (None, C, H, W)
         return (None, H, W, C)
 
     def get_config(self):
         config = super().get_config()
-        config.update({"window_size": self.window_size, "img_size": self.img_size})
+        config.update(
+            {
+                "window_size": self.window_size,
+                "img_size": self.img_size,
+                "data_format": self.data_format,
+            }
+        )
         return config
 
 
@@ -103,29 +112,24 @@ class MaxViTWindowReverse(layers.Layer):
 class MaxViTGridPartition(layers.Layer):
     """Partition a spatial tensor into dilated (grid) windows.
 
-    Unlike ``MaxViTWindowPartition`` which extracts contiguous blocks,
-    grid partition samples every ``gh``-th / ``gw``-th element, producing
-    windows whose pixels are spaced apart in the original image. This
-    captures long-range dependencies when used with attention.
+    Supports both data formats. Output is always ``channels_last``.
 
     Args:
         grid_size: Tuple ``(gh, gw)`` or int for the grid dimensions.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
-
-    Input Shape:
-        4D tensor: ``(batch_size, height, width, channels)``.
-
-    Output Shape:
-        4D tensor: ``(batch_size * num_grids, gh, gw, channels)``.
     """
 
-    def __init__(self, grid_size, **kwargs):
+    def __init__(self, grid_size, data_format="channels_last", **kwargs):
         super().__init__(**kwargs)
         if isinstance(grid_size, int):
             grid_size = (grid_size, grid_size)
         self.grid_size = grid_size
+        self.data_format = data_format
 
     def call(self, x):
+        if self.data_format == "channels_first":
+            x = ops.transpose(x, [0, 2, 3, 1])
         gh, gw = self.grid_size
         x_shape = ops.shape(x)
         B, H, W, C = x_shape[0], x_shape[1], x_shape[2], x_shape[3]
@@ -137,13 +141,16 @@ class MaxViTGridPartition(layers.Layer):
         return x
 
     def compute_output_shape(self, input_shape):
-        B, H, W, C = input_shape
         gh, gw = self.grid_size
+        if self.data_format == "channels_first":
+            C = input_shape[1]
+        else:
+            C = input_shape[-1]
         return (None, gh, gw, C)
 
     def get_config(self):
         config = super().get_config()
-        config.update({"grid_size": self.grid_size})
+        config.update({"grid_size": self.grid_size, "data_format": self.data_format})
         return config
 
 
@@ -151,27 +158,22 @@ class MaxViTGridPartition(layers.Layer):
 class MaxViTGridReverse(layers.Layer):
     """Reverse grid partition back to a spatial tensor.
 
-    Inverse of ``MaxViTGridPartition``. Reassembles dilated windows of shape
-    ``(B * nH * nW, gh, gw, C)`` into ``(B, H, W, C)``.
+    Input is always ``channels_last``. Output format matches ``data_format``.
 
     Args:
         grid_size: Tuple ``(gh, gw)`` or int for the grid dimensions.
         img_size: Tuple ``(H, W)`` of the original spatial dimensions.
+        data_format: ``"channels_last"`` or ``"channels_first"``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
-
-    Input Shape:
-        4D tensor: ``(batch_size * num_grids, gh, gw, channels)``.
-
-    Output Shape:
-        4D tensor: ``(batch_size, H, W, channels)``.
     """
 
-    def __init__(self, grid_size, img_size, **kwargs):
+    def __init__(self, grid_size, img_size, data_format="channels_last", **kwargs):
         super().__init__(**kwargs)
         if isinstance(grid_size, int):
             grid_size = (grid_size, grid_size)
         self.grid_size = grid_size
         self.img_size = img_size
+        self.data_format = data_format
 
     def call(self, windows):
         gh, gw = self.grid_size
@@ -184,16 +186,26 @@ class MaxViTGridReverse(layers.Layer):
         x = ops.reshape(windows, [B, nH, nW, gh, gw, C])
         x = ops.transpose(x, [0, 3, 1, 4, 2, 5])
         x = ops.reshape(x, [B, H, W, C])
+        if self.data_format == "channels_first":
+            x = ops.transpose(x, [0, 3, 1, 2])
         return x
 
     def compute_output_shape(self, input_shape):
         H, W = self.img_size
         C = input_shape[-1]
+        if self.data_format == "channels_first":
+            return (None, C, H, W)
         return (None, H, W, C)
 
     def get_config(self):
         config = super().get_config()
-        config.update({"grid_size": self.grid_size, "img_size": self.img_size})
+        config.update(
+            {
+                "grid_size": self.grid_size,
+                "img_size": self.img_size,
+                "data_format": self.data_format,
+            }
+        )
         return config
 
 
@@ -210,13 +222,6 @@ class RelPosBiasTf(layers.Layer):
         window_size: Tuple ``(wh, ww)`` for the attention window.
         num_heads: Number of attention heads.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
-
-    Input Shape:
-        3D tensor: ``(batch * num_heads, window_area, window_area)`` attention
-        logits.
-
-    Output Shape:
-        Same as input (bias is added element-wise).
     """
 
     def __init__(self, window_size, num_heads, **kwargs):
@@ -288,28 +293,18 @@ class RelPosBiasTf(layers.Layer):
 class MaxViTAttention(layers.Layer):
     """Multi-head self-attention with relative position bias for MaxViT.
 
-    Implements scaled dot-product attention operating on channels-last
-    ``(B, N, C)`` tensors. Query, key and value are produced by a single
-    fused linear projection, and a learnable ``RelPosBiasTf`` is added to
-    the attention logits before softmax.
+    Operates on channels-last ``(B, N, C)`` sequences. The partition layers
+    handle any necessary format conversion before and after this layer.
 
     Args:
-        dim: Total input / output feature dimension. Must be divisible by
-            ``num_heads``.
+        dim: Total input / output feature dimension.
         num_heads: Number of parallel attention heads.
-        window_size: Spatial window size used for the relative position bias
-            table. Int or tuple ``(wh, ww)``. Defaults to ``7``.
+        window_size: Spatial window size for the relative position bias table.
         attn_drop: Dropout rate applied to attention weights. Defaults to ``0.0``.
         proj_drop: Dropout rate applied after the output projection. Defaults
             to ``0.0``.
         prefix: String prefix prepended to sub-layer names. Defaults to ``""``.
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
-
-    Input Shape:
-        3D tensor: ``(batch_size, sequence_length, dim)``.
-
-    Output Shape:
-        Same as input: ``(batch_size, sequence_length, dim)``.
     """
 
     def __init__(

@@ -21,8 +21,10 @@ from .config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHTS_CONFIG
 def swinv2_mlp_block(inputs, dropout=0.0, name="mlp"):
     """MLP block with GELU activation and dropout.
 
+    Operates on the last dimension (expects channels_last layout).
+
     Args:
-        inputs: Input tensor.
+        inputs: Input tensor of shape ``(B, H, W, C)``.
         dropout: float. Dropout rate. Defaults to 0.0.
         name: str. Layer name prefix.
 
@@ -49,6 +51,7 @@ def swinv2_block(
     num_heads,
     pretrained_window_size,
     channels_axis,
+    data_format="channels_last",
     dropout_rate=0.0,
     drop_path_rate=0.0,
     name="swinv2_block",
@@ -67,6 +70,7 @@ def swinv2_block(
         num_heads: int. Number of attention heads.
         pretrained_window_size: int. Window size used during pretraining.
         channels_axis: int. Axis for channel dimension.
+        data_format: str. Data format. Defaults to "channels_last".
         dropout_rate: float. Dropout rate. Defaults to 0.0.
         drop_path_rate: float. Stochastic depth rate. Defaults to 0.0.
         name: str. Layer name prefix.
@@ -74,8 +78,11 @@ def swinv2_block(
     Returns:
         Output tensor with the same shape as input.
     """
-    feature_dim = ops.shape(inputs)[-1]
-    img_height, img_width = ops.shape(inputs)[1], ops.shape(inputs)[2]
+    cf = data_format == "channels_first"
+    h_ax, w_ax = (2, 3) if cf else (1, 2)
+    feature_dim = ops.shape(inputs)[1] if cf else ops.shape(inputs)[-1]
+    img_height = ops.shape(inputs)[h_ax]
+    img_width = ops.shape(inputs)[w_ax]
 
     height_padding = int((window_size - img_height % window_size) % window_size)
     width_padding = int((window_size - img_width % window_size) % window_size)
@@ -83,12 +90,13 @@ def swinv2_block(
     if height_padding > 0 or width_padding > 0:
         x = layers.ZeroPadding2D(
             padding=((0, height_padding), (0, width_padding)),
-            data_format=keras.config.image_data_format(),
+            data_format=data_format,
         )(x)
     padded_x = x
 
-    orig_height, orig_width = ops.shape(inputs)[1], ops.shape(inputs)[2]
-    shifted_x = SwinV2Roll(shift=[-shift_size, -shift_size], axis=[1, 2])(padded_x)
+    shifted_x = SwinV2Roll(shift=[-shift_size, -shift_size], axis=[h_ax, w_ax])(
+        padded_x
+    )
 
     attention_layer = SwinV2Attention(
         dim=feature_dim,
@@ -96,12 +104,21 @@ def swinv2_block(
         window_size=window_size,
         pretrained_window_size=pretrained_window_size,
         proj_drop=dropout_rate,
+        data_format=data_format,
         block_prefix=name,
     )
 
     attended_x = attention_layer([shifted_x, window_size, attention_mask])
-    unshifted_x = SwinV2Roll(shift=[shift_size, shift_size], axis=[1, 2])(attended_x)
-    trimmed_x = unshifted_x[:, :orig_height, :orig_width]
+    unshifted_x = SwinV2Roll(shift=[shift_size, shift_size], axis=[h_ax, w_ax])(
+        attended_x
+    )
+
+    if cf:
+        trimmed_x = unshifted_x[:, :, :img_height, :img_width]
+    else:
+        trimmed_x = unshifted_x[:, :img_height, :img_width]
+
+    # Post-norm: norm AFTER attention
     trimmed_x = layers.LayerNormalization(
         epsilon=1.001e-5,
         gamma_initializer="ones",
@@ -112,7 +129,16 @@ def swinv2_block(
     dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
 
-    mlp_x = swinv2_mlp_block(inputs=skip_x1, dropout=dropout_rate, name=f"{name}_mlp")
+    # MLP: permute to channels_last for Dense, permute back
+    if cf:
+        mlp_in = ops.transpose(skip_x1, [0, 2, 3, 1])
+    else:
+        mlp_in = skip_x1
+    mlp_x = swinv2_mlp_block(inputs=mlp_in, dropout=dropout_rate, name=f"{name}_mlp")
+    if cf:
+        mlp_x = ops.transpose(mlp_x, [0, 3, 1, 2])
+
+    # Post-norm: norm AFTER MLP
     mlp_x = layers.LayerNormalization(
         epsilon=1.001e-5,
         gamma_initializer="ones",
@@ -125,38 +151,56 @@ def swinv2_block(
     return skip_x2
 
 
-def swinv2_patch_merging(inputs, channels_axis, name="patch_merging"):
+def swinv2_patch_merging(
+    inputs, channels_axis, data_format="channels_last", name="patch_merging"
+):
     """Patch merging layer (V2: reduction THEN norm).
 
     V2 difference from V1: Linear reduction THEN LayerNorm, instead of
     LayerNorm THEN Linear reduction.
 
     Args:
-        inputs: Input tensor (batch, height, width, channels).
+        inputs: Input tensor.
         channels_axis: int. Axis for channel dimension.
+        data_format: str. Data format. Defaults to "channels_last".
         name: str. Layer name prefix.
 
     Returns:
-        Tensor with shape (batch, height//2, width//2, channels*2).
+        Tensor with halved spatial dimensions and doubled channels.
     """
-    channels = inputs.shape[-1]
+    cf = data_format == "channels_first"
+    channels = inputs.shape[1] if cf else inputs.shape[-1]
+    h_ax, w_ax = (2, 3) if cf else (1, 2)
 
-    height, width = ops.shape(inputs)[1:3]
+    height = ops.shape(inputs)[h_ax]
+    width = ops.shape(inputs)[w_ax]
     hpad, wpad = height % 2, width % 2
-    paddings = [[0, 0], [0, hpad], [0, wpad], [0, 0]]
+
+    if cf:
+        paddings = [[0, 0], [0, 0], [0, hpad], [0, wpad]]
+    else:
+        paddings = [[0, 0], [0, hpad], [0, wpad], [0, 0]]
     x = ops.pad(inputs, paddings)
 
-    h = ops.shape(x)[1] // 2
-    w = ops.shape(x)[2] // 2
+    h = ops.shape(x)[h_ax] // 2
+    w = ops.shape(x)[w_ax] // 2
 
-    x = ops.reshape(x, (-1, h, 2, w, 2, channels))
-    x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
-    x = ops.reshape(x, (-1, h, w, 4 * channels))
+    if cf:
+        x = ops.reshape(x, (-1, channels, h, 2, w, 2))
+        x = ops.transpose(x, (0, 1, 2, 4, 3, 5))
+        x = ops.reshape(x, (-1, 4 * channels, h, w))
+    else:
+        x = ops.reshape(x, (-1, h, 2, w, 2, channels))
+        x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
+        x = ops.reshape(x, (-1, h, w, 4 * channels))
 
     perm = np.arange(channels * 4).reshape((4, -1))
     perm[[1, 2]] = perm[[2, 1]]
     perm = perm.ravel()
 
+    # Permute channels to channels_last for matmul + Dense + LayerNorm
+    if cf:
+        x = ops.transpose(x, (0, 2, 3, 1))
     x_reshaped = ops.reshape(x, (-1, 4 * channels))
     perm_matrix = np.zeros((4 * channels, 4 * channels), dtype=np.float32)
     for i, j in enumerate(perm):
@@ -164,6 +208,7 @@ def swinv2_patch_merging(inputs, channels_axis, name="patch_merging"):
     x = ops.matmul(x_reshaped, ops.convert_to_tensor(perm_matrix))
     x = ops.reshape(x, (-1, h, w, 4 * channels))
 
+    # V2: reduction THEN norm
     x = layers.Dense(
         channels * 2, use_bias=False, name=f"{name}_pm_dense", dtype=inputs.dtype
     )(x)
@@ -171,8 +216,11 @@ def swinv2_patch_merging(inputs, channels_axis, name="patch_merging"):
         epsilon=1.001e-5,
         name=f"{name}_pm_layernorm",
         dtype=inputs.dtype,
-        axis=channels_axis,
+        axis=-1,
     )(x)
+
+    if cf:
+        x = ops.transpose(x, (0, 3, 1, 2))
 
     return x
 
@@ -184,6 +232,7 @@ def swinv2_stage(
     window_size,
     pretrained_window_size,
     channels_axis,
+    data_format="channels_last",
     dropout_rate=0.0,
     drop_path_rate=0.0,
     name="swinv2_stage",
@@ -194,12 +243,13 @@ def swinv2_stage(
     and shifted window attention, preceded by attention mask computation.
 
     Args:
-        inputs: Input tensor (batch, height, width, channels).
+        inputs: Input tensor.
         depth: int. Number of SwinV2 blocks in this stage.
         num_heads: int. Number of attention heads.
         window_size: int. Window size for local self-attention.
         pretrained_window_size: int. Window size used during pretraining.
         channels_axis: int. Axis for channel dimension.
+        data_format: str. Data format. Defaults to "channels_last".
         dropout_rate: float. Dropout rate. Defaults to 0.0.
         drop_path_rate: float or list. Stochastic depth rate(s). Defaults to 0.0.
         name: str. Layer name prefix.
@@ -207,7 +257,11 @@ def swinv2_stage(
     Returns:
         Output tensor with the same shape as input.
     """
-    h, w = ops.shape(inputs)[1:3]
+    cf = data_format == "channels_first"
+    h_ax, w_ax = (2, 3) if cf else (1, 2)
+
+    h = ops.shape(inputs)[h_ax]
+    w = ops.shape(inputs)[w_ax]
     min_dim = ops.minimum(h, w)
     win_size = ops.minimum(window_size, min_dim)
 
@@ -220,7 +274,10 @@ def swinv2_stage(
     pad_w = ((w - 1) // win_size + 1) * win_size
 
     dtype = keras.backend.floatx()
-    partitioner = SwinV2WindowPartition(window_size=win_size, fused=False)
+    # Mask computation always uses channels_last layout
+    partitioner = SwinV2WindowPartition(
+        window_size=win_size, fused=False, data_format="channels_last"
+    )
 
     ones = ops.ones((1, h, w, 1), dtype="int32")
     pad_mask = ops.pad(ones, [[0, 0], [0, pad_h - h], [0, pad_w - w], [0, 0]])
@@ -289,6 +346,7 @@ def swinv2_stage(
             num_heads=num_heads,
             pretrained_window_size=pretrained_window_size,
             channels_axis=channels_axis,
+            data_format=data_format,
             dropout_rate=dropout_rate,
             drop_path_rate=drop_rates[i],
             name=f"{name}_blocks_{i}",
@@ -428,13 +486,17 @@ class SwinTransformerV2(keras.Model):
                 window_size=window_size,
                 pretrained_window_size=0,
                 channels_axis=channels_axis,
+                data_format=data_format,
                 dropout_rate=dropout_rate,
                 drop_path_rate=path_drop_values,
                 name=f"layers_{i}",
             )
             if not_last:
                 x = swinv2_patch_merging(
-                    x, channels_axis=channels_axis, name=f"layers_{i + 1}_downsample"
+                    x,
+                    channels_axis=channels_axis,
+                    data_format=data_format,
+                    name=f"layers_{i + 1}_downsample",
                 )
             features.append(x)
 

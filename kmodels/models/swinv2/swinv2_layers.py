@@ -10,9 +10,13 @@ class SwinV2WindowPartition(layers.Layer):
     """Partitions input tensor into non-overlapping windows.
 
     Divides the input feature map into non-overlapping windows of specified
-    size. Supports two modes: standard partitioning (fused=False) and fused
+    size. Supports both standard partitioning (fused=False) and fused
     attention mode (fused=True) that handles multi-headed attention and QKV
     transformations in a single reshape-transpose operation.
+
+    For ``channels_first`` inputs, converts to ``channels_last`` layout
+    internally so downstream attention operates on ``(batch, seq, dim)``
+    tokens.
 
     Args:
         window_size: int. Size of each window (both height and width).
@@ -21,14 +25,25 @@ class SwinV2WindowPartition(layers.Layer):
             Defaults to False.
         num_heads: int. Number of attention heads. Required when fused=True.
         qkv_mult: int. Multiplier for QKV transformations. Defaults to 3.
+        data_format: str. ``"channels_last"`` or ``"channels_first"``.
+            Defaults to ``"channels_last"``.
     """
 
-    def __init__(self, window_size, fused=False, num_heads=None, qkv_mult=3, **kwargs):
+    def __init__(
+        self,
+        window_size,
+        fused=False,
+        num_heads=None,
+        qkv_mult=3,
+        data_format="channels_last",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.window_size = window_size
         self.fused = fused
         self.num_heads = num_heads
         self.qkv_mult = qkv_mult
+        self.data_format = data_format
 
         if self.fused and self.num_heads is None:
             raise ValueError("num_heads must be set when fused=True")
@@ -40,32 +55,48 @@ class SwinV2WindowPartition(layers.Layer):
         if height is None or width is None:
             raise ValueError("Height and width must be provided")
 
+        cf = self.data_format == "channels_first"
         windows_height = height // self.window_size
         windows_width = width // self.window_size
 
         if not self.fused:
-            channels = inputs.shape[-1]
+            channels = inputs.shape[1] if cf else inputs.shape[-1]
             if channels is None:
                 raise ValueError(
                     "Channel dimensions of the inputs should be defined. Found `None`."
                 )
 
-            outputs = ops.reshape(
-                inputs,
-                [
-                    -1,
-                    windows_height,
-                    self.window_size,
-                    windows_width,
-                    self.window_size,
-                    channels,
-                ],
-            )
-            outputs = ops.transpose(outputs, [0, 1, 3, 2, 4, 5])
-            outputs = ops.reshape(outputs, [-1, self.window_size**2, channels])
+            if cf:
+                outputs = ops.reshape(
+                    inputs,
+                    [
+                        -1,
+                        channels,
+                        windows_height,
+                        self.window_size,
+                        windows_width,
+                        self.window_size,
+                    ],
+                )
+                outputs = ops.transpose(outputs, [0, 2, 4, 3, 5, 1])
+                outputs = ops.reshape(outputs, [-1, self.window_size**2, channels])
+            else:
+                outputs = ops.reshape(
+                    inputs,
+                    [
+                        -1,
+                        windows_height,
+                        self.window_size,
+                        windows_width,
+                        self.window_size,
+                        channels,
+                    ],
+                )
+                outputs = ops.transpose(outputs, [0, 1, 3, 2, 4, 5])
+                outputs = ops.reshape(outputs, [-1, self.window_size**2, channels])
 
         else:
-            full_channels = inputs.shape[-1]
+            full_channels = inputs.shape[1] if cf else inputs.shape[-1]
             if full_channels is None:
                 raise ValueError(
                     "Channel dimensions of the inputs should be defined. Found `None`."
@@ -73,24 +104,56 @@ class SwinV2WindowPartition(layers.Layer):
 
             head_channels = full_channels // (self.qkv_mult * self.num_heads)
 
-            outputs = ops.reshape(
-                inputs,
-                [
-                    -1,
-                    windows_height,
-                    self.window_size,
-                    windows_width,
-                    self.window_size,
-                    self.qkv_mult,
-                    self.num_heads,
-                    head_channels,
-                ],
-            )
-            outputs = ops.transpose(outputs, [5, 0, 1, 3, 6, 2, 4, 7])
-            outputs = ops.reshape(
-                outputs,
-                [self.qkv_mult, -1, self.num_heads, self.window_size**2, head_channels],
-            )
+            if cf:
+                outputs = ops.reshape(
+                    inputs,
+                    [
+                        -1,
+                        self.qkv_mult,
+                        self.num_heads,
+                        head_channels,
+                        windows_height,
+                        self.window_size,
+                        windows_width,
+                        self.window_size,
+                    ],
+                )
+                outputs = ops.transpose(outputs, [1, 0, 4, 6, 2, 5, 7, 3])
+                outputs = ops.reshape(
+                    outputs,
+                    [
+                        self.qkv_mult,
+                        -1,
+                        self.num_heads,
+                        self.window_size**2,
+                        head_channels,
+                    ],
+                )
+            else:
+                outputs = ops.reshape(
+                    inputs,
+                    [
+                        -1,
+                        windows_height,
+                        self.window_size,
+                        windows_width,
+                        self.window_size,
+                        self.qkv_mult,
+                        self.num_heads,
+                        head_channels,
+                    ],
+                )
+                outputs = ops.transpose(outputs, [5, 0, 1, 3, 6, 2, 4, 7])
+                outputs = ops.reshape(
+                    outputs,
+                    [
+                        self.qkv_mult,
+                        -1,
+                        self.num_heads,
+                        self.window_size**2,
+                        head_channels,
+                    ],
+                )
 
         return outputs
 
@@ -102,6 +165,7 @@ class SwinV2WindowPartition(layers.Layer):
                 "fused": self.fused,
                 "num_heads": self.num_heads,
                 "qkv_mult": self.qkv_mult,
+                "data_format": self.data_format,
             }
         )
         return config
@@ -115,18 +179,31 @@ class SwinV2WindowReverse(layers.Layer):
     window segments back into a contiguous spatial feature map. Supports
     both standard and fused attention modes.
 
+    Outputs in the requested ``data_format`` (``channels_first`` or
+    ``channels_last``).
+
     Args:
         window_size: int. Size of each window (both height and width).
         fused: bool. If True, operates in fused attention mode.
             Defaults to False.
         num_heads: int. Number of attention heads. Required when fused=True.
+        data_format: str. ``"channels_last"`` or ``"channels_first"``.
+            Defaults to ``"channels_last"``.
     """
 
-    def __init__(self, window_size, fused=False, num_heads=None, **kwargs):
+    def __init__(
+        self,
+        window_size,
+        fused=False,
+        num_heads=None,
+        data_format="channels_last",
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.window_size = window_size
         self.fused = fused
         self.num_heads = num_heads
+        self.data_format = data_format
 
         if self.fused and self.num_heads is None:
             raise ValueError("num_heads must be set when fused=True")
@@ -135,6 +212,7 @@ class SwinV2WindowReverse(layers.Layer):
         if height is None or width is None:
             raise ValueError("Height and width must be provided")
 
+        cf = self.data_format == "channels_first"
         windows_height = height // self.window_size
         windows_width = width // self.window_size
 
@@ -160,7 +238,10 @@ class SwinV2WindowReverse(layers.Layer):
                 ],
             )
             outputs = ops.transpose(outputs, [0, 1, 3, 2, 4, 5])
-            outputs = ops.reshape(outputs, [-1, height, width, channels])
+            if cf:
+                outputs = ops.reshape(outputs, [-1, channels, height, width])
+            else:
+                outputs = ops.reshape(outputs, [-1, height, width, channels])
 
         else:
             if len(inputs.shape) != 4:
@@ -186,8 +267,12 @@ class SwinV2WindowReverse(layers.Layer):
                     head_channels,
                 ],
             )
-            outputs = ops.transpose(outputs, [0, 1, 4, 2, 5, 3, 6])
-            outputs = ops.reshape(outputs, [-1, height, width, full_channels])
+            if cf:
+                outputs = ops.transpose(outputs, [0, 3, 6, 1, 4, 2, 5])
+                outputs = ops.reshape(outputs, [-1, full_channels, height, width])
+            else:
+                outputs = ops.transpose(outputs, [0, 1, 4, 2, 5, 3, 6])
+                outputs = ops.reshape(outputs, [-1, height, width, full_channels])
 
         return outputs
 
@@ -198,6 +283,7 @@ class SwinV2WindowReverse(layers.Layer):
                 "window_size": self.window_size,
                 "fused": self.fused,
                 "num_heads": self.num_heads,
+                "data_format": self.data_format,
             }
         )
         return config
@@ -218,6 +304,9 @@ class SwinV2Attention(layers.Layer):
     - **Separate Q/V bias**: Learnable ``q_bias`` and ``v_bias`` are added
       to the QKV projection; K has no bias.
 
+    For ``channels_first`` inputs, permutes to ``channels_last`` for the
+    QKV projection and permutes back after the output projection.
+
     Args:
         dim: int. Total dimension of input and output features.
         num_heads: int. Number of parallel attention heads.
@@ -226,6 +315,8 @@ class SwinV2Attention(layers.Layer):
             for CPB coordinate normalization. Defaults to 0.
         attn_drop: float. Dropout rate for attention weights. Defaults to 0.0.
         proj_drop: float. Dropout rate for output projection. Defaults to 0.0.
+        data_format: str. ``"channels_last"`` or ``"channels_first"``.
+            Defaults to ``"channels_last"``.
         block_prefix: str. Prefix for naming layer components.
     """
 
@@ -237,6 +328,7 @@ class SwinV2Attention(layers.Layer):
         pretrained_window_size=0,
         attn_drop=0.0,
         proj_drop=0.0,
+        data_format="channels_last",
         block_prefix=None,
         **kwargs,
     ):
@@ -249,6 +341,7 @@ class SwinV2Attention(layers.Layer):
         self.window_size = int(window_size)
         self.pretrained_window_size = int(pretrained_window_size)
         self.head_dim = dim // num_heads
+        self.data_format = data_format
 
         self.block_prefix = block_prefix if block_prefix is not None else "blocks"
         prefix = f"{self.block_prefix}_"
@@ -261,10 +354,17 @@ class SwinV2Attention(layers.Layer):
         )
 
         self.window_partition = SwinV2WindowPartition(
-            window_size=self.window_size, fused=True, num_heads=num_heads, qkv_mult=3
+            window_size=self.window_size,
+            fused=True,
+            num_heads=num_heads,
+            qkv_mult=3,
+            data_format=data_format,
         )
         self.window_reverse = SwinV2WindowReverse(
-            window_size=self.window_size, fused=True, num_heads=num_heads
+            window_size=self.window_size,
+            fused=True,
+            num_heads=num_heads,
+            data_format=data_format,
         )
 
         self.cpb_dense1 = layers.Dense(
@@ -298,7 +398,8 @@ class SwinV2Attention(layers.Layer):
         self.proj_drop_rate = proj_drop
 
     def build(self, input_shape):
-        feature_dim = input_shape[0][-1]
+        cf = self.data_format == "channels_first"
+        feature_dim = input_shape[0][1] if cf else input_shape[0][-1]
         if feature_dim is None:
             raise ValueError(
                 "Channel dimensions of the inputs should be defined. Found `None`."
@@ -309,10 +410,18 @@ class SwinV2Attention(layers.Layer):
                 f"Input feature dimension {feature_dim} must match layer dimension {self.dim}"
             )
 
-        self.qkv.build(input_shape[0])
-        self.proj.build(
-            (input_shape[0][0], input_shape[0][1], input_shape[0][2], self.dim)
-        )
+        if cf:
+            self.qkv.build(
+                (input_shape[0][0], input_shape[0][2], input_shape[0][3], self.dim)
+            )
+            self.proj.build(
+                (input_shape[0][0], input_shape[0][2], input_shape[0][3], self.dim)
+            )
+        else:
+            self.qkv.build(input_shape[0])
+            self.proj.build(
+                (input_shape[0][0], input_shape[0][1], input_shape[0][2], self.dim)
+            )
 
         prefix = f"{self.block_prefix}_"
 
@@ -405,14 +514,25 @@ class SwinV2Attention(layers.Layer):
 
     def call(self, inputs, training=None):
         inputs, window_size, attention_mask = inputs
-        height, width = ops.shape(inputs)[1:3]
+        cf = self.data_format == "channels_first"
+
+        if cf:
+            height, width = ops.shape(inputs)[2], ops.shape(inputs)[3]
+            x = ops.transpose(inputs, [0, 2, 3, 1])
+        else:
+            height, width = ops.shape(inputs)[1], ops.shape(inputs)[2]
+            x = inputs
+
         length = window_size**2
 
         k_bias = ops.zeros_like(self.q_bias)
         qkv_bias = ops.concatenate([self.q_bias, k_bias, self.v_bias])
 
-        qkv = ops.matmul(inputs, self.qkv.kernel)
+        qkv = ops.matmul(x, self.qkv.kernel)
         qkv = qkv + qkv_bias
+
+        if cf:
+            qkv = ops.transpose(qkv, [0, 3, 1, 2])
 
         qkv = self.window_partition(qkv, height=height, width=width)
         q, k, v = ops.unstack(qkv, 3)
@@ -451,13 +571,17 @@ class SwinV2Attention(layers.Layer):
         attn = ops.softmax(attn)
         attn = self.drop_attn(attn, training=training)
 
-        x = ops.matmul(attn, v)
-        x = self.window_reverse(x, height=height, width=width)
+        out = ops.matmul(attn, v)
+        out = self.window_reverse(out, height=height, width=width)
 
-        x = self.proj(x)
-        x = self.drop_proj(x, training=training)
+        if cf:
+            out = ops.transpose(out, [0, 2, 3, 1])
+        out = self.proj(out)
+        if cf:
+            out = ops.transpose(out, [0, 3, 1, 2])
+        out = self.drop_proj(out, training=training)
 
-        return x
+        return out
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
@@ -472,6 +596,7 @@ class SwinV2Attention(layers.Layer):
                 "pretrained_window_size": self.pretrained_window_size,
                 "attn_drop": self.attn_drop_rate,
                 "proj_drop": self.proj_drop_rate,
+                "data_format": self.data_format,
                 "block_prefix": self.block_prefix,
             }
         )

@@ -19,6 +19,7 @@ from kmodels.models import (
     inception_resnetv2,
     inceptionv3,
     inceptionv4,
+    maxvit,
     mit,
     mlp_mixer,
     mobilenetv2,

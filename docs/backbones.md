@@ -42,7 +42,7 @@ SwinTinyP4W7 : ms_in1k, ms_in22k
 
 ## Features and Capabilities
 
-- **Wide Variety of Architectures:** Extensive collection covering CNNs (ResNet, ConvNeXt), Vision Transformers (ViT, Swin), and hybrid models (MobileViT).
+- **Wide Variety of Architectures:** Extensive collection covering CNNs (ResNet, ConvNeXt), Vision Transformers (ViT, Swin), and hybrid models (MaxViT, MobileViT).
 - **Pretrained Weights Checkpoints:** Provides weights pretrained on diverse large scale datasets like ImageNet-1K, ImageNet-21K, and JFT datasets.
 - **Easy Feature Extraction:** Robust backbone API that yields multi-scale feature maps from intermediate network stages for down-stream tasks.
 - **Classification & fine-tuning Support:** Seamless integration for transfer learning and image classification customization out of the box.

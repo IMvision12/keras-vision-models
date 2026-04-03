@@ -191,6 +191,19 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 1000),
     },
+    "MaxViTTiny": {
+        "module": "kmodels.models.maxvit",
+        "model_cls": "MaxViTTiny",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (64, 64, 3),
+            "include_top": True,
+            "window_size": 2,
+        },
+        "input_shape": (2, 64, 64, 3),
+        "expected_output_shape": (2, 1000),
+    },
     "MLPMixerB16": {
         "module": "kmodels.models.mlp_mixer",
         "model_cls": "MLPMixerB16",

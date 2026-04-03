@@ -18,6 +18,21 @@ from kmodels.utils import get_all_weight_names, load_weights_from_config
 from .config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHTS_CONFIG
 
 
+def _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name=None):
+    """LayerNorm over channels for spatial feature maps.
+
+    For channels_first, permutes to NHWC, normalizes on axis=-1, then
+    permutes back. This is necessary because torch LayerNorm only supports
+    normalizing the last axis.
+    """
+    if data_format == "channels_first":
+        x = layers.Permute((2, 3, 1), name=f"{name}_to_cl" if name else None)(x)
+    x = layers.LayerNormalization(axis=-1, epsilon=epsilon, name=name)(x)
+    if data_format == "channels_first":
+        x = layers.Permute((3, 1, 2), name=f"{name}_to_cf" if name else None)(x)
+    return x
+
+
 def swinv2_mlp_block(inputs, dropout=0.0, name="mlp"):
     """MLP block with GELU activation and dropout.
 
@@ -119,12 +134,9 @@ def swinv2_block(
         trimmed_x = unshifted_x[:, :img_height, :img_width]
 
     # Post-norm: norm AFTER attention
-    trimmed_x = layers.LayerNormalization(
-        epsilon=1.001e-5,
-        gamma_initializer="ones",
-        axis=channels_axis,
-        name=f"{name}_layernorm_1",
-    )(trimmed_x)
+    trimmed_x = _spatial_layer_norm(
+        trimmed_x, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_1"
+    )
 
     dropout_layer = StochasticDepth(drop_path_rate=drop_path_rate)
     skip_x1 = inputs + dropout_layer(trimmed_x)
@@ -139,12 +151,9 @@ def swinv2_block(
         mlp_x = ops.transpose(mlp_x, [0, 3, 1, 2])
 
     # Post-norm: norm AFTER MLP
-    mlp_x = layers.LayerNormalization(
-        epsilon=1.001e-5,
-        gamma_initializer="ones",
-        axis=channels_axis,
-        name=f"{name}_layernorm_2",
-    )(mlp_x)
+    mlp_x = _spatial_layer_norm(
+        mlp_x, data_format, epsilon=1.001e-5, name=f"{name}_layernorm_2"
+    )
 
     skip_x2 = skip_x1 + dropout_layer(mlp_x)
 
@@ -463,9 +472,7 @@ class SwinTransformerV2(keras.Model):
             data_format=data_format,
             name="stem_conv",
         )(x)
-        x = layers.LayerNormalization(
-            epsilon=1.001e-5, axis=channels_axis, name="stem_norm"
-        )(x)
+        x = _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="stem_norm")
         x = layers.Dropout(dropout_rate, name="stem_dropout")(x)
         features.append(x)
 
@@ -500,9 +507,7 @@ class SwinTransformerV2(keras.Model):
                 )
             features.append(x)
 
-        x = layers.LayerNormalization(
-            epsilon=1.001e-5, axis=channels_axis, name="final_norm"
-        )(x)
+        x = _spatial_layer_norm(x, data_format, epsilon=1.001e-5, name="final_norm")
 
         if include_top:
             x = layers.GlobalAveragePooling2D(data_format=data_format, name="avg_pool")(

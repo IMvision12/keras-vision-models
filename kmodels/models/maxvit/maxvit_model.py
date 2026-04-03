@@ -194,7 +194,6 @@ def maxvit_partition_attn_block(
             name=prefix + "grid_part",
         )(x)
 
-    # Attention operates on channels-last (B*windows, wh, ww, C)
     y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm1")(partitioned)
     y = MaxViTAttention(
         dim=dim,

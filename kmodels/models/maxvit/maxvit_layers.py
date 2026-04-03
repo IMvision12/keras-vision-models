@@ -3,7 +3,24 @@ from keras import layers, ops
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class WindowPartition(layers.Layer):
+class MaxViTWindowPartition(layers.Layer):
+    """Partition a spatial tensor into non-overlapping local windows.
+
+    Rearranges a ``(B, H, W, C)`` tensor into ``(B * nH * nW, wh, ww, C)``
+    where ``nH = H // wh`` and ``nW = W // ww``. Each output element is one
+    contiguous spatial window.
+
+    Args:
+        window_size: Tuple ``(wh, ww)`` or int for the window dimensions.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, height, width, channels)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size * num_windows, wh, ww, channels)``.
+    """
+
     def __init__(self, window_size, **kwargs):
         super().__init__(**kwargs)
         if isinstance(window_size, int):
@@ -33,7 +50,24 @@ class WindowPartition(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class WindowReverse(layers.Layer):
+class MaxViTWindowReverse(layers.Layer):
+    """Reverse window partition back to a spatial tensor.
+
+    Inverse of ``MaxViTWindowPartition``. Reassembles windows of shape
+    ``(B * nH * nW, wh, ww, C)`` into ``(B, H, W, C)``.
+
+    Args:
+        window_size: Tuple ``(wh, ww)`` or int for the window dimensions.
+        img_size: Tuple ``(H, W)`` of the original spatial dimensions.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size * num_windows, wh, ww, channels)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H, W, channels)``.
+    """
+
     def __init__(self, window_size, img_size, **kwargs):
         super().__init__(**kwargs)
         if isinstance(window_size, int):
@@ -66,7 +100,25 @@ class WindowReverse(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class GridPartition(layers.Layer):
+class MaxViTGridPartition(layers.Layer):
+    """Partition a spatial tensor into dilated (grid) windows.
+
+    Unlike ``MaxViTWindowPartition`` which extracts contiguous blocks,
+    grid partition samples every ``gh``-th / ``gw``-th element, producing
+    windows whose pixels are spaced apart in the original image. This
+    captures long-range dependencies when used with attention.
+
+    Args:
+        grid_size: Tuple ``(gh, gw)`` or int for the grid dimensions.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size, height, width, channels)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size * num_grids, gh, gw, channels)``.
+    """
+
     def __init__(self, grid_size, **kwargs):
         super().__init__(**kwargs)
         if isinstance(grid_size, int):
@@ -96,7 +148,24 @@ class GridPartition(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class GridReverse(layers.Layer):
+class MaxViTGridReverse(layers.Layer):
+    """Reverse grid partition back to a spatial tensor.
+
+    Inverse of ``MaxViTGridPartition``. Reassembles dilated windows of shape
+    ``(B * nH * nW, gh, gw, C)`` into ``(B, H, W, C)``.
+
+    Args:
+        grid_size: Tuple ``(gh, gw)`` or int for the grid dimensions.
+        img_size: Tuple ``(H, W)`` of the original spatial dimensions.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    Input Shape:
+        4D tensor: ``(batch_size * num_grids, gh, gw, channels)``.
+
+    Output Shape:
+        4D tensor: ``(batch_size, H, W, channels)``.
+    """
+
     def __init__(self, grid_size, img_size, **kwargs):
         super().__init__(**kwargs)
         if isinstance(grid_size, int):
@@ -128,22 +197,26 @@ class GridReverse(layers.Layer):
         return config
 
 
-def gelu_tanh(x):
-    """GELU activation with tanh approximation, matching timm's GELUTanh."""
-    return keras.activations.gelu(x, approximate=True)
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class RelPosBiasTf(layers.Layer):
-    """Relative position bias (TensorFlow-compatible, log-spaced) for MaxViT attention.
+    """Learnable relative position bias for MaxViT attention.
 
-    Stores a learnable bias table of shape (num_heads, 2*window_size-1, 2*window_size-1)
-    and uses one-hot lookup tensors to reindex into (num_heads, window_area, window_area).
+    Maintains a bias table of shape ``(num_heads, 2*wh-1, 2*ww-1)`` and
+    reindexes it into ``(num_heads, window_area, window_area)`` using
+    one-hot lookup tensors, matching the TensorFlow-style implementation
+    from the original MaxViT codebase.
 
     Args:
-        window_size: Tuple of (height, width) for the attention window.
+        window_size: Tuple ``(wh, ww)`` for the attention window.
         num_heads: Number of attention heads.
-        **kwargs: Additional keyword arguments passed to the Layer class.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    Input Shape:
+        3D tensor: ``(batch * num_heads, window_area, window_area)`` attention
+        logits.
+
+    Output Shape:
+        Same as input (bias is added element-wise).
     """
 
     def __init__(self, window_size, num_heads, **kwargs):
@@ -213,15 +286,30 @@ class RelPosBiasTf(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class MaxViTAttention(layers.Layer):
-    """Channels-last multi-head attention with relative position bias for MaxViT.
+    """Multi-head self-attention with relative position bias for MaxViT.
+
+    Implements scaled dot-product attention operating on channels-last
+    ``(B, N, C)`` tensors. Query, key and value are produced by a single
+    fused linear projection, and a learnable ``RelPosBiasTf`` is added to
+    the attention logits before softmax.
 
     Args:
-        dim: Input/output dimension.
-        num_heads: Number of attention heads.
-        window_size: Window size for relative position bias.
-        attn_drop: Dropout rate for attention weights.
-        proj_drop: Dropout rate for projection output.
-        **kwargs: Additional keyword arguments passed to the Layer class.
+        dim: Total input / output feature dimension. Must be divisible by
+            ``num_heads``.
+        num_heads: Number of parallel attention heads.
+        window_size: Spatial window size used for the relative position bias
+            table. Int or tuple ``(wh, ww)``. Defaults to ``7``.
+        attn_drop: Dropout rate applied to attention weights. Defaults to ``0.0``.
+        proj_drop: Dropout rate applied after the output projection. Defaults
+            to ``0.0``.
+        prefix: String prefix prepended to sub-layer names. Defaults to ``""``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    Input Shape:
+        3D tensor: ``(batch_size, sequence_length, dim)``.
+
+    Output Shape:
+        Same as input: ``(batch_size, sequence_length, dim)``.
     """
 
     def __init__(
@@ -297,198 +385,6 @@ class MaxViTAttention(layers.Layer):
                 "window_size": self.window_size,
                 "attn_drop": self.attn_drop.rate,
                 "proj_drop": self.proj_drop.rate,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MaxViTSEModule(layers.Layer):
-    """Squeeze-and-Excitation module for MaxViT MBConv blocks.
-
-    Args:
-        in_channels: Number of input channels.
-        se_ratio: Reduction ratio for the bottleneck. Defaults to 0.0625 (1/16).
-        **kwargs: Additional keyword arguments passed to the Layer class.
-    """
-
-    def __init__(self, in_channels, se_ratio=0.0625, prefix="", **kwargs):
-        super().__init__(**kwargs)
-        self.in_channels = in_channels
-        self.se_ratio = se_ratio
-        self.reduced_channels = max(1, int(in_channels * se_ratio))
-
-        self.fc1 = layers.Conv2D(
-            self.reduced_channels,
-            1,
-            use_bias=True,
-            data_format="channels_last",
-            name=prefix + "se_fc1",
-        )
-        self.fc2 = layers.Conv2D(
-            in_channels,
-            1,
-            use_bias=True,
-            data_format="channels_last",
-            name=prefix + "se_fc2",
-        )
-
-    def call(self, x, training=None):
-        x_se = ops.mean(x, axis=(1, 2), keepdims=True)
-        x_se = self.fc1(x_se)
-        x_se = keras.activations.silu(x_se)
-        x_se = self.fc2(x_se)
-        x_se = keras.activations.sigmoid(x_se)
-        return x * x_se
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "in_channels": self.in_channels,
-                "se_ratio": self.se_ratio,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class MaxViTMBConv(layers.Layer):
-    """Mobile Inverted Bottleneck Convolution block for MaxViT.
-
-    Consists of: pre_norm -> expand 1x1 -> norm+act -> depthwise 3x3 -> norm+act
-    -> SE -> project 1x1 -> drop_path + residual.
-
-    Args:
-        in_channels: Number of input channels.
-        out_channels: Number of output channels.
-        expand_ratio: Expansion ratio for the bottleneck. Defaults to 4.
-        se_ratio: SE reduction ratio. Defaults to 0.0625.
-        stride: Stride for the depthwise convolution. Defaults to 1.
-        drop_path_rate: Drop path rate. Defaults to 0.0.
-        **kwargs: Additional keyword arguments passed to the Layer class.
-    """
-
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        expand_ratio=4,
-        se_ratio=0.0625,
-        stride=1,
-        drop_path_rate=0.0,
-        prefix="",
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.expand_ratio = expand_ratio
-        self.se_ratio = se_ratio
-        self.stride = stride
-        self.drop_path_rate = drop_path_rate
-
-        expanded_channels = out_channels * expand_ratio
-        self.use_residual = stride == 1 and in_channels == out_channels
-
-        self.pre_norm = layers.BatchNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            momentum=0.9,
-            name=prefix + "conv_pre_norm",
-        )
-
-        self.conv1_1x1 = layers.Conv2D(
-            expanded_channels,
-            1,
-            use_bias=False,
-            data_format="channels_last",
-            name=prefix + "conv_conv1_1x1",
-        )
-        self.norm1 = layers.BatchNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            momentum=0.9,
-            name=prefix + "conv_norm1",
-        )
-
-        self.conv2_kxk = layers.DepthwiseConv2D(
-            kernel_size=3,
-            strides=stride,
-            padding="same",
-            use_bias=False,
-            data_format="channels_last",
-            name=prefix + "conv_conv2_kxk",
-        )
-        self.norm2 = layers.BatchNormalization(
-            axis=-1,
-            epsilon=1e-3,
-            momentum=0.9,
-            name=prefix + "conv_norm2",
-        )
-
-        self.se = MaxViTSEModule(
-            expanded_channels,
-            se_ratio=se_ratio,
-            prefix=prefix,
-        )
-
-        self.conv3_1x1 = layers.Conv2D(
-            out_channels,
-            1,
-            use_bias=True,
-            data_format="channels_last",
-            name=prefix + "conv_conv3_1x1",
-        )
-
-        self.has_shortcut_pool = stride > 1
-        self.has_shortcut_expand = in_channels != out_channels
-        if self.has_shortcut_pool:
-            self.shortcut_pool = layers.AveragePooling2D(
-                pool_size=2,
-                strides=2,
-                padding="same",
-                data_format="channels_last",
-                name=prefix + "conv_shortcut_pool",
-            )
-        if self.has_shortcut_expand:
-            self.shortcut_expand = layers.Conv2D(
-                out_channels,
-                1,
-                use_bias=True,
-                data_format="channels_last",
-                name=prefix + "conv_shortcut_expand",
-            )
-
-    def call(self, x, training=None):
-        shortcut = x
-        if self.has_shortcut_pool:
-            shortcut = self.shortcut_pool(shortcut)
-        if self.has_shortcut_expand:
-            shortcut = self.shortcut_expand(shortcut)
-
-        x = self.pre_norm(x, training=training)
-        x = self.conv1_1x1(x)
-        x = self.norm1(x, training=training)
-        x = keras.activations.gelu(x, approximate=True)
-        x = self.conv2_kxk(x)
-        x = self.norm2(x, training=training)
-        x = keras.activations.gelu(x, approximate=True)
-        x = self.se(x, training=training)
-        x = self.conv3_1x1(x)
-        x = x + shortcut
-        return x
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "in_channels": self.in_channels,
-                "out_channels": self.out_channels,
-                "expand_ratio": self.expand_ratio,
-                "se_ratio": self.se_ratio,
-                "stride": self.stride,
-                "drop_path_rate": self.drop_path_rate,
             }
         )
         return config

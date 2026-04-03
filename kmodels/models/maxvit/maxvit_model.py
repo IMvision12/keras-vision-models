@@ -7,17 +7,144 @@ from kmodels.utils import get_all_weight_names, load_weights_from_config
 
 from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHTS_CONFIG
 from .maxvit_layers import (
-    GridPartition,
-    GridReverse,
     MaxViTAttention,
-    MaxViTMBConv,
-    WindowPartition,
-    WindowReverse,
-    gelu_tanh,
+    MaxViTGridPartition,
+    MaxViTGridReverse,
+    MaxViTWindowPartition,
+    MaxViTWindowReverse,
 )
 
 
-def partition_attn_block(
+def maxvit_gelu_approximate(x):
+    """GELU activation with tanh approximation, matching timm's GELUTanh."""
+    return keras.activations.gelu(x, approximate=True)
+
+
+def maxvit_mbconv_block(
+    x,
+    in_channels,
+    out_channels,
+    expand_ratio=4,
+    se_ratio=0.0625,
+    stride=1,
+    prefix="",
+):
+    """Mobile Inverted Bottleneck Convolution (MBConv) block for MaxViT.
+
+    Implements a pre-norm MBConv block with Squeeze-and-Excitation. The block
+    consists of: BatchNorm -> 1x1 expand -> BN+GELU -> 3x3 depthwise ->
+    BN+GELU -> SE -> 1x1 project -> residual add.
+
+    When ``stride > 1`` the shortcut path applies average pooling, and when
+    ``in_channels != out_channels`` a 1x1 convolution aligns the channel
+    dimension.
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, in_channels)``.
+        in_channels: Number of input channels.
+        out_channels: Number of output channels.
+        expand_ratio: Channel expansion ratio for the hidden dimension.
+            Defaults to ``4``.
+        se_ratio: Squeeze-and-Excitation reduction ratio. Defaults to ``0.0625``.
+        stride: Spatial stride for the depthwise convolution. Defaults to ``1``.
+        prefix: String prefix for layer names. Defaults to ``""``.
+
+    Returns:
+        Output tensor of shape ``(B, H // stride, W // stride, out_channels)``.
+    """
+    expanded = out_channels * expand_ratio
+    se_reduced = max(1, int(expanded * se_ratio))
+
+    shortcut = x
+    if stride > 1:
+        shortcut = layers.AveragePooling2D(
+            pool_size=2,
+            strides=2,
+            padding="same",
+            data_format="channels_last",
+            name=prefix + "conv_shortcut_pool",
+        )(shortcut)
+    if in_channels != out_channels:
+        shortcut = layers.Conv2D(
+            out_channels,
+            1,
+            use_bias=True,
+            data_format="channels_last",
+            name=prefix + "conv_shortcut_expand",
+        )(shortcut)
+
+    x = layers.BatchNormalization(
+        axis=-1,
+        epsilon=1e-3,
+        momentum=0.9,
+        name=prefix + "conv_pre_norm",
+    )(x)
+    x = layers.Conv2D(
+        expanded,
+        1,
+        use_bias=False,
+        data_format="channels_last",
+        name=prefix + "conv_conv1_1x1",
+    )(x)
+    x = layers.BatchNormalization(
+        axis=-1,
+        epsilon=1e-3,
+        momentum=0.9,
+        name=prefix + "conv_norm1",
+    )(x)
+    x = layers.Activation(maxvit_gelu_approximate, name=prefix + "conv_act1")(x)
+    x = layers.DepthwiseConv2D(
+        kernel_size=3,
+        strides=stride,
+        padding="same",
+        use_bias=False,
+        data_format="channels_last",
+        name=prefix + "conv_conv2_kxk",
+    )(x)
+    x = layers.BatchNormalization(
+        axis=-1,
+        epsilon=1e-3,
+        momentum=0.9,
+        name=prefix + "conv_norm2",
+    )(x)
+    x = layers.Activation(maxvit_gelu_approximate, name=prefix + "conv_act2")(x)
+
+    # Squeeze-and-Excitation
+    x_se = layers.GlobalAveragePooling2D(
+        data_format="channels_last",
+        keepdims=True,
+        name=prefix + "se_pool",
+    )(x)
+    x_se = layers.Conv2D(
+        se_reduced,
+        1,
+        use_bias=True,
+        data_format="channels_last",
+        name=prefix + "se_fc1",
+    )(x_se)
+    x_se = layers.Activation("silu", name=prefix + "se_act")(x_se)
+    x_se = layers.Conv2D(
+        expanded,
+        1,
+        use_bias=True,
+        data_format="channels_last",
+        name=prefix + "se_fc2",
+    )(x_se)
+    x_se = layers.Activation("sigmoid", name=prefix + "se_gate")(x_se)
+    x = layers.Multiply()([x, x_se])
+
+    x = layers.Conv2D(
+        out_channels,
+        1,
+        use_bias=True,
+        data_format="channels_last",
+        name=prefix + "conv_conv3_1x1",
+    )(x)
+    x = layers.Add()([x, shortcut])
+    return x
+
+
+def maxvit_partition_attn_block(
     x,
     dim,
     num_heads,
@@ -27,14 +154,37 @@ def partition_attn_block(
     mlp_ratio=4.0,
     prefix="",
 ):
+    """Partition-based attention block with MLP for MaxViT.
+
+    Applies multi-head self-attention within spatial partitions (local windows
+    or dilated grids), followed by an MLP branch. Both branches use pre-norm
+    residual connections.
+
+    Flow: partition -> LayerNorm -> Attention -> unpartition -> + residual
+          -> LayerNorm -> MLP -> + residual
+
+    Args:
+        x: Input tensor of shape ``(B, H, W, C)``.
+        dim: Channel dimension (must match ``C``).
+        num_heads: Number of attention heads.
+        window_size: Window / grid size for partitioning. Int or tuple.
+        img_size: Tuple ``(H, W)`` of the current spatial dimensions.
+        partition_type: ``"block"`` for local window attention or ``"grid"``
+            for dilated grid attention. Defaults to ``"block"``.
+        mlp_ratio: MLP hidden-dimension expansion ratio. Defaults to ``4.0``.
+        prefix: String prefix for layer names. Defaults to ``""``.
+
+    Returns:
+        Output tensor of same shape ``(B, H, W, C)``.
+    """
     part_size = (
         (window_size, window_size) if isinstance(window_size, int) else window_size
     )
 
     if partition_type == "block":
-        partitioned = WindowPartition(part_size, name=prefix + "win_part")(x)
+        partitioned = MaxViTWindowPartition(part_size, name=prefix + "win_part")(x)
     else:
-        partitioned = GridPartition(part_size, name=prefix + "grid_part")(x)
+        partitioned = MaxViTGridPartition(part_size, name=prefix + "grid_part")(x)
 
     y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm1")(partitioned)
     y = MaxViTAttention(
@@ -45,16 +195,16 @@ def partition_attn_block(
     )(y)
 
     if partition_type == "block":
-        y = WindowReverse(part_size, img_size, name=prefix + "win_rev")(y)
+        y = MaxViTWindowReverse(part_size, img_size, name=prefix + "win_rev")(y)
     else:
-        y = GridReverse(part_size, img_size, name=prefix + "grid_rev")(y)
+        y = MaxViTGridReverse(part_size, img_size, name=prefix + "grid_rev")(y)
 
     x = layers.Add()([x, y])
 
     residual = x
     y = layers.LayerNormalization(epsilon=1e-5, name=prefix + "norm2")(x)
     y = layers.Dense(int(dim * mlp_ratio), use_bias=True, name=prefix + "mlp_fc1")(y)
-    y = layers.Activation(gelu_tanh, name=prefix + "mlp_gelu")(y)
+    y = layers.Activation(maxvit_gelu_approximate, name=prefix + "mlp_gelu")(y)
     y = layers.Dense(dim, use_bias=True, name=prefix + "mlp_fc2")(y)
     x = layers.Add()([residual, y])
 
@@ -168,7 +318,7 @@ class MaxViT(keras.Model):
             momentum=0.9,
             name="stem_norm1",
         )(x)
-        x = layers.Activation(gelu_tanh, name="stem_act1")(x)
+        x = layers.Activation(maxvit_gelu_approximate, name="stem_act1")(x)
         x = layers.Conv2D(
             stem_width,
             3,
@@ -191,21 +341,21 @@ class MaxViT(keras.Model):
                 stride = 2 if block_idx == 0 else 1
                 block_in_ch = in_ch if block_idx == 0 else out_ch
 
-                x = MaxViTMBConv(
+                x = maxvit_mbconv_block(
+                    x,
                     in_channels=block_in_ch,
                     out_channels=out_ch,
                     expand_ratio=expand_ratio,
                     se_ratio=se_ratio,
                     stride=stride,
                     prefix=prefix,
-                    name=prefix + "mbconv",
-                )(x)
+                )
 
                 if stride == 2:
                     cur_H = cur_H // 2
                     cur_W = cur_W // 2
 
-                x = partition_attn_block(
+                x = maxvit_partition_attn_block(
                     x,
                     dim=out_ch,
                     num_heads=num_heads[stage_idx],
@@ -215,7 +365,7 @@ class MaxViT(keras.Model):
                     mlp_ratio=mlp_ratio,
                     prefix=prefix + "attn_block_",
                 )
-                x = partition_attn_block(
+                x = maxvit_partition_attn_block(
                     x,
                     dim=out_ch,
                     num_heads=num_heads[stage_idx],

@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
 
@@ -191,14 +190,16 @@ def patch_merging(inputs, channels_axis, data_format, name="patch_merging"):
         x = ops.transpose(x, (0, 1, 3, 2, 4, 5))
         x = ops.reshape(x, (-1, h, w, 4 * channels))
 
-    perm = np.arange(channels * 4).reshape((4, -1))
+    perm = ops.reshape(ops.arange(channels * 4), (4, -1))
+    perm = ops.convert_to_numpy(perm)
     perm[[1, 2]] = perm[[2, 1]]
     perm = perm.ravel()
 
     if cf:
         x = ops.transpose(x, (0, 2, 3, 1))
     x_reshaped = ops.reshape(x, (-1, 4 * channels))
-    perm_matrix = np.zeros((4 * channels, 4 * channels), dtype=np.float32)
+    perm_matrix = ops.zeros((4 * channels, 4 * channels), dtype="float32")
+    perm_matrix = ops.convert_to_numpy(perm_matrix)
     for i, j in enumerate(perm):
         perm_matrix[i, j] = 1
     x = ops.matmul(x_reshaped, ops.convert_to_tensor(perm_matrix))

@@ -68,30 +68,6 @@ def _cfg(cls, torch_name, res, num_classes=1000):
 
 
 model_configs: List[Dict[str, Union[type, str, list, int]]] = [
-    # MaxViTTiny
-    _cfg(maxvit.MaxViTTiny, "maxvit_tiny_tf_224.in1k", 224),
-    _cfg(maxvit.MaxViTTiny, "maxvit_tiny_tf_384.in1k", 384),
-    _cfg(maxvit.MaxViTTiny, "maxvit_tiny_tf_512.in1k", 512),
-    # MaxViTSmall
-    _cfg(maxvit.MaxViTSmall, "maxvit_small_tf_224.in1k", 224),
-    _cfg(maxvit.MaxViTSmall, "maxvit_small_tf_384.in1k", 384),
-    _cfg(maxvit.MaxViTSmall, "maxvit_small_tf_512.in1k", 512),
-    # MaxViTBase
-    _cfg(maxvit.MaxViTBase, "maxvit_base_tf_224.in1k", 224),
-    _cfg(maxvit.MaxViTBase, "maxvit_base_tf_384.in1k", 384),
-    _cfg(maxvit.MaxViTBase, "maxvit_base_tf_512.in1k", 512),
-    _cfg(maxvit.MaxViTBase, "maxvit_base_tf_224.in21k", 224, 21843),
-    _cfg(maxvit.MaxViTBase, "maxvit_base_tf_384.in21k_ft_in1k", 384),
-    _cfg(maxvit.MaxViTBase, "maxvit_base_tf_512.in21k_ft_in1k", 512),
-    # MaxViTLarge
-    _cfg(maxvit.MaxViTLarge, "maxvit_large_tf_224.in1k", 224),
-    _cfg(maxvit.MaxViTLarge, "maxvit_large_tf_384.in1k", 384),
-    _cfg(maxvit.MaxViTLarge, "maxvit_large_tf_512.in1k", 512),
-    _cfg(maxvit.MaxViTLarge, "maxvit_large_tf_224.in21k", 224, 21843),
-    _cfg(maxvit.MaxViTLarge, "maxvit_large_tf_384.in21k_ft_in1k", 384),
-    _cfg(maxvit.MaxViTLarge, "maxvit_large_tf_512.in21k_ft_in1k", 512),
-    # MaxViTXLarge
-    _cfg(maxvit.MaxViTXLarge, "maxvit_xlarge_tf_224.in21k", 224, 21843),
     _cfg(maxvit.MaxViTXLarge, "maxvit_xlarge_tf_384.in21k_ft_in1k", 384),
     _cfg(maxvit.MaxViTXLarge, "maxvit_xlarge_tf_512.in21k_ft_in1k", 512),
 ]

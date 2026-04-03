@@ -99,10 +99,10 @@ MAXVIT_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_224_in21k.weights.h5",
         },
         "in21k_ft_in1k_384": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_384_in21k_ft_in1k.weights.h5",
         },
         "in21k_ft_in1k_512": {
-            "url": "",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_512_in21k_ft_in1k.weights.h5",
         },
     },
 }

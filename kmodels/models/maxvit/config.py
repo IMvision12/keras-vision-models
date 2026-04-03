@@ -33,34 +33,76 @@ MAXVIT_MODEL_CONFIG = {
 
 MAXVIT_WEIGHTS_CONFIG = {
     "MaxViTTiny": {
-        "in1k_224": {"url": ""},
-        "in1k_384": {"url": ""},
-        "in1k_512": {"url": ""},
+        "in1k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_tiny_tf_224_in1k.weights.h5",
+        },
+        "in1k_384": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_tiny_tf_384_in1k.weights.h5",
+        },
+        "in1k_512": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_tiny_tf_512_in1k.weights.h5",
+        },
     },
     "MaxViTSmall": {
-        "in1k_224": {"url": ""},
-        "in1k_384": {"url": ""},
-        "in1k_512": {"url": ""},
+        "in1k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_small_tf_224_in1k.weights.h5",
+        },
+        "in1k_384": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_small_tf_384_in1k.weights.h5",
+        },
+        "in1k_512": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_small_tf_512_in1k.weights.h5",
+        },
     },
     "MaxViTBase": {
-        "in1k_224": {"url": ""},
-        "in1k_384": {"url": ""},
-        "in1k_512": {"url": ""},
-        "in21k_224": {"url": ""},
-        "in21k_ft_in1k_384": {"url": ""},
-        "in21k_ft_in1k_512": {"url": ""},
+        "in1k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_224_in1k.weights.h5",
+        },
+        "in1k_384": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_384_in1k.weights.h5",
+        },
+        "in1k_512": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_512_in1k.weights.h5",
+        },
+        "in21k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_224_in21k.weights.h5",
+        },
+        "in21k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_384_in21k_ft_in1k.weights.h5",
+        },
+        "in21k_ft_in1k_512": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_base_tf_512_in21k_ft_in1k.weights.h5",
+        },
     },
     "MaxViTLarge": {
-        "in1k_224": {"url": ""},
-        "in1k_384": {"url": ""},
-        "in1k_512": {"url": ""},
-        "in21k_224": {"url": ""},
-        "in21k_ft_in1k_384": {"url": ""},
-        "in21k_ft_in1k_512": {"url": ""},
+        "in1k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_224_in1k.weights.h5",
+        },
+        "in1k_384": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_384_in1k.weights.h5",
+        },
+        "in1k_512": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_512_in1k.weights.h5",
+        },
+        "in21k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_224_in21k.weights.h5",
+        },
+        "in21k_ft_in1k_384": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_384_in21k_ft_in1k.weights.h5",
+        },
+        "in21k_ft_in1k_512": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_large_tf_512_in21k_ft_in1k.weights.h5",
+        },
     },
     "MaxViTXLarge": {
-        "in21k_224": {"url": ""},
-        "in21k_ft_in1k_384": {"url": ""},
-        "in21k_ft_in1k_512": {"url": ""},
+        "in21k_224": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/MaxViT/maxvit_xlarge_tf_224_in21k.weights.h5",
+        },
+        "in21k_ft_in1k_384": {
+            "url": "",
+        },
+        "in21k_ft_in1k_512": {
+            "url": "",
+        },
     },
 }

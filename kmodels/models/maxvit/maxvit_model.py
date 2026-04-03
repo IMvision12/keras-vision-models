@@ -1,138 +1,20 @@
 import keras
-from keras import layers, ops, utils
+from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kmodels.model_registry import register_model
 from kmodels.utils import get_all_weight_names, load_weights_from_config
 
 from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHTS_CONFIG
-from .maxvit_layers import MaxViTAttention, MaxViTMBConv, gelu_tanh
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class WindowPartition(layers.Layer):
-    def __init__(self, window_size, **kwargs):
-        super().__init__(**kwargs)
-        if isinstance(window_size, int):
-            window_size = (window_size, window_size)
-        self.window_size = window_size
-
-    def call(self, x):
-        wh, ww = self.window_size
-        x_shape = ops.shape(x)
-        B, H, W, C = x_shape[0], x_shape[1], x_shape[2], x_shape[3]
-        nH = H // wh
-        nW = W // ww
-        x = ops.reshape(x, [B, nH, wh, nW, ww, C])
-        x = ops.transpose(x, [0, 1, 3, 2, 4, 5])
-        x = ops.reshape(x, [B * nH * nW, wh, ww, C])
-        return x
-
-    def compute_output_shape(self, input_shape):
-        B, H, W, C = input_shape
-        wh, ww = self.window_size
-        return (None, wh, ww, C)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"window_size": self.window_size})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class WindowReverse(layers.Layer):
-    def __init__(self, window_size, img_size, **kwargs):
-        super().__init__(**kwargs)
-        if isinstance(window_size, int):
-            window_size = (window_size, window_size)
-        self.window_size = window_size
-        self.img_size = img_size
-
-    def call(self, windows):
-        wh, ww = self.window_size
-        H, W = self.img_size
-        C = ops.shape(windows)[-1]
-        nH = H // wh
-        nW = W // ww
-        total_windows = ops.shape(windows)[0]
-        B = total_windows // (nH * nW)
-        x = ops.reshape(windows, [B, nH, nW, wh, ww, C])
-        x = ops.transpose(x, [0, 1, 3, 2, 4, 5])
-        x = ops.reshape(x, [B, H, W, C])
-        return x
-
-    def compute_output_shape(self, input_shape):
-        H, W = self.img_size
-        C = input_shape[-1]
-        return (None, H, W, C)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"window_size": self.window_size, "img_size": self.img_size})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class GridPartition(layers.Layer):
-    def __init__(self, grid_size, **kwargs):
-        super().__init__(**kwargs)
-        if isinstance(grid_size, int):
-            grid_size = (grid_size, grid_size)
-        self.grid_size = grid_size
-
-    def call(self, x):
-        gh, gw = self.grid_size
-        x_shape = ops.shape(x)
-        B, H, W, C = x_shape[0], x_shape[1], x_shape[2], x_shape[3]
-        nH = H // gh
-        nW = W // gw
-        x = ops.reshape(x, [B, gh, nH, gw, nW, C])
-        x = ops.transpose(x, [0, 2, 4, 1, 3, 5])
-        x = ops.reshape(x, [B * nH * nW, gh, gw, C])
-        return x
-
-    def compute_output_shape(self, input_shape):
-        B, H, W, C = input_shape
-        gh, gw = self.grid_size
-        return (None, gh, gw, C)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"grid_size": self.grid_size})
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class GridReverse(layers.Layer):
-    def __init__(self, grid_size, img_size, **kwargs):
-        super().__init__(**kwargs)
-        if isinstance(grid_size, int):
-            grid_size = (grid_size, grid_size)
-        self.grid_size = grid_size
-        self.img_size = img_size
-
-    def call(self, windows):
-        gh, gw = self.grid_size
-        H, W = self.img_size
-        C = ops.shape(windows)[-1]
-        nH = H // gh
-        nW = W // gw
-        total_windows = ops.shape(windows)[0]
-        B = total_windows // (nH * nW)
-        x = ops.reshape(windows, [B, nH, nW, gh, gw, C])
-        x = ops.transpose(x, [0, 3, 1, 4, 2, 5])
-        x = ops.reshape(x, [B, H, W, C])
-        return x
-
-    def compute_output_shape(self, input_shape):
-        H, W = self.img_size
-        C = input_shape[-1]
-        return (None, H, W, C)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"grid_size": self.grid_size, "img_size": self.img_size})
-        return config
+from .maxvit_layers import (
+    GridPartition,
+    GridReverse,
+    MaxViTAttention,
+    MaxViTMBConv,
+    WindowPartition,
+    WindowReverse,
+    gelu_tanh,
+)
 
 
 def partition_attn_block(

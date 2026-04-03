@@ -558,10 +558,10 @@ MODEL_TEST_CONFIGS = {
         "model_type": "promptable_segmentation",
         "init_kwargs": {
             "weights": None,
-            "input_shape": (128, 128, 3),
+            "input_shape": (64, 64, 3),
         },
         "input_factory": "sam_input",
-        "input_factory_kwargs": {"image_size": 128},
+        "input_factory_kwargs": {"image_size": 64},
         "expected_output_shape": {
             "pred_masks": None,
             "iou_scores": None,

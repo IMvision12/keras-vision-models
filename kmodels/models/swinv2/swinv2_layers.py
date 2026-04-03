@@ -523,7 +523,7 @@ class SwinV2Attention(layers.Layer):
 
         length = window_size**2
 
-        k_bias = ops.zeros_like(self.q_bias)
+        k_bias = ops.zeros(ops.shape(self.q_bias), dtype=self.q_bias.dtype)
         qkv_bias = ops.concatenate([self.q_bias, k_bias, self.v_bias])
 
         qkv = ops.matmul(x, self.qkv.kernel)

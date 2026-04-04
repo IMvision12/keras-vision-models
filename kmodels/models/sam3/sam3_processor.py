@@ -1,0 +1,389 @@
+"""SAM3 Processor: end-to-end preprocessing, inference, and post-processing.
+
+Matches HF Sam3Processor functionality using pure Keras 3 ops.
+Supports text prompts and box prompts for detection + segmentation.
+"""
+
+import numpy as np
+from keras import ops
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Box utilities (pure numpy, matching HF)
+# ═══════════════════════════════════════════════════════════════════
+
+
+def box_xyxy_to_cxcywh(boxes):
+    x0, y0, x1, y1 = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
+    return np.stack([(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0], axis=-1)
+
+
+def box_cxcywh_to_xyxy(boxes):
+    cx, cy, w, h = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
+    return np.stack([cx - 0.5 * w, cy - 0.5 * h, cx + 0.5 * w, cy + 0.5 * h], axis=-1)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Image preprocessing
+# ═══════════════════════════════════════════════════════════════════
+
+IMAGE_SIZE = 1008
+RESCALE_FACTOR = 1.0 / 255.0
+IMAGE_MEAN = np.array([0.5, 0.5, 0.5], dtype=np.float32)
+IMAGE_STD = np.array([0.5, 0.5, 0.5], dtype=np.float32)
+
+
+def preprocess_image(image, target_size=IMAGE_SIZE):
+    """Preprocess image for SAM3: resize, rescale, normalize.
+
+    Uses keras.ops.image.resize for backend-native bilinear interpolation
+    (matches torchvision on torch backend, tf.image on TF backend).
+    Rescales via float64 intermediate to match HF's precision.
+
+    Args:
+        image: PIL Image, numpy array (H,W,3), or file path.
+        target_size: int, target square size.
+
+    Returns:
+        pixel_values: (1, H, W, 3) float32 normalized.
+        original_size: (height, width) tuple.
+    """
+    if isinstance(image, str):
+        if Image is None:
+            raise ImportError("PIL required for loading images from paths")
+        image = Image.open(image).convert("RGB")
+
+    if Image is not None and isinstance(image, Image.Image):
+        original_size = (image.height, image.width)
+        image = np.array(image)  # uint8 HWC
+    else:
+        image = np.asarray(image)
+        original_size = (image.shape[0], image.shape[1])
+        if image.dtype != np.uint8:
+            if image.max() <= 1.0:
+                image = (image * 255).astype(np.uint8)
+            else:
+                image = image.astype(np.uint8)
+
+    # Resize matching HF TorchvisionBackend._compile_friendly_resize:
+    # uint8 -> float/256 -> resize(bilinear, antialias) -> *256 -> round -> uint8
+    image_t = ops.convert_to_tensor(image.astype(np.float32) / 256.0)
+    image_4d = ops.expand_dims(image_t, 0)  # (1, H, W, 3)
+    resized = ops.image.resize(
+        image_4d, (target_size, target_size), interpolation="bilinear"
+    )
+    # Back to uint8 range
+    resized = resized * 256.0
+    resized = ops.clip(resized, 0, 255)
+    resized = ops.round(resized)
+    resized = ops.convert_to_numpy(resized)[0]  # (H, W, 3) float32
+
+    # Rescale [0,255] -> [0,1] via float64 (matches HF rescale precision)
+    image = (resized.astype(np.float64) * RESCALE_FACTOR).astype(np.float32)
+    image = (image - IMAGE_MEAN) / IMAGE_STD
+    return image[np.newaxis], original_size
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Text preprocessing
+# ═══════════════════════════════════════════════════════════════════
+
+
+def preprocess_text_with_encoder(text, text_encoder_model, tokenizer):
+    """Tokenize and encode text using the CLIP text encoder.
+
+    Args:
+        text: str or list of str.
+        text_encoder_model: Keras SAM3 text encoder model.
+        tokenizer: CLIP tokenizer (from HF or compatible).
+
+    Returns:
+        text_features: (1, seq_len, 1024) numpy array.
+        attention_mask: (1, seq_len) float32 numpy array.
+    """
+    if isinstance(text, str):
+        text = [text]
+
+    tokens = tokenizer(text, padding="max_length", max_length=32, return_tensors="np")
+    input_ids = tokens["input_ids"].astype(np.int32)
+    attention_mask = tokens["attention_mask"].astype(np.int32)
+
+    text_features = text_encoder_model.predict(
+        {"input_ids": input_ids, "attention_mask": attention_mask}, verbose=0
+    )
+    return text_features, attention_mask.astype(np.float32)
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Box prompt preprocessing (matching HF Sam3Processor)
+# ═══════════════════════════════════════════════════════════════════
+
+POINT_PAD_VALUE = -10
+
+
+def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
+    """Normalize and convert box prompts to model input format.
+
+    Args:
+        input_boxes: list of list of [x1,y1,x2,y2] boxes per image.
+            Shape: [batch, num_boxes, 4] in absolute pixel coordinates.
+        input_boxes_labels: list of list of int labels (0 or 1) per image.
+            Shape: [batch, num_boxes].
+        original_sizes: list of (H, W) tuples per image.
+
+    Returns:
+        boxes_cxcywh: (batch, max_boxes, 4) float32, normalized cxcywh.
+        box_labels: (batch, max_boxes) int32.
+        box_mask: (batch, max_boxes) float32, 1=valid 0=padding.
+    """
+    if isinstance(input_boxes, np.ndarray):
+        input_boxes = input_boxes.tolist()
+    if isinstance(input_boxes_labels, np.ndarray):
+        input_boxes_labels = input_boxes_labels.tolist()
+
+    batch_size = len(input_boxes)
+
+    # Find max boxes for padding
+    max_boxes = max(len(boxes) for boxes in input_boxes)
+
+    all_boxes = []
+    all_labels = []
+    all_masks = []
+
+    for img_idx in range(batch_size):
+        boxes = input_boxes[img_idx]
+        labels = input_boxes_labels[img_idx] if input_boxes_labels else [1] * len(boxes)
+        h, w = original_sizes[img_idx]
+
+        # Normalize coordinates to [0, 1]
+        normalized = []
+        for box in boxes:
+            x1, y1, x2, y2 = box
+            normalized.append([x1 / w, y1 / h, x2 / w, y2 / h])
+
+        # Convert xyxy to cxcywh
+        if normalized:
+            norm_arr = np.array(normalized, dtype=np.float32)
+            cxcywh = box_xyxy_to_cxcywh(norm_arr)
+        else:
+            cxcywh = np.zeros((0, 4), dtype=np.float32)
+
+        # Pad to max_boxes
+        num_boxes = len(boxes)
+        pad_count = max_boxes - num_boxes
+        if pad_count > 0:
+            pad_boxes = np.full((pad_count, 4), POINT_PAD_VALUE, dtype=np.float32)
+            cxcywh = np.concatenate([cxcywh, pad_boxes], axis=0)
+            labels = list(labels) + [0] * pad_count
+
+        mask = np.array([1.0] * num_boxes + [0.0] * pad_count, dtype=np.float32)
+
+        all_boxes.append(cxcywh)
+        all_labels.append(np.array(labels, dtype=np.int32))
+        all_masks.append(mask)
+
+    return (
+        np.stack(all_boxes),
+        np.stack(all_labels),
+        np.stack(all_masks),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  Post-processing (matching HF Sam3ImageProcessor)
+# ═══════════════════════════════════════════════════════════════════
+
+
+def _sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -88, 88)))
+
+
+def _scale_boxes(boxes, target_size):
+    """Scale [0,1] normalized boxes to absolute coordinates."""
+    h, w = target_size
+    return boxes * np.array([w, h, w, h], dtype=np.float32)
+
+
+def _compute_scores(pred_logits, presence_logits):
+    """Compute final scores: sigmoid(logits) * sigmoid(presence)."""
+    scores = _sigmoid(pred_logits)
+    if presence_logits is not None:
+        presence = np.asarray(presence_logits)
+        if presence.ndim == 1:
+            # (num_layers,) → last layer
+            p = _sigmoid(presence[-1:]).reshape(1, 1)
+        else:
+            p = _sigmoid(presence)
+        scores = scores * p
+    return scores
+
+
+def post_process_object_detection(outputs, threshold=0.3, target_sizes=None):
+    """Convert raw outputs to detection results.
+
+    Returns: list of dict with 'scores' and 'boxes'.
+    """
+    pred_logits = np.asarray(outputs["pred_logits"])
+    pred_boxes = np.asarray(outputs["pred_boxes"])
+    presence = outputs.get("presence_logits")
+    batch_scores = _compute_scores(pred_logits, presence)
+
+    results = []
+    for idx in range(pred_logits.shape[0]):
+        scores = batch_scores[idx]
+        boxes = pred_boxes[idx].copy()
+        if target_sizes is not None:
+            boxes = _scale_boxes(boxes, target_sizes[idx])
+        keep = scores > threshold
+        results.append({"scores": scores[keep], "boxes": boxes[keep]})
+    return results
+
+
+def post_process_instance_segmentation(
+    outputs, threshold=0.3, mask_threshold=0.5, target_sizes=None
+):
+    """Convert raw outputs to instance segmentation results.
+
+    Returns: list of dict with 'scores', 'boxes', 'masks'.
+    """
+    pred_logits = np.asarray(outputs["pred_logits"])
+    pred_boxes = np.asarray(outputs["pred_boxes"])
+    pred_masks = np.asarray(outputs["pred_masks"])
+    presence = outputs.get("presence_logits")
+    batch_scores = _compute_scores(pred_logits, presence)
+    batch_masks = _sigmoid(pred_masks)
+
+    results = []
+    for idx in range(pred_logits.shape[0]):
+        scores = batch_scores[idx]
+        boxes = pred_boxes[idx].copy()
+        masks = batch_masks[idx]
+
+        if target_sizes is not None:
+            boxes = _scale_boxes(boxes, target_sizes[idx])
+
+        keep = scores > threshold
+        scores = scores[keep]
+        boxes = boxes[keep]
+        masks = masks[keep]
+
+        # Resize masks to target size
+        if target_sizes is not None and len(masks) > 0 and Image is not None:
+            th, tw = target_sizes[idx]
+            resized = []
+            for m in masks:
+                pil_m = Image.fromarray((m * 255).astype(np.uint8))
+                pil_m = pil_m.resize((tw, th), Image.BILINEAR)
+                resized.append(np.array(pil_m, dtype=np.float32) / 255.0)
+            masks = np.stack(resized)
+
+        masks = (masks > mask_threshold).astype(np.int32)
+        results.append({"scores": scores, "boxes": boxes, "masks": masks})
+    return results
+
+
+def post_process_semantic_segmentation(outputs, target_sizes=None, threshold=0.5):
+    """Convert raw outputs to semantic segmentation maps.
+
+    Returns: list of binary masks (H, W).
+    """
+    semantic = np.asarray(outputs["semantic_seg"])
+    probs = _sigmoid(semantic)
+
+    results = []
+    for idx in range(semantic.shape[0]):
+        mask = probs[idx, 0]
+        if target_sizes is not None and Image is not None:
+            th, tw = target_sizes[idx]
+            pil_m = Image.fromarray((mask * 255).astype(np.uint8))
+            pil_m = pil_m.resize((tw, th), Image.BILINEAR)
+            mask = np.array(pil_m, dtype=np.float32) / 255.0
+        mask = (mask > threshold).astype(np.int32)
+        results.append(mask)
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  End-to-end pipeline
+# ═══════════════════════════════════════════════════════════════════
+
+
+def predict(
+    model,
+    image,
+    text=None,
+    tokenizer=None,
+    text_encoder_model=None,
+    text_features=None,
+    text_attention_mask=None,
+    threshold=0.3,
+    mask_threshold=0.5,
+    return_raw=False,
+):
+    """End-to-end SAM3 prediction pipeline.
+
+    Supports two text input modes:
+    1. Pre-computed: pass text_features + text_attention_mask directly.
+    2. From string: pass text + tokenizer + text_encoder_model.
+
+    Args:
+        model: Keras SAM3 segmentation model.
+        image: PIL Image, numpy array, or file path.
+        text: Text prompt string (requires tokenizer + text_encoder_model).
+        tokenizer: CLIP tokenizer.
+        text_encoder_model: Keras CLIP text encoder model.
+        text_features: Pre-computed (1, seq, 1024) features.
+        text_attention_mask: (1, seq) mask.
+        threshold: Detection score threshold.
+        mask_threshold: Mask binarization threshold.
+        return_raw: Return raw model outputs.
+
+    Returns:
+        dict with 'detection', 'instance_segmentation', 'semantic_segmentation'.
+    """
+    pixel_values, original_size = preprocess_image(image)
+
+    if text_features is None:
+        if text is None:
+            raise ValueError("Provide either text or text_features.")
+        if tokenizer is None or text_encoder_model is None:
+            raise ValueError(
+                "tokenizer and text_encoder_model required for text input."
+            )
+        text_features, text_attention_mask = preprocess_text_with_encoder(
+            text, text_encoder_model, tokenizer
+        )
+    else:
+        text_features = np.asarray(text_features)
+        if text_attention_mask is None:
+            text_attention_mask = np.ones(text_features.shape[:2], dtype=np.float32)
+        else:
+            text_attention_mask = np.asarray(text_attention_mask, dtype=np.float32)
+
+    raw = model.predict(
+        {
+            "pixel_values": pixel_values,
+            "text_features": text_features,
+            "text_attention_mask": text_attention_mask,
+        },
+        verbose=0,
+    )
+
+    if return_raw:
+        return raw
+
+    target_sizes = [original_size]
+    return {
+        "detection": post_process_object_detection(raw, threshold, target_sizes),
+        "instance_segmentation": post_process_instance_segmentation(
+            raw, threshold, mask_threshold, target_sizes
+        ),
+        "semantic_segmentation": post_process_semantic_segmentation(
+            raw, target_sizes, mask_threshold
+        ),
+    }

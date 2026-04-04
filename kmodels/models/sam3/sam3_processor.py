@@ -94,29 +94,30 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
 # ═══════════════════════════════════════════════════════════════════
 
 
-def preprocess_text_with_encoder(text, text_encoder_model, tokenizer):
+def preprocess_text_with_encoder(text, text_encoder_model, tokenizer=None):
     """Tokenize and encode text using the CLIP text encoder.
 
     Args:
         text: str or list of str.
         text_encoder_model: Keras SAM3 text encoder model.
-        tokenizer: CLIP tokenizer (from HF or compatible).
+        tokenizer: SAM3CLIPTokenizer instance. If None, creates one automatically.
 
     Returns:
-        text_features: (1, seq_len, 1024) numpy array.
-        attention_mask: (1, seq_len) float32 numpy array.
+        text_features: (batch, 32, 1024) numpy array.
+        attention_mask: (batch, 32) float32 numpy array.
     """
-    if isinstance(text, str):
-        text = [text]
+    if tokenizer is None:
+        from kmodels.models.sam3.sam3_clip import SAM3CLIPTokenizer
 
-    tokens = tokenizer(text, padding="max_length", max_length=32, return_tensors="np")
-    input_ids = tokens["input_ids"].astype(np.int32)
-    attention_mask = tokens["attention_mask"].astype(np.int32)
+        tokenizer = SAM3CLIPTokenizer()
+
+    input_ids, attention_mask = tokenizer.encode(text)
 
     text_features = text_encoder_model.predict(
-        {"input_ids": input_ids, "attention_mask": attention_mask}, verbose=0
+        {"input_ids": input_ids, "attention_mask": attention_mask.astype(np.int32)},
+        verbose=0,
     )
-    return text_features, attention_mask.astype(np.float32)
+    return text_features, attention_mask
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -351,10 +352,9 @@ def predict(
     if text_features is None:
         if text is None:
             raise ValueError("Provide either text or text_features.")
-        if tokenizer is None or text_encoder_model is None:
-            raise ValueError(
-                "tokenizer and text_encoder_model required for text input."
-            )
+        if text_encoder_model is None:
+            raise ValueError("text_encoder_model required for text input.")
+        # tokenizer is optional — auto-created if not provided
         text_features, text_attention_mask = preprocess_text_with_encoder(
             text, text_encoder_model, tokenizer
         )

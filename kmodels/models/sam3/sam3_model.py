@@ -15,10 +15,12 @@ from .sam3_layers import (
     SAM3LearnableEmbedding,
     SAM3MultiHeadAttention,
     SAM3ViTLayer,
-    _box_cxcywh_to_xyxy,
-    _compute_sine_pos_encoding,
-    _inverse_sigmoid,
-    _sine_encode_boxes,
+)
+from .sam3_utils import (
+    box_cxcywh_to_xyxy,
+    compute_sine_pos_encoding,
+    inverse_sigmoid,
+    sine_encode_boxes,
 )
 
 LAYER_NORM_EPS = 1e-6
@@ -202,7 +204,7 @@ def _build_detr_encoder(
         (enc_h * enc_h, fpn_hidden_size), name="encoder_vision_flatten"
     )(encoder_vision_flat)
 
-    enc_pos_np = _compute_sine_pos_encoding(
+    enc_pos_np = compute_sine_pos_encoding(
         enc_h, enc_h, fpn_hidden_size // 2, normalize=True
     )
     enc_pos_np = enc_pos_np.transpose(0, 2, 3, 1).reshape(
@@ -312,7 +314,7 @@ def _build_detr_decoder(
     all_intermediate = []
 
     for i in range(detr_decoder_num_layers):
-        ref_encoded = _sine_encode_boxes(
+        ref_encoded = sine_encode_boxes(
             reference_points,
             num_pos_feats=detr_decoder_hidden_size // 2,
         )
@@ -343,7 +345,7 @@ def _build_detr_decoder(
 
         box_delta = box_head(output_layer_norm(query_hidden))
         new_ref = ops.sigmoid(
-            _inverse_sigmoid(ops.stop_gradient(reference_points)) + box_delta
+            inverse_sigmoid(ops.stop_gradient(reference_points)) + box_delta
         )
         reference_points = ops.stop_gradient(new_ref)
         all_input_boxes.append(new_ref)
@@ -359,10 +361,8 @@ def _build_detr_decoder(
     decoder_hidden = all_intermediate[-1]
     last_ref_boxes = all_input_boxes[-2]
     final_box_offsets = box_head(decoder_hidden)
-    pred_boxes_cxcywh = ops.sigmoid(
-        _inverse_sigmoid(last_ref_boxes) + final_box_offsets
-    )
-    pred_boxes = _box_cxcywh_to_xyxy(pred_boxes_cxcywh)
+    pred_boxes_cxcywh = ops.sigmoid(inverse_sigmoid(last_ref_boxes) + final_box_offsets)
+    pred_boxes = box_cxcywh_to_xyxy(pred_boxes_cxcywh)
 
     scoring = SAM3DotProductScoring(
         hidden_size=detr_decoder_hidden_size,

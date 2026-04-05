@@ -1,5 +1,4 @@
 import keras
-import numpy as np
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
@@ -18,76 +17,10 @@ from .sam3_layers import (
     SAM3MultiHeadAttention,
     SAM3ViTLayer,
     _box_cxcywh_to_xyxy,
+    _compute_sine_pos_encoding,
     _inverse_sigmoid,
+    _sine_encode_boxes,
 )
-
-
-def _sine_encode_boxes(boxes, num_pos_feats=128, temperature=10000):
-    """Encode box coords matching HF: interleaved sin/cos, order (y, x, w, h)."""
-    scale = 2 * 3.141592653589793
-    dim_t = ops.cast(ops.arange(num_pos_feats), dtype="float32")
-    dim_t = temperature ** (2 * ops.floor(dim_t / 2) / num_pos_feats)
-
-    def _encode_coord(coord):
-        # coord: (B, Q)
-        c = coord * scale
-        c = ops.expand_dims(c, axis=-1) / dim_t  # (B, Q, num_pos_feats)
-        # Interleave sin(even) and cos(odd)
-        c_sin = ops.sin(c[..., 0::2])  # (B, Q, num_pos_feats//2)
-        c_cos = ops.cos(c[..., 1::2])  # (B, Q, num_pos_feats//2)
-        # Stack and flatten to interleave: [sin0, cos0, sin1, cos1, ...]
-        # Use concatenation of pairs to avoid reshape with dynamic batch
-        half = num_pos_feats // 2
-        parts = []
-        for j in range(half):
-            parts.append(c_sin[:, :, j : j + 1])
-            parts.append(c_cos[:, :, j : j + 1])
-        return ops.concatenate(parts, axis=-1)  # (B, Q, num_pos_feats)
-
-    # HF order: y, x, w, h (boxes are cx, cy, w, h)
-    pos_y = _encode_coord(boxes[:, :, 1])  # cy -> y
-    pos_x = _encode_coord(boxes[:, :, 0])  # cx -> x
-    pos_w = _encode_coord(boxes[:, :, 2])  # w
-    pos_h = _encode_coord(boxes[:, :, 3])  # h
-
-    return ops.concatenate([pos_y, pos_x, pos_w, pos_h], axis=-1)  # (B, Q, 4*F)
-
-
-def _compute_sine_pos_encoding(
-    height, width, num_pos_feats, temperature=10000, normalize=True
-):
-    import math
-
-    scale = 2 * math.pi
-    y_embed = np.cumsum(np.ones((1, height, width), dtype=np.float32), axis=1)
-    x_embed = np.cumsum(np.ones((1, height, width), dtype=np.float32), axis=2)
-
-    if normalize:
-        eps = 1e-6
-        y_embed = y_embed / (y_embed[:, -1:, :] + eps) * scale
-        x_embed = x_embed / (x_embed[:, :, -1:] + eps) * scale
-
-    dim_t = np.arange(num_pos_feats, dtype=np.float32)
-    dim_t = temperature ** (2 * np.floor(dim_t / 2) / num_pos_feats)
-
-    pos_x = x_embed[..., np.newaxis] / dim_t
-    pos_y = y_embed[..., np.newaxis] / dim_t
-
-    pos_x_sin = np.sin(pos_x[:, :, :, 0::2])
-    pos_x_cos = np.cos(pos_x[:, :, :, 1::2])
-    pos_y_sin = np.sin(pos_y[:, :, :, 0::2])
-    pos_y_cos = np.cos(pos_y[:, :, :, 1::2])
-
-    pos_x = np.stack([pos_x_sin, pos_x_cos], axis=4).reshape(
-        1, height, width, num_pos_feats
-    )
-    pos_y = np.stack([pos_y_sin, pos_y_cos], axis=4).reshape(
-        1, height, width, num_pos_feats
-    )
-
-    pos = np.concatenate([pos_y, pos_x], axis=-1)
-    pos = pos.transpose(0, 3, 1, 2)  # (1, 2*num_pos_feats, H, W)
-    return pos
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

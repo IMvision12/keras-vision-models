@@ -33,6 +33,66 @@ def _apply_rotary_pos_emb_2d(q, k, cos, sin):
     return q_embed, k_embed
 
 
+def _sine_encode_boxes(boxes, num_pos_feats=128, temperature=10000):
+    """Encode box coords matching HF: interleaved sin/cos, order (y, x, w, h)."""
+    scale = 2 * 3.141592653589793
+    dim_t = ops.cast(ops.arange(num_pos_feats), dtype="float32")
+    dim_t = temperature ** (2 * ops.floor(dim_t / 2) / num_pos_feats)
+
+    def _encode_coord(coord):
+        c = coord * scale
+        c = ops.expand_dims(c, axis=-1) / dim_t
+        c_sin = ops.sin(c[..., 0::2])
+        c_cos = ops.cos(c[..., 1::2])
+        half = num_pos_feats // 2
+        parts = []
+        for j in range(half):
+            parts.append(c_sin[:, :, j : j + 1])
+            parts.append(c_cos[:, :, j : j + 1])
+        return ops.concatenate(parts, axis=-1)
+
+    pos_y = _encode_coord(boxes[:, :, 1])
+    pos_x = _encode_coord(boxes[:, :, 0])
+    pos_w = _encode_coord(boxes[:, :, 2])
+    pos_h = _encode_coord(boxes[:, :, 3])
+    return ops.concatenate([pos_y, pos_x, pos_w, pos_h], axis=-1)
+
+
+def _compute_sine_pos_encoding(
+    height, width, num_pos_feats, temperature=10000, normalize=True
+):
+    scale = 2 * math.pi
+    y_embed = np.cumsum(np.ones((1, height, width), dtype=np.float32), axis=1)
+    x_embed = np.cumsum(np.ones((1, height, width), dtype=np.float32), axis=2)
+
+    if normalize:
+        eps = 1e-6
+        y_embed = y_embed / (y_embed[:, -1:, :] + eps) * scale
+        x_embed = x_embed / (x_embed[:, :, -1:] + eps) * scale
+
+    dim_t = np.arange(num_pos_feats, dtype=np.float32)
+    dim_t = temperature ** (2 * np.floor(dim_t / 2) / num_pos_feats)
+
+    pos_x = x_embed[..., np.newaxis] / dim_t
+    pos_y = y_embed[..., np.newaxis] / dim_t
+
+    pos_x_sin = np.sin(pos_x[:, :, :, 0::2])
+    pos_x_cos = np.cos(pos_x[:, :, :, 1::2])
+    pos_y_sin = np.sin(pos_y[:, :, :, 0::2])
+    pos_y_cos = np.cos(pos_y[:, :, :, 1::2])
+
+    pos_x = np.stack([pos_x_sin, pos_x_cos], axis=4).reshape(
+        1, height, width, num_pos_feats
+    )
+    pos_y = np.stack([pos_y_sin, pos_y_cos], axis=4).reshape(
+        1, height, width, num_pos_feats
+    )
+
+    pos = np.concatenate([pos_y, pos_x], axis=-1)
+    pos = pos.transpose(0, 3, 1, 2)
+    return pos
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3LearnableEmbedding(layers.Layer):
     def __init__(self, num_embeddings, embedding_dim, apply_sigmoid=False, **kwargs):
@@ -1198,218 +1258,6 @@ class SAM3BoxRPB(layers.Layer):
                 "num_attention_heads": self.num_attention_heads,
                 "spatial_h": self.spatial_h,
                 "spatial_w": self.spatial_w,
-            }
-        )
-        return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  CLIP Text Encoder (for SAM3 built-in text encoding)
-# ═══════════════════════════════════════════════════════════════════
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM3CLIPAttention(layers.Layer):
-    """Multi-head attention for CLIP text encoder."""
-
-    def __init__(self, hidden_size, num_attention_heads, **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.head_dim = hidden_size // num_attention_heads
-        self.scale = self.head_dim**-0.5
-
-    def build(self, input_shape):
-        dim = self.hidden_size
-        self.q_proj = layers.Dense(dim, name="q_proj")
-        self.q_proj.build((None, None, dim))
-        self.k_proj = layers.Dense(dim, name="k_proj")
-        self.k_proj.build((None, None, dim))
-        self.v_proj = layers.Dense(dim, name="v_proj")
-        self.v_proj.build((None, None, dim))
-        self.o_proj = layers.Dense(dim, name="o_proj")
-        self.o_proj.build((None, None, dim))
-        self.built = True
-
-    def call(self, hidden_states, attention_mask=None):
-        q = self.q_proj(hidden_states)
-        k = self.k_proj(hidden_states)
-        v = self.v_proj(hidden_states)
-
-        q_shape = ops.shape(q)
-        k_shape = ops.shape(k)
-        q = ops.reshape(
-            q, (q_shape[0], q_shape[1], self.num_attention_heads, self.head_dim)
-        )
-        k = ops.reshape(
-            k, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
-        )
-        v = ops.reshape(
-            v, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
-        )
-
-        q = ops.transpose(q, (0, 2, 1, 3))
-        k = ops.transpose(k, (0, 2, 1, 3))
-        v = ops.transpose(v, (0, 2, 1, 3))
-
-        attn_weights = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
-        if attention_mask is not None:
-            attn_weights = attn_weights + attention_mask
-        attn_weights = ops.softmax(attn_weights, axis=-1)
-
-        attn_output = ops.matmul(attn_weights, v)
-        attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
-        attn_output = ops.reshape(
-            attn_output, (q_shape[0], q_shape[1], self.hidden_size)
-        )
-        return self.o_proj(attn_output)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM3CLIPEncoderLayer(layers.Layer):
-    """Single CLIP transformer encoder layer with pre-norm."""
-
-    def __init__(self, hidden_size, num_attention_heads, intermediate_size, **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.intermediate_size = intermediate_size
-
-    def build(self, input_shape):
-        dim = self.hidden_size
-        self.layer_norm1 = layers.LayerNormalization(epsilon=1e-5, name="layer_norm1")
-        self.layer_norm1.build((None, None, dim))
-        self.layer_norm2 = layers.LayerNormalization(epsilon=1e-5, name="layer_norm2")
-        self.layer_norm2.build((None, None, dim))
-        self.self_attn = SAM3CLIPAttention(
-            dim, self.num_attention_heads, name="self_attn"
-        )
-        self.self_attn.build((None, None, dim))
-        self.fc1 = layers.Dense(self.intermediate_size, name="fc1")
-        self.fc1.build((None, None, dim))
-        self.fc2 = layers.Dense(dim, name="fc2")
-        self.fc2.build((None, None, self.intermediate_size))
-        self.built = True
-
-    def call(self, hidden_states, attention_mask=None):
-        residual = hidden_states
-        hidden_states = self.layer_norm1(hidden_states)
-        hidden_states = self.self_attn(hidden_states, attention_mask=attention_mask)
-        hidden_states = residual + hidden_states
-
-        residual = hidden_states
-        hidden_states = self.layer_norm2(hidden_states)
-        hidden_states = self.fc1(hidden_states)
-        hidden_states = ops.nn.gelu(hidden_states, approximate=False)
-        hidden_states = self.fc2(hidden_states)
-        hidden_states = residual + hidden_states
-        return hidden_states
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-                "intermediate_size": self.intermediate_size,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM3CLIPTextEncoder(layers.Layer):
-    """Full CLIP text encoder returning last_hidden_state (not pooled).
-
-    Matches HF CLIPTextModel: token_embed + pos_embed + N layers + final_LN.
-    Returns (batch, seq_len, hidden_size).
-    """
-
-    def __init__(
-        self,
-        vocab_size=49408,
-        hidden_size=1024,
-        num_hidden_layers=24,
-        num_attention_heads=16,
-        intermediate_size=4096,
-        max_position_embeddings=32,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.vocab_size = vocab_size
-        self.hidden_size = hidden_size
-        self.num_hidden_layers = num_hidden_layers
-        self.num_attention_heads = num_attention_heads
-        self.intermediate_size = intermediate_size
-        self.max_position_embeddings = max_position_embeddings
-
-    def build(self, input_shape):
-        self.token_embedding = layers.Embedding(
-            self.vocab_size, self.hidden_size, name="token_embedding"
-        )
-        self.token_embedding.build((None, self.max_position_embeddings))
-        self.position_embedding = layers.Embedding(
-            self.max_position_embeddings, self.hidden_size, name="position_embedding"
-        )
-        self.position_embedding.build((None, self.max_position_embeddings))
-        self.encoder_layers = []
-        for i in range(self.num_hidden_layers):
-            layer = SAM3CLIPEncoderLayer(
-                self.hidden_size,
-                self.num_attention_heads,
-                self.intermediate_size,
-                name=f"layers_{i}",
-            )
-            layer.build((None, None, self.hidden_size))
-            self.encoder_layers.append(layer)
-        self.final_layer_norm = layers.LayerNormalization(
-            epsilon=1e-5, name="final_layer_norm"
-        )
-        self.final_layer_norm.build((None, None, self.hidden_size))
-        self.built = True
-
-    def call(self, input_ids, attention_mask=None):
-        seq_len = ops.shape(input_ids)[1]
-        hidden_states = self.token_embedding(input_ids)
-        position_ids = ops.arange(seq_len, dtype="int32")
-        hidden_states = hidden_states + self.position_embedding(position_ids)
-
-        # Causal mask
-        causal_mask = ops.triu(ops.full((seq_len, seq_len), -1e9), k=1)
-        if attention_mask is not None:
-            pad_mask = ops.cast(
-                1.0 - ops.cast(attention_mask, "float32"), "float32"
-            ) * (-1e9)
-            pad_mask = ops.reshape(pad_mask, (-1, 1, 1, seq_len))
-            combined_mask = causal_mask + pad_mask
-        else:
-            combined_mask = causal_mask
-
-        for layer in self.encoder_layers:
-            hidden_states = layer(hidden_states, attention_mask=combined_mask)
-
-        return self.final_layer_norm(hidden_states)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "vocab_size": self.vocab_size,
-                "hidden_size": self.hidden_size,
-                "num_hidden_layers": self.num_hidden_layers,
-                "num_attention_heads": self.num_attention_heads,
-                "intermediate_size": self.intermediate_size,
-                "max_position_embeddings": self.max_position_embeddings,
             }
         )
         return config

@@ -8,10 +8,8 @@ import torch  # noqa: E402
 from tqdm import tqdm  # noqa: E402
 from transformers import Sam3Model  # noqa: E402
 
-from kmodels.models.sam3.sam3_layers import (  # noqa: E402
-    SAM3CLIPTextEncoder,
-    SAM3GeometryEncoder,
-)
+from kmodels.models.sam3.sam3_clip import SAM3CLIPTextEncoder  # noqa: E402
+from kmodels.models.sam3.sam3_layers import SAM3GeometryEncoder  # noqa: E402
 from kmodels.models.sam3.sam3_model import Sam3  # noqa: E402
 from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights  # noqa: E402
 

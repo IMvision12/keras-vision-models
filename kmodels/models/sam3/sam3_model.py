@@ -982,3 +982,148 @@ def Sam3(input_shape=None, input_tensor=None, weights=None, **kwargs):
         weights=weights,
         **kwargs,
     )
+
+
+def build_sam3_decoder_model(sam3_model):
+    """Build a decoder-only model that takes pre-computed FPN features.
+
+    Takes FPN outputs + projected text (256d) as inputs, skipping the
+    vision backbone. Use with build_sam3_vision_model() for efficient
+    multi-prompt inference on the same image.
+
+    Args:
+        sam3_model: a trained SAM3 model to copy config and weights from.
+
+    Returns:
+        decoder_model: keras.Model with inputs:
+            - fpn_0: (B, 256, 288, 288) FPN 4x
+            - fpn_1: (B, 256, 144, 144) FPN 2x
+            - fpn_2: (B, 256, 72, 72) FPN 1x
+            - fpn_3: (B, 256, 36, 36) FPN 0.5x
+            - text_projected: (B, seq, 256) pre-projected text features
+            - text_attention_mask: (B, seq) float mask
+    """
+    cfg = sam3_model.get_config()
+    fpn_hidden_size = cfg["fpn_hidden_size"]
+    grid_size = cfg["vit_image_size"] // cfg["vit_patch_size"]
+
+    fpn_0_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_0")
+    fpn_1_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_1")
+    fpn_2_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_2")
+    fpn_3_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_3")
+    text_proj_in = layers.Input(
+        shape=(None, cfg["detr_encoder_hidden_size"]),
+        name="text_projected",
+        dtype="float32",
+    )
+    text_mask_in = layers.Input(
+        shape=(None,), name="text_attention_mask", dtype="float32"
+    )
+
+    fpn_hidden_states = [fpn_0_in, fpn_1_in, fpn_2_in, fpn_3_in]
+
+    text_attn_mask = layers.Lambda(
+        lambda m: ops.expand_dims(ops.expand_dims((1.0 - m) * (-1e9), axis=1), axis=1),
+        name="text_attn_mask",
+    )(text_mask_in)
+
+    encoder_output, encoder_pos_flat, enc_h = _build_detr_encoder(
+        fpn_hidden_states,
+        text_proj_in,
+        text_attn_mask,
+        grid_size=grid_size,
+        fpn_hidden_size=fpn_hidden_size,
+        detr_encoder_hidden_size=cfg["detr_encoder_hidden_size"],
+        detr_encoder_num_layers=cfg["detr_encoder_num_layers"],
+        detr_encoder_num_attention_heads=cfg["detr_encoder_num_attention_heads"],
+        detr_encoder_intermediate_size=cfg["detr_encoder_intermediate_size"],
+        detr_encoder_dropout=cfg["detr_encoder_dropout"],
+    )
+
+    decoder_hidden, pred_boxes, pred_logits, presence_logits = _build_detr_decoder(
+        encoder_output,
+        encoder_pos_flat,
+        text_proj_in,
+        text_attn_mask,
+        text_mask_in,
+        enc_h,
+        detr_decoder_hidden_size=cfg["detr_decoder_hidden_size"],
+        detr_decoder_num_layers=cfg["detr_decoder_num_layers"],
+        detr_decoder_num_queries=cfg["detr_decoder_num_queries"],
+        detr_decoder_num_attention_heads=cfg["detr_decoder_num_attention_heads"],
+        detr_decoder_intermediate_size=cfg["detr_decoder_intermediate_size"],
+        detr_decoder_dropout=cfg["detr_decoder_dropout"],
+    )
+
+    pred_masks, semantic_seg = _build_mask_decoder(
+        encoder_output,
+        decoder_hidden,
+        text_proj_in,
+        text_attn_mask,
+        fpn_hidden_states,
+        enc_h,
+        fpn_hidden_size=fpn_hidden_size,
+        mask_decoder_hidden_size=cfg["mask_decoder_hidden_size"],
+        mask_decoder_num_attention_heads=cfg["mask_decoder_num_attention_heads"],
+    )
+
+    # fpn_3 is not consumed by any layer but must be connected.
+    # Pass it through identity so Keras sees it as connected.
+    fpn_3_identity = layers.Identity(name="fpn_3_passthrough")(fpn_3_in)
+
+    outputs = {
+        "pred_masks": pred_masks,
+        "pred_boxes": pred_boxes,
+        "pred_logits": pred_logits,
+        "presence_logits": presence_logits,
+        "semantic_seg": semantic_seg,
+        "fpn_05x": fpn_3_identity,
+    }
+
+    decoder_model = keras.Model(
+        inputs={
+            "fpn_0": fpn_0_in,
+            "fpn_1": fpn_1_in,
+            "fpn_2": fpn_2_in,
+            "fpn_3": fpn_3_in,
+            "text_projected": text_proj_in,
+            "text_attention_mask": text_mask_in,
+        },
+        outputs=outputs,
+        name="SAM3_decoder",
+    )
+
+    # Copy matching weights from the full model
+    orig_weights = {w.path: w.numpy() for w in sam3_model.weights}
+    for w in decoder_model.weights:
+        path = w.path.replace("SAM3_decoder/", "SAM3/")
+        if path in orig_weights and w.shape == orig_weights[path].shape:
+            w.assign(orig_weights[path])
+
+    return decoder_model
+
+
+def build_sam3_vision_model(sam3_model):
+    """Build a vision-only model that outputs FPN features + text projection.
+
+    Use with build_sam3_decoder_model() for efficient multi-prompt inference.
+
+    Args:
+        sam3_model: a trained SAM3 model.
+
+    Returns:
+        vision_model: keras.Model with same inputs as SAM3, outputs:
+            - fpn_0 through fpn_3: FPN level features (NCHW)
+            - text_projected: projected text features (256d)
+    """
+    outputs = {}
+    for i in range(4):
+        layer = sam3_model.get_layer(f"fpn_level_{i}_proj2")
+        outputs[f"fpn_{i}"] = layer.output
+    outputs["text_projected"] = sam3_model.get_layer("text_projection").output
+
+    return keras.Model(
+        inputs=sam3_model.input,
+        outputs=outputs,
+        name="SAM3_vision",
+    )

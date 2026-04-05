@@ -139,38 +139,38 @@ def convert_sam3(model_config):
     print("Transferring DETR encoder...")
     num_enc_layers = keras_model.detr_encoder_num_layers
     for i in tqdm(range(num_enc_layers), desc="DETR encoder layers"):
-        layer = keras_model.get_layer(f"detr_encoder_layers_{i}")
+        prefix = f"detr_encoder_layers_{i}"
         p = f"detr_encoder.layers.{i}"
 
+        self_attn = keras_model.get_layer(f"{prefix}_self_attn")
         for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
             transfer_weights(
                 "kernel",
-                getattr(layer.self_attn, proj).kernel,
+                getattr(self_attn, proj).kernel,
                 hf[f"{p}.self_attn.{proj}.weight"],
             )
-            getattr(layer.self_attn, proj).bias.assign(hf[f"{p}.self_attn.{proj}.bias"])
+            getattr(self_attn, proj).bias.assign(hf[f"{p}.self_attn.{proj}.bias"])
 
+        cross_attn = keras_model.get_layer(f"{prefix}_cross_attn")
         for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
             transfer_weights(
                 "kernel",
-                getattr(layer.cross_attn, proj).kernel,
+                getattr(cross_attn, proj).kernel,
                 hf[f"{p}.cross_attn.{proj}.weight"],
             )
-            getattr(layer.cross_attn, proj).bias.assign(
-                hf[f"{p}.cross_attn.{proj}.bias"]
-            )
+            getattr(cross_attn, proj).bias.assign(hf[f"{p}.cross_attn.{proj}.bias"])
 
-        layer.layer_norm1.gamma.assign(hf[f"{p}.layer_norm1.weight"])
-        layer.layer_norm1.beta.assign(hf[f"{p}.layer_norm1.bias"])
-        layer.layer_norm2.gamma.assign(hf[f"{p}.layer_norm2.weight"])
-        layer.layer_norm2.beta.assign(hf[f"{p}.layer_norm2.bias"])
-        layer.layer_norm3.gamma.assign(hf[f"{p}.layer_norm3.weight"])
-        layer.layer_norm3.beta.assign(hf[f"{p}.layer_norm3.bias"])
+        for ln_name in ["layer_norm1", "layer_norm2", "layer_norm3"]:
+            ln = keras_model.get_layer(f"{prefix}_{ln_name}")
+            ln.gamma.assign(hf[f"{p}.{ln_name}.weight"])
+            ln.beta.assign(hf[f"{p}.{ln_name}.bias"])
 
-        transfer_weights("kernel", layer.fc1.kernel, hf[f"{p}.mlp.fc1.weight"])
-        layer.fc1.bias.assign(hf[f"{p}.mlp.fc1.bias"])
-        transfer_weights("kernel", layer.fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
-        layer.fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
+        fc1 = keras_model.get_layer(f"{prefix}_fc1")
+        transfer_weights("kernel", fc1.kernel, hf[f"{p}.mlp.fc1.weight"])
+        fc1.bias.assign(hf[f"{p}.mlp.fc1.bias"])
+        fc2 = keras_model.get_layer(f"{prefix}_fc2")
+        transfer_weights("kernel", fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
+        fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
 
     # ── DETR decoder ─────────────────────────────────────────────
     print("Transferring DETR decoder...")
@@ -226,46 +226,30 @@ def convert_sam3(model_config):
 
     num_dec_layers = keras_model.detr_decoder_num_layers
     for i in tqdm(range(num_dec_layers), desc="DETR decoder layers"):
-        layer = keras_model.get_layer(f"detr_decoder_layers_{i}")
+        prefix = f"detr_decoder_layers_{i}"
         p = f"detr_decoder.layers.{i}"
 
-        for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-            transfer_weights(
-                "kernel",
-                getattr(layer.self_attn, proj).kernel,
-                hf[f"{p}.self_attn.{proj}.weight"],
-            )
-            getattr(layer.self_attn, proj).bias.assign(hf[f"{p}.self_attn.{proj}.bias"])
-
-        for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-            transfer_weights(
-                "kernel",
-                getattr(layer.text_cross_attn, proj).kernel,
-                hf[f"{p}.text_cross_attn.{proj}.weight"],
-            )
-            getattr(layer.text_cross_attn, proj).bias.assign(
-                hf[f"{p}.text_cross_attn.{proj}.bias"]
-            )
-
-        for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-            transfer_weights(
-                "kernel",
-                getattr(layer.vision_cross_attn, proj).kernel,
-                hf[f"{p}.vision_cross_attn.{proj}.weight"],
-            )
-            getattr(layer.vision_cross_attn, proj).bias.assign(
-                hf[f"{p}.vision_cross_attn.{proj}.bias"]
-            )
+        for attn_name in ["self_attn", "text_cross_attn", "vision_cross_attn"]:
+            attn = keras_model.get_layer(f"{prefix}_{attn_name}")
+            for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
+                transfer_weights(
+                    "kernel",
+                    getattr(attn, proj).kernel,
+                    hf[f"{p}.{attn_name}.{proj}.weight"],
+                )
+                getattr(attn, proj).bias.assign(hf[f"{p}.{attn_name}.{proj}.bias"])
 
         for keras_ln, hf_ln in dec_ln_map.items():
-            ln = getattr(layer, keras_ln)
+            ln = keras_model.get_layer(f"{prefix}_{keras_ln}")
             ln.gamma.assign(hf[f"{p}.{hf_ln}.weight"])
             ln.beta.assign(hf[f"{p}.{hf_ln}.bias"])
 
-        transfer_weights("kernel", layer.fc1.kernel, hf[f"{p}.mlp.fc1.weight"])
-        layer.fc1.bias.assign(hf[f"{p}.mlp.fc1.bias"])
-        transfer_weights("kernel", layer.fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
-        layer.fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
+        fc1 = keras_model.get_layer(f"{prefix}_fc1")
+        transfer_weights("kernel", fc1.kernel, hf[f"{p}.mlp.fc1.weight"])
+        fc1.bias.assign(hf[f"{p}.mlp.fc1.bias"])
+        fc2 = keras_model.get_layer(f"{prefix}_fc2")
+        transfer_weights("kernel", fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
+        fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
 
     # ── DETR decoder shared norms ──────────────────────────────────
     print("Transferring decoder output/presence layer norms...")

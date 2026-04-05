@@ -9,8 +9,6 @@ from .sam3_layers import (
     SAM3AddPositionEmbedding,
     SAM3BoxRPB,
     SAM3DecoderMLP,
-    SAM3DetrDecoderLayer,
-    SAM3DetrEncoderLayer,
     SAM3DotProductScoring,
     SAM3LearnableEmbedding,
     SAM3MultiHeadAttention,
@@ -218,6 +216,63 @@ def _build_fpn_neck(backbone_nchw, vit_hidden_size, fpn_hidden_size, fpn_scale_f
     return fpn_hidden_states
 
 
+def _detr_encoder_layer(
+    vision_feats,
+    text_feats,
+    vision_pos,
+    text_mask,
+    hidden_size,
+    num_attention_heads,
+    intermediate_size,
+    dropout,
+    name,
+):
+    """Single DETR encoder layer (functional): self-attn + text cross-attn + MLP."""
+    self_attn = SAM3MultiHeadAttention(
+        hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
+    )
+    cross_attn = SAM3MultiHeadAttention(
+        hidden_size, num_attention_heads, dropout, name=f"{name}_cross_attn"
+    )
+    layer_norm1 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm1"
+    )
+    layer_norm2 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm2"
+    )
+    layer_norm3 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm3"
+    )
+    fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
+    fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
+
+    # Pre-norm self-attention
+    residual = vision_feats
+    x = layer_norm1(vision_feats)
+    q = k = x + vision_pos
+    x = self_attn(q, k, x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout1")(x)
+    vision_feats = layers.Add(name=f"{name}_add1")([x, residual])
+
+    # Pre-norm cross-attention
+    residual = vision_feats
+    x = layer_norm2(vision_feats)
+    x = cross_attn(x, text_feats, text_feats, attention_mask=text_mask)
+    x = layers.Dropout(dropout, name=f"{name}_dropout2")(x)
+    vision_feats = layers.Add(name=f"{name}_add2")([x, residual])
+
+    # Pre-norm MLP
+    residual = vision_feats
+    x = layer_norm3(vision_feats)
+    x = fc1(x)
+    x = layers.Activation("relu", name=f"{name}_relu")(x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout3")(x)
+    x = fc2(x)
+    vision_feats = layers.Add(name=f"{name}_add3")([x, residual])
+
+    return vision_feats
+
+
 def _build_detr_encoder(
     fpn_hidden_states,
     text_projected,
@@ -257,15 +312,95 @@ def _build_detr_encoder(
 
     encoder_output = encoder_vision_flat
     for i in range(detr_encoder_num_layers):
-        encoder_output = SAM3DetrEncoderLayer(
+        encoder_output = _detr_encoder_layer(
+            encoder_output,
+            text_projected,
+            encoder_pos_flat,
+            text_attn_mask,
             hidden_size=detr_encoder_hidden_size,
             num_attention_heads=detr_encoder_num_attention_heads,
             intermediate_size=detr_encoder_intermediate_size,
             dropout=detr_encoder_dropout,
             name=f"detr_encoder_layers_{i}",
-        )(encoder_output, text_projected, encoder_pos_flat, text_mask=text_attn_mask)
+        )
 
     return encoder_output, encoder_pos_flat, enc_h
+
+
+def _detr_decoder_layer(
+    hidden_states,
+    query_pos,
+    text_feats,
+    vision_feats,
+    vision_pos,
+    text_mask,
+    vision_mask,
+    hidden_size,
+    num_attention_heads,
+    intermediate_size,
+    dropout,
+    name,
+):
+    """Single DETR decoder layer (functional): self-attn + text cross-attn
+    + vision cross-attn + MLP."""
+    self_attn = SAM3MultiHeadAttention(
+        hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
+    )
+    text_cross_attn = SAM3MultiHeadAttention(
+        hidden_size, num_attention_heads, dropout, name=f"{name}_text_cross_attn"
+    )
+    vision_cross_attn = SAM3MultiHeadAttention(
+        hidden_size, num_attention_heads, dropout, name=f"{name}_vision_cross_attn"
+    )
+    layer_norm1 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm1"
+    )
+    layer_norm2 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm2"
+    )
+    layer_norm3 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm3"
+    )
+    layer_norm4 = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_layer_norm4"
+    )
+    fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
+    fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
+
+    # Post-norm self-attention
+    q = k = hidden_states + query_pos
+    x = self_attn(q, k, hidden_states)
+    x = layers.Dropout(dropout, name=f"{name}_dropout1")(x)
+    hidden_states = layer_norm1(layers.Add(name=f"{name}_add1")([hidden_states, x]))
+
+    # Post-norm text cross-attention
+    x = text_cross_attn(
+        hidden_states + query_pos,
+        text_feats,
+        text_feats,
+        attention_mask=text_mask,
+    )
+    x = layers.Dropout(dropout, name=f"{name}_dropout2")(x)
+    hidden_states = layer_norm2(layers.Add(name=f"{name}_add2")([hidden_states, x]))
+
+    # Post-norm vision cross-attention
+    x = vision_cross_attn(
+        hidden_states + query_pos,
+        vision_feats + vision_pos,
+        vision_feats,
+        attention_mask=vision_mask,
+    )
+    x = layers.Dropout(dropout, name=f"{name}_dropout3")(x)
+    hidden_states = layer_norm3(layers.Add(name=f"{name}_add3")([hidden_states, x]))
+
+    # Post-norm MLP
+    x = fc1(hidden_states)
+    x = layers.Activation("relu", name=f"{name}_relu")(x)
+    x = layers.Dropout(dropout, name=f"{name}_dropout4")(x)
+    x = fc2(x)
+    hidden_states = layer_norm4(layers.Add(name=f"{name}_add4")([hidden_states, x]))
+
+    return hidden_states
 
 
 def _build_detr_decoder(
@@ -367,13 +502,7 @@ def _build_detr_decoder(
 
         vision_cross_attn_mask = box_rpb(reference_points)
 
-        hidden_states = SAM3DetrDecoderLayer(
-            hidden_size=detr_decoder_hidden_size,
-            num_attention_heads=detr_decoder_num_attention_heads,
-            intermediate_size=detr_decoder_intermediate_size,
-            dropout=detr_decoder_dropout,
-            name=f"detr_decoder_layers_{i}",
-        )(
+        hidden_states = _detr_decoder_layer(
             hidden_states,
             query_pos,
             text_projected,
@@ -381,6 +510,11 @@ def _build_detr_decoder(
             encoder_pos_flat,
             text_mask=text_attn_mask,
             vision_mask=vision_cross_attn_mask,
+            hidden_size=detr_decoder_hidden_size,
+            num_attention_heads=detr_decoder_num_attention_heads,
+            intermediate_size=detr_decoder_intermediate_size,
+            dropout=detr_decoder_dropout,
+            name=f"detr_decoder_layers_{i}",
         )
 
         query_hidden = hidden_states[:, 1:, :]

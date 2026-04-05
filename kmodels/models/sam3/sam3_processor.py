@@ -314,6 +314,91 @@ def post_process_semantic_segmentation(outputs, target_sizes=None, threshold=0.5
 # ═══════════════════════════════════════════════════════════════════
 
 
+_SUBMODEL_CACHE = {}
+
+
+def _get_vision_submodel(model):
+    """Sub-model: full inputs → FPN 1x (NCHW) + projected text (256d)."""
+    import keras
+
+    model_id = id(model)
+    cache_key = f"{model_id}_vision"
+    if cache_key in _SUBMODEL_CACHE:
+        return _SUBMODEL_CACHE[cache_key]
+
+    fpn_1x = model.get_layer("fpn_level_2_proj2")
+    text_proj = model.get_layer("text_projection")
+    sub = keras.Model(
+        inputs=model.input,
+        outputs={"fpn_1x": fpn_1x.output, "text_projected": text_proj.output},
+    )
+    _SUBMODEL_CACHE[cache_key] = sub
+    return sub
+
+
+def _get_decoder_model(model):
+    """Build a model that takes pixel_values + pre-projected features (256d).
+
+    Shares all weights with the original SAM3 model but replaces the
+    text_features(1024d) input with a projected_features(256d) input
+    that bypasses text_projection.
+    """
+
+    from .sam3_model import SAM3
+
+    model_id = id(model)
+    cache_key = f"{model_id}_decoder"
+    if cache_key in _SUBMODEL_CACHE:
+        return _SUBMODEL_CACHE[cache_key]
+
+    cfg = model.get_config()
+    decoder_model = SAM3(
+        input_shape=model._input_shape_val,
+        text_hidden_size=cfg["detr_encoder_hidden_size"],  # 256 instead of 1024
+        **{
+            k: v
+            for k, v in cfg.items()
+            if k
+            not in [
+                "input_shape",
+                "text_hidden_size",
+                "name",
+                "input_tensor",
+            ]
+        },
+        name="SAM3_decoder",
+    )
+
+    # Copy all weights from original model by name matching
+    orig_weights = {w.path: w.numpy() for w in model.weights}
+    for w in decoder_model.weights:
+        path = w.path.replace("SAM3_decoder/", "SAM3/")
+        if path in orig_weights:
+            if w.shape == orig_weights[path].shape:
+                w.assign(orig_weights[path])
+
+    # Set text_projection to identity (256→256) since inputs are pre-projected
+    tp = decoder_model.get_layer("text_projection")
+    tp.kernel.assign(np.eye(256, dtype=np.float32))
+    tp.bias.assign(np.zeros(256, dtype=np.float32))
+
+    _SUBMODEL_CACHE[cache_key] = decoder_model
+    return decoder_model
+
+
+def _run_decoder_with_projected(model, pixel_values, combined_features, combined_mask):
+    """Run SAM3 with pre-projected 256d features via decoder model."""
+    decoder_model = _get_decoder_model(model)
+    return decoder_model.predict(
+        {
+            "pixel_values": pixel_values,
+            "text_features": combined_features,
+            "text_attention_mask": combined_mask,
+        },
+        verbose=0,
+    )
+
+
 def predict(
     model,
     image,
@@ -322,15 +407,19 @@ def predict(
     text_encoder_model=None,
     text_features=None,
     text_attention_mask=None,
+    input_boxes=None,
+    input_boxes_labels=None,
+    geometry_encoder=None,
     threshold=0.3,
     mask_threshold=0.5,
     return_raw=False,
 ):
     """End-to-end SAM3 prediction pipeline.
 
-    Supports two text input modes:
-    1. Pre-computed: pass text_features + text_attention_mask directly.
-    2. From string: pass text + tokenizer + text_encoder_model.
+    Supports three modes:
+    - Mode A (text-only): text prompt → detection + segmentation.
+    - Mode B (box-guided): box prompts (text defaults to "visual").
+    - Mode C (hybrid): text + box prompts combined.
 
     Args:
         model: Keras SAM3 segmentation model.
@@ -340,6 +429,12 @@ def predict(
         text_encoder_model: Keras CLIP text encoder model.
         text_features: Pre-computed (1, seq, 1024) features.
         text_attention_mask: (1, seq) mask.
+        input_boxes: list of [x1,y1,x2,y2] boxes per image (pixel coords).
+            Shape: [[box1, box2, ...]] for single image.
+        input_boxes_labels: list of int labels per image (1=positive, 0=negative).
+            Shape: [[label1, label2, ...]] for single image. Defaults to all 1s.
+        geometry_encoder: SAM3GeometryEncoder layer with loaded weights.
+            Required when input_boxes is provided.
         threshold: Detection score threshold.
         mask_threshold: Mask binarization threshold.
         return_raw: Return raw model outputs.
@@ -349,12 +444,15 @@ def predict(
     """
     pixel_values, original_size = preprocess_image(image)
 
+    # Resolve text: default to "visual" when boxes given but no text
+    if text is None and text_features is None and input_boxes is not None:
+        text = "visual"
+
     if text_features is None:
         if text is None:
-            raise ValueError("Provide either text or text_features.")
+            raise ValueError("Provide either text, text_features, or input_boxes.")
         if text_encoder_model is None:
             raise ValueError("text_encoder_model required for text input.")
-        # tokenizer is optional — auto-created if not provided
         text_features, text_attention_mask = preprocess_text_with_encoder(
             text, text_encoder_model, tokenizer
         )
@@ -365,14 +463,81 @@ def predict(
         else:
             text_attention_mask = np.asarray(text_attention_mask, dtype=np.float32)
 
-    raw = model.predict(
-        {
+    # Handle box prompts (Mode B / Mode C)
+    if input_boxes is not None:
+        if geometry_encoder is None:
+            raise ValueError("geometry_encoder required when input_boxes is provided.")
+
+        # Preprocess boxes
+        if not isinstance(input_boxes[0][0], (list, tuple)):
+            input_boxes = [input_boxes]
+        if input_boxes_labels is None:
+            input_boxes_labels = [[1] * len(boxes) for boxes in input_boxes]
+        elif not isinstance(input_boxes_labels[0], (list, tuple)):
+            input_boxes_labels = [input_boxes_labels]
+
+        boxes_cxcywh, box_labels, box_mask = preprocess_boxes(
+            input_boxes, input_boxes_labels, [original_size]
+        )
+
+        # Extract FPN features + text projection via sub-model
+        fpn_submodel = _get_vision_submodel(model)
+        fpn_inputs = {
             "pixel_values": pixel_values,
             "text_features": text_features,
             "text_attention_mask": text_attention_mask,
-        },
-        verbose=0,
-    )
+        }
+        fpn_out = fpn_submodel.predict(fpn_inputs, verbose=0)
+        fpn_1x_nchw = fpn_out["fpn_1x"]  # (1, 256, 72, 72)
+        text_projected = fpn_out["text_projected"]  # (1, seq, 256)
+
+        # Flatten FPN for cross-attention
+        fpn_1x_nhwc = np.transpose(fpn_1x_nchw, (0, 2, 3, 1))
+        enc_h = fpn_1x_nchw.shape[2]
+        vision_flat = fpn_1x_nhwc.reshape(1, enc_h * enc_h, -1)
+
+        # Compute sine position encoding for geometry encoder cross-attention
+        from .sam3_utils import compute_sine_pos_encoding
+
+        pos_np = compute_sine_pos_encoding(enc_h, enc_h, 128, normalize=True)
+        pos_flat = pos_np.transpose(0, 2, 3, 1).reshape(1, enc_h * enc_h, -1)
+
+        # Run geometry encoder
+        geo_features, geo_mask = geometry_encoder(
+            boxes_cxcywh,
+            box_labels,
+            box_mask,
+            vision_flat,
+            pos_flat,
+            vision_features_nchw=fpn_1x_nchw,
+        )
+        geo_features = ops.convert_to_numpy(ops.stop_gradient(geo_features))
+        geo_mask = ops.convert_to_numpy(ops.stop_gradient(geo_mask))
+
+        # Concatenate projected text (256d) + geometry features (256d)
+        combined_features = np.concatenate([text_projected, geo_features], axis=1)
+        combined_mask = np.concatenate([text_attention_mask, geo_mask], axis=1)
+
+        # Pad combined features from 256d → 1024d so the model's
+        # text_projection (1024→256) can process them. We embed the 256d
+        # features into the first 256 dims of a 1024d vector, and rely on
+        # text_projection's learned weights. This won't give correct results.
+        #
+        # Correct approach: build a decoder-only sub-model that takes
+        # pre-projected 256d features directly, reusing all layers after
+        # text_projection.
+        raw = _run_decoder_with_projected(
+            model, pixel_values, combined_features, combined_mask
+        )
+    else:
+        raw = model.predict(
+            {
+                "pixel_values": pixel_values,
+                "text_features": text_features,
+                "text_attention_mask": text_attention_mask,
+            },
+            verbose=0,
+        )
 
     if return_raw:
         return raw

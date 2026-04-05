@@ -1,7 +1,6 @@
 import math
 
 import keras
-import numpy as np
 from keras import layers, ops
 
 from .sam3_utils import apply_rotary_pos_emb_2d
@@ -480,31 +479,27 @@ class SAM3GeometryEncoderLayer(layers.Layer):
         prompt_mask=None,
         training=None,
     ):
-        x = self.self_attn(
-            prompt_feats,
-            prompt_feats,
-            prompt_feats,
-            attention_mask=prompt_mask,
-            training=training,
-        )
-        x = self.dropout1(x, training=training)
-        prompt_feats = self.layer_norm1(prompt_feats + x)
+        # Pre-norm self-attention (matching HF)
+        residual = prompt_feats
+        x = self.layer_norm1(prompt_feats)
+        x = self.self_attn(x, x, x, attention_mask=prompt_mask, training=training)
+        prompt_feats = self.dropout1(x, training=training) + residual
 
+        # Pre-norm cross-attention
+        residual = prompt_feats
+        x = self.layer_norm2(prompt_feats)
         k = vision_feats + vision_pos
-        x = self.cross_attn(
-            prompt_feats,
-            k,
-            vision_feats,
-            training=training,
-        )
-        x = self.dropout2(x, training=training)
-        prompt_feats = self.layer_norm2(prompt_feats + x)
+        x = self.cross_attn(x, k, vision_feats, training=training)
+        prompt_feats = self.dropout2(x, training=training) + residual
 
-        x = self.fc1(prompt_feats)
-        x = ops.nn.relu(x)
+        # Pre-norm MLP (matching HF: fc1 → dropout → relu → fc2)
+        residual = prompt_feats
+        x = self.layer_norm3(prompt_feats)
+        x = self.fc1(x)
         x = self.dropout3(x, training=training)
+        x = ops.nn.relu(x)
         x = self.fc2(x)
-        prompt_feats = self.layer_norm3(prompt_feats + x)
+        prompt_feats = self.dropout1(x, training=training) + residual
 
         return prompt_feats
 
@@ -742,63 +737,141 @@ class SAM3GeometryEncoder(layers.Layer):
             self.transformer_layers.append(layer)
         self.built = True
 
-    def call(self, boxes, box_labels, box_mask, vision_features_flat, vision_pos_flat):
+    def _roi_align(self, vision_features_nchw, boxes_xyxy_denorm):
+        """ROI Align using torchvision (torch backend).
+
+        Args:
+            vision_features_nchw: (B, C, H, W) normalized vision features.
+            boxes_xyxy_denorm: (B, num_boxes, 4) boxes in denormalized xyxy.
+
+        Returns:
+            pooled: (B*num_boxes, C, roi_size, roi_size)
+        """
+        import torch
+        import torchvision
+
+        feats = ops.convert_to_tensor(vision_features_nchw)
+        boxes_list = [
+            ops.convert_to_tensor(boxes_xyxy_denorm[i])
+            for i in range(ops.shape(boxes_xyxy_denorm)[0])
+        ]
+        dtype = torch.float16 if feats.dtype == torch.bfloat16 else feats.dtype
+        pooled = torchvision.ops.roi_align(
+            feats.to(dtype), [b.to(dtype) for b in boxes_list], self.roi_size
+        )
+        return pooled.to(feats.dtype)
+
+    def call(
+        self,
+        boxes,
+        box_labels,
+        box_mask,
+        vision_features_flat,
+        vision_pos_flat,
+        vision_features_nchw=None,
+    ):
         """
         Args:
-            boxes: (B, num_boxes, 4) cxcywh normalized
+            boxes: (B, num_boxes, 4) cxcywh normalized [0,1]
             box_labels: (B, num_boxes) int
             box_mask: (B, num_boxes) float, 1=valid 0=padding
-            vision_features_flat: (B, H*W, C)
-            vision_pos_flat: (B, H*W, C)
+            vision_features_flat: (B, H*W, C) for cross-attention
+            vision_pos_flat: (1, H*W, C) position encoding
+            vision_features_nchw: (B, C, H, W) FPN features for ROI Align.
+                If None, ROI Align pooling is skipped.
         Returns:
             prompt_features: (B, num_boxes+1, C)
             prompt_mask: (B, num_boxes+1) float
         """
         batch_size = ops.shape(boxes)[0]
+        num_boxes = ops.shape(boxes)[1]
 
-        # Direct projection
-        direct = self.boxes_direct_project(boxes)
+        # 1. Direct projection of box coordinates
+        boxes_embed = self.boxes_direct_project(boxes)
 
-        # Sine position encoding of center + h, w
-        cx = boxes[..., 0:1]
-        cy = boxes[..., 1:2]
-        w_box = boxes[..., 2:3]
+        # 2. ROI Align pooling (if vision features provided)
+        if vision_features_nchw is not None:
+            # Normalize vision features
+            vis_nhwc = ops.transpose(vision_features_nchw, (0, 2, 3, 1))
+            vis_nhwc = self.vision_layer_norm(vis_nhwc)
+            vis_nchw = ops.transpose(vis_nhwc, (0, 3, 1, 2))
+
+            # Convert boxes cxcywh → xyxy and denormalize to feature map coords
+            cx = boxes[..., 0:1]
+            cy = boxes[..., 1:2]
+            w = boxes[..., 2:3]
+            h = boxes[..., 3:4]
+            x0 = cx - 0.5 * w
+            y0 = cy - 0.5 * h
+            x1 = cx + 0.5 * w
+            y1 = cy + 0.5 * h
+            boxes_xyxy = ops.concatenate([x0, y0, x1, y1], axis=-1)
+
+            feat_h = ops.shape(vision_features_nchw)[2]
+            feat_w = ops.shape(vision_features_nchw)[3]
+            scale = ops.convert_to_tensor(
+                [feat_w, feat_h, feat_w, feat_h], dtype="float32"
+            )
+            scale = ops.reshape(scale, (1, 1, 4))
+            boxes_xyxy_denorm = boxes_xyxy * ops.cast(scale, boxes_xyxy.dtype)
+
+            pooled = self._roi_align(vis_nchw, boxes_xyxy_denorm)
+            # pooled: (B*num_boxes, C, roi_size, roi_size) → NHWC for Conv2D
+            pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))
+            pooled_proj = self.boxes_pool_project(pooled_nhwc)
+            # (B*num_boxes, 1, 1, hidden) → (B, num_boxes, hidden)
+            pooled_proj = ops.reshape(
+                pooled_proj, (batch_size, num_boxes, self.hidden_size)
+            )
+            boxes_embed = boxes_embed + pooled_proj
+
+        # 3. Sine position encoding of center + h, w
+        # Matches HF SinePositionEmbedding.encode_1d_positions + _encode_box_coordinates
+        cx = boxes[..., 0]  # (B, nb)
+        cy = boxes[..., 1]
+        w_box = boxes[..., 2:3]  # (B, nb, 1)
         h_box = boxes[..., 3:4]
-        # Simple sine encoding of center coordinates
-        num_feats = self.hidden_size // 2
-        dim_t = np.arange(num_feats, dtype="float32")
-        dim_t = 10000.0 ** (2.0 * np.floor(dim_t / 2) / num_feats)
-        dim_t = ops.convert_to_tensor(dim_t)
-        center = ops.concatenate([cx, cy], axis=-1)  # (B, nb, 2)
-        pos = ops.expand_dims(center, -1) / dim_t  # (B, nb, 2, num_feats)
-        pos_sin = ops.sin(pos[..., 0::2])
-        pos_cos = ops.cos(pos[..., 1::2])
-        # Interleave
-        half = pos_sin.shape[-1] if hasattr(pos_sin, "shape") else num_feats // 2
-        parts = []
-        for c in range(2):
-            for j in range(half):
-                parts.append(pos_sin[:, :, c, j : j + 1])
-                parts.append(pos_cos[:, :, c, j : j + 1])
-        center_sine = ops.concatenate(parts, axis=-1)  # (B, nb, hidden_size)
 
-        pos_with_hw = ops.concatenate([center_sine, h_box, w_box], axis=-1)
+        scale = 2.0 * math.pi
+        num_feats = self.hidden_size // 2
+        dim_t = ops.cast(ops.arange(num_feats), "float32")
+        dim_t = 10000.0 ** (2.0 * ops.floor(dim_t / 2) / num_feats)
+
+        # Encode x and y separately (matching HF encode_1d_positions)
+        def _encode_1d(coord):
+            # coord: (B, nb)
+            c = coord * scale
+            c = ops.expand_dims(c, -1) / dim_t  # (B, nb, num_feats)
+            c_sin = ops.sin(c[..., 0::2])
+            c_cos = ops.cos(c[..., 1::2])
+            # Interleave: [sin0, cos1, sin2, cos3, ...]
+            return ops.reshape(
+                ops.stack([c_sin, c_cos], axis=-1),
+                ops.shape(c_sin)[:-1] + (num_feats,),
+            )
+
+        pos_x = _encode_1d(cx)  # (B, nb, num_feats)
+        pos_y = _encode_1d(cy)
+
+        # HF order: pos_y, pos_x, height, width
+        pos_with_hw = ops.concatenate([pos_y, pos_x, h_box, w_box], axis=-1)
         pos_encoded = self.boxes_pos_enc_project(pos_with_hw)
 
-        # Label embedding
+        # 4. Label embedding
         label_emb = self.label_embed(box_labels)
 
-        prompt_embeds = direct + pos_encoded + label_emb
+        prompt_embeds = boxes_embed + pos_encoded + label_emb
 
-        # Add CLS token
+        # 5. Add CLS token (appended after box embeddings, matching HF)
         cls_token = self.cls_embed(ops.zeros((batch_size, 1), dtype="int32"))
-        prompt_embeds = ops.concatenate([cls_token, prompt_embeds], axis=1)
+        prompt_embeds = ops.concatenate([prompt_embeds, cls_token], axis=1)
 
         cls_mask = ops.ones((batch_size, 1), dtype="float32")
-        prompt_mask_out = ops.concatenate([cls_mask, box_mask], axis=1)
+        prompt_mask_out = ops.concatenate([box_mask, cls_mask], axis=1)
 
         prompt_embeds = self.prompt_layer_norm(self.final_proj(prompt_embeds))
 
+        # 6. Transformer layers with cross-attention to vision
         for layer in self.transformer_layers:
             prompt_embeds = layer(prompt_embeds, vision_features_flat, vision_pos_flat)
 

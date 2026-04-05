@@ -486,6 +486,22 @@ def convert_sam3(model_config):
         f"  Geometry encoder built: {sum(np.prod(w.shape) for w in geo_layer.weights):,} params"
     )
 
+    # Save geometry encoder weights via a wrapper model
+    boxes_in = keras.Input(shape=(None, 4), name="boxes", dtype="float32")
+    labels_in = keras.Input(shape=(None,), name="box_labels", dtype="int32")
+    mask_in = keras.Input(shape=(None,), name="box_mask", dtype="float32")
+    vis_flat_in = keras.Input(shape=(None, 256), name="vision_flat", dtype="float32")
+    pos_flat_in = keras.Input(shape=(None, 256), name="vision_pos", dtype="float32")
+    geo_out, geo_mask_out = geo_layer(
+        boxes_in, labels_in, mask_in, vis_flat_in, pos_flat_in
+    )
+    geo_model = keras.Model(
+        inputs=[boxes_in, labels_in, mask_in, vis_flat_in, pos_flat_in],
+        outputs={"features": geo_out, "mask": geo_mask_out},
+    )
+    geo_model.save_weights("sam3_geometry_encoder.weights.h5")
+    print("  Geometry encoder weights saved: sam3_geometry_encoder.weights.h5")
+
     print(f"\nAll {len(hf)} HF weight tensors transferred.")
 
     print("\nWeight transfer complete!")

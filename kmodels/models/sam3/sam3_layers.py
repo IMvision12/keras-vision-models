@@ -90,64 +90,6 @@ class SAM3AddPositionEmbedding(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SAM3ViTRotaryEmbedding(layers.Layer):
-    def __init__(
-        self,
-        hidden_size,
-        num_attention_heads,
-        end_x,
-        end_y,
-        rope_theta=10000.0,
-        scale=1.0,
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-        self.num_attention_heads = num_attention_heads
-        self.end_x = end_x
-        self.end_y = end_y
-        self.rope_theta = rope_theta
-        self.scale = scale
-        self.head_dim = hidden_size // num_attention_heads
-
-        dim = self.head_dim
-        freqs = 1.0 / (
-            rope_theta ** (np.arange(0, dim, 4, dtype="float32")[: dim // 4] / dim)
-        )
-
-        flat_idx = np.arange(end_x * end_y, dtype="float32")
-        x_positions = (flat_idx % end_x) * scale
-        y_positions = (flat_idx // end_x) * scale
-
-        freqs_x = np.outer(x_positions, freqs)  # (N, dim//4)
-        freqs_y = np.outer(y_positions, freqs)  # (N, dim//4)
-
-        inv_freq = np.concatenate([freqs_x, freqs_y], axis=-1)  # (N, dim//2)
-        inv_freq = np.repeat(inv_freq, 2, axis=-1)  # (N, dim)
-
-        self._cos = np.cos(inv_freq).astype("float32")
-        self._sin = np.sin(inv_freq).astype("float32")
-
-    def call(self, inputs=None):
-        cos = ops.convert_to_tensor(self._cos)
-        sin = ops.convert_to_tensor(self._sin)
-        return cos, sin
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "hidden_size": self.hidden_size,
-                "num_attention_heads": self.num_attention_heads,
-                "end_x": self.end_x,
-                "end_y": self.end_y,
-                "rope_theta": self.rope_theta,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
 class SAM3ViTRoPEAttention(layers.Layer):
     def __init__(self, hidden_size, num_attention_heads, **kwargs):
         super().__init__(**kwargs)
@@ -256,8 +198,6 @@ class SAM3ViTLayer(layers.Layer):
         image_size=72,
         layer_norm_eps=1e-6,
         layer_scale_init_value=None,
-        rope_theta=10000.0,
-        config_window_size=24,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -268,8 +208,6 @@ class SAM3ViTLayer(layers.Layer):
         self.image_size = image_size
         self.layer_norm_eps = layer_norm_eps
         self.layer_scale_init_value = layer_scale_init_value
-        self.rope_theta = rope_theta
-        self.config_window_size = config_window_size
 
     def build(self, input_shape):
         seq_shape = (None, None, self.hidden_size)
@@ -288,22 +226,6 @@ class SAM3ViTLayer(layers.Layer):
             self.hidden_size, self.num_attention_heads, name="attention"
         )
         self.attn.build(seq_shape)
-
-        if self.window_size > 0:
-            end = self.window_size
-            rope_scale = 1.0
-        else:
-            end = self.image_size
-            rope_scale = self.config_window_size / end
-        self.rotary_emb = SAM3ViTRotaryEmbedding(
-            self.hidden_size,
-            self.num_attention_heads,
-            end_x=end,
-            end_y=end,
-            rope_theta=self.rope_theta,
-            scale=rope_scale,
-            name="rotary_emb",
-        )
 
         self.mlp_fc1 = layers.Dense(self.intermediate_size, name="mlp_fc1")
         self.mlp_fc1.build(seq_shape)
@@ -366,7 +288,7 @@ class SAM3ViTLayer(layers.Layer):
         x = x[:, :height, :width, :]
         return x
 
-    def call(self, hidden_states):
+    def call(self, hidden_states, cos, sin):
         shape = ops.shape(hidden_states)
         batch_size, height, width = shape[0], shape[1], shape[2]
 
@@ -381,8 +303,7 @@ class SAM3ViTLayer(layers.Layer):
         else:
             pass
 
-        pos_emb = self.rotary_emb()
-        x = self.attn(x, pos_emb)
+        x = self.attn(x, (cos, sin))
 
         if self.window_size > 0:
             x = self._window_unpartition(x, self.window_size, pad_hw, (height, width))
@@ -420,8 +341,6 @@ class SAM3ViTLayer(layers.Layer):
                 "image_size": self.image_size,
                 "layer_norm_eps": self.layer_norm_eps,
                 "layer_scale_init_value": self.layer_scale_init_value,
-                "config_window_size": self.config_window_size,
-                "rope_theta": self.rope_theta,
             }
         )
         return config

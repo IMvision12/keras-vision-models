@@ -26,6 +26,34 @@ from .sam3_utils import (
 LAYER_NORM_EPS = 1e-6
 
 
+def compute_rotary_embeddings(
+    hidden_size, num_attention_heads, end_x, end_y, rope_theta=10000.0, scale=1.0
+):
+    """Compute 2D rotary position embeddings (cos, sin) using Keras ops.
+
+    Returns:
+        cos: (end_x * end_y, head_dim) float32 tensor.
+        sin: (end_x * end_y, head_dim) float32 tensor.
+    """
+    head_dim = hidden_size // num_attention_heads
+    dim_range = ops.cast(ops.arange(0, head_dim, 4), "float32")[: head_dim // 4]
+    freqs = 1.0 / (rope_theta ** (dim_range / head_dim))
+
+    flat_idx = ops.cast(ops.arange(end_x * end_y), "float32")
+    x_positions = (flat_idx % end_x) * scale
+    y_positions = ops.floor(flat_idx / end_x) * scale
+
+    freqs_x = ops.outer(x_positions, freqs)
+    freqs_y = ops.outer(y_positions, freqs)
+
+    inv_freq = ops.concatenate([freqs_x, freqs_y], axis=-1)
+    inv_freq = ops.repeat(inv_freq, 2, axis=-1)
+
+    cos = ops.cos(inv_freq)
+    sin = ops.sin(inv_freq)
+    return cos, sin
+
+
 def _build_vision_backbone(
     pixel_values,
     vit_hidden_size,
@@ -80,8 +108,30 @@ def _build_vision_backbone(
         name="backbone_to_spatial",
     )(hidden_states)
 
+    # Pre-compute rotary embeddings for window and global attention
+    window_cos, window_sin = compute_rotary_embeddings(
+        vit_hidden_size,
+        vit_num_attention_heads,
+        end_x=vit_window_size,
+        end_y=vit_window_size,
+        rope_theta=vit_rope_theta,
+        scale=1.0,
+    )
+    global_cos, global_sin = compute_rotary_embeddings(
+        vit_hidden_size,
+        vit_num_attention_heads,
+        end_x=grid_size,
+        end_y=grid_size,
+        rope_theta=vit_rope_theta,
+        scale=vit_window_size / grid_size,
+    )
+
     for i in range(vit_num_hidden_layers):
         win = vit_window_size if i not in vit_global_attn_indexes else 0
+        if win > 0:
+            cos, sin = window_cos, window_sin
+        else:
+            cos, sin = global_cos, global_sin
         hidden_states = SAM3ViTLayer(
             hidden_size=vit_hidden_size,
             num_attention_heads=vit_num_attention_heads,
@@ -89,10 +139,8 @@ def _build_vision_backbone(
             window_size=win,
             image_size=grid_size,
             layer_norm_eps=LAYER_NORM_EPS,
-            rope_theta=vit_rope_theta,
-            config_window_size=vit_window_size,
             name=f"backbone_layers_{i}",
-        )(hidden_states)
+        )(hidden_states, cos, sin)
 
     backbone_out_flat = layers.Reshape(
         (grid_size * grid_size, vit_hidden_size),

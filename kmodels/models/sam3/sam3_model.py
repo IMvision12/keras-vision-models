@@ -9,7 +9,6 @@ from .sam3_layers import (
     SAM3AddPositionEmbedding,
     SAM3BoxRPB,
     SAM3DecoderMLP,
-    SAM3DotProductScoring,
     SAM3LearnableEmbedding,
     SAM3MultiHeadAttention,
     SAM3ViTLayer,
@@ -403,6 +402,45 @@ def _detr_decoder_layer(
     return hidden_states
 
 
+def _dot_product_scoring(
+    decoder_hidden_states,
+    text_features,
+    text_mask,
+    hidden_size,
+    intermediate_size=2048,
+    name="dot_product_scoring",
+):
+    """Dot-product scoring: text MLP + pooling + projection → logits."""
+    text_mlp_fc1 = layers.Dense(intermediate_size, name=f"{name}_text_mlp_fc1")
+    text_mlp_fc2 = layers.Dense(hidden_size, name=f"{name}_text_mlp_fc2")
+    text_mlp_out_norm = layers.LayerNormalization(
+        epsilon=LAYER_NORM_EPS, name=f"{name}_text_mlp_out_norm"
+    )
+    text_proj = layers.Dense(hidden_size, name=f"{name}_text_proj")
+    query_proj = layers.Dense(hidden_size, name=f"{name}_query_proj")
+
+    x = text_mlp_fc1(text_features)
+    x = layers.Activation("relu", name=f"{name}_relu")(x)
+    x = text_mlp_fc2(x)
+    text_feats = text_mlp_out_norm(
+        layers.Add(name=f"{name}_residual")([text_features, x])
+    )
+
+    mask_expanded = ops.expand_dims(ops.cast(text_mask, "float32"), axis=-1)
+    text_pooled = ops.sum(text_feats * mask_expanded, axis=1) / (
+        ops.sum(mask_expanded, axis=1) + 1e-8
+    )
+
+    t_proj = text_proj(text_pooled)
+    q_proj = query_proj(decoder_hidden_states)
+
+    scale = hidden_size**-0.5
+    logits = ops.matmul(q_proj, ops.expand_dims(t_proj, axis=-1))
+    logits = ops.squeeze(logits, axis=-1) * scale
+    logits = ops.clip(logits, -12.0, 12.0)
+    return logits
+
+
 def _build_detr_decoder(
     encoder_output,
     encoder_pos_flat,
@@ -540,11 +578,12 @@ def _build_detr_decoder(
     pred_boxes_cxcywh = ops.sigmoid(inverse_sigmoid(last_ref_boxes) + final_box_offsets)
     pred_boxes = box_cxcywh_to_xyxy(pred_boxes_cxcywh)
 
-    scoring = SAM3DotProductScoring(
+    pred_logits = _dot_product_scoring(
+        decoder_hidden,
+        text_projected,
+        text_attention_mask,
         hidden_size=detr_decoder_hidden_size,
-        name="dot_product_scoring",
     )
-    pred_logits = scoring(decoder_hidden, text_projected, text_attention_mask)
 
     presence_logits_stacked = ops.concatenate(
         [ops.squeeze(p, axis=1) for p in all_presence_logits], axis=-1

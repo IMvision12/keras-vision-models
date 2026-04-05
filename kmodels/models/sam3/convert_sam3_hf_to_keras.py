@@ -278,38 +278,24 @@ def convert_sam3(model_config):
 
     # ── Dot-product scoring ──────────────────────────────────────
     print("Transferring dot-product scoring...")
-    scoring = keras_model.get_layer("dot_product_scoring")
+    prefix = "dot_product_scoring"
 
-    transfer_weights(
-        "kernel",
-        scoring.text_mlp_fc1.kernel,
-        hf["dot_product_scoring.text_mlp.layer1.weight"],
-    )
-    scoring.text_mlp_fc1.bias.assign(hf["dot_product_scoring.text_mlp.layer1.bias"])
-    transfer_weights(
-        "kernel",
-        scoring.text_mlp_fc2.kernel,
-        hf["dot_product_scoring.text_mlp.layer2.weight"],
-    )
-    scoring.text_mlp_fc2.bias.assign(hf["dot_product_scoring.text_mlp.layer2.bias"])
-    scoring.text_mlp_out_norm.gamma.assign(
-        hf["dot_product_scoring.text_mlp_out_norm.weight"]
-    )
-    scoring.text_mlp_out_norm.beta.assign(
-        hf["dot_product_scoring.text_mlp_out_norm.bias"]
-    )
-    transfer_weights(
-        "kernel",
-        scoring.text_proj.kernel,
-        hf["dot_product_scoring.text_proj.weight"],
-    )
-    scoring.text_proj.bias.assign(hf["dot_product_scoring.text_proj.bias"])
-    transfer_weights(
-        "kernel",
-        scoring.query_proj.kernel,
-        hf["dot_product_scoring.query_proj.weight"],
-    )
-    scoring.query_proj.bias.assign(hf["dot_product_scoring.query_proj.bias"])
+    for name, hf_name in [
+        ("text_mlp_fc1", "text_mlp.layer1"),
+        ("text_mlp_fc2", "text_mlp.layer2"),
+    ]:
+        layer = keras_model.get_layer(f"{prefix}_{name}")
+        transfer_weights("kernel", layer.kernel, hf[f"{prefix}.{hf_name}.weight"])
+        layer.bias.assign(hf[f"{prefix}.{hf_name}.bias"])
+
+    norm = keras_model.get_layer(f"{prefix}_text_mlp_out_norm")
+    norm.gamma.assign(hf[f"{prefix}.text_mlp_out_norm.weight"])
+    norm.beta.assign(hf[f"{prefix}.text_mlp_out_norm.bias"])
+
+    for name in ["text_proj", "query_proj"]:
+        layer = keras_model.get_layer(f"{prefix}_{name}")
+        transfer_weights("kernel", layer.kernel, hf[f"{prefix}.{name}.weight"])
+        layer.bias.assign(hf[f"{prefix}.{name}.bias"])
 
     # ── Mask decoder ─────────────────────────────────────────────
     print("Transferring mask decoder...")

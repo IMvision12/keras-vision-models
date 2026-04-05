@@ -115,7 +115,6 @@ class SAM3ViTRotaryEmbedding(layers.Layer):
             rope_theta ** (np.arange(0, dim, 4, dtype="float32")[: dim // 4] / dim)
         )
 
-        # Match HF: flattened positions with x varying fastest (row-major)
         flat_idx = np.arange(end_x * end_y, dtype="float32")
         x_positions = (flat_idx % end_x) * scale
         y_positions = (flat_idx // end_x) * scale

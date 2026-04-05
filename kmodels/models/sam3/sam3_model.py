@@ -26,11 +26,6 @@ from .sam3_utils import (
 LAYER_NORM_EPS = 1e-6
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Builder functions (each builds a section of the functional graph)
-# ═══════════════════════════════════════════════════════════════════
-
-
 def _build_vision_backbone(
     pixel_values,
     vit_hidden_size,
@@ -357,7 +352,6 @@ def _build_detr_decoder(
 
         all_intermediate.append(output_layer_norm(query_hidden))
 
-    # Post-decoder box recomputation (matches HF)
     decoder_hidden = all_intermediate[-1]
     last_ref_boxes = all_input_boxes[-2]
     final_box_offsets = box_head(decoder_hidden)
@@ -404,7 +398,6 @@ def _build_mask_decoder(
         pred_masks: (B, Q, H, W) mask logits.
         semantic_seg: (B, 1, H, W) semantic segmentation logits.
     """
-    # Prompt cross-attention: encoder attends to text
     prompt_cross_attn_norm = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS,
         name="mask_decoder_prompt_cross_attn_norm",
@@ -423,7 +416,6 @@ def _build_mask_decoder(
     )
     encoder_for_mask = encoder_output + encoder_for_mask
 
-    # Pixel decoder: upsample with FPN skip connections
     pixel_feat = layers.Reshape(
         (enc_h, enc_h, fpn_hidden_size),
         name="pixel_decoder_reshape_encoder",
@@ -471,7 +463,6 @@ def _build_mask_decoder(
             name=f"pixel_decoder_stage_{stage_idx}_to_nchw",
         )(pixel_feat_nhwc)
 
-    # Projections and mask prediction
     instance_embed = layers.Conv2D(
         mask_decoder_hidden_size,
         kernel_size=1,
@@ -492,11 +483,6 @@ def _build_mask_decoder(
     pred_masks = ops.einsum("bqc,bhwc->bqhw", mask_embeddings, instance_nhwc)
 
     return pred_masks, semantic_seg
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  SAM3 Model
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -539,7 +525,6 @@ class SAM3(keras.Model):
         if input_shape is None:
             input_shape = (vit_image_size, vit_image_size, 3)
 
-        # ── Inputs ───────────────────────────────────────────────
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
                 pixel_values = layers.Input(
@@ -558,8 +543,6 @@ class SAM3(keras.Model):
         )
 
         grid_size = vit_image_size // vit_patch_size
-
-        # ── 1. Vision backbone ───────────────────────────────────
         backbone_nchw, grid_size = _build_vision_backbone(
             pixel_values,
             vit_hidden_size=vit_hidden_size,
@@ -574,7 +557,6 @@ class SAM3(keras.Model):
             vit_pretrain_image_size=vit_pretrain_image_size,
         )
 
-        # ── 2. FPN neck ─────────────────────────────────────────
         fpn_hidden_states = _build_fpn_neck(
             backbone_nchw,
             vit_hidden_size,
@@ -582,7 +564,6 @@ class SAM3(keras.Model):
             fpn_scale_factors,
         )
 
-        # ── 3. Text projection + attention mask ──────────────────
         text_projected = layers.Dense(detr_encoder_hidden_size, name="text_projection")(
             text_features_input
         )
@@ -594,7 +575,6 @@ class SAM3(keras.Model):
             name="text_attn_mask",
         )(text_attention_mask)
 
-        # ── 4. DETR encoder ──────────────────────────────────────
         encoder_output, encoder_pos_flat, enc_h = _build_detr_encoder(
             fpn_hidden_states,
             text_projected,
@@ -608,7 +588,6 @@ class SAM3(keras.Model):
             detr_encoder_dropout=detr_encoder_dropout,
         )
 
-        # ── 5. DETR decoder ──────────────────────────────────────
         decoder_hidden, pred_boxes, pred_logits, presence_logits = _build_detr_decoder(
             encoder_output,
             encoder_pos_flat,
@@ -624,7 +603,6 @@ class SAM3(keras.Model):
             detr_decoder_dropout=detr_decoder_dropout,
         )
 
-        # ── 6. Mask decoder ──────────────────────────────────────
         pred_masks, semantic_seg = _build_mask_decoder(
             encoder_output,
             decoder_hidden,
@@ -637,7 +615,6 @@ class SAM3(keras.Model):
             mask_decoder_num_attention_heads=mask_decoder_num_attention_heads,
         )
 
-        # ── Outputs ──────────────────────────────────────────────
         fpn_05x = fpn_hidden_states[-1]
 
         outputs = {
@@ -660,7 +637,6 @@ class SAM3(keras.Model):
             **kwargs,
         )
 
-        # Store config for serialization
         self.vit_hidden_size = vit_hidden_size
         self.vit_intermediate_size = vit_intermediate_size
         self.vit_num_hidden_layers = vit_num_hidden_layers
@@ -732,11 +708,6 @@ class SAM3(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Factory
-# ═══════════════════════════════════════════════════════════════════
 
 
 def _create_sam3_model(

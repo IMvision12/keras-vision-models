@@ -361,15 +361,14 @@ def convert_sam3(model_config):
     )
     sem_proj.bias.assign(hf["mask_decoder.semantic_projection.bias"])
 
-    mask_emb = keras_model.get_layer("mask_embedder")
     for j in range(3):
-        dense = getattr(mask_emb, f"linear{j + 1}")
+        me_layer = keras_model.get_layer(f"mask_embedder_linear{j + 1}")
         transfer_weights(
             "kernel",
-            dense.kernel,
+            me_layer.kernel,
             hf[f"mask_decoder.mask_embedder.layers.{j}.weight"],
         )
-        dense.bias.assign(hf[f"mask_decoder.mask_embedder.layers.{j}.bias"])
+        me_layer.bias.assign(hf[f"mask_decoder.mask_embedder.layers.{j}.bias"])
 
     # ── Prompt cross-attention in mask decoder ───────────────────
     print("Transferring prompt cross-attention...")

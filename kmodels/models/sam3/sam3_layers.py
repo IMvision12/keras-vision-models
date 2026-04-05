@@ -1017,36 +1017,6 @@ class SAM3GeometryEncoderLayer(layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SAM3MaskEmbedder(layers.Layer):
-    def __init__(self, hidden_size=256, **kwargs):
-        super().__init__(**kwargs)
-        self.hidden_size = hidden_size
-
-    def build(self, input_shape):
-        dim = self.hidden_size
-        seq_shape = (None, None, dim)
-        self.linear1 = layers.Dense(dim, name="linear1")
-        self.linear1.build(seq_shape)
-        self.linear2 = layers.Dense(dim, name="linear2")
-        self.linear2.build(seq_shape)
-        self.linear3 = layers.Dense(dim, name="linear3")
-        self.linear3.build(seq_shape)
-        self.built = True
-
-    def call(self, x):
-        x = self.linear1(x)
-        x = ops.nn.relu(x)
-        x = self.linear2(x)
-        x = ops.nn.relu(x)
-        x = self.linear3(x)
-        return x
-
-    def get_config(self):
-        config = super().get_config()
-        config.update({"hidden_size": self.hidden_size})
-        return config
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3DotProductScoring(layers.Layer):
     def __init__(

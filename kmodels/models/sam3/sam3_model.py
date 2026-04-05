@@ -13,7 +13,6 @@ from .sam3_layers import (
     SAM3DetrEncoderLayer,
     SAM3DotProductScoring,
     SAM3LearnableEmbedding,
-    SAM3MaskEmbedder,
     SAM3MultiHeadAttention,
     SAM3ViTLayer,
     _box_cxcywh_to_xyxy,
@@ -378,6 +377,16 @@ def _build_detr_decoder(
     return decoder_hidden, pred_boxes, pred_logits, presence_logits_stacked
 
 
+def _mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
+    """3-layer MLP: Dense → ReLU → Dense → ReLU → Dense."""
+    x = layers.Dense(hidden_size, name=f"{name_prefix}_linear1")(x)
+    x = layers.ReLU(name=f"{name_prefix}_relu1")(x)
+    x = layers.Dense(hidden_size, name=f"{name_prefix}_linear2")(x)
+    x = layers.ReLU(name=f"{name_prefix}_relu2")(x)
+    x = layers.Dense(hidden_size, name=f"{name_prefix}_linear3")(x)
+    return x
+
+
 def _build_mask_decoder(
     encoder_output,
     decoder_hidden,
@@ -477,11 +486,7 @@ def _build_mask_decoder(
         name="mask_decoder_semantic_proj",
     )(pixel_feat)
 
-    mask_embedder = SAM3MaskEmbedder(
-        hidden_size=mask_decoder_hidden_size,
-        name="mask_embedder",
-    )
-    mask_embeddings = mask_embedder(decoder_hidden)
+    mask_embeddings = _mask_embedder(decoder_hidden, mask_decoder_hidden_size)
 
     instance_nhwc = layers.Permute((2, 3, 1), name="instance_to_nhwc")(instance_embed)
     pred_masks = ops.einsum("bqc,bhwc->bqhw", mask_embeddings, instance_nhwc)

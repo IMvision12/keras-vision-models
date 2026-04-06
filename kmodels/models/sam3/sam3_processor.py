@@ -326,10 +326,11 @@ def _get_vision_submodel(model):
     if cache_key in _SUBMODEL_CACHE:
         return _SUBMODEL_CACHE[cache_key]
 
-    fpn_1x = model.get_layer("fpn_level_2_proj2")
-    text_proj = model.get_layer("text_projection")
+    det = model.detector if hasattr(model, "detector") else model
+    fpn_1x = det.get_layer("fpn_level_2_proj2")
+    text_proj = det.get_layer("text_projection")
     sub = keras.Model(
-        inputs=model.input,
+        inputs=det.input,
         outputs={"fpn_1x": fpn_1x.output, "text_projected": text_proj.output},
     )
     _SUBMODEL_CACHE[cache_key] = sub
@@ -351,9 +352,10 @@ def _get_decoder_model(model):
     if cache_key in _SUBMODEL_CACHE:
         return _SUBMODEL_CACHE[cache_key]
 
-    cfg = model.get_config()
+    det = model.detector if hasattr(model, "detector") else model
+    cfg = det.get_config()
     decoder_model = SAM3(
-        input_shape=model._input_shape_val,
+        input_shape=det._input_shape_val,
         text_hidden_size=cfg["detr_encoder_hidden_size"],  # 256 instead of 1024
         **{
             k: v
@@ -370,7 +372,7 @@ def _get_decoder_model(model):
     )
 
     # Copy all weights from original model by name matching
-    orig_weights = {w.path: w.numpy() for w in model.weights}
+    orig_weights = {w.path: w.numpy() for w in det.weights}
     for w in decoder_model.weights:
         path = w.path.replace("SAM3_decoder/", "SAM3/")
         if path in orig_weights:

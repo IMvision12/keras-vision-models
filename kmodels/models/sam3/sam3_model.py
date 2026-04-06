@@ -931,6 +931,54 @@ class SAM3(keras.Model):
         return cls(**config)
 
 
+@keras.saving.register_keras_serializable(package="kmodels")
+class SAM3Model(keras.Model):
+    """Unified SAM3 model containing all components.
+
+    Holds the core detector (vision backbone + FPN + DETR + mask decoder),
+    CLIP text encoder, and geometry encoder in one model. All weights are
+    saved/loaded together in a single file.
+
+    This is the model returned by the Sam3() factory function.
+    Downstream task classes (SAM3ObjectDetection, etc.) wrap this model.
+    """
+
+    def __init__(self, detector, **kwargs):
+        super().__init__(name=kwargs.pop("name", "SAM3Model"), **kwargs)
+        from .sam3_clip import SAM3CLIPTextEncoder
+        from .sam3_layers import SAM3GeometryEncoder
+
+        self.detector = detector
+
+        self.text_encoder = SAM3CLIPTextEncoder(name="text_encoder")
+        self.text_encoder.build((None, 32))
+
+        self.geometry_encoder = SAM3GeometryEncoder(
+            hidden_size=detector.detr_encoder_hidden_size,
+            name="geometry_encoder",
+        )
+        self.geometry_encoder.build((None, None, 4))
+
+    def call(self, inputs, training=None):
+        return self.detector(inputs, training=training)
+
+    def build(self, input_shape=None):
+        if not self.built:
+            # Trigger build of the detector sub-model
+            self.detector.build(input_shape)
+            self.built = True
+
+    def get_config(self):
+        config = super().get_config()
+        config["detector"] = keras.saving.serialize_keras_object(self.detector)
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        detector = keras.saving.deserialize_keras_object(config.pop("detector"))
+        return cls(detector=detector, **config)
+
+
 def _create_sam3_model(
     variant, input_shape=None, input_tensor=None, weights=None, **kwargs
 ):
@@ -951,13 +999,16 @@ def _create_sam3_model(
         image_size = config["vit_image_size"]
         input_shape = (image_size, image_size, 3)
 
-    model = SAM3(
+    detector = SAM3(
         input_shape=input_shape,
         input_tensor=input_tensor,
         name=variant,
         **config,
         **kwargs,
     )
+
+    model = SAM3Model(detector=detector)
+    model.build(None)
 
     if weights in valid_model_weights:
         url = SAM3_WEIGHTS_CONFIG[variant][weights].get("url", "")
@@ -1003,7 +1054,8 @@ def build_sam3_decoder_model(sam3_model):
             - text_projected: (B, seq, 256) pre-projected text features
             - text_attention_mask: (B, seq) float mask
     """
-    cfg = sam3_model.get_config()
+    det = sam3_model.detector if hasattr(sam3_model, "detector") else sam3_model
+    cfg = det.get_config()
     fpn_hidden_size = cfg["fpn_hidden_size"]
     grid_size = cfg["vit_image_size"] // cfg["vit_patch_size"]
 
@@ -1094,7 +1146,7 @@ def build_sam3_decoder_model(sam3_model):
     )
 
     # Copy matching weights from the full model
-    orig_weights = {w.path: w.numpy() for w in sam3_model.weights}
+    orig_weights = {w.path: w.numpy() for w in det.weights}
     for w in decoder_model.weights:
         path = w.path.replace("SAM3_decoder/", "SAM3/")
         if path in orig_weights and w.shape == orig_weights[path].shape:
@@ -1116,14 +1168,15 @@ def build_sam3_vision_model(sam3_model):
             - fpn_0 through fpn_3: FPN level features (NCHW)
             - text_projected: projected text features (256d)
     """
+    det = sam3_model.detector
     outputs = {}
     for i in range(4):
-        layer = sam3_model.get_layer(f"fpn_level_{i}_proj2")
+        layer = det.get_layer(f"fpn_level_{i}_proj2")
         outputs[f"fpn_{i}"] = layer.output
-    outputs["text_projected"] = sam3_model.get_layer("text_projection").output
+    outputs["text_projected"] = det.get_layer("text_projection").output
 
     return keras.Model(
-        inputs=sam3_model.input,
+        inputs=det.input,
         outputs=outputs,
         name="SAM3_vision",
     )

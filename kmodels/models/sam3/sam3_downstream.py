@@ -82,73 +82,19 @@ class _SAM3Base:
     - Mode C: text + boxes (hybrid)
     """
 
-    def __init__(
-        self,
-        sam3_model,
-        text_encoder_model,
-        tokenizer=None,
-        geometry_encoder=None,
-    ):
+    def __init__(self, sam3_model, tokenizer=None):
+        from .sam3_clip import SAM3CLIPTokenizer
+
         self.model = sam3_model
-        self.text_encoder = text_encoder_model
-        self.tokenizer = tokenizer
-        self.geometry_encoder = geometry_encoder
+        self.tokenizer = tokenizer or SAM3CLIPTokenizer()
 
-    @classmethod
-    def from_pretrained(
-        cls,
-        model_weights,
-        text_encoder_weights,
-        geometry_encoder_weights=None,
-        input_shape=(1008, 1008, 3),
-    ):
-        """Load all components from weight files.
+    @property
+    def text_encoder(self):
+        return self.model.text_encoder
 
-        Args:
-            model_weights: path to sam3.weights.h5
-            text_encoder_weights: path to sam3_text_encoder.weights.h5
-            geometry_encoder_weights: path to sam3_geometry_encoder.weights.h5
-                (required for box prompt modes B/C)
-            input_shape: model input shape (H, W, 3)
-        """
-        import keras
-
-        from .sam3_clip import SAM3CLIPTokenizer, build_text_encoder
-        from .sam3_model import Sam3
-
-        sam3_model = Sam3(input_shape=input_shape, weights=None)
-        sam3_model.load_weights(model_weights)
-
-        text_encoder_model = build_text_encoder(weights_path=text_encoder_weights)
-        tokenizer = SAM3CLIPTokenizer()
-
-        geometry_encoder = None
-        if geometry_encoder_weights is not None:
-            from .sam3_layers import SAM3GeometryEncoder
-
-            geometry_encoder = SAM3GeometryEncoder(name="geometry_encoder")
-            geometry_encoder.build((None, None, 4))
-            # Wrap in model for weight loading
-            boxes_in = keras.Input(shape=(None, 4), dtype="float32")
-            labels_in = keras.Input(shape=(None,), dtype="int32")
-            mask_in = keras.Input(shape=(None,), dtype="float32")
-            vis_in = keras.Input(shape=(None, 256), dtype="float32")
-            pos_in = keras.Input(shape=(None, 256), dtype="float32")
-            geo_out, geo_mask = geometry_encoder(
-                boxes_in, labels_in, mask_in, vis_in, pos_in
-            )
-            geo_model = keras.Model(
-                inputs=[boxes_in, labels_in, mask_in, vis_in, pos_in],
-                outputs={"features": geo_out, "mask": geo_mask},
-            )
-            geo_model.load_weights(geometry_encoder_weights)
-
-        return cls(
-            sam3_model=sam3_model,
-            text_encoder_model=text_encoder_model,
-            tokenizer=tokenizer,
-            geometry_encoder=geometry_encoder,
-        )
+    @property
+    def geometry_encoder(self):
+        return self.model.geometry_encoder
 
     def get_vision_features(self, image):
         """Pre-compute vision features for an image.
@@ -195,6 +141,27 @@ class _SAM3Base:
             "original_size": original_size,
         }
 
+    def _get_text_encoder_model(self):
+        """Build a keras.Model wrapper around the text encoder layer."""
+        import keras
+
+        cache_key = f"{id(self.model)}_text_enc_model"
+        if cache_key not in _SUBMODEL_CACHE:
+            from .sam3_clip import SAM3_CONTEXT_LENGTH
+
+            input_ids = keras.Input(
+                shape=(SAM3_CONTEXT_LENGTH,), dtype="int32", name="input_ids"
+            )
+            attention_mask = keras.Input(
+                shape=(SAM3_CONTEXT_LENGTH,), dtype="int32", name="attention_mask"
+            )
+            output = self.model.text_encoder(input_ids, attention_mask=attention_mask)
+            _SUBMODEL_CACHE[cache_key] = keras.Model(
+                inputs={"input_ids": input_ids, "attention_mask": attention_mask},
+                outputs=output,
+            )
+        return _SUBMODEL_CACHE[cache_key]
+
     def get_text_features(self, text):
         """Pre-compute text features for a prompt.
 
@@ -207,8 +174,9 @@ class _SAM3Base:
         Returns:
             dict with pre-computed text features to pass as text_embeds.
         """
+        text_enc_model = self._get_text_encoder_model()
         text_features, text_attention_mask = preprocess_text_with_encoder(
-            text, self.text_encoder, self.tokenizer
+            text, text_enc_model, self.tokenizer
         )
         return {
             "text_features": text_features,
@@ -310,7 +278,7 @@ class _SAM3Base:
         else:
             text_features, text_attention_mask = preprocess_text_with_encoder(
                 texts if batch_size > 1 else texts[0],
-                self.text_encoder,
+                self._get_text_encoder_model(),
                 self.tokenizer,
             )
 
@@ -335,7 +303,7 @@ class _SAM3Base:
                 # Use cached vision — project text and run decoder model
                 from keras import ops
 
-                tp_layer = self.model.get_layer("text_projection")
+                tp_layer = self.model.detector.get_layer("text_projection")
                 text_proj = ops.convert_to_numpy(
                     tp_layer(ops.convert_to_tensor(text_features))
                 )

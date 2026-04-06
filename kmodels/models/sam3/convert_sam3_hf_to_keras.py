@@ -2,14 +2,11 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
-import keras  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 from tqdm import tqdm  # noqa: E402
 from transformers import Sam3Model  # noqa: E402
 
-from kmodels.models.sam3.sam3_clip import SAM3CLIPTextEncoder  # noqa: E402
-from kmodels.models.sam3.sam3_layers import SAM3GeometryEncoder  # noqa: E402
 from kmodels.models.sam3.sam3_model import Sam3  # noqa: E402
 from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights  # noqa: E402
 
@@ -47,20 +44,20 @@ def convert_sam3(model_config):
     # ── Vision encoder backbone ──────────────────────────────────
     print("Transferring ViT backbone weights...")
 
-    patch_conv = keras_model.get_layer("backbone_patch_embed")
+    patch_conv = keras_model.detector.get_layer("backbone_patch_embed")
     transfer_weights(
         "conv_kernel",
         patch_conv.kernel,
         hf["vision_encoder.backbone.embeddings.patch_embeddings.projection.weight"],
     )
 
-    pos_embed_layer = keras_model.get_layer("backbone_position_embedding")
+    pos_embed_layer = keras_model.detector.get_layer("backbone_position_embedding")
     hf_pos = hf["vision_encoder.backbone.embeddings.position_embeddings"]
     pos_embed_layer.embeddings.assign(hf_pos.squeeze(0))
 
-    num_layers = keras_model.vit_num_hidden_layers
+    num_layers = keras_model.detector.vit_num_hidden_layers
     for i in tqdm(range(num_layers), desc="ViT layers"):
-        layer = keras_model.get_layer(f"backbone_layers_{i}")
+        layer = keras_model.detector.get_layer(f"backbone_layers_{i}")
         p = f"vision_encoder.backbone.layers.{i}"
 
         layer.layer_norm1.gamma.assign(hf[f"{p}.layer_norm1.weight"])
@@ -82,20 +79,20 @@ def convert_sam3(model_config):
         transfer_weights("kernel", layer.mlp_fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
         layer.mlp_fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
 
-    backbone_ln = keras_model.get_layer("backbone_layer_norm")
+    backbone_ln = keras_model.detector.get_layer("backbone_layer_norm")
     backbone_ln.gamma.assign(hf["vision_encoder.backbone.layer_norm.weight"])
     backbone_ln.beta.assign(hf["vision_encoder.backbone.layer_norm.bias"])
 
     # ── FPN neck ─────────────────────────────────────���───────────
     print("Transferring FPN neck weights...")
 
-    scale_factors = keras_model.fpn_scale_factors
+    scale_factors = keras_model.detector.fpn_scale_factors
     for level_idx, scale_factor in enumerate(scale_factors):
         fpn_p = f"vision_encoder.neck.fpn_layers.{level_idx}"
 
         if scale_factor == 4.0:
             # Two deconv layers: scale_layers.0 and scale_layers.2
-            deconv1 = keras_model.get_layer(f"fpn_level_{level_idx}_deconv1")
+            deconv1 = keras_model.detector.get_layer(f"fpn_level_{level_idx}_deconv1")
             transfer_weights(
                 "conv_kernel",
                 deconv1.kernel,
@@ -103,7 +100,7 @@ def convert_sam3(model_config):
             )
             deconv1.bias.assign(hf[f"{fpn_p}.scale_layers.0.bias"])
 
-            deconv2 = keras_model.get_layer(f"fpn_level_{level_idx}_deconv2")
+            deconv2 = keras_model.detector.get_layer(f"fpn_level_{level_idx}_deconv2")
             transfer_weights(
                 "conv_kernel",
                 deconv2.kernel,
@@ -113,7 +110,7 @@ def convert_sam3(model_config):
 
         elif scale_factor == 2.0:
             # One deconv layer: scale_layers.0
-            deconv1 = keras_model.get_layer(f"fpn_level_{level_idx}_deconv1")
+            deconv1 = keras_model.detector.get_layer(f"fpn_level_{level_idx}_deconv1")
             transfer_weights(
                 "conv_kernel",
                 deconv1.kernel,
@@ -123,7 +120,9 @@ def convert_sam3(model_config):
 
         # proj1, proj2 for all levels
         for proj_name in ["proj1", "proj2"]:
-            keras_layer = keras_model.get_layer(f"fpn_level_{level_idx}_{proj_name}")
+            keras_layer = keras_model.detector.get_layer(
+                f"fpn_level_{level_idx}_{proj_name}"
+            )
             hf_key = f"{fpn_p}.{proj_name}.weight"
             if hf_key in hf:
                 transfer_weights("conv_kernel", keras_layer.kernel, hf[hf_key])
@@ -131,18 +130,18 @@ def convert_sam3(model_config):
 
     # ── Text projection ──────────────────────────────────────────
     print("Transferring text projection...")
-    text_proj = keras_model.get_layer("text_projection")
+    text_proj = keras_model.detector.get_layer("text_projection")
     transfer_weights("kernel", text_proj.kernel, hf["text_projection.weight"])
     text_proj.bias.assign(hf["text_projection.bias"])
 
     # ── DETR encoder ─────────────────────────────────────────────
     print("Transferring DETR encoder...")
-    num_enc_layers = keras_model.detr_encoder_num_layers
+    num_enc_layers = keras_model.detector.detr_encoder_num_layers
     for i in tqdm(range(num_enc_layers), desc="DETR encoder layers"):
         prefix = f"detr_encoder_layers_{i}"
         p = f"detr_encoder.layers.{i}"
 
-        self_attn = keras_model.get_layer(f"{prefix}_self_attn")
+        self_attn = keras_model.detector.get_layer(f"{prefix}_self_attn")
         for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
             transfer_weights(
                 "kernel",
@@ -151,7 +150,7 @@ def convert_sam3(model_config):
             )
             getattr(self_attn, proj).bias.assign(hf[f"{p}.self_attn.{proj}.bias"])
 
-        cross_attn = keras_model.get_layer(f"{prefix}_cross_attn")
+        cross_attn = keras_model.detector.get_layer(f"{prefix}_cross_attn")
         for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
             transfer_weights(
                 "kernel",
@@ -161,31 +160,31 @@ def convert_sam3(model_config):
             getattr(cross_attn, proj).bias.assign(hf[f"{p}.cross_attn.{proj}.bias"])
 
         for ln_name in ["layer_norm1", "layer_norm2", "layer_norm3"]:
-            ln = keras_model.get_layer(f"{prefix}_{ln_name}")
+            ln = keras_model.detector.get_layer(f"{prefix}_{ln_name}")
             ln.gamma.assign(hf[f"{p}.{ln_name}.weight"])
             ln.beta.assign(hf[f"{p}.{ln_name}.bias"])
 
-        fc1 = keras_model.get_layer(f"{prefix}_fc1")
+        fc1 = keras_model.detector.get_layer(f"{prefix}_fc1")
         transfer_weights("kernel", fc1.kernel, hf[f"{p}.mlp.fc1.weight"])
         fc1.bias.assign(hf[f"{p}.mlp.fc1.bias"])
-        fc2 = keras_model.get_layer(f"{prefix}_fc2")
+        fc2 = keras_model.detector.get_layer(f"{prefix}_fc2")
         transfer_weights("kernel", fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
         fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
 
     # ── DETR decoder ─────────────────────────────────────────────
     print("Transferring DETR decoder...")
 
-    query_embed = keras_model.get_layer("detr_decoder_query_embed")
+    query_embed = keras_model.detector.get_layer("detr_decoder_query_embed")
     query_embed.embeddings.assign(hf["detr_decoder.query_embed.weight"])
 
-    ref_points = keras_model.get_layer("detr_decoder_reference_points")
+    ref_points = keras_model.detector.get_layer("detr_decoder_reference_points")
     ref_points.embeddings.assign(hf["detr_decoder.reference_points.weight"])
 
-    presence_token = keras_model.get_layer("detr_decoder_presence_token")
+    presence_token = keras_model.detector.get_layer("detr_decoder_presence_token")
     presence_token.embeddings.assign(hf["detr_decoder.presence_token.weight"])
 
     # Box head (layer1, layer2, layer3 in HF → dense_0, dense_1, dense_2 in Keras)
-    box_head = keras_model.get_layer("detr_decoder_box_head")
+    box_head = keras_model.detector.get_layer("detr_decoder_box_head")
     for j, dense in enumerate(box_head.dense_layers):
         transfer_weights(
             "kernel",
@@ -194,7 +193,7 @@ def convert_sam3(model_config):
         )
         dense.bias.assign(hf[f"detr_decoder.box_head.layer{j + 1}.bias"])
 
-    pres_head = keras_model.get_layer("detr_decoder_presence_head")
+    pres_head = keras_model.detector.get_layer("detr_decoder_presence_head")
     for j, dense in enumerate(pres_head.dense_layers):
         transfer_weights(
             "kernel",
@@ -203,7 +202,7 @@ def convert_sam3(model_config):
         )
         dense.bias.assign(hf[f"detr_decoder.presence_head.layer{j + 1}.bias"])
 
-    rph = keras_model.get_layer("detr_decoder_ref_point_head")
+    rph = keras_model.detector.get_layer("detr_decoder_ref_point_head")
     for j, dense in enumerate(rph.dense_layers):
         transfer_weights(
             "kernel",
@@ -224,13 +223,13 @@ def convert_sam3(model_config):
         "layer_norm4": "mlp_layer_norm",
     }
 
-    num_dec_layers = keras_model.detr_decoder_num_layers
+    num_dec_layers = keras_model.detector.detr_decoder_num_layers
     for i in tqdm(range(num_dec_layers), desc="DETR decoder layers"):
         prefix = f"detr_decoder_layers_{i}"
         p = f"detr_decoder.layers.{i}"
 
         for attn_name in ["self_attn", "text_cross_attn", "vision_cross_attn"]:
-            attn = keras_model.get_layer(f"{prefix}_{attn_name}")
+            attn = keras_model.detector.get_layer(f"{prefix}_{attn_name}")
             for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
                 transfer_weights(
                     "kernel",
@@ -240,30 +239,30 @@ def convert_sam3(model_config):
                 getattr(attn, proj).bias.assign(hf[f"{p}.{attn_name}.{proj}.bias"])
 
         for keras_ln, hf_ln in dec_ln_map.items():
-            ln = keras_model.get_layer(f"{prefix}_{keras_ln}")
+            ln = keras_model.detector.get_layer(f"{prefix}_{keras_ln}")
             ln.gamma.assign(hf[f"{p}.{hf_ln}.weight"])
             ln.beta.assign(hf[f"{p}.{hf_ln}.bias"])
 
-        fc1 = keras_model.get_layer(f"{prefix}_fc1")
+        fc1 = keras_model.detector.get_layer(f"{prefix}_fc1")
         transfer_weights("kernel", fc1.kernel, hf[f"{p}.mlp.fc1.weight"])
         fc1.bias.assign(hf[f"{p}.mlp.fc1.bias"])
-        fc2 = keras_model.get_layer(f"{prefix}_fc2")
+        fc2 = keras_model.detector.get_layer(f"{prefix}_fc2")
         transfer_weights("kernel", fc2.kernel, hf[f"{p}.mlp.fc2.weight"])
         fc2.bias.assign(hf[f"{p}.mlp.fc2.bias"])
 
     # ── DETR decoder shared norms ──────────────────────────────────
     print("Transferring decoder output/presence layer norms...")
-    out_ln = keras_model.get_layer("detr_decoder_output_layer_norm")
+    out_ln = keras_model.detector.get_layer("detr_decoder_output_layer_norm")
     out_ln.gamma.assign(hf["detr_decoder.output_layer_norm.weight"])
     out_ln.beta.assign(hf["detr_decoder.output_layer_norm.bias"])
 
-    pres_ln = keras_model.get_layer("detr_decoder_presence_layer_norm")
+    pres_ln = keras_model.detector.get_layer("detr_decoder_presence_layer_norm")
     pres_ln.gamma.assign(hf["detr_decoder.presence_layer_norm.weight"])
     pres_ln.beta.assign(hf["detr_decoder.presence_layer_norm.bias"])
 
     # ── Box RPB embeddings ───────────────────────────────────────
     print("Transferring box RPB embeddings...")
-    box_rpb = keras_model.get_layer("detr_decoder_box_rpb")
+    box_rpb = keras_model.detector.get_layer("detr_decoder_box_rpb")
     for axis_name in ["x", "y"]:
         rpb_mlp = getattr(box_rpb, f"box_rpb_embed_{axis_name}")
         for j, dense in enumerate(rpb_mlp.dense_layers):
@@ -284,16 +283,16 @@ def convert_sam3(model_config):
         ("text_mlp_fc1", "text_mlp.layer1"),
         ("text_mlp_fc2", "text_mlp.layer2"),
     ]:
-        layer = keras_model.get_layer(f"{prefix}_{name}")
+        layer = keras_model.detector.get_layer(f"{prefix}_{name}")
         transfer_weights("kernel", layer.kernel, hf[f"{prefix}.{hf_name}.weight"])
         layer.bias.assign(hf[f"{prefix}.{hf_name}.bias"])
 
-    norm = keras_model.get_layer(f"{prefix}_text_mlp_out_norm")
+    norm = keras_model.detector.get_layer(f"{prefix}_text_mlp_out_norm")
     norm.gamma.assign(hf[f"{prefix}.text_mlp_out_norm.weight"])
     norm.beta.assign(hf[f"{prefix}.text_mlp_out_norm.bias"])
 
     for name in ["text_proj", "query_proj"]:
-        layer = keras_model.get_layer(f"{prefix}_{name}")
+        layer = keras_model.detector.get_layer(f"{prefix}_{name}")
         transfer_weights("kernel", layer.kernel, hf[f"{prefix}.{name}.weight"])
         layer.bias.assign(hf[f"{prefix}.{name}.bias"])
 
@@ -301,9 +300,9 @@ def convert_sam3(model_config):
     print("Transferring mask decoder...")
 
     # HF pixel decoder uses len(fpn_levels)-2 stages (2 for default config)
-    num_up = len(keras_model.fpn_scale_factors) - 2
+    num_up = len(keras_model.detector.fpn_scale_factors) - 2
     for stage_idx in range(num_up):
-        conv = keras_model.get_layer(f"pixel_decoder_stage_{stage_idx}_conv")
+        conv = keras_model.detector.get_layer(f"pixel_decoder_stage_{stage_idx}_conv")
         transfer_weights(
             "conv_kernel",
             conv.kernel,
@@ -311,11 +310,11 @@ def convert_sam3(model_config):
         )
         conv.bias.assign(hf[f"mask_decoder.pixel_decoder.conv_layers.{stage_idx}.bias"])
 
-        gn = keras_model.get_layer(f"pixel_decoder_stage_{stage_idx}_gn")
+        gn = keras_model.detector.get_layer(f"pixel_decoder_stage_{stage_idx}_gn")
         gn.gamma.assign(hf[f"mask_decoder.pixel_decoder.norms.{stage_idx}.weight"])
         gn.beta.assign(hf[f"mask_decoder.pixel_decoder.norms.{stage_idx}.bias"])
 
-    inst_proj = keras_model.get_layer("mask_decoder_instance_proj")
+    inst_proj = keras_model.detector.get_layer("mask_decoder_instance_proj")
     transfer_weights(
         "conv_kernel",
         inst_proj.kernel,
@@ -323,7 +322,7 @@ def convert_sam3(model_config):
     )
     inst_proj.bias.assign(hf["mask_decoder.instance_projection.bias"])
 
-    sem_proj = keras_model.get_layer("mask_decoder_semantic_proj")
+    sem_proj = keras_model.detector.get_layer("mask_decoder_semantic_proj")
     transfer_weights(
         "conv_kernel",
         sem_proj.kernel,
@@ -332,7 +331,7 @@ def convert_sam3(model_config):
     sem_proj.bias.assign(hf["mask_decoder.semantic_projection.bias"])
 
     for j in range(3):
-        me_layer = keras_model.get_layer(f"mask_embedder_linear{j + 1}")
+        me_layer = keras_model.detector.get_layer(f"mask_embedder_linear{j + 1}")
         transfer_weights(
             "kernel",
             me_layer.kernel,
@@ -342,7 +341,7 @@ def convert_sam3(model_config):
 
     # ── Prompt cross-attention in mask decoder ───────────────────
     print("Transferring prompt cross-attention...")
-    pcattn = keras_model.get_layer("mask_decoder_prompt_cross_attn")
+    pcattn = keras_model.detector.get_layer("mask_decoder_prompt_cross_attn")
     for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
         transfer_weights(
             "kernel",
@@ -352,16 +351,14 @@ def convert_sam3(model_config):
         getattr(pcattn, proj).bias.assign(
             hf[f"mask_decoder.prompt_cross_attn.{proj}.bias"]
         )
-    pcanorm = keras_model.get_layer("mask_decoder_prompt_cross_attn_norm")
+    pcanorm = keras_model.detector.get_layer("mask_decoder_prompt_cross_attn_norm")
     pcanorm.gamma.assign(hf["mask_decoder.prompt_cross_attn_norm.weight"])
     pcanorm.beta.assign(hf["mask_decoder.prompt_cross_attn_norm.bias"])
 
-    # ── CLIP Text Encoder (standalone model) ────────────────────────
-    print("Building and transferring CLIP text encoder...")
-    text_enc_layer = SAM3CLIPTextEncoder(name="text_encoder")
-    text_enc_layer.build((None, 32))
+    # ── CLIP Text Encoder ────────────────────────────────────────
+    print("Transferring CLIP text encoder...")
     if True:
-        text_enc = text_enc_layer
+        text_enc = keras_model.text_encoder
         # Token + position embeddings
         text_enc.token_embedding.weights[0].assign(
             hf["text_encoder.text_model.embeddings.token_embedding.weight"]
@@ -397,24 +394,12 @@ def convert_sam3(model_config):
         text_enc.final_layer_norm.beta.assign(
             hf["text_encoder.text_model.final_layer_norm.bias"]
         )
-    # Save text encoder
-    input_ids = keras.Input(shape=(32,), dtype="int32", name="input_ids")
-    attn_mask_input = keras.Input(shape=(32,), dtype="int32", name="attention_mask")
-    text_out = text_enc_layer(input_ids, attention_mask=attn_mask_input)
-    text_encoder_model = keras.Model(
-        inputs={"input_ids": input_ids, "attention_mask": attn_mask_input},
-        outputs=text_out,
-        name="SAM3TextEncoder",
-    )
-    text_encoder_model.save_weights("sam3_text_encoder.weights.h5")
-    print(f"  Text encoder saved: {text_encoder_model.count_params():,} params")
+    print(f"  Text encoder: {sum(w.numpy().size for w in text_enc.weights):,} params")
 
-    # ── Geometry Encoder (standalone model) ───────────────────────
-    print("Building and transferring geometry encoder...")
-    geo_layer = SAM3GeometryEncoder(name="geometry_encoder")
-    geo_layer.build((None, None, 4))
+    # ── Geometry Encoder ─────────────────────────────────────────
+    print("Transferring geometry encoder...")
     if True:
-        geo = geo_layer
+        geo = keras_model.geometry_encoder
         transfer_weights(
             "kernel",
             geo.boxes_direct_project.kernel,
@@ -483,24 +468,10 @@ def convert_sam3(model_config):
             transfer_weights("kernel", layer.fc2.kernel, hf[f"{gp}.mlp.fc2.weight"])
             layer.fc2.bias.assign(hf[f"{gp}.mlp.fc2.bias"])
     print(
-        f"  Geometry encoder built: {sum(np.prod(w.shape) for w in geo_layer.weights):,} params"
+        f"  Geometry encoder built: {sum(np.prod(w.shape) for w in geo.weights):,} params"
     )
 
-    # Save geometry encoder weights via a wrapper model
-    boxes_in = keras.Input(shape=(None, 4), name="boxes", dtype="float32")
-    labels_in = keras.Input(shape=(None,), name="box_labels", dtype="int32")
-    mask_in = keras.Input(shape=(None,), name="box_mask", dtype="float32")
-    vis_flat_in = keras.Input(shape=(None, 256), name="vision_flat", dtype="float32")
-    pos_flat_in = keras.Input(shape=(None, 256), name="vision_pos", dtype="float32")
-    geo_out, geo_mask_out = geo_layer(
-        boxes_in, labels_in, mask_in, vis_flat_in, pos_flat_in
-    )
-    geo_model = keras.Model(
-        inputs=[boxes_in, labels_in, mask_in, vis_flat_in, pos_flat_in],
-        outputs={"features": geo_out, "mask": geo_mask_out},
-    )
-    geo_model.save_weights("sam3_geometry_encoder.weights.h5")
-    print("  Geometry encoder weights saved: sam3_geometry_encoder.weights.h5")
+    print(f"  Geometry encoder: {sum(w.numpy().size for w in geo.weights):,} params")
 
     print(f"\nAll {len(hf)} HF weight tensors transferred.")
 

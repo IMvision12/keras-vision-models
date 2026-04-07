@@ -27,14 +27,6 @@ class Sam3SinePositionEmbedding(layers.Layer):
         self.scale = 2 * math.pi if scale is None else scale
 
     def call(self, x):
-        """Generate positional encoding for a feature map.
-
-        Args:
-            x: (B, C, H, W) feature map tensor (NCHW).
-
-        Returns:
-            (B, 2*num_pos_feats, H, W) positional encoding in NCHW format.
-        """
         shape = ops.shape(x)
         batch_size = shape[0]
         h = shape[2]
@@ -47,7 +39,7 @@ class Sam3SinePositionEmbedding(layers.Layer):
                 axis=1,
             ),
             "float32",
-        )  # (H, W)
+        )
         x_embed = ops.cast(
             ops.repeat(
                 ops.expand_dims(ops.arange(1, w + 1, dtype="float32"), axis=0),
@@ -55,7 +47,7 @@ class Sam3SinePositionEmbedding(layers.Layer):
                 axis=0,
             ),
             "float32",
-        )  # (H, W)
+        )
 
         if self.normalize:
             eps = 1e-6
@@ -68,8 +60,8 @@ class Sam3SinePositionEmbedding(layers.Layer):
             "float32",
         )
 
-        pos_x = ops.expand_dims(x_embed, axis=-1) / dim_t  # (H, W, D)
-        pos_y = ops.expand_dims(y_embed, axis=-1) / dim_t  # (H, W, D)
+        pos_x = ops.expand_dims(x_embed, axis=-1) / dim_t
+        pos_y = ops.expand_dims(y_embed, axis=-1) / dim_t
 
         pos_x_sin = ops.sin(pos_x[..., 0::2])
         pos_x_cos = ops.cos(pos_x[..., 1::2])
@@ -85,9 +77,9 @@ class Sam3SinePositionEmbedding(layers.Layer):
             (h, w, self.num_pos_feats),
         )
 
-        pos = ops.concatenate([pos_y, pos_x], axis=-1)  # (H, W, 2*D)
-        pos = ops.transpose(pos, (2, 0, 1))  # (2*D, H, W)
-        pos = ops.expand_dims(pos, axis=0)  # (1, 2*D, H, W)
+        pos = ops.concatenate([pos_y, pos_x], axis=-1)
+        pos = ops.transpose(pos, (2, 0, 1))
+        pos = ops.expand_dims(pos, axis=0)
         pos = ops.broadcast_to(pos, (batch_size,) + ops.shape(pos)[1:])
         return pos
 
@@ -109,8 +101,8 @@ class Sam3FPNLayer(layers.Layer):
     """Single FPN level with scale-dependent up/downsampling.
 
     Scale factors:
-    - 4.0: ConvTranspose2d(1024→512, k2s2) + GELU + ConvTranspose2d(512→256, k2s2)
-    - 2.0: ConvTranspose2d(1024→512, k2s2)
+    - 4.0: ConvTranspose2d(1024->512, k2s2) + GELU + ConvTranspose2d(512->256, k2s2)
+    - 2.0: ConvTranspose2d(1024->512, k2s2)
     - 1.0: identity (no scaling)
     - 0.5: MaxPool2d(k2, s2)
 
@@ -191,19 +183,12 @@ class Sam3FPNLayer(layers.Layer):
         self.built = True
 
     def call(self, hidden_states):
-        """
-        Args:
-            hidden_states: (B, in_channels, H, W)
-        Returns:
-            (B, fpn_dim, H', W') where H'/W' depend on scale_factor.
-        """
         x = hidden_states
         for layer in self._scale_layers:
             if layer == "gelu":
                 x = ops.nn.gelu(x)
             else:
                 x = layer(x)
-
         x = self.proj1(x)
         x = self.proj2(x)
         return x
@@ -226,13 +211,6 @@ class Sam3VisionNeck(layers.Layer):
 
     Creates multi-scale feature pyramid from backbone output and generates
     sine positional encodings for each FPN level.
-
-    Architecture:
-        backbone_out (B, 1024, H, W)
-            → FPN level 0 (4x upsample): (B, 256, 4H, 4W)
-            → FPN level 1 (2x upsample): (B, 256, 2H, 2W)
-            → FPN level 2 (1x):           (B, 256, H, W)
-            → FPN level 3 (0.5x):         (B, 256, H/2, W/2)
     """
 
     def __init__(
@@ -264,27 +242,16 @@ class Sam3VisionNeck(layers.Layer):
             )
             fpn.build((None, self.backbone_hidden_size, None, None))
             self.fpn_layers.append(fpn)
-
         self.built = True
 
     def call(self, hidden_states):
-        """
-        Args:
-            hidden_states: (B, backbone_hidden_size, H, W) backbone output.
-
-        Returns:
-            fpn_hidden_states: list of (B, fpn_hidden_size, H', W') at each scale.
-            fpn_position_encoding: list of (B, fpn_hidden_size, H', W') sine PE.
-        """
         fpn_hidden_states = []
         fpn_position_encoding = []
-
         for fpn_layer in self.fpn_layers:
             fpn_output = fpn_layer(hidden_states)
             fpn_hidden_states.append(fpn_output)
             pos_enc = self.position_encoding(fpn_output)
             fpn_position_encoding.append(pos_enc)
-
         return fpn_hidden_states, fpn_position_encoding
 
     def get_config(self):

@@ -506,13 +506,15 @@ class Sam3VideoModel(keras.Model):
             input_points = ops.zeros((batch_size, 1, 1, 2), dtype="float32")
             input_labels = -ops.ones((batch_size, 1, 1), dtype="int32")
 
-        sparse_emb, dense_emb = tracker.prompt_encoder(
+        prompt_out = tracker.prompt_encoder(
             input_points=input_points,
             input_labels=input_labels,
             input_masks=mask_inputs,
         )
+        sparse_emb = prompt_out["sparse_embeddings"]
+        dense_emb = prompt_out["dense_embeddings"]
 
-        masks, iou_pred, sam_tokens, object_score = tracker.mask_decoder(
+        dec_out = tracker.mask_decoder(
             image_embeddings=conditioned_feats,
             image_positional_embeddings=image_pe,
             sparse_prompt_embeddings=sparse_emb,
@@ -521,7 +523,12 @@ class Sam3VideoModel(keras.Model):
             high_resolution_features=image_embeddings[:2],
         )
 
-        sam_output_token = sam_tokens[:, :, 0, :]  # First token
+        masks = dec_out["pred_masks"]
+        iou_pred = dec_out["iou_scores"]
+        sam_tokens = dec_out["sam_tokens"]
+        object_score = dec_out["object_score_logits"]
+
+        sam_output_token = sam_tokens[:, :, 0, :]
         is_appearing = ops.cast(ops.sigmoid(object_score[:, :, 0:1]) > 0.0, "float32")
         obj_pointer = tracker.project_object_pointer(
             sam_output_token[:, 0, :], is_appearing[:, 0, :]

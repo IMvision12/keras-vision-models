@@ -45,6 +45,7 @@ def _tl(keras_ln, w, b):
 
 
 def _tff(keras_ff, hf, p):
+    """Transfer weights to a Sam3TrackerFeedForward Layer."""
     _td(keras_ff.proj_in, hf[f"{p}.proj_in.weight"], hf[f"{p}.proj_in.bias"])
     for j, layer in enumerate(keras_ff.hidden_layers):
         _td(layer, hf[f"{p}.layers.{j}.weight"], hf[f"{p}.layers.{j}.bias"])
@@ -52,6 +53,7 @@ def _tff(keras_ff, hf, p):
 
 
 def _tfpn(keras_neck, hf, prefix):
+    """Transfer FPN weights to a Sam3VisionNeck Layer."""
     for i, sf in enumerate([4.0, 2.0, 1.0, 0.5]):
         fpn = keras_neck.fpn_layers[i]
         fp = f"{prefix}.fpn_layers.{i}"
@@ -440,6 +442,7 @@ def _transfer_tracker(tv, hf, prefix=""):
         hf[f"{p}prompt_encoder.not_a_point_embed.weight"]
     )
     pe.no_mask_embed.weights[0].assign(hf[f"{p}prompt_encoder.no_mask_embed.weight"])
+
     me = pe.mask_embed
     for n in ["conv1", "conv2", "conv3"]:
         _tc(
@@ -587,9 +590,8 @@ def _transfer_tracker(tv, hf, prefix=""):
         hf[f"{p}memory_encoder.feature_projection.weight"],
         hf[f"{p}memory_encoder.feature_projection.bias"],
     )
-    fuser = mem.memory_fuser
-    for i in range(len(fuser.fuser_layers)):
-        block = fuser.fuser_layers[i]
+    for i in range(len(mem.fuser_layers)):
+        block = mem.fuser_layers[i]
         bp = f"{p}memory_encoder.memory_fuser.layers.{i}"
         transfer_weights(
             "depthwise_conv_kernel",
@@ -720,11 +722,13 @@ def convert():
     )
 
     with torch.no_grad():
-        out = tv_v(
-            pixel_values=inputs["pixel_values"].permute(0, 2, 3, 1).numpy(),
+        pixel_values = inputs["pixel_values"].permute(0, 2, 3, 1).numpy()
+        image_embeddings = tv_v.get_image_features(pixel_values)
+        out = tv_v.predict_masks(
+            image=None,
             input_points=inputs["input_points"].numpy(),
             input_labels=inputs["input_labels"].numpy().astype(np.int32),
-            multimask_output=False,
+            image_embeddings=image_embeddings,
         )
     obj = ops.convert_to_numpy(out["object_score_logits"]).flatten()[0]
     print(f"  obj_score: {obj:.3f} (expected: 18.089)")

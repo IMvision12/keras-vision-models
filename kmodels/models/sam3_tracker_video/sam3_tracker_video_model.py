@@ -2,6 +2,10 @@
 
 Adds memory attention, memory encoder, object pointer projection,
 and temporal positional encoding for multi-frame video tracking.
+
+Stays imperative (custom call) because video-specific components
+(memory_attention, memory_encoder, vision_neck) are used externally
+by Sam3VideoModel and must be tracked for weight saving.
 """
 
 import keras
@@ -28,15 +32,10 @@ from .sam3_tracker_video_layers import (
 class Sam3TrackerVideoModel(keras.Model):
     """Sam3TrackerVideo: multi-frame video tracker with temporal memory.
 
-    Extends the single-frame Sam3Tracker with:
-    - Memory attention (4 layers with RoPE cross-attention to past frames)
-    - Memory encoder (encodes masks into memory for future conditioning)
-    - Object pointer projection (projects SAM output tokens to pointers)
-    - Temporal positional encoding (sine PE for frame offsets)
-
-    The vision encoder is shared with the SAM3 detector — both load
-    from the same weight file. When used inside Sam3Video, the vision
-    encoder is bypassed (features come through the tracker_neck FPN).
+    Imperative model (custom call). The core forward pass handles
+    single-frame inference. Video-specific components (memory attention,
+    memory encoder, vision neck) are stored as attributes for external
+    use by Sam3VideoModel.
     """
 
     def __init__(
@@ -200,11 +199,6 @@ class Sam3TrackerVideoModel(keras.Model):
         self.built = True
 
     def get_image_wide_positional_embeddings(self):
-        """Create positional embeddings for the full image grid.
-
-        Returns:
-            (1, 256, H, W) positional embeddings.
-        """
         size = self._image_embedding_size
         grid = ops.ones((size, size), dtype="float32")
         y = ops.cumsum(grid, axis=0) - 0.5
@@ -217,20 +211,8 @@ class Sam3TrackerVideoModel(keras.Model):
         return ops.expand_dims(pe, 0)
 
     def get_image_features(self, pixel_values):
-        """Extract vision features using shared backbone + tracker's own FPN.
-
-        Uses the SAM3 detector's backbone for the ViT features, then passes
-        them through the tracker's own vision_neck FPN (separate weights from
-        the detector FPN). This matches HF's Sam3TrackerVideoModel which has
-        its own vision_encoder.neck.
-
-        Returns:
-            list of 3 feature maps: [feat_s0, feat_s1, fpn_2_with_no_mem]
-        """
         if self._sam3_ref is None:
-            raise ValueError(
-                "sam3_model must be set before calling get_image_features."
-            )
+            raise ValueError("sam3_model must be set.")
 
         from kmodels.models.sam3.sam3_processor import _SUBMODEL_CACHE
 
@@ -270,19 +252,6 @@ class Sam3TrackerVideoModel(keras.Model):
         return [feat_s0, feat_s1, fpn_2]
 
     def get_image_features_from_neck(self, fpn_hidden_states):
-        """Process pre-computed FPN features from tracker_neck.
-
-        Used by Sam3Video where vision features come through the neck FPN
-        instead of the detector's own FPN.
-
-        Args:
-            fpn_hidden_states: list of 4 FPN levels from Sam3VisionNeck.
-                [0]: (B, 256, 4H, 4W), [1]: (B, 256, 2H, 2W),
-                [2]: (B, 256, H, W), [3]: (B, 256, H/2, W/2)
-
-        Returns:
-            list of 3 feature maps: [feat_s0, feat_s1, fpn_2_with_no_mem]
-        """
         feat_s0 = self.mask_decoder.conv_s0(fpn_hidden_states[0])
         feat_s1 = self.mask_decoder.conv_s1(fpn_hidden_states[1])
         fpn_2 = fpn_hidden_states[2]
@@ -293,28 +262,9 @@ class Sam3TrackerVideoModel(keras.Model):
         return [feat_s0, feat_s1, fpn_2]
 
     def encode_memory(self, vision_features, masks):
-        """Encode predicted masks into memory features.
-
-        Args:
-            vision_features: (B, C, H, W) FPN level 2 features.
-            masks: (B, 1, H_mask, W_mask) high-res mask logits.
-
-        Returns:
-            maskmem_features: (B, mem_dim, H', W')
-            maskmem_pos_enc: (B, mem_dim, H', W')
-        """
         return self.memory_encoder(vision_features, masks)
 
     def project_object_pointer(self, sam_output_token, is_obj_appearing):
-        """Project SAM output token to object pointer for memory.
-
-        Args:
-            sam_output_token: (B, hidden_dim) from mask decoder.
-            is_obj_appearing: (B, 1) binary flag.
-
-        Returns:
-            (B, hidden_dim) object pointer embedding.
-        """
         pointer = self.object_pointer_proj(sam_output_token)
         lam = ops.cast(is_obj_appearing, pointer.dtype)
         pointer = lam * pointer + (1 - lam) * self.no_object_pointer
@@ -330,11 +280,6 @@ class Sam3TrackerVideoModel(keras.Model):
         image_embeddings=None,
         multimask_output=True,
     ):
-        """Single-frame inference (no memory conditioning).
-
-        For video inference with memory, use Sam3Video.forward()
-        which orchestrates detection + memory propagation.
-        """
         batch_size = (
             ops.shape(pixel_values)[0]
             if pixel_values is not None
@@ -354,14 +299,16 @@ class Sam3TrackerVideoModel(keras.Model):
         if input_points is not None and input_labels is None:
             input_labels = ops.ones_like(input_points[..., 0], dtype="int32")
 
-        sparse_emb, dense_emb = self.prompt_encoder(
+        prompt_out = self.prompt_encoder(
             input_points=input_points,
             input_labels=input_labels,
             input_boxes=input_boxes,
             input_masks=input_masks,
         )
+        sparse_emb = prompt_out["sparse_embeddings"]
+        dense_emb = prompt_out["dense_embeddings"]
 
-        masks, iou_pred, sam_tokens, object_score = self.mask_decoder(
+        dec_out = self.mask_decoder(
             image_embeddings=image_embeddings[-1],
             image_positional_embeddings=image_pe,
             sparse_prompt_embeddings=sparse_emb,
@@ -371,10 +318,10 @@ class Sam3TrackerVideoModel(keras.Model):
         )
 
         return {
-            "pred_masks": masks,
-            "iou_scores": iou_pred,
-            "object_score_logits": object_score,
-            "sam_tokens": sam_tokens,
+            "pred_masks": dec_out["pred_masks"],
+            "iou_scores": dec_out["iou_scores"],
+            "object_score_logits": dec_out["object_score_logits"],
+            "sam_tokens": dec_out["sam_tokens"],
         }
 
     def predict_masks(
@@ -387,7 +334,6 @@ class Sam3TrackerVideoModel(keras.Model):
         multimask_output=True,
         image_embeddings=None,
     ):
-        """High-level predict for a single image."""
         from kmodels.models.sam3.sam3_processor import preprocess_image
 
         if image_embeddings is None:
@@ -479,19 +425,7 @@ def _create_sam3_tracker_video(variant, sam3_model=None, weights=None, **kwargs)
 
 @register_model
 def Sam3TrackerVideo(sam3_model=None, weights=None, **kwargs):
-    """Create a Sam3TrackerVideo model.
-
-    Args:
-        sam3_model: a trained SAM3Model (from Sam3(weights="pcs")).
-        weights: weight variant name or file path.
-
-    Usage:
-        from kmodels.models.sam3 import Sam3
-        from kmodels.models.sam3_tracker_video import Sam3TrackerVideo
-
-        sam3 = Sam3(weights="pcs")
-        tracker_video = Sam3TrackerVideo(sam3_model=sam3, weights="pcs")
-    """
+    """Create a Sam3TrackerVideo model."""
     return _create_sam3_tracker_video(
         "Sam3TrackerVideo", sam3_model=sam3_model, weights=weights, **kwargs
     )

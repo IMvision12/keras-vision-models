@@ -1,3 +1,5 @@
+from kmodels.models.sam3.weights_config import SAM3_UNIFIED_WEIGHTS_CONFIG
+
 SAM3_MODEL_CONFIG = {
     "Sam3": {
         "vit_hidden_size": 1024,
@@ -38,9 +40,5 @@ SAM3_MODEL_CONFIG = {
 }
 
 SAM3_WEIGHTS_CONFIG = {
-    "Sam3": {
-        "pcs": {
-            "url": "",
-        },
-    },
+    "Sam3": SAM3_UNIFIED_WEIGHTS_CONFIG,
 }

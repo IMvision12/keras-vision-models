@@ -57,7 +57,8 @@ class Sam3TrackerModel(keras.Model):
         self._prompt_encoder_config = prompt_encoder_config
         self._mask_decoder_config = mask_decoder_config
 
-        self.sam3_model = sam3_model
+        # Non-tracked reference (avoids weight duplication in save_weights)
+        object.__setattr__(self, "_sam3_ref", sam3_model)
 
         # Shared positional embedding
         self.shared_image_embedding = Sam3TrackerPositionalEmbedding(
@@ -123,14 +124,14 @@ class Sam3TrackerModel(keras.Model):
             - [1]: (B, 64, 144, 144) — 2x, projected by conv_s1
             - [2]: (B, 256, 72, 72) — 1x + no_memory_embedding
         """
-        if self.sam3_model is None:
+        if self._sam3_ref is None:
             raise ValueError(
                 "sam3_model must be set before calling get_image_features."
             )
 
         from kmodels.models.sam3.sam3_processor import _SUBMODEL_CACHE
 
-        det = self.sam3_model.detector
+        det = self._sam3_ref.detector
         vis_key = f"{id(det)}_tracker_vision"
         if vis_key not in _SUBMODEL_CACHE:
             outputs = {}
@@ -326,17 +327,13 @@ def _create_sam3_tracker(variant, sam3_model=None, weights=None, **kwargs):
 
     valid_weights = list(SAM3_TRACKER_WEIGHTS_CONFIG.get(variant, {}).keys())
     if weights in valid_weights:
-        url = SAM3_TRACKER_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            from kmodels.utils import load_weights_from_config
+        from kmodels.models.sam3.weights_config import load_unified_weights
 
-            load_weights_from_config(
-                variant, weights, model, SAM3_TRACKER_WEIGHTS_CONFIG
-            )
-        else:
-            print(f"Weight URL for '{weights}' not available.")
+        load_unified_weights(
+            sam3_model=sam3_model, tracker_video_model=model, weights=weights
+        )
     elif weights is not None:
-        model.load_weights(weights)
+        model.load_weights(weights, skip_mismatch=True)
     else:
         print("No tracker weights loaded.")
 

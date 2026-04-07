@@ -1,5 +1,7 @@
 """Sam3Video configuration."""
 
+from kmodels.models.sam3.weights_config import SAM3_UNIFIED_WEIGHTS_CONFIG
+
 SAM3_VIDEO_MODEL_CONFIG = {
     "Sam3Video": {
         # Vision neck (FPN bridging detector to tracker)
@@ -35,9 +37,5 @@ SAM3_VIDEO_MODEL_CONFIG = {
 }
 
 SAM3_VIDEO_WEIGHTS_CONFIG = {
-    "Sam3Video": {
-        "pcs": {
-            "url": "",
-        }
-    }
+    "Sam3Video": SAM3_UNIFIED_WEIGHTS_CONFIG,
 }

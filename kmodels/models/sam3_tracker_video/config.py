@@ -1,5 +1,7 @@
 """Sam3TrackerVideo configuration."""
 
+from kmodels.models.sam3.weights_config import SAM3_UNIFIED_WEIGHTS_CONFIG
+
 SAM3_TRACKER_VIDEO_MEMORY_ATTENTION_CONFIG = {
     "hidden_size": 256,
     "num_layers": 4,
@@ -70,9 +72,5 @@ SAM3_TRACKER_VIDEO_MODEL_CONFIG = {
 }
 
 SAM3_TRACKER_VIDEO_WEIGHTS_CONFIG = {
-    "Sam3TrackerVideo": {
-        "pcs": {
-            "url": "",
-        }
-    }
+    "Sam3TrackerVideo": SAM3_UNIFIED_WEIGHTS_CONFIG,
 }

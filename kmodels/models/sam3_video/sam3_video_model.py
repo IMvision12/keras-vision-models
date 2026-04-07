@@ -901,15 +901,16 @@ def _create_sam3_video(
 
     valid_weights = list(SAM3_VIDEO_WEIGHTS_CONFIG.get(variant, {}).keys())
     if weights in valid_weights:
-        url = SAM3_VIDEO_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            from kmodels.utils import load_weights_from_config
+        from kmodels.models.sam3.weights_config import load_unified_weights
 
-            load_weights_from_config(variant, weights, model, SAM3_VIDEO_WEIGHTS_CONFIG)
-        else:
-            print(f"Weight URL for '{weights}' not available.")
+        load_unified_weights(
+            sam3_model=sam3_model,
+            tracker_video_model=tracker_video_model,
+            video_model=model,
+            weights=weights,
+        )
     elif weights is not None:
-        model.load_weights(weights)
+        model.load_weights(weights, skip_mismatch=True)
     else:
         print("No video model weights loaded.")
 

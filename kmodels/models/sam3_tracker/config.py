@@ -1,5 +1,7 @@
 """Sam3Tracker configuration."""
 
+from kmodels.models.sam3.weights_config import SAM3_UNIFIED_WEIGHTS_CONFIG
+
 SAM3_TRACKER_PROMPT_ENCODER_CONFIG = {
     "hidden_size": 256,
     "image_size": 1008,
@@ -31,9 +33,5 @@ SAM3_TRACKER_MODEL_CONFIG = {
 }
 
 SAM3_TRACKER_WEIGHTS_CONFIG = {
-    "Sam3Tracker": {
-        "pcs": {
-            "url": "",
-        }
-    }
+    "Sam3Tracker": SAM3_UNIFIED_WEIGHTS_CONFIG,
 }

@@ -77,7 +77,10 @@ class Sam3TrackerVideoModel(keras.Model):
         self._enable_temporal_pos = enable_temporal_pos_encoding
         self._enable_occlusion = enable_occlusion_spatial_embedding
 
-        self.sam3_model = sam3_model
+        # Store sam3_model as non-tracked reference (avoid weight duplication).
+        # Keras tracks Layer/Model attributes for save_weights; we bypass this
+        # so Sam3VideoModel can own sam3_model and save weights without duplicates.
+        object.__setattr__(self, "_sam3_ref", sam3_model)
 
         # ── Shared positional embedding ──
         self.shared_image_embedding = Sam3TrackerPositionalEmbedding(
@@ -236,7 +239,7 @@ class Sam3TrackerVideoModel(keras.Model):
         Returns:
             list of 3 feature maps: [feat_s0, feat_s1, fpn_2_with_no_mem]
         """
-        if self.sam3_model is None:
+        if self._sam3_ref is None:
             raise ValueError(
                 "sam3_model must be set before calling get_image_features."
             )
@@ -244,7 +247,7 @@ class Sam3TrackerVideoModel(keras.Model):
         from kmodels.models.sam3.sam3_processor import _SUBMODEL_CACHE
 
         # Extract backbone output (before detector's FPN)
-        det = self.sam3_model.detector
+        det = self._sam3_ref.detector
         bb_key = f"{id(det)}_backbone_nchw"
         if bb_key not in _SUBMODEL_CACHE:
             backbone_layer = det.get_layer("backbone_to_nchw")
@@ -476,17 +479,13 @@ def _create_sam3_tracker_video(variant, sam3_model=None, weights=None, **kwargs)
 
     valid_weights = list(SAM3_TRACKER_VIDEO_WEIGHTS_CONFIG.get(variant, {}).keys())
     if weights in valid_weights:
-        url = SAM3_TRACKER_VIDEO_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            from kmodels.utils import load_weights_from_config
+        from kmodels.models.sam3.weights_config import load_unified_weights
 
-            load_weights_from_config(
-                variant, weights, model, SAM3_TRACKER_VIDEO_WEIGHTS_CONFIG
-            )
-        else:
-            print(f"Weight URL for '{weights}' not available.")
+        load_unified_weights(
+            sam3_model=sam3_model, tracker_video_model=model, weights=weights
+        )
     elif weights is not None:
-        model.load_weights(weights)
+        model.load_weights(weights, skip_mismatch=True)
     else:
         print("No tracker video weights loaded.")
 

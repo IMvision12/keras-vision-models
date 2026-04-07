@@ -2,7 +2,6 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import load_weights_from_config
 
 from .config import SAM3_MODEL_CONFIG, SAM3_WEIGHTS_CONFIG
 from .sam3_layers import (
@@ -1011,11 +1010,9 @@ def _create_sam3_model(
     model.build(None)
 
     if weights in valid_model_weights:
-        url = SAM3_WEIGHTS_CONFIG[variant][weights].get("url", "")
-        if url:
-            load_weights_from_config(variant, weights, model, SAM3_WEIGHTS_CONFIG)
-        else:
-            print(f"Weight URL for '{weights}' not available. Use conversion script.")
+        from kmodels.models.sam3.weights_config import load_unified_weights
+
+        load_unified_weights(sam3_model=model, weights=weights)
     elif weights is not None:
         model.load_weights(weights)
     else:

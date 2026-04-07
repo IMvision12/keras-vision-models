@@ -2,7 +2,6 @@
 
 import math
 
-import numpy as np
 from keras import ops
 
 
@@ -62,34 +61,37 @@ def sine_encode_boxes(boxes, num_pos_feats=128, temperature=10000):
 def compute_sine_pos_encoding(
     height, width, num_pos_feats, temperature=10000, normalize=True
 ):
-    """2D sine position encoding grid (numpy). Returns (1, 2*num_pos_feats, H, W)."""
+    """2D sine position encoding grid. Returns (1, 2*num_pos_feats, H, W)."""
     scale = 2 * math.pi
-    y_embed = np.cumsum(np.ones((1, height, width), dtype=np.float32), axis=1)
-    x_embed = np.cumsum(np.ones((1, height, width), dtype=np.float32), axis=2)
+    ones = ops.ones((1, height, width), dtype="float32")
+    y_embed = ops.cumsum(ones, axis=1)
+    x_embed = ops.cumsum(ones, axis=2)
 
     if normalize:
         eps = 1e-6
         y_embed = y_embed / (y_embed[:, -1:, :] + eps) * scale
         x_embed = x_embed / (x_embed[:, :, -1:] + eps) * scale
 
-    dim_t = np.arange(num_pos_feats, dtype=np.float32)
-    dim_t = temperature ** (2 * np.floor(dim_t / 2) / num_pos_feats)
+    dim_t = ops.cast(ops.arange(num_pos_feats), dtype="float32")
+    dim_t = temperature ** (2 * ops.floor(dim_t / 2) / num_pos_feats)
 
-    pos_x = x_embed[..., np.newaxis] / dim_t
-    pos_y = y_embed[..., np.newaxis] / dim_t
+    pos_x = ops.expand_dims(x_embed, axis=-1) / dim_t
+    pos_y = ops.expand_dims(y_embed, axis=-1) / dim_t
 
-    pos_x_sin = np.sin(pos_x[:, :, :, 0::2])
-    pos_x_cos = np.cos(pos_x[:, :, :, 1::2])
-    pos_y_sin = np.sin(pos_y[:, :, :, 0::2])
-    pos_y_cos = np.cos(pos_y[:, :, :, 1::2])
+    pos_x_sin = ops.sin(pos_x[:, :, :, 0::2])
+    pos_x_cos = ops.cos(pos_x[:, :, :, 1::2])
+    pos_y_sin = ops.sin(pos_y[:, :, :, 0::2])
+    pos_y_cos = ops.cos(pos_y[:, :, :, 1::2])
 
-    pos_x = np.stack([pos_x_sin, pos_x_cos], axis=4).reshape(
-        1, height, width, num_pos_feats
+    pos_x = ops.reshape(
+        ops.stack([pos_x_sin, pos_x_cos], axis=4),
+        (1, height, width, num_pos_feats),
     )
-    pos_y = np.stack([pos_y_sin, pos_y_cos], axis=4).reshape(
-        1, height, width, num_pos_feats
+    pos_y = ops.reshape(
+        ops.stack([pos_y_sin, pos_y_cos], axis=4),
+        (1, height, width, num_pos_feats),
     )
 
-    pos = np.concatenate([pos_y, pos_x], axis=-1)
-    pos = pos.transpose(0, 3, 1, 2)
+    pos = ops.concatenate([pos_y, pos_x], axis=-1)
+    pos = ops.transpose(pos, (0, 3, 1, 2))
     return pos

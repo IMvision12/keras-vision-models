@@ -296,13 +296,11 @@ def _build_detr_encoder(
         (enc_h * enc_h, fpn_hidden_size), name="encoder_vision_flatten"
     )(encoder_vision_flat)
 
-    enc_pos_np = compute_sine_pos_encoding(
+    enc_pos = compute_sine_pos_encoding(
         enc_h, enc_h, fpn_hidden_size // 2, normalize=True
     )
-    enc_pos_np = enc_pos_np.transpose(0, 2, 3, 1).reshape(
-        1, enc_h * enc_h, fpn_hidden_size
-    )
-    encoder_pos_flat = ops.convert_to_tensor(enc_pos_np, dtype="float32")
+    enc_pos = ops.transpose(enc_pos, (0, 2, 3, 1))
+    encoder_pos_flat = ops.reshape(enc_pos, (1, enc_h * enc_h, fpn_hidden_size))
 
     encoder_output = encoder_vision_flat
     for i in range(detr_encoder_num_layers):

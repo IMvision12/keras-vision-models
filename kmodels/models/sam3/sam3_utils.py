@@ -2,7 +2,13 @@
 
 import math
 
+import numpy as np
 from keras import ops
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 
 def inverse_sigmoid(x, eps=1e-3):
@@ -95,3 +101,19 @@ def compute_sine_pos_encoding(
     pos = ops.concatenate([pos_y, pos_x], axis=-1)
     pos = ops.transpose(pos, (0, 3, 1, 2))
     return pos
+
+
+def resize_mask(mask, target_h, target_w):
+    """Resize a single 2D mask to target size using PIL bilinear."""
+    if Image is None:
+        raise ImportError("PIL required for mask resizing")
+    pil_m = Image.fromarray((mask * 255).astype(np.uint8))
+    pil_m = pil_m.resize((target_w, target_h), Image.BILINEAR)
+    return np.array(pil_m, dtype=np.float32) / 255.0
+
+
+def resize_masks_batch(masks, target_h, target_w):
+    """Resize a batch of masks (N, H, W) to (N, target_h, target_w)."""
+    if len(masks) == 0:
+        return masks
+    return np.stack([resize_mask(m, target_h, target_w) for m in masks])

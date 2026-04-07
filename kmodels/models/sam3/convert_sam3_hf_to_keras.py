@@ -1,12 +1,3 @@
-"""Convert HuggingFace facebook/sam3 detector to Keras weights.
-
-Extracts only the SAM3 image model (detector + text encoder + geometry
-encoder) from the HF checkpoint.
-
-Usage:
-    HF_TOKEN=xxx python -m kmodels.models.sam3.convert_sam3_hf_to_keras
-"""
-
 import os
 
 os.environ["KERAS_BACKEND"] = "torch"

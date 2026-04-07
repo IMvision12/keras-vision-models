@@ -45,23 +45,7 @@ from .sam3_processor import (
     preprocess_image,
     preprocess_text_with_encoder,
 )
-from .sam3_utils import compute_sine_pos_encoding
-
-
-def _resize_mask(mask, target_h, target_w):
-    """Resize a single 2D mask to target size using PIL bilinear."""
-    if Image is None:
-        raise ImportError("PIL required for mask resizing")
-    pil_m = Image.fromarray((mask * 255).astype(np.uint8))
-    pil_m = pil_m.resize((target_w, target_h), Image.BILINEAR)
-    return np.array(pil_m, dtype=np.float32) / 255.0
-
-
-def _resize_masks_batch(masks, target_h, target_w):
-    """Resize a batch of masks (N, H, W) to (N, target_h, target_w)."""
-    if len(masks) == 0:
-        return masks
-    return np.stack([_resize_mask(m, target_h, target_w) for m in masks])
+from .sam3_utils import compute_sine_pos_encoding, resize_mask, resize_masks_batch
 
 
 class _SAM3Base:
@@ -544,7 +528,7 @@ class SAM3InstanceSegmentation(_SAM3Base):
             masks = masks[keep]
 
             if len(masks) > 0:
-                masks = _resize_masks_batch(masks, h, w)
+                masks = resize_masks_batch(masks, h, w)
             masks = (masks > mask_threshold).astype(np.int32)
 
             results.append({"scores": scores, "boxes": boxes, "masks": masks})
@@ -606,7 +590,7 @@ class SAM3SemanticSegmentation(_SAM3Base):
         for idx in range(semantic.shape[0]):
             h, w = original_sizes[idx]
             mask = probs[idx, 0]
-            mask = _resize_mask(mask, h, w)
+            mask = resize_mask(mask, h, w)
             mask = (mask > threshold).astype(np.int32)
             results.append(mask)
         return results

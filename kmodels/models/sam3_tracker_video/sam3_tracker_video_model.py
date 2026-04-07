@@ -77,19 +77,14 @@ class Sam3TrackerVideoModel(keras.Model):
         self._enable_temporal_pos = enable_temporal_pos_encoding
         self._enable_occlusion = enable_occlusion_spatial_embedding
 
-        # Store sam3_model as non-tracked reference (avoid weight duplication).
-        # Keras tracks Layer/Model attributes for save_weights; we bypass this
-        # so Sam3VideoModel can own sam3_model and save weights without duplicates.
         object.__setattr__(self, "_sam3_ref", sam3_model)
 
-        # ── Shared positional embedding ──
         self.shared_image_embedding = Sam3TrackerPositionalEmbedding(
             hidden_size=prompt_encoder_config["hidden_size"],
             name="shared_image_embedding",
         )
         self.shared_image_embedding.build(None)
 
-        # ── Prompt encoder ──
         pe_keys = {"hidden_size", "image_size", "patch_size", "num_point_embeddings"}
         pe_kwargs = {k: v for k, v in prompt_encoder_config.items() if k in pe_keys}
         self.prompt_encoder = Sam3TrackerPromptEncoder(
@@ -97,13 +92,11 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         self.prompt_encoder.build(None)
 
-        # ── Mask decoder ──
         self.mask_decoder = Sam3TrackerMaskDecoder(
             name="mask_decoder", **mask_decoder_config
         )
         self.mask_decoder.build(None)
 
-        # ── Vision neck (tracker's own FPN, separate from detector FPN) ──
         self.vision_neck = Sam3VisionNeck(
             backbone_hidden_size=1024,
             fpn_hidden_size=hidden_dim,
@@ -112,7 +105,6 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         self.vision_neck.build((None, 1024, None, None))
 
-        # ── Memory attention ──
         ma_cfg = memory_attention_config
         self.memory_attention = Sam3TrackerVideoMemoryAttention(
             hidden_size=ma_cfg["hidden_size"],
@@ -128,7 +120,6 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         self.memory_attention.build(None)
 
-        # ── Memory encoder ──
         me_cfg = memory_encoder_config
         self.memory_encoder = Sam3TrackerVideoMemoryEncoder(
             hidden_size=me_cfg["hidden_size"],
@@ -152,7 +143,6 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         self.memory_encoder.build(None)
 
-        # ── Object pointer projection (3-layer MLP) ──
         self.object_pointer_proj = Sam3TrackerFeedForward(
             input_dim=hidden_dim,
             hidden_dim=hidden_dim,
@@ -162,7 +152,6 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         self.object_pointer_proj.build((None, hidden_dim))
 
-        # ── Mask downsample (for mask prompts: 4x4 stride-4 conv) ──
         self.mask_downsample = layers.Conv2D(
             1,
             kernel_size=4,
@@ -172,7 +161,6 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         self.mask_downsample.build((None, 1, None, None))
 
-        # ── Learnable embeddings ──
         self.no_memory_embedding = self.add_weight(
             name="no_memory_embedding",
             shape=(1, 1, hidden_dim),
@@ -246,7 +234,6 @@ class Sam3TrackerVideoModel(keras.Model):
 
         from kmodels.models.sam3.sam3_processor import _SUBMODEL_CACHE
 
-        # Extract backbone output (before detector's FPN)
         det = self._sam3_ref.detector
         bb_key = f"{id(det)}_backbone_nchw"
         if bb_key not in _SUBMODEL_CACHE:
@@ -271,10 +258,8 @@ class Sam3TrackerVideoModel(keras.Model):
         )
         backbone_nchw = ops.convert_to_tensor(backbone_nchw)
 
-        # Run through tracker's OWN FPN neck (not detector's FPN)
         fpn_hidden_states, _ = self.vision_neck(backbone_nchw)
 
-        # Use first 3 FPN levels: 4x, 2x, 1x (discard 0.5x)
         feat_s0 = self.mask_decoder.conv_s0(fpn_hidden_states[0])
         feat_s1 = self.mask_decoder.conv_s1(fpn_hidden_states[1])
         fpn_2 = fpn_hidden_states[2]

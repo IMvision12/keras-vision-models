@@ -13,11 +13,6 @@ except ImportError:
     Image = None
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Box utilities (pure numpy, matching HF)
-# ═══════════════════════════════════════════════════════════════════
-
-
 def box_xyxy_to_cxcywh(boxes):
     x0, y0, x1, y1 = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
     return np.stack([(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0], axis=-1)
@@ -27,10 +22,6 @@ def box_cxcywh_to_xyxy(boxes):
     cx, cy, w, h = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
     return np.stack([cx - 0.5 * w, cy - 0.5 * h, cx + 0.5 * w, cy + 0.5 * h], axis=-1)
 
-
-# ═══════════════════════════════════════════════════════════════════
-#  Image preprocessing
-# ═══════════════════════════════════════════════════════════════════
 
 IMAGE_SIZE = 1008
 RESCALE_FACTOR = 1.0 / 255.0
@@ -70,28 +61,19 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
             else:
                 image = image.astype(np.uint8)
 
-    # Resize matching HF TorchvisionBackend._compile_friendly_resize:
-    # uint8 -> float/256 -> resize(bilinear, antialias) -> *256 -> round -> uint8
     image_t = ops.convert_to_tensor(image.astype(np.float32) / 256.0)
     image_4d = ops.expand_dims(image_t, 0)  # (1, H, W, 3)
     resized = ops.image.resize(
         image_4d, (target_size, target_size), interpolation="bilinear"
     )
-    # Back to uint8 range
     resized = resized * 256.0
     resized = ops.clip(resized, 0, 255)
     resized = ops.round(resized)
     resized = ops.convert_to_numpy(resized)[0]  # (H, W, 3) float32
 
-    # Rescale [0,255] -> [0,1] via float64 (matches HF rescale precision)
     image = (resized.astype(np.float64) * RESCALE_FACTOR).astype(np.float32)
     image = (image - IMAGE_MEAN) / IMAGE_STD
     return image[np.newaxis], original_size
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Text preprocessing
-# ═══════════════════════════════════════════════════════════════════
 
 
 def preprocess_text_with_encoder(text, text_encoder_model, tokenizer=None):
@@ -120,10 +102,6 @@ def preprocess_text_with_encoder(text, text_encoder_model, tokenizer=None):
     return text_features, attention_mask
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Box prompt preprocessing (matching HF Sam3Processor)
-# ═══════════════════════════════════════════════════════════════════
-
 POINT_PAD_VALUE = -10
 
 
@@ -149,7 +127,6 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
 
     batch_size = len(input_boxes)
 
-    # Find max boxes for padding
     max_boxes = max(len(boxes) for boxes in input_boxes)
 
     all_boxes = []
@@ -161,20 +138,17 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
         labels = input_boxes_labels[img_idx] if input_boxes_labels else [1] * len(boxes)
         h, w = original_sizes[img_idx]
 
-        # Normalize coordinates to [0, 1]
         normalized = []
         for box in boxes:
             x1, y1, x2, y2 = box
             normalized.append([x1 / w, y1 / h, x2 / w, y2 / h])
 
-        # Convert xyxy to cxcywh
         if normalized:
             norm_arr = np.array(normalized, dtype=np.float32)
             cxcywh = box_xyxy_to_cxcywh(norm_arr)
         else:
             cxcywh = np.zeros((0, 4), dtype=np.float32)
 
-        # Pad to max_boxes
         num_boxes = len(boxes)
         pad_count = max_boxes - num_boxes
         if pad_count > 0:
@@ -195,11 +169,6 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
     )
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Post-processing (matching HF Sam3ImageProcessor)
-# ═══════════════════════════════════════════════════════════════════
-
-
 def _sigmoid(x):
     return 1.0 / (1.0 + np.exp(-np.clip(x, -88, 88)))
 
@@ -216,7 +185,6 @@ def _compute_scores(pred_logits, presence_logits):
     if presence_logits is not None:
         presence = np.asarray(presence_logits)
         if presence.ndim == 1:
-            # (num_layers,) → last layer
             p = _sigmoid(presence[-1:]).reshape(1, 1)
         else:
             p = _sigmoid(presence)
@@ -273,7 +241,6 @@ def post_process_instance_segmentation(
         boxes = boxes[keep]
         masks = masks[keep]
 
-        # Resize masks to target size
         if target_sizes is not None and len(masks) > 0 and Image is not None:
             th, tw = target_sizes[idx]
             resized = []
@@ -307,11 +274,6 @@ def post_process_semantic_segmentation(outputs, target_sizes=None, threshold=0.5
         mask = (mask > threshold).astype(np.int32)
         results.append(mask)
     return results
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  End-to-end pipeline
-# ═══════════════════════════════════════════════════════════════════
 
 
 _SUBMODEL_CACHE = {}
@@ -371,7 +333,6 @@ def _get_decoder_model(model):
         name="SAM3_decoder",
     )
 
-    # Copy all weights from original model by name matching
     orig_weights = {w.path: w.numpy() for w in det.weights}
     for w in decoder_model.weights:
         path = w.path.replace("SAM3_decoder/", "SAM3/")
@@ -379,7 +340,6 @@ def _get_decoder_model(model):
             if w.shape == orig_weights[path].shape:
                 w.assign(orig_weights[path])
 
-    # Set text_projection to identity (256→256) since inputs are pre-projected
     tp = decoder_model.get_layer("text_projection")
     tp.kernel.assign(np.eye(256, dtype=np.float32))
     tp.bias.assign(np.zeros(256, dtype=np.float32))
@@ -446,7 +406,6 @@ def predict(
     """
     pixel_values, original_size = preprocess_image(image)
 
-    # Resolve text: default to "visual" when boxes given but no text
     if text is None and text_features is None and input_boxes is not None:
         text = "visual"
 
@@ -465,12 +424,10 @@ def predict(
         else:
             text_attention_mask = np.asarray(text_attention_mask, dtype=np.float32)
 
-    # Handle box prompts (Mode B / Mode C)
     if input_boxes is not None:
         if geometry_encoder is None:
             raise ValueError("geometry_encoder required when input_boxes is provided.")
 
-        # Preprocess boxes
         if not isinstance(input_boxes[0][0], (list, tuple)):
             input_boxes = [input_boxes]
         if input_boxes_labels is None:
@@ -482,7 +439,6 @@ def predict(
             input_boxes, input_boxes_labels, [original_size]
         )
 
-        # Extract FPN features + text projection via sub-model
         fpn_submodel = _get_vision_submodel(model)
         fpn_inputs = {
             "pixel_values": pixel_values,
@@ -493,18 +449,15 @@ def predict(
         fpn_1x_nchw = fpn_out["fpn_1x"]  # (1, 256, 72, 72)
         text_projected = fpn_out["text_projected"]  # (1, seq, 256)
 
-        # Flatten FPN for cross-attention
         fpn_1x_nhwc = np.transpose(fpn_1x_nchw, (0, 2, 3, 1))
         enc_h = fpn_1x_nchw.shape[2]
         vision_flat = fpn_1x_nhwc.reshape(1, enc_h * enc_h, -1)
 
-        # Compute sine position encoding for geometry encoder cross-attention
         from .sam3_utils import compute_sine_pos_encoding
 
         pos_np = compute_sine_pos_encoding(enc_h, enc_h, 128, normalize=True)
         pos_flat = pos_np.transpose(0, 2, 3, 1).reshape(1, enc_h * enc_h, -1)
 
-        # Run geometry encoder
         geo_features, geo_mask = geometry_encoder(
             boxes_cxcywh,
             box_labels,
@@ -516,18 +469,9 @@ def predict(
         geo_features = ops.convert_to_numpy(ops.stop_gradient(geo_features))
         geo_mask = ops.convert_to_numpy(ops.stop_gradient(geo_mask))
 
-        # Concatenate projected text (256d) + geometry features (256d)
         combined_features = np.concatenate([text_projected, geo_features], axis=1)
         combined_mask = np.concatenate([text_attention_mask, geo_mask], axis=1)
 
-        # Pad combined features from 256d → 1024d so the model's
-        # text_projection (1024→256) can process them. We embed the 256d
-        # features into the first 256 dims of a 1024d vector, and rely on
-        # text_projection's learned weights. This won't give correct results.
-        #
-        # Correct approach: build a decoder-only sub-model that takes
-        # pre-projected 256d features directly, reusing all layers after
-        # text_projection.
         raw = _run_decoder_with_projected(
             model, pixel_values, combined_features, combined_mask
         )

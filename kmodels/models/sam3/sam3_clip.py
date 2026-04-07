@@ -385,7 +385,6 @@ class SAM3CLIPTextEncoder(layers.Layer):
         position_ids = ops.arange(seq_len, dtype="int32")
         hidden_states = hidden_states + self.position_embedding(position_ids)
 
-        # Causal mask + padding mask
         causal_mask = ops.triu(ops.full((seq_len, seq_len), -1e9), k=1)
         if attention_mask is not None:
             pad_mask = ops.cast(
@@ -414,11 +413,6 @@ class SAM3CLIPTextEncoder(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Convenience builders
-# ═══════════════════════════════════════════════════════════════════
 
 
 def build_text_encoder(weights_path=None):

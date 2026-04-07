@@ -65,7 +65,6 @@ class SAM3AddPositionEmbedding(layers.Layer):
             (1, self.pretrain_grid, self.pretrain_grid, self.hidden_size),
         )
         if self.grid_size != self.pretrain_grid:
-            # Match HF: tile then crop (NCHW tile, then back to NHWC)
             pos = ops.transpose(pos, (0, 3, 1, 2))  # (1, C, H, W)
             repeat_h = self.grid_size // self.pretrain_grid + 1
             repeat_w = self.grid_size // self.pretrain_grid + 1
@@ -479,20 +478,17 @@ class SAM3GeometryEncoderLayer(layers.Layer):
         prompt_mask=None,
         training=None,
     ):
-        # Pre-norm self-attention (matching HF)
         residual = prompt_feats
         x = self.layer_norm1(prompt_feats)
         x = self.self_attn(x, x, x, attention_mask=prompt_mask, training=training)
         prompt_feats = self.dropout1(x, training=training) + residual
 
-        # Pre-norm cross-attention
         residual = prompt_feats
         x = self.layer_norm2(prompt_feats)
         k = vision_feats + vision_pos
         x = self.cross_attn(x, k, vision_feats, training=training)
         prompt_feats = self.dropout2(x, training=training) + residual
 
-        # Pre-norm MLP (matching HF: fc1 → dropout → relu → fc2)
         residual = prompt_feats
         x = self.layer_norm3(prompt_feats)
         x = self.fc1(x)
@@ -592,7 +588,6 @@ class SAM3BoxRPB(layers.Layer):
         self.built = True
 
     def call(self, reference_boxes):
-        # reference_boxes: (B, Q, 4) in cxcywh format
         cx = reference_boxes[..., 0:1]
         cy = reference_boxes[..., 1:2]
         w = reference_boxes[..., 2:3]
@@ -622,16 +617,12 @@ class SAM3BoxRPB(layers.Layer):
         rpb_x = self.box_rpb_embed_x(deltas_x)  # (B, Q, W, heads)
         rpb_y = self.box_rpb_embed_y(deltas_y)  # (B, Q, H, heads)
 
-        # Outer sum: (B, Q, H, W, heads)
         rpb = ops.expand_dims(rpb_y, 3) + ops.expand_dims(rpb_x, 2)
 
-        # Reshape (B, Q, H, W, heads) -> (B, Q, H*W, heads) -> (B, heads, Q, H*W)
-        # Split H dim and concat to avoid dynamic reshape on batch
         hw_slices = [rpb[:, :, hi, :, :] for hi in range(self.spatial_h)]
         rpb_flat = ops.concatenate(hw_slices, axis=2)  # (B, Q, H*W, heads)
         rpb_out = ops.transpose(rpb_flat, (0, 3, 1, 2))  # (B, heads, Q, H*W)
 
-        # Pad for presence token: prepend zero row on Q dim
         zeros = ops.zeros_like(rpb_out[:, :, :1, :])
         rpb_out = ops.concatenate([zeros, rpb_out], axis=2)  # (B, heads, Q+1, H*W)
         return rpb_out
@@ -657,11 +648,6 @@ class SAM3BoxRPB(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Geometry Encoder (box prompt encoding)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -786,17 +772,13 @@ class SAM3GeometryEncoder(layers.Layer):
         batch_size = ops.shape(boxes)[0]
         num_boxes = ops.shape(boxes)[1]
 
-        # 1. Direct projection of box coordinates
         boxes_embed = self.boxes_direct_project(boxes)
 
-        # 2. ROI Align pooling (if vision features provided)
         if vision_features_nchw is not None:
-            # Normalize vision features
             vis_nhwc = ops.transpose(vision_features_nchw, (0, 2, 3, 1))
             vis_nhwc = self.vision_layer_norm(vis_nhwc)
             vis_nchw = ops.transpose(vis_nhwc, (0, 3, 1, 2))
 
-            # Convert boxes cxcywh → xyxy and denormalize to feature map coords
             cx = boxes[..., 0:1]
             cy = boxes[..., 1:2]
             w = boxes[..., 2:3]
@@ -816,17 +798,13 @@ class SAM3GeometryEncoder(layers.Layer):
             boxes_xyxy_denorm = boxes_xyxy * ops.cast(scale, boxes_xyxy.dtype)
 
             pooled = self._roi_align(vis_nchw, boxes_xyxy_denorm)
-            # pooled: (B*num_boxes, C, roi_size, roi_size) → NHWC for Conv2D
             pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))
             pooled_proj = self.boxes_pool_project(pooled_nhwc)
-            # (B*num_boxes, 1, 1, hidden) → (B, num_boxes, hidden)
             pooled_proj = ops.reshape(
                 pooled_proj, (batch_size, num_boxes, self.hidden_size)
             )
             boxes_embed = boxes_embed + pooled_proj
 
-        # 3. Sine position encoding of center + h, w
-        # Matches HF SinePositionEmbedding.encode_1d_positions + _encode_box_coordinates
         cx = boxes[..., 0]  # (B, nb)
         cy = boxes[..., 1]
         w_box = boxes[..., 2:3]  # (B, nb, 1)
@@ -837,14 +815,11 @@ class SAM3GeometryEncoder(layers.Layer):
         dim_t = ops.cast(ops.arange(num_feats), "float32")
         dim_t = 10000.0 ** (2.0 * ops.floor(dim_t / 2) / num_feats)
 
-        # Encode x and y separately (matching HF encode_1d_positions)
         def _encode_1d(coord):
-            # coord: (B, nb)
             c = coord * scale
             c = ops.expand_dims(c, -1) / dim_t  # (B, nb, num_feats)
             c_sin = ops.sin(c[..., 0::2])
             c_cos = ops.cos(c[..., 1::2])
-            # Interleave: [sin0, cos1, sin2, cos3, ...]
             return ops.reshape(
                 ops.stack([c_sin, c_cos], axis=-1),
                 ops.shape(c_sin)[:-1] + (num_feats,),
@@ -853,16 +828,13 @@ class SAM3GeometryEncoder(layers.Layer):
         pos_x = _encode_1d(cx)  # (B, nb, num_feats)
         pos_y = _encode_1d(cy)
 
-        # HF order: pos_y, pos_x, height, width
         pos_with_hw = ops.concatenate([pos_y, pos_x, h_box, w_box], axis=-1)
         pos_encoded = self.boxes_pos_enc_project(pos_with_hw)
 
-        # 4. Label embedding
         label_emb = self.label_embed(box_labels)
 
         prompt_embeds = boxes_embed + pos_encoded + label_emb
 
-        # 5. Add CLS token (appended after box embeddings, matching HF)
         cls_token = self.cls_embed(ops.zeros((batch_size, 1), dtype="int32"))
         prompt_embeds = ops.concatenate([prompt_embeds, cls_token], axis=1)
 
@@ -871,7 +843,6 @@ class SAM3GeometryEncoder(layers.Layer):
 
         prompt_embeds = self.prompt_layer_norm(self.final_proj(prompt_embeds))
 
-        # 6. Transformer layers with cross-attention to vision
         for layer in self.transformer_layers:
             prompt_embeds = layer(prompt_embeds, vision_features_flat, vision_pos_flat)
 

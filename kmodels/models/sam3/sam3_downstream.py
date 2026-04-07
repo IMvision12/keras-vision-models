@@ -47,10 +47,6 @@ from .sam3_processor import (
 )
 from .sam3_utils import compute_sine_pos_encoding
 
-# ═══════════════════════════════════════════════════════════════════
-#  Downstream utilities
-# ═══════════════════════════════════════════════════════════════════
-
 
 def _resize_mask(mask, target_h, target_w):
     """Resize a single 2D mask to target size using PIL bilinear."""
@@ -66,11 +62,6 @@ def _resize_masks_batch(masks, target_h, target_w):
     if len(masks) == 0:
         return masks
     return np.stack([_resize_mask(m, target_h, target_w) for m in masks])
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Base pipeline
-# ═══════════════════════════════════════════════════════════════════
 
 
 class _SAM3Base:
@@ -212,13 +203,11 @@ class _SAM3Base:
         """
         from keras import ops
 
-        # Use pre-computed vision features if provided
         if vision_embeds is not None:
             pixel_values = None  # not needed — decoder model uses FPN directly
             original_sizes = [vision_embeds["original_size"]]
             batch_size = 1
         else:
-            # Normalize to lists
             single = not isinstance(images, (list, tuple))
             if single:
                 images = [images]
@@ -226,7 +215,6 @@ class _SAM3Base:
             if texts is not None and isinstance(texts, str):
                 texts = [texts] * len(images)
 
-            # Preprocess all images
             all_pixels = []
             original_sizes = []
             for img in images:
@@ -239,13 +227,11 @@ class _SAM3Base:
         if texts is not None and isinstance(texts, str):
             texts = [texts] * batch_size
 
-        # Normalize input_boxes/labels to per-image lists
         if input_boxes is not None and not isinstance(input_boxes, list):
             input_boxes = [input_boxes]
         if input_boxes_labels is not None and not isinstance(input_boxes_labels, list):
             input_boxes_labels = [input_boxes_labels]
 
-        # Resolve text prompts per-image: None → "visual" if that image has boxes
         if texts is None and text_embeds is None:
             if input_boxes is not None:
                 texts = []
@@ -255,7 +241,6 @@ class _SAM3Base:
             else:
                 raise ValueError("Provide text, text_embeds, or input_boxes.")
         elif texts is not None:
-            # Fill None entries with "visual" if that image has boxes
             texts = list(texts)
             for i in range(batch_size):
                 if texts[i] is None:
@@ -271,7 +256,6 @@ class _SAM3Base:
         if text_embeds is not None:
             text_features = text_embeds["text_features"]
             text_attention_mask = text_embeds["text_attention_mask"]
-            # Repeat for batch if single text applied to multiple images
             if text_features.shape[0] == 1 and batch_size > 1:
                 text_features = np.tile(text_features, (batch_size, 1, 1))
                 text_attention_mask = np.tile(text_attention_mask, (batch_size, 1))
@@ -282,15 +266,12 @@ class _SAM3Base:
                 self.tokenizer,
             )
 
-        # Check if ANY image has box prompts
         has_any_boxes = input_boxes is not None and any(
             b is not None and len(b) > 0 for b in input_boxes if b is not None
         )
 
-        # Mode A: text-only (no boxes at all)
         if not has_any_boxes:
             if vision_embeds is None:
-                # Full model from scratch
                 raw = self.model.predict(
                     {
                         "pixel_values": pixel_values,
@@ -300,7 +281,6 @@ class _SAM3Base:
                     verbose=0,
                 )
             else:
-                # Use cached vision — project text and run decoder model
                 from keras import ops
 
                 tp_layer = self.model.detector.get_layer("text_projection")
@@ -324,11 +304,9 @@ class _SAM3Base:
                     },
                     verbose=0,
                 )
-                # Remove passthrough output
                 raw.pop("fpn_05x", None)
             return raw, original_sizes
 
-        # Mixed/box mode: process per-image through geometry encoder
         if self.geometry_encoder is None:
             raise ValueError(
                 "geometry_encoder required for box prompts. "
@@ -344,7 +322,6 @@ class _SAM3Base:
             tf_i = text_features[i : i + 1]
             tm_i = text_attention_mask[i : i + 1]
 
-            # Get boxes for this image
             boxes_i = input_boxes[i] if input_boxes and i < len(input_boxes) else None
             labels_i = (
                 input_boxes_labels[i]
@@ -363,7 +340,6 @@ class _SAM3Base:
             text_projected = fpn_out["text_projected"]
 
             if boxes_i is None or (isinstance(boxes_i, list) and len(boxes_i) == 0):
-                # No boxes — text-only projected features
                 all_combined.append(text_projected)
                 all_combined_mask.append(tm_i)
                 continue
@@ -403,7 +379,6 @@ class _SAM3Base:
             all_combined.append(combined)
             all_combined_mask.append(cmask)
 
-        # Pad combined features to same sequence length across batch
         max_seq = max(c.shape[1] for c in all_combined)
         feat_dim = all_combined[0].shape[2]
         padded_feats = np.zeros((batch_size, max_seq, feat_dim), dtype=np.float32)
@@ -417,11 +392,6 @@ class _SAM3Base:
             self.model, pixel_values, padded_feats, padded_masks
         )
         return raw, original_sizes
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Object Detection
-# ═══════════════════════════════════════════════════════════════════
 
 
 class SAM3ObjectDetection(_SAM3Base):
@@ -496,11 +466,6 @@ class SAM3ObjectDetection(_SAM3Base):
             keep = scores > threshold
             results.append({"scores": scores[keep], "boxes": boxes[keep]})
         return results
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Instance Segmentation
-# ═══════════════════════════════════════════════════════════════════
 
 
 class SAM3InstanceSegmentation(_SAM3Base):
@@ -586,11 +551,6 @@ class SAM3InstanceSegmentation(_SAM3Base):
         return results
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Semantic Segmentation
-# ═══════════════════════════════════════════════════════════════════
-
-
 class SAM3SemanticSegmentation(_SAM3Base):
     """SAM3 for semantic segmentation.
 
@@ -651,10 +611,6 @@ class SAM3SemanticSegmentation(_SAM3Base):
             results.append(mask)
         return results
 
-
-# ═══════════════════════════════════════════════════════════════════
-#  Visualization utilities
-# ═══════════════════════════════════════════════════════════════════
 
 COLORS = [
     (255, 0, 0),

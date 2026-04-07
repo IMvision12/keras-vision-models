@@ -57,17 +57,14 @@ class Sam3TrackerModel(keras.Model):
         self._prompt_encoder_config = prompt_encoder_config
         self._mask_decoder_config = mask_decoder_config
 
-        # Non-tracked reference (avoids weight duplication in save_weights)
         object.__setattr__(self, "_sam3_ref", sam3_model)
 
-        # Shared positional embedding
         self.shared_image_embedding = Sam3TrackerPositionalEmbedding(
             hidden_size=prompt_encoder_config["hidden_size"],
             name="shared_image_embedding",
         )
         self.shared_image_embedding.build(None)
 
-        # Prompt encoder (filter config to accepted params)
         pe_keys = {"hidden_size", "image_size", "patch_size", "num_point_embeddings"}
         pe_kwargs = {k: v for k, v in prompt_encoder_config.items() if k in pe_keys}
         self.prompt_encoder = Sam3TrackerPromptEncoder(
@@ -75,13 +72,11 @@ class Sam3TrackerModel(keras.Model):
         )
         self.prompt_encoder.build(None)
 
-        # Mask decoder
         self.mask_decoder = Sam3TrackerMaskDecoder(
             name="mask_decoder", **mask_decoder_config
         )
         self.mask_decoder.build(None)
 
-        # No-memory embedding (for compatibility with video tracker)
         self.no_memory_embedding = self.add_weight(
             name="no_memory_embedding",
             shape=(1, 1, prompt_encoder_config["hidden_size"]),
@@ -155,7 +150,6 @@ class Sam3TrackerModel(keras.Model):
             verbose=0,
         )
 
-        # Pre-project high-res features for mask decoder
         fpn_0 = ops.convert_to_tensor(vis_out["fpn_0"])  # (B, 256, 288, 288)
         fpn_1 = ops.convert_to_tensor(vis_out["fpn_1"])  # (B, 256, 144, 144)
         fpn_2 = ops.convert_to_tensor(vis_out["fpn_2"])  # (B, 256, 72, 72)
@@ -163,7 +157,6 @@ class Sam3TrackerModel(keras.Model):
         feat_s0 = self.mask_decoder.conv_s0(fpn_0)  # (B, 32, 288, 288)
         feat_s1 = self.mask_decoder.conv_s1(fpn_1)  # (B, 64, 144, 144)
 
-        # Add no-memory embedding: (1,1,256) → (1,256,1,1) for NCHW
         no_mem = ops.reshape(self.no_memory_embedding, (1, -1, 1, 1))
         fpn_2 = fpn_2 + no_mem
 
@@ -201,18 +194,15 @@ class Sam3TrackerModel(keras.Model):
             else ops.shape(image_embeddings[-1])[0]
         )
 
-        # Get image features
         if image_embeddings is None:
             image_embeddings = self.get_image_features(pixel_values)
 
-        # Image positional embeddings
         image_pe = self.get_image_wide_positional_embeddings()
         image_pe = ops.broadcast_to(
             image_pe,
             (batch_size,) + ops.shape(image_pe)[1:],
         )
 
-        # Default prompts if none provided
         if input_points is None and input_boxes is None:
             input_points = ops.zeros((batch_size, 1, 1, 2), dtype="float32")
             input_labels = -ops.ones((batch_size, 1, 1), dtype="int32")
@@ -220,7 +210,6 @@ class Sam3TrackerModel(keras.Model):
         if input_points is not None and input_labels is None:
             input_labels = ops.ones_like(input_points[..., 0], dtype="int32")
 
-        # Encode prompts
         sparse_emb, dense_emb = self.prompt_encoder(
             input_points=input_points,
             input_labels=input_labels,
@@ -228,7 +217,6 @@ class Sam3TrackerModel(keras.Model):
             input_masks=input_masks,
         )
 
-        # Decode masks (high-res features are the first two elements)
         masks, iou_pred, _, object_score = self.mask_decoder(
             image_embeddings=image_embeddings[-1],  # (B, 256, 72, 72)
             image_positional_embeddings=image_pe,
@@ -275,7 +263,6 @@ class Sam3TrackerModel(keras.Model):
         else:
             pixel_values = None
 
-        # Normalize inputs to expected shapes
         if input_points is not None:
             input_points = np.asarray(input_points, dtype=np.float32)
             if input_points.ndim == 2:

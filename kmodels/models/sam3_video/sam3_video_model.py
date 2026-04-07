@@ -42,40 +42,32 @@ class Sam3VideoInferenceSession:
         self.video_width = video_width
         self.max_vision_cache = max_vision_features_cache_size
 
-        # Frame storage
         self.processed_frames = {}
         self.num_frames = 0
 
-        # Object ID management
         self._obj_id_to_idx = OrderedDict()
         self._obj_idx_to_id = OrderedDict()
         self.obj_ids = []
         self.max_obj_id = 0
 
-        # Per-object prompts and inputs
         self.point_inputs_per_obj = defaultdict(dict)
         self.mask_inputs_per_obj = defaultdict(dict)
 
-        # Per-object model outputs
-        # {obj_idx: {"cond_frame_outputs": {frame_idx: out}, "non_cond_frame_outputs": {frame_idx: out}}}
         self.output_dict_per_obj = defaultdict(
             lambda: {"cond_frame_outputs": {}, "non_cond_frame_outputs": {}}
         )
         self.frames_tracked_per_obj = defaultdict(dict)
 
-        # Multi-prompt support
         self.prompts = {}  # prompt_id → text
         self.prompt_embeddings = {}  # prompt_id → embedding
         self.prompt_attention_masks = {}
         self.obj_id_to_prompt_id = {}
         self._next_prompt_id = 0
 
-        # Tracking metadata
         self.obj_id_to_score = {}
         self.obj_id_to_tracker_score_frame_wise = defaultdict(dict)
         self.obj_id_to_last_occluded = {}
 
-        # Hotstart metadata
         self.obj_first_frame_idx = {}
         self.unmatched_frame_inds = defaultdict(list)
         self.overlap_pair_to_frame_inds = defaultdict(list)
@@ -84,10 +76,8 @@ class Sam3VideoInferenceSession:
         self.suppressed_obj_ids = defaultdict(set)
         self.hotstart_removed_obj_ids = set()
 
-        # Vision feature cache
         self._vision_cache = {}
 
-        # Output buffer (for hotstart)
         self.output_buffer = []
 
     def obj_id_to_idx(self, obj_id):
@@ -136,7 +126,6 @@ class Sam3VideoInferenceSession:
     def cache_vision_features(self, frame_idx, features):
         """Cache vision features for a frame."""
         self._vision_cache[frame_idx] = features
-        # Evict oldest if over limit
         while len(self._vision_cache) > self.max_vision_cache:
             oldest = min(self._vision_cache.keys())
             del self._vision_cache[oldest]
@@ -233,7 +222,6 @@ class Sam3VideoModel(keras.Model):
         self.sam3_model = sam3_model
         self.tracker_model = tracker_video_model
 
-        # Vision neck FPN: bridges detector backbone → tracker features
         self.tracker_neck = Sam3VisionNeck(
             backbone_hidden_size=cfg["backbone_hidden_size"],
             fpn_hidden_size=cfg["fpn_hidden_size"],
@@ -242,7 +230,6 @@ class Sam3VideoModel(keras.Model):
         )
         self.tracker_neck.build((None, cfg["backbone_hidden_size"], None, None))
 
-        # Copy config params
         self.score_threshold_detection = cfg["score_threshold_detection"]
         self.det_nms_thresh = cfg["det_nms_thresh"]
         self.new_det_thresh = cfg["new_det_thresh"]
@@ -316,16 +303,12 @@ class Sam3VideoModel(keras.Model):
         """
         fpn_hidden_states, fpn_position_encoding = self.tracker_neck(backbone_nchw)
 
-        # Use first 3 FPN levels (discard the 0.5x level)
         feature_maps = list(fpn_hidden_states[:3])
 
-        # Pre-project levels 0 and 1 with tracker's mask decoder convs
         feature_maps[0] = self.tracker_model.mask_decoder.conv_s0(feature_maps[0])
         feature_maps[1] = self.tracker_model.mask_decoder.conv_s1(feature_maps[1])
 
-        # Flatten to (HW, B, C) for transformer input
         def flatten_nchw(x):
-            # (B, C, H, W) → (B, C, HW) → (HW, B, C)
             s = ops.shape(x)
             x = ops.reshape(x, (s[0], s[1], s[2] * s[3]))
             return ops.transpose(x, (2, 0, 1))
@@ -353,7 +336,6 @@ class Sam3VideoModel(keras.Model):
         det = self.sam3_model
 
         for prompt_id, prompt_text in inference_session.prompts.items():
-            # Get or compute text embeddings
             if prompt_id not in inference_session.prompt_embeddings:
                 text_encoder = det.text_encoder
                 from kmodels.models.sam3.sam3_clip import tokenize
@@ -364,7 +346,6 @@ class Sam3VideoModel(keras.Model):
 
             text_feats = inference_session.prompt_embeddings[prompt_id]
 
-            # Run detector
             from kmodels.models.sam3.sam3_processor import predict
 
             result = predict(
@@ -412,14 +393,12 @@ class Sam3VideoModel(keras.Model):
         for obj_id in inference_session.obj_ids:
             obj_idx = inference_session.obj_id_to_idx(obj_id)
 
-            # Check if already have conditioning output for this frame
             existing, is_cond = inference_session.get_output(obj_idx, frame_idx)
             if existing is not None and is_cond:
                 all_masks.append(existing["pred_masks"])
                 all_scores.append(existing.get("object_score_logits", 0.0))
                 continue
 
-            # Run single frame with memory conditioning
             output = self._run_single_frame_inference(
                 inference_session=inference_session,
                 frame_idx=frame_idx,
@@ -473,11 +452,9 @@ class Sam3VideoModel(keras.Model):
         if mask_inputs is None and obj_idx in inference_session.mask_inputs_per_obj:
             mask_inputs = inference_session.mask_inputs_per_obj[obj_idx].get(frame_idx)
 
-        # Use mask as direct output if provided on conditioning frame
         if is_init_cond and mask_inputs is not None and point_inputs is None:
             return self._use_mask_as_output(mask_inputs, image_embeddings)
 
-        # Memory-condition features if not initial conditioning frame
         if not is_init_cond:
             conditioned_feats = self._prepare_memory_conditioned_features(
                 inference_session=inference_session,
@@ -488,12 +465,10 @@ class Sam3VideoModel(keras.Model):
                 reverse=reverse,
             )
         else:
-            # Add no_memory_embedding for initial frames
             fpn_2 = image_embeddings[-1]
             no_mem = ops.reshape(self.tracker_model.no_memory_embedding, (1, -1, 1, 1))
             conditioned_feats = fpn_2 + no_mem
 
-        # Run prompt encoder + mask decoder
         return self._single_frame_forward(
             conditioned_feats=conditioned_feats,
             image_embeddings=image_embeddings,
@@ -546,7 +521,6 @@ class Sam3VideoModel(keras.Model):
             high_resolution_features=image_embeddings[:2],
         )
 
-        # Project object pointer
         sam_output_token = sam_tokens[:, :, 0, :]  # First token
         is_appearing = ops.cast(ops.sigmoid(object_score[:, :, 0:1]) > 0.0, "float32")
         obj_pointer = tracker.project_object_pointer(
@@ -581,7 +555,6 @@ class Sam3VideoModel(keras.Model):
         tracker = self.tracker_model
         fpn_2 = image_embeddings[-1]  # (B, 256, 72, 72)
 
-        # Gather memory frames
         memory_list = []
         memory_pos_list = []
         obj_pointer_list = []
@@ -589,7 +562,6 @@ class Sam3VideoModel(keras.Model):
 
         output_dict = inference_session.output_dict_per_obj.get(obj_idx, {})
 
-        # Collect from conditioning frames
         for fid, out in output_dict.get("cond_frame_outputs", {}).items():
             if "maskmem_features" in out:
                 memory_list.append(out["maskmem_features"])
@@ -598,7 +570,6 @@ class Sam3VideoModel(keras.Model):
                 obj_pointer_list.append(out["object_pointer"])
                 temporal_offsets.append(fid - frame_idx)
 
-        # Collect from non-conditioning frames
         for fid, out in output_dict.get("non_cond_frame_outputs", {}).items():
             if "maskmem_features" in out:
                 memory_list.append(out["maskmem_features"])
@@ -608,11 +579,9 @@ class Sam3VideoModel(keras.Model):
                 temporal_offsets.append(fid - frame_idx)
 
         if not memory_list:
-            # No memory available — use no_memory_embedding
             no_mem = ops.reshape(tracker.no_memory_embedding, (1, -1, 1, 1))
             return fpn_2 + no_mem
 
-        # Stack memories: each (1, mem_dim, H', W') → flatten to (H'W', 1, mem_dim)
         all_mem = []
         all_mem_pos = []
         for mem, mem_pos in zip(memory_list, memory_pos_list):
@@ -629,13 +598,11 @@ class Sam3VideoModel(keras.Model):
         memory = ops.concatenate(all_mem, axis=0)  # (total_HW, B, mem_dim)
         memory_pos = ops.concatenate(all_mem_pos, axis=0)
 
-        # Process object pointers
         num_ptr_tokens = 0
         if obj_pointer_list:
             ptrs = ops.stack(obj_pointer_list, axis=0)  # (N, hidden_dim)
             ptrs = ops.expand_dims(ptrs, 1)  # (N, 1, hidden_dim)
 
-            # Temporal PE for pointers
             if self.tracker_model._enable_temporal_pos and temporal_offsets:
                 max_offset = max(abs(t) for t in temporal_offsets) or 1
                 norm_offsets = ops.convert_to_tensor(
@@ -653,7 +620,6 @@ class Sam3VideoModel(keras.Model):
             else:
                 proj_pe = ops.zeros_like(ptrs[..., : self.tracker_model._mem_dim])
 
-            # Reshape pointers to mem_dim if needed
             if self.tracker_model._hidden_dim != self.tracker_model._mem_dim:
                 ratio = self.tracker_model._hidden_dim // self.tracker_model._mem_dim
                 ptrs_reshaped = ops.reshape(
@@ -670,8 +636,6 @@ class Sam3VideoModel(keras.Model):
 
             num_ptr_tokens = ops.shape(ptrs_reshaped)[0] * ops.shape(ptrs_reshaped)[1]
 
-            # Flatten pointers and append to memory
-            # ptrs: (N, B_ratio, mem_dim) → (N*B_ratio, 1, mem_dim)
             s_ptr = ops.shape(ptrs_reshaped)
             ptr_flat = ops.reshape(ptrs_reshaped, (s_ptr[0] * s_ptr[1], 1, s_ptr[2]))
             pe_flat = ops.reshape(proj_pe, (s_ptr[0] * s_ptr[1], 1, s_ptr[2]))
@@ -679,16 +643,13 @@ class Sam3VideoModel(keras.Model):
             memory = ops.concatenate([memory, ptr_flat], axis=0)
             memory_pos = ops.concatenate([memory_pos, pe_flat], axis=0)
 
-        # Current vision features: (B, C, H, W) → (HW, B, C)
         s_f = ops.shape(fpn_2)
         current_feats = ops.reshape(fpn_2, (s_f[0], s_f[1], s_f[2] * s_f[3]))
         current_feats = ops.transpose(current_feats, (2, 0, 1))
 
-        # Current position embeddings
         current_pe = ops.reshape(image_pe, (s_f[0], s_f[1], s_f[2] * s_f[3]))
         current_pe = ops.transpose(current_pe, (2, 0, 1))
 
-        # Run memory attention
         conditioned = tracker.memory_attention(
             current_vision_features=current_feats,
             memory=memory,
@@ -697,7 +658,6 @@ class Sam3VideoModel(keras.Model):
             num_object_pointer_tokens=num_ptr_tokens,
         )
 
-        # Reshape back: (HW, B, C) → (B, C, H, W)
         conditioned = ops.transpose(conditioned, (1, 2, 0))
         conditioned = ops.reshape(conditioned, (s_f[0], s_f[1], s_f[2], s_f[3]))
 
@@ -784,20 +744,14 @@ class Sam3VideoModel(keras.Model):
 
         pixel_values = inference_session.processed_frames[frame_idx]
 
-        # 1. Extract backbone features
         backbone_nchw = self.get_backbone_features(pixel_values)
 
-        # 2. Run detection
         det_out = self.run_detection(inference_session, pixel_values)
 
-        # 3. Bridge to tracker via FPN neck
         feature_maps, feature_maps_pe = self.get_vision_features_for_tracker(
             backbone_nchw
         )
 
-        # Prepare tracker-format embeddings
-        # feature_maps[-1] is the 1x level: (HW, B, C)
-        # Reshape to (B, C, H, W) for tracker
         grid_size = self.tracker_model._image_embedding_size
         fpn_2_flat = feature_maps[-1]  # (HW, B, C)
         fpn_2_spatial = ops.transpose(fpn_2_flat, (1, 2, 0))  # (B, C, HW)
@@ -817,12 +771,10 @@ class Sam3VideoModel(keras.Model):
             image_pe, (ops.shape(fpn_2_spatial)[0],) + ops.shape(image_pe)[1:]
         )
 
-        # 4. Propagate tracker
         low_res_masks, obj_scores = self.run_tracker_propagation(
             inference_session, frame_idx, image_embeddings, image_pe, reverse
         )
 
-        # 5. Build output
         obj_id_to_mask = {}
         obj_id_to_score = {}
 
@@ -832,7 +784,6 @@ class Sam3VideoModel(keras.Model):
                 if obj_scores is not None:
                     obj_id_to_score[obj_id] = float(ops.convert_to_numpy(obj_scores[i]))
 
-        # Add new detections
         for prompt_id, det_result in det_out.items():
             if "masks" in det_result and det_result["masks"] is not None:
                 for j in range(len(det_result.get("scores", []))):

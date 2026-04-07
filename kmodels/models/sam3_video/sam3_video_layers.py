@@ -5,10 +5,6 @@ import math
 import keras
 from keras import layers, ops
 
-# ═══════════════════════════════════════════════════════════════════
-#  Sine Position Embedding (standard DETR-style, no learned params)
-# ═══════════════════════════════════════════════════════════════════
-
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3SinePositionEmbedding(layers.Layer):
@@ -44,7 +40,6 @@ class Sam3SinePositionEmbedding(layers.Layer):
         h = shape[2]
         w = shape[3]
 
-        # Build cumulative coordinate grids
         y_embed = ops.cast(
             ops.repeat(
                 ops.expand_dims(ops.arange(1, h + 1, dtype="float32"), axis=1),
@@ -76,7 +71,6 @@ class Sam3SinePositionEmbedding(layers.Layer):
         pos_x = ops.expand_dims(x_embed, axis=-1) / dim_t  # (H, W, D)
         pos_y = ops.expand_dims(y_embed, axis=-1) / dim_t  # (H, W, D)
 
-        # Interleave sin/cos
         pos_x_sin = ops.sin(pos_x[..., 0::2])
         pos_x_cos = ops.cos(pos_x[..., 1::2])
         pos_x = ops.reshape(
@@ -91,7 +85,6 @@ class Sam3SinePositionEmbedding(layers.Layer):
             (h, w, self.num_pos_feats),
         )
 
-        # Concatenate: (H, W, 2*D) → (2*D, H, W) → (1, 2*D, H, W)
         pos = ops.concatenate([pos_y, pos_x], axis=-1)  # (H, W, 2*D)
         pos = ops.transpose(pos, (2, 0, 1))  # (2*D, H, W)
         pos = ops.expand_dims(pos, axis=0)  # (1, 2*D, H, W)
@@ -109,11 +102,6 @@ class Sam3SinePositionEmbedding(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  FPN Layer (single scale level)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -230,11 +218,6 @@ class Sam3FPNLayer(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Vision Neck (FPN with position encoding)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

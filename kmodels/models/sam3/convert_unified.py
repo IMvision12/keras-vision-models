@@ -81,7 +81,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
     p = f"{prefix}." if prefix else ""
     det = sam3_model.detector
 
-    # ── ViT Backbone ──
     print("  ViT backbone...")
     patch_conv = det.get_layer("backbone_patch_embed")
     transfer_weights(
@@ -123,7 +122,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         hf[f"{p}vision_encoder.backbone.layer_norm.bias"],
     )
 
-    # ── Detector FPN ──
     print("  Detector FPN...")
     for idx, sf in enumerate(det.fpn_scale_factors):
         fp = f"{p}vision_encoder.neck.fpn_layers.{idx}"
@@ -152,7 +150,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
                     hf[f"{fp}.{pn}.bias"],
                 )
 
-    # ── Text projection + DETR encoder ──
     print("  DETR encoder...")
     _td(
         det.get_layer("text_projection"),
@@ -187,7 +184,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
             hf[f"{ep}.mlp.fc2.bias"],
         )
 
-    # ── DETR decoder ──
     print("  DETR decoder...")
     det.get_layer("detr_decoder_query_embed").embeddings.assign(
         hf[f"{p}detr_decoder.query_embed.weight"]
@@ -262,7 +258,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
                 hf[f"{p}detr_decoder.box_rpb_embed_{ax}.layer{j + 1}.bias"],
             )
 
-    # ── Dot-product scoring + mask decoder ──
     print("  Scoring + mask decoder...")
     sp = f"{p}dot_product_scoring"
     for n, hn in [
@@ -324,7 +319,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         hf[f"{p}mask_decoder.prompt_cross_attn_norm.bias"],
     )
 
-    # ── Text encoder ──
     print("  CLIP text encoder...")
     te = sam3_model.text_encoder
     te.token_embedding.weights[0].assign(
@@ -361,7 +355,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         hf[f"{p}text_encoder.text_model.final_layer_norm.bias"],
     )
 
-    # ── Geometry encoder ──
     print("  Geometry encoder...")
     geo = sam3_model.geometry_encoder
     _td(
@@ -545,7 +538,6 @@ def _transfer_tracker(tv, hf, prefix=""):
         hf[f"{p}mask_decoder.transformer.layer_norm_final_attn.bias"],
     )
 
-    # Memory attention
     ma = tv.memory_attention
     for i in range(4):
         layer = ma.attention_layers[i]
@@ -571,7 +563,6 @@ def _transfer_tracker(tv, hf, prefix=""):
         hf[f"{p}memory_attention.layer_norm.bias"],
     )
 
-    # Memory encoder
     mem = tv.memory_encoder
     mds = mem.mask_downsampler
     for i in range(len(mds.downsample_layers)):
@@ -626,7 +617,6 @@ def _transfer_tracker(tv, hf, prefix=""):
         hf[f"{p}memory_encoder.projection.bias"],
     )
 
-    # Misc
     _tff(tv.object_pointer_proj, hf, f"{p}object_pointer_proj")
     _tc(
         tv.mask_downsample,
@@ -650,7 +640,6 @@ def _transfer_tracker(tv, hf, prefix=""):
             hf[f"{p}occlusion_spatial_embedding_parameter"]
         )
 
-    # Tracker vision neck
     _tfpn(tv.vision_neck, hf, f"{p}vision_encoder.neck")
 
 
@@ -681,15 +670,10 @@ def convert():
     _transfer_detector(sam3, hf, prefix="detector_model")
 
     print("\nTransferring tracker weights (tracker_model.* + vision_encoder.neck.*)...")
-    # tracker_model keys use HF TrackerVideo naming (no detector_model prefix)
-    # But the checkpoint stores them under tracker_model.*
-    # We need to remap: tracker_model.X -> X for the tracker transfer function
     tracker_hf = {}
     for k, v in hf.items():
         if k.startswith("tracker_model."):
             tracker_hf[k[len("tracker_model.") :]] = v
-    # Also need vision_encoder.neck from the Sam3TrackerVideoModel checkpoint
-    # (tracker_model in Sam3Video has remove_vision_encoder=True, so no neck there)
     from transformers.models.sam3_tracker_video.modeling_sam3_tracker_video import (
         Sam3TrackerVideoModel as HFTVModel,
     )
@@ -707,7 +691,6 @@ def convert():
     print("\nTransferring video neck (tracker_neck.*)...")
     _tfpn(vm.tracker_neck, hf, "tracker_neck")
 
-    # Save unified
     print(f"\nSaving {OUTPUT}...")
     vm_params = sum(w.numpy().size for w in vm.weights)
     print(f"  Total params: {vm_params:,}")
@@ -715,7 +698,6 @@ def convert():
     size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)
     print(f"  Saved: {OUTPUT} ({size_mb:.0f} MB)")
 
-    # Verify
     print("\nVerifying...")
     sam3_v = Sam3(input_shape=(1008, 1008, 3), weights=None)
     tv_v = Sam3TrackerVideo(sam3_model=sam3_v, weights=None)

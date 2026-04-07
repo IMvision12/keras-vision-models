@@ -5,10 +5,6 @@ import math
 import keras
 from keras import layers, ops
 
-# ═══════════════════════════════════════════════════════════════════
-#  Positional Embedding
-# ═══════════════════════════════════════════════════════════════════
-
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerPositionalEmbedding(layers.Layer):
@@ -54,11 +50,6 @@ class Sam3TrackerPositionalEmbedding(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Layer Norm (channels-first)
-# ═══════════════════════════════════════════════════════════════════
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerChannelsFirstLayerNorm(layers.Layer):
     """LayerNorm for NCHW tensors."""
@@ -82,7 +73,6 @@ class Sam3TrackerChannelsFirstLayerNorm(layers.Layer):
         self.built = True
 
     def call(self, x):
-        # x: (B, C, H, W)
         mean = ops.mean(x, axis=1, keepdims=True)
         var = ops.var(x, axis=1, keepdims=True)
         x = (x - mean) / ops.sqrt(var + self.eps)
@@ -94,11 +84,6 @@ class Sam3TrackerChannelsFirstLayerNorm(layers.Layer):
         config = super().get_config()
         config.update({"num_channels": self.num_channels, "eps": self.eps})
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Mask Embedding (downsampler for mask prompts)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -147,11 +132,6 @@ class Sam3TrackerMaskEmbedding(layers.Layer):
         config = super().get_config()
         config.update({"hidden_size": self.hidden_size})
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Prompt Encoder
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -219,16 +199,13 @@ class Sam3TrackerPromptEncoder(layers.Layer):
         input_shape = (self.image_size, self.image_size)
         pe = self.shared_embedding(points, input_shape=input_shape)
 
-        # Replace -1 labels with not_a_point_embed
         not_a_point = self.not_a_point_embed(ops.zeros((), dtype="int32"))
         is_neg1 = ops.expand_dims(ops.cast(labels == -1, pe.dtype), axis=-1)
         pe = pe * (1.0 - is_neg1) + not_a_point * is_neg1
 
-        # Zero out padding (-10)
         is_valid = ops.expand_dims(ops.cast(labels != -10, pe.dtype), axis=-1)
         pe = pe * is_valid
 
-        # Add learned point embeddings for positive labels
         labels_clamped = ops.maximum(labels, 0)
         point_emb = self.point_embed(ops.cast(labels_clamped, "int32"))
         is_positive = ops.expand_dims(ops.cast(labels >= 0, pe.dtype), axis=-1)
@@ -246,18 +223,15 @@ class Sam3TrackerPromptEncoder(layers.Layer):
             (B, nb, 3, 256) box embeddings (top-left, bottom-right, padding).
         """
         boxes = boxes + 0.5
-        # Reshape to (B, nb, 2, 2) → top-left and bottom-right corners
         shape = ops.shape(boxes)
         coords = ops.reshape(boxes, (shape[0], shape[1], 2, 2))
 
-        # Pad to 3 points
         pad_coords = ops.zeros_like(coords[..., :1, :])
         coords = ops.concatenate([coords, pad_coords], axis=-2)
 
         input_shape = (self.image_size, self.image_size)
         corner_emb = self.shared_embedding(coords, input_shape=input_shape)
 
-        # Add corner-type embeddings
         tl_emb = self.point_embed(
             ops.convert_to_tensor(2, dtype="int32")
         )  # top-left marker
@@ -266,7 +240,6 @@ class Sam3TrackerPromptEncoder(layers.Layer):
         )  # bottom-right marker
         not_a_pt = self.not_a_point_embed(ops.zeros((), dtype="int32"))
 
-        # corner_emb shape: (B, nb, 3, 256)
         corner_emb_0 = corner_emb[..., 0:1, :] + tl_emb
         corner_emb_1 = corner_emb[..., 1:2, :] + br_emb
         not_a_pt_expanded = ops.broadcast_to(
@@ -338,11 +311,6 @@ class Sam3TrackerPromptEncoder(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Attention (with downsampling)
-# ═══════════════════════════════════════════════════════════════════
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerAttention(layers.Layer):
     """Multi-head attention with optional dimension downsampling."""
@@ -391,7 +359,6 @@ class Sam3TrackerAttention(layers.Layer):
         k = self.k_proj(key)
         v = self.v_proj(value)
 
-        # Reshape: (B, pb, seq, D) → (B*pb, heads, seq, head_dim)
         def reshape_heads(x):
             s = ops.shape(x)
             x = ops.reshape(
@@ -433,11 +400,6 @@ class Sam3TrackerAttention(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  FeedForward MLP
-# ═══════════════════════════════════════════════════════════════════
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerFeedForward(layers.Layer):
     """MLP with configurable depth and optional sigmoid output."""
@@ -459,7 +421,6 @@ class Sam3TrackerFeedForward(layers.Layer):
         self.sigmoid_output = sigmoid_output
 
     def build(self, input_shape):
-        # Build chain: input_dim → hidden_dim → ... → hidden_dim → output_dim
         h = self.hidden_dim
         self.proj_in = layers.Dense(h, name="proj_in")
         self.proj_in.build((None, None, None, self.input_dim))
@@ -497,11 +458,6 @@ class Sam3TrackerFeedForward(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Two-Way Attention Block
-# ═══════════════════════════════════════════════════════════════════
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
     """Bidirectional attention block: sparse ↔ dense."""
@@ -523,7 +479,6 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
         self.skip_first_layer_pe = skip_first_layer_pe
 
     def build(self, input_shape):
-        # Self-attention (no downsampling)
         self.self_attn = Sam3TrackerAttention(
             self.hidden_size,
             self.num_attention_heads,
@@ -534,7 +489,6 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
         self.layer_norm1 = layers.LayerNormalization(epsilon=1e-5, name="layer_norm1")
         self.layer_norm1.build((None, None, None, self.hidden_size))
 
-        # Cross-attention: tokens → image
         self.cross_attn_token_to_image = Sam3TrackerAttention(
             self.hidden_size,
             self.num_attention_heads,
@@ -545,7 +499,6 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
         self.layer_norm2 = layers.LayerNormalization(epsilon=1e-5, name="layer_norm2")
         self.layer_norm2.build((None, None, None, self.hidden_size))
 
-        # MLP
         self.mlp = Sam3TrackerFeedForward(
             self.hidden_size,
             self.mlp_dim,
@@ -557,7 +510,6 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
         self.layer_norm3 = layers.LayerNormalization(epsilon=1e-5, name="layer_norm3")
         self.layer_norm3.build((None, None, None, self.hidden_size))
 
-        # Cross-attention: image → tokens
         self.cross_attn_image_to_token = Sam3TrackerAttention(
             self.hidden_size,
             self.num_attention_heads,
@@ -588,9 +540,7 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
         Returns:
             queries, keys (updated).
         """
-        # 1. Self-attention on sparse tokens
         if self.skip_first_layer_pe:
-            # No PE, no residual — HF replaces queries directly
             queries = self.self_attn(queries, queries, queries)
         else:
             q_with_pe = queries + query_point_embedding
@@ -598,7 +548,6 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
             queries = queries + attn_out
         queries = self.layer_norm1(queries)
 
-        # 2. Cross-attention: tokens → image
         q_with_pe = queries + query_point_embedding
         k_with_pe = keys + key_point_embedding
         attn = self.cross_attn_token_to_image(
@@ -606,11 +555,9 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
         )
         queries = self.layer_norm2(queries + attn)
 
-        # 3. MLP
         mlp_out = self.mlp(queries)
         queries = self.layer_norm3(queries + mlp_out)
 
-        # 4. Cross-attention: image → tokens
         q_with_pe = queries + query_point_embedding
         k_with_pe = keys + key_point_embedding
         attn = self.cross_attn_image_to_token(k_with_pe, q_with_pe, queries)
@@ -630,11 +577,6 @@ class Sam3TrackerTwoWayAttentionBlock(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Two-Way Transformer
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -703,7 +645,6 @@ class Sam3TrackerTwoWayTransformer(layers.Layer):
             queries: (B, pb, num_tokens, D) updated point embeddings.
             keys: (B*pb, H*W, D) updated image embeddings.
         """
-        # Flatten image: (B, C, H, W) → (B, 1, H*W, C)
         shape = ops.shape(image_embeddings)
         image_flat = ops.reshape(
             ops.transpose(image_embeddings, (0, 2, 3, 1)),
@@ -726,7 +667,6 @@ class Sam3TrackerTwoWayTransformer(layers.Layer):
                 attention_similarity=attention_similarity,
             )
 
-        # Final attention
         q = queries + point_embeddings
         k = keys + image_pe_flat
         attn = self.final_attn_token_to_image(q, k, keys)
@@ -746,11 +686,6 @@ class Sam3TrackerTwoWayTransformer(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Mask Decoder
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -806,7 +741,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
         )
         self.transformer.build(None)
 
-        # Upscale: 72x72 → 288x288
         self.upscale_conv1 = layers.Conv2DTranspose(
             64,
             kernel_size=2,
@@ -828,7 +762,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
         )
         self.upscale_conv2.build((None, 64, None, None))
 
-        # Hypernetwork MLPs (one per mask token)
         self.output_hypernetworks_mlps = []
         for i in range(self.num_mask_tokens):
             mlp = Sam3TrackerFeedForward(
@@ -837,7 +770,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
             mlp.build(None)
             self.output_hypernetworks_mlps.append(mlp)
 
-        # IoU prediction head
         self.iou_prediction_head = Sam3TrackerFeedForward(
             d,
             self._iou_config["hidden_dim"],
@@ -848,7 +780,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
         )
         self.iou_prediction_head.build(None)
 
-        # High-res feature projections
         self.conv_s0 = layers.Conv2D(
             32, kernel_size=1, data_format="channels_first", name="conv_s0"
         )
@@ -858,7 +789,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
         )
         self.conv_s1.build((None, d, None, None))
 
-        # Object score head
         self.pred_obj_score_head = Sam3TrackerFeedForward(
             d, d, 1, num_layers=3, name="pred_obj_score_head"
         )
@@ -897,7 +827,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
         width = shape[3]
         point_batch_size = ops.shape(sparse_prompt_embeddings)[1]
 
-        # Build output tokens: [obj_score, iou, mask_0, mask_1, mask_2, mask_3]
         obj_token = self.obj_score_token(ops.zeros((1,), dtype="int32"))
         iou_tok = self.iou_token(ops.zeros((1,), dtype="int32"))
         mask_tok = self.mask_tokens(ops.arange(self.num_mask_tokens, dtype="int32"))
@@ -909,10 +838,8 @@ class Sam3TrackerMaskDecoder(layers.Layer):
 
         tokens = ops.concatenate([output_tokens, sparse_prompt_embeddings], axis=2)
 
-        # Add dense embeddings to image
         image_emb = image_embeddings + dense_prompt_embeddings
 
-        # Run transformer
         queries, keys = self.transformer(
             point_embeddings=tokens,
             image_embeddings=image_emb,
@@ -920,20 +847,16 @@ class Sam3TrackerMaskDecoder(layers.Layer):
             attention_similarity=attention_similarity,
         )
 
-        # Extract output tokens
         iou_token_out = queries[:, :, 1:2, :]
         mask_tokens_out = queries[:, :, 2:6, :]
 
-        # Upscale image features
         keys_spatial = ops.reshape(
             keys, (batch_size * point_batch_size, height, width, num_channels)
         )
         keys_spatial = ops.transpose(keys_spatial, (0, 3, 1, 2))
 
-        # High-res features may be pre-projected (from get_image_features)
         feat_s0 = high_resolution_features[0]
         feat_s1 = high_resolution_features[1]
-        # Project if not already done (check channel count)
         if ops.shape(feat_s0)[1] == self.hidden_size:
             feat_s0 = self.conv_s0(feat_s0)
         if ops.shape(feat_s1)[1] == self.hidden_size:
@@ -947,7 +870,6 @@ class Sam3TrackerMaskDecoder(layers.Layer):
             self.upscale_conv2(upscaled) + ops.repeat(feat_s0, point_batch_size, axis=0)
         )
 
-        # Generate masks via hypernetworks
         hyper_in_list = []
         for i in range(self.num_mask_tokens):
             hyper_in_list.append(
@@ -972,13 +894,11 @@ class Sam3TrackerMaskDecoder(layers.Layer):
             ),
         )
 
-        # IoU and object score
         iou_pred = self.iou_prediction_head(iou_token_out)
         iou_pred = ops.squeeze(iou_pred, axis=2)
         object_score = self.pred_obj_score_head(queries[:, :, 0:1, :])
         object_score = ops.squeeze(object_score, axis=2)
 
-        # Select masks
         if multimask_output:
             masks = masks[:, :, 1:, :, :]
             iou_pred = iou_pred[:, :, 1:]

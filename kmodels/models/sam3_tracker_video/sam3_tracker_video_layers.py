@@ -9,10 +9,6 @@ import math
 import keras
 from keras import layers, ops
 
-# ═══════════════════════════════════════════════════════════════════
-#  Channels-first LayerNorm (reused from sam3_tracker)
-# ═══════════════════════════════════════════════════════════════════
-
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerVideoChannelsFirstLayerNorm(layers.Layer):
@@ -46,11 +42,6 @@ class Sam3TrackerVideoChannelsFirstLayerNorm(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Vision Rotary Position Embedding (2D axial RoPE)
-# ═══════════════════════════════════════════════════════════════════
-
-
 def compute_vision_rope(dim, end_x, end_y, theta=10000.0):
     """Pre-compute 2D axial rotary embeddings.
 
@@ -74,13 +65,11 @@ def compute_vision_rope(dim, end_x, end_y, theta=10000.0):
     freqs_y = ops.outer(y_pos, freqs)  # (N, dim//4)
     inv_freq = ops.concatenate([freqs_x, freqs_y], axis=-1)  # (N, dim//2)
 
-    # repeat_interleave(2) → (N, dim)
     inv_freq = ops.repeat(ops.expand_dims(inv_freq, axis=-1), 2, axis=-1)
     inv_freq = ops.reshape(inv_freq, (end_x * end_y, dim))
 
     cos_emb = ops.cos(inv_freq)  # (N, dim)
     sin_emb = ops.sin(inv_freq)  # (N, dim)
-    # Add batch and head dims: (1, 1, N, dim)
     cos_emb = ops.expand_dims(ops.expand_dims(cos_emb, 0), 0)
     sin_emb = ops.expand_dims(ops.expand_dims(sin_emb, 0), 0)
     return cos_emb, sin_emb
@@ -118,7 +107,6 @@ def apply_rotary_pos_emb_2d(q, k, cos, sin, num_k_exclude_rope=0, repeat_freqs_k
         k_rot = k
         k_pass = None
 
-    # Force float32 for precision
     q_f = ops.cast(q, "float32")
     q_embed = q_f * cos + _rotate_pairwise(q_f) * sin
 
@@ -144,11 +132,6 @@ def apply_rotary_pos_emb_2d(q, k, cos, sin, num_k_exclude_rope=0, repeat_freqs_k
         k_embed = ops.concatenate([k_embed, k_pass], axis=2)
 
     return ops.cast(q_embed, q.dtype), k_embed
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  RoPE Attention (for memory attention layers)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -207,7 +190,6 @@ class Sam3TrackerVideoRoPEAttention(layers.Layer):
         k = self.k_proj(key)
         v = self.v_proj(value)
 
-        # Reshape: (B, pb, seq, D) → (B*pb, heads, seq, head_dim)
         def reshape_heads(x):
             s = ops.shape(x)
             x = ops.reshape(
@@ -257,11 +239,6 @@ class Sam3TrackerVideoRoPEAttention(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Memory Attention Layer (single block)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -343,7 +320,6 @@ class Sam3TrackerVideoMemoryAttentionLayer(layers.Layer):
         Returns:
             (B, pb, seq_q, hidden_size) updated queries.
         """
-        # Self-attention (pre-norm)
         q = self.layer_norm1(queries)
         q = self.self_attn(
             query=q,
@@ -353,7 +329,6 @@ class Sam3TrackerVideoMemoryAttentionLayer(layers.Layer):
         )
         queries = queries + q
 
-        # Cross-attention to memory (pre-norm)
         q = self.layer_norm2(queries)
         q = self.cross_attn_image(
             query=q,
@@ -364,7 +339,6 @@ class Sam3TrackerVideoMemoryAttentionLayer(layers.Layer):
         )
         queries = queries + q
 
-        # FFN (pre-norm)
         q = self.layer_norm3(queries)
         act_fn = ops.nn.relu if self.feed_forward_act == "relu" else ops.nn.gelu
         q = self.linear2(act_fn(self.linear1(q)))
@@ -385,11 +359,6 @@ class Sam3TrackerVideoMemoryAttentionLayer(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Memory Attention (stack of layers + RoPE + final LN)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -445,7 +414,6 @@ class Sam3TrackerVideoMemoryAttention(layers.Layer):
         self.layer_norm = layers.LayerNormalization(epsilon=1e-5, name="layer_norm")
         self.layer_norm.build((None, None, None, self.hidden_size))
 
-        # Pre-compute RoPE
         head_dim = self.hidden_size // (self.downsample_rate * self.num_attention_heads)
         self._rope_cos, self._rope_sin = compute_vision_rope(
             dim=head_dim,
@@ -478,14 +446,12 @@ class Sam3TrackerVideoMemoryAttention(layers.Layer):
         if current_vision_position_embeddings is not None:
             output = output + 0.1 * current_vision_position_embeddings
 
-        # Convert to batch-first: (seq, B, C) → (B, seq, C)
         output = ops.transpose(output, (1, 0, 2))
         memory = ops.transpose(memory, (1, 0, 2))
         memory_position_embeddings = ops.transpose(
             memory_position_embeddings, (1, 0, 2)
         )
 
-        # Add point_batch dim: (B, seq, C) → (B, 1, seq, C)
         memory = ops.expand_dims(memory, 1)
         memory_position_embeddings = ops.expand_dims(memory_position_embeddings, 1)
 
@@ -504,7 +470,6 @@ class Sam3TrackerVideoMemoryAttention(layers.Layer):
 
         normed_output = self.layer_norm(output)
 
-        # Remove point_batch dim and convert back to seq-first
         if normed_output.ndim == 4:
             normed_output = normed_output[:, 0, :, :]  # (B, seq, C)
         normed_output = ops.transpose(normed_output, (1, 0, 2))  # (seq, B, C)
@@ -529,11 +494,6 @@ class Sam3TrackerVideoMemoryAttention(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Mask Downsampler (for memory encoder)
-# ═══════════════════════════════════════════════════════════════════
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerVideoMaskDownSamplerLayer(layers.Layer):
     """Single mask downsampling layer: Conv2D + LayerNorm + activation."""
@@ -549,7 +509,6 @@ class Sam3TrackerVideoMaskDownSamplerLayer(layers.Layer):
         self.padding = padding
 
     def build(self, input_shape):
-        # Use padding="valid" with explicit symmetric pad to match PyTorch padding=1
         self.conv = layers.Conv2D(
             self.out_channels,
             kernel_size=self.kernel_size,
@@ -566,7 +525,6 @@ class Sam3TrackerVideoMaskDownSamplerLayer(layers.Layer):
         self.built = True
 
     def call(self, x):
-        # Symmetric padding: pad (padding, padding) on H and W dims (NCHW)
         p = self.padding
         x = ops.pad(x, [[0, 0], [0, 0], [p, p], [p, p]])
         return ops.nn.gelu(self.layer_norm(self.conv(x)))
@@ -661,11 +619,6 @@ class Sam3TrackerVideoMaskDownSampler(layers.Layer):
         return config
 
 
-# ═══════════════════════════════════════════════════════════════════
-#  Memory Fuser (ConvNeXt-style blocks)
-# ═══════════════════════════════════════════════════════════════════
-
-
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam3TrackerVideoMemoryFuserCXBlock(layers.Layer):
     """ConvNeXt-style fusion block for memory encoder.
@@ -725,12 +678,10 @@ class Sam3TrackerVideoMemoryFuserCXBlock(layers.Layer):
         residual = hidden_states
         x = self.depthwise_conv(hidden_states)
         x = self.layer_norm(x)
-        # (B, C, H, W) → (B, H, W, C) for Dense layers
         x = ops.transpose(x, (0, 2, 3, 1))
         x = ops.nn.gelu(self.pointwise_conv1(x))
         x = self.pointwise_conv2(x)
         x = self.scale * x
-        # (B, H, W, C) → (B, C, H, W)
         x = ops.transpose(x, (0, 3, 1, 2))
         return residual + x
 
@@ -803,11 +754,6 @@ class Sam3TrackerVideoMemoryFuser(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  Memory Encoder (mask downsampler + feature projection + fuser)
-# ═══════════════════════════════════════════════════════════════════
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -920,11 +866,6 @@ class Sam3TrackerVideoMemoryEncoder(layers.Layer):
             }
         )
         return config
-
-
-# ═══════════════════════════════════════════════════════════════════
-#  1D Sine Positional Encoding (for temporal offsets)
-# ═══════════════════════════════════════════════════════════════════
 
 
 def get_1d_sine_pe(pos_inds, dim, temperature=10000):

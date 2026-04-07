@@ -18,14 +18,12 @@ SAM3_TRACKER_VIDEO_MEMORY_ATTENTION_CONFIG = {
 SAM3_TRACKER_VIDEO_MEMORY_ENCODER_CONFIG = {
     "hidden_size": 256,
     "output_channels": 64,
-    # Mask downsampler
     "mask_downsampler_embed_dim": 256,
     "mask_downsampler_kernel_size": 3,
     "mask_downsampler_stride": 2,
     "mask_downsampler_padding": 1,
     "mask_downsampler_total_stride": 16,
     "mask_downsampler_hidden_act": "gelu",
-    # Memory fuser (ConvNeXt blocks)
     "memory_fuser_num_layers": 2,
     "memory_fuser_embed_dim": 256,
     "memory_fuser_intermediate_dim": 1024,
@@ -60,7 +58,6 @@ SAM3_TRACKER_VIDEO_MODEL_CONFIG = {
         },
         "memory_attention": SAM3_TRACKER_VIDEO_MEMORY_ATTENTION_CONFIG,
         "memory_encoder": SAM3_TRACKER_VIDEO_MEMORY_ENCODER_CONFIG,
-        # Model-level params
         "hidden_dim": 256,
         "mem_dim": 64,
         "num_maskmem": 7,

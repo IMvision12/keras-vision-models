@@ -104,7 +104,6 @@ def _build_vision_backbone(
         name="backbone_to_spatial",
     )(hidden_states)
 
-    # Pre-compute rotary embeddings for window and global attention
     window_cos, window_sin = compute_rotary_embeddings(
         vit_hidden_size,
         vit_num_attention_heads,
@@ -244,7 +243,6 @@ def _detr_encoder_layer(
     fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
     fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
 
-    # Pre-norm self-attention
     residual = vision_feats
     x = layer_norm1(vision_feats)
     q = k = x + vision_pos
@@ -252,14 +250,12 @@ def _detr_encoder_layer(
     x = layers.Dropout(dropout, name=f"{name}_dropout1")(x)
     vision_feats = layers.Add(name=f"{name}_add1")([x, residual])
 
-    # Pre-norm cross-attention
     residual = vision_feats
     x = layer_norm2(vision_feats)
     x = cross_attn(x, text_feats, text_feats, attention_mask=text_mask)
     x = layers.Dropout(dropout, name=f"{name}_dropout2")(x)
     vision_feats = layers.Add(name=f"{name}_add2")([x, residual])
 
-    # Pre-norm MLP
     residual = vision_feats
     x = layer_norm3(vision_feats)
     x = fc1(x)
@@ -365,13 +361,11 @@ def _detr_decoder_layer(
     fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
     fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
 
-    # Post-norm self-attention
     q = k = hidden_states + query_pos
     x = self_attn(q, k, hidden_states)
     x = layers.Dropout(dropout, name=f"{name}_dropout1")(x)
     hidden_states = layer_norm1(layers.Add(name=f"{name}_add1")([hidden_states, x]))
 
-    # Post-norm text cross-attention
     x = text_cross_attn(
         hidden_states + query_pos,
         text_feats,
@@ -381,7 +375,6 @@ def _detr_decoder_layer(
     x = layers.Dropout(dropout, name=f"{name}_dropout2")(x)
     hidden_states = layer_norm2(layers.Add(name=f"{name}_add2")([hidden_states, x]))
 
-    # Post-norm vision cross-attention
     x = vision_cross_attn(
         hidden_states + query_pos,
         vision_feats + vision_pos,
@@ -391,7 +384,6 @@ def _detr_decoder_layer(
     x = layers.Dropout(dropout, name=f"{name}_dropout3")(x)
     hidden_states = layer_norm3(layers.Add(name=f"{name}_add3")([hidden_states, x]))
 
-    # Post-norm MLP
     x = fc1(hidden_states)
     x = layers.Activation("relu", name=f"{name}_relu")(x)
     x = layers.Dropout(dropout, name=f"{name}_dropout4")(x)
@@ -963,7 +955,6 @@ class SAM3Model(keras.Model):
 
     def build(self, input_shape=None):
         if not self.built:
-            # Trigger build of the detector sub-model
             self.detector.build(input_shape)
             self.built = True
 
@@ -1116,8 +1107,6 @@ def build_sam3_decoder_model(sam3_model):
         mask_decoder_num_attention_heads=cfg["mask_decoder_num_attention_heads"],
     )
 
-    # fpn_3 is not consumed by any layer but must be connected.
-    # Pass it through identity so Keras sees it as connected.
     fpn_3_identity = layers.Identity(name="fpn_3_passthrough")(fpn_3_in)
 
     outputs = {
@@ -1142,7 +1131,6 @@ def build_sam3_decoder_model(sam3_model):
         name="SAM3_decoder",
     )
 
-    # Copy matching weights from the full model
     orig_weights = {w.path: w.numpy() for w in det.weights}
     for w in decoder_model.weights:
         path = w.path.replace("SAM3_decoder/", "SAM3/")

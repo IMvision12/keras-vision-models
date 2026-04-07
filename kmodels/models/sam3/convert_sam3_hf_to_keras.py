@@ -1,27 +1,22 @@
-"""Convert HuggingFace facebook/sam3 to a single unified Keras weight file.
+"""Convert HuggingFace facebook/sam3 detector to Keras weights.
 
-Goes directly from HF checkpoint to sam3_unified.weights.h5 (~3.3 GB).
-Sam3VideoModel is the canonical format (matches HF's checkpoint structure).
+Extracts only the SAM3 image model (detector + text encoder + geometry
+encoder) from the HF checkpoint.
 
 Usage:
-    HF_TOKEN=xxx python -m kmodels.models.sam3.convert_unified
-
-Then load:
-    sam3 = Sam3(weights="pcs")  # auto-downloads unified file
+    HF_TOKEN=xxx python -m kmodels.models.sam3.convert_sam3_hf_to_keras
 """
 
 import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
-import numpy as np  # noqa: E402
-import torch  # noqa: E402
 from tqdm import tqdm  # noqa: E402
 
 from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights  # noqa: E402
 
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
-OUTPUT = "sam3_unified.weights.h5"
+OUTPUT = "sam3.weights.h5"
 
 
 def _tc(keras_conv, w, b):
@@ -42,40 +37,6 @@ def _td(keras_dense, w, b):
 def _tl(keras_ln, w, b):
     keras_ln.gamma.assign(w)
     keras_ln.beta.assign(b)
-
-
-def _tff(keras_ff, hf, p):
-    """Transfer weights to a Sam3TrackerFeedForward Layer."""
-    _td(keras_ff.proj_in, hf[f"{p}.proj_in.weight"], hf[f"{p}.proj_in.bias"])
-    for j, layer in enumerate(keras_ff.hidden_layers):
-        _td(layer, hf[f"{p}.layers.{j}.weight"], hf[f"{p}.layers.{j}.bias"])
-    _td(keras_ff.proj_out, hf[f"{p}.proj_out.weight"], hf[f"{p}.proj_out.bias"])
-
-
-def _tfpn(keras_neck, hf, prefix):
-    """Transfer FPN weights to a Sam3VisionNeck Layer."""
-    for i, sf in enumerate([4.0, 2.0, 1.0, 0.5]):
-        fpn = keras_neck.fpn_layers[i]
-        fp = f"{prefix}.fpn_layers.{i}"
-        if sf == 4.0:
-            _tt(
-                fpn._deconv1,
-                hf[f"{fp}.scale_layers.0.weight"],
-                hf[f"{fp}.scale_layers.0.bias"],
-            )
-            _tt(
-                fpn._deconv2,
-                hf[f"{fp}.scale_layers.2.weight"],
-                hf[f"{fp}.scale_layers.2.bias"],
-            )
-        elif sf == 2.0:
-            _tt(
-                fpn._deconv1,
-                hf[f"{fp}.scale_layers.0.weight"],
-                hf[f"{fp}.scale_layers.0.bias"],
-            )
-        _tc(fpn.proj1, hf[f"{fp}.proj1.weight"], hf[f"{fp}.proj1.bias"])
-        _tc(fpn.proj2, hf[f"{fp}.proj2.weight"], hf[f"{fp}.proj2.bias"])
 
 
 def _transfer_detector(sam3_model, hf, prefix=""):
@@ -426,225 +387,6 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         _td(layer.fc2, hf[f"{gp}.mlp.fc2.weight"], hf[f"{gp}.mlp.fc2.bias"])
 
 
-def _transfer_tracker(tv, hf, prefix=""):
-    """Transfer all tracker-video weights from HF state dict."""
-    p = f"{prefix}." if prefix else ""
-
-    tv.shared_image_embedding.positional_embedding.assign(
-        hf[f"{p}shared_image_embedding.positional_embedding"]
-    )
-    pe = tv.prompt_encoder
-    pe.shared_embedding.positional_embedding.assign(
-        hf[f"{p}prompt_encoder.shared_embedding.positional_embedding"]
-    )
-    pe.point_embed.weights[0].assign(hf[f"{p}prompt_encoder.point_embed.weight"])
-    pe.not_a_point_embed.weights[0].assign(
-        hf[f"{p}prompt_encoder.not_a_point_embed.weight"]
-    )
-    pe.no_mask_embed.weights[0].assign(hf[f"{p}prompt_encoder.no_mask_embed.weight"])
-
-    me = pe.mask_embed
-    for n in ["conv1", "conv2", "conv3"]:
-        _tc(
-            getattr(me, n),
-            hf[f"{p}prompt_encoder.mask_embed.{n}.weight"],
-            hf[f"{p}prompt_encoder.mask_embed.{n}.bias"],
-        )
-    _tl(
-        me.layer_norm1,
-        hf[f"{p}prompt_encoder.mask_embed.layer_norm1.weight"],
-        hf[f"{p}prompt_encoder.mask_embed.layer_norm1.bias"],
-    )
-    _tl(
-        me.layer_norm2,
-        hf[f"{p}prompt_encoder.mask_embed.layer_norm2.weight"],
-        hf[f"{p}prompt_encoder.mask_embed.layer_norm2.bias"],
-    )
-
-    md = tv.mask_decoder
-    md.iou_token.weights[0].assign(hf[f"{p}mask_decoder.iou_token.weight"])
-    md.mask_tokens.weights[0].assign(hf[f"{p}mask_decoder.mask_tokens.weight"])
-    md.obj_score_token.weights[0].assign(hf[f"{p}mask_decoder.obj_score_token.weight"])
-    _tc(
-        md.upscale_conv1,
-        hf[f"{p}mask_decoder.upscale_conv1.weight"],
-        hf[f"{p}mask_decoder.upscale_conv1.bias"],
-    )
-    _tc(
-        md.upscale_conv2,
-        hf[f"{p}mask_decoder.upscale_conv2.weight"],
-        hf[f"{p}mask_decoder.upscale_conv2.bias"],
-    )
-    _tl(
-        md.upscale_layer_norm,
-        hf[f"{p}mask_decoder.upscale_layer_norm.weight"],
-        hf[f"{p}mask_decoder.upscale_layer_norm.bias"],
-    )
-    _tc(
-        md.conv_s0,
-        hf[f"{p}mask_decoder.conv_s0.weight"],
-        hf[f"{p}mask_decoder.conv_s0.bias"],
-    )
-    _tc(
-        md.conv_s1,
-        hf[f"{p}mask_decoder.conv_s1.weight"],
-        hf[f"{p}mask_decoder.conv_s1.bias"],
-    )
-    for i in range(4):
-        _tff(
-            md.output_hypernetworks_mlps[i],
-            hf,
-            f"{p}mask_decoder.output_hypernetworks_mlps.{i}",
-        )
-    _tff(md.iou_prediction_head, hf, f"{p}mask_decoder.iou_prediction_head")
-    _tff(md.pred_obj_score_head, hf, f"{p}mask_decoder.pred_obj_score_head")
-
-    tw = md.transformer
-    for i in range(2):
-        block = tw.transformer_layers[i]
-        bp = f"{p}mask_decoder.transformer.layers.{i}"
-        for an in [
-            "self_attn",
-            "cross_attn_token_to_image",
-            "cross_attn_image_to_token",
-        ]:
-            attn = getattr(block, an)
-            for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-                _td(
-                    getattr(attn, proj),
-                    hf[f"{bp}.{an}.{proj}.weight"],
-                    hf[f"{bp}.{an}.{proj}.bias"],
-                )
-        for ln in ["layer_norm1", "layer_norm2", "layer_norm3", "layer_norm4"]:
-            _tl(getattr(block, ln), hf[f"{bp}.{ln}.weight"], hf[f"{bp}.{ln}.bias"])
-        _td(
-            block.mlp.proj_in,
-            hf[f"{bp}.mlp.proj_in.weight"],
-            hf[f"{bp}.mlp.proj_in.bias"],
-        )
-        _td(
-            block.mlp.proj_out,
-            hf[f"{bp}.mlp.proj_out.weight"],
-            hf[f"{bp}.mlp.proj_out.bias"],
-        )
-
-    fa = tw.final_attn_token_to_image
-    for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-        _td(
-            getattr(fa, proj),
-            hf[f"{p}mask_decoder.transformer.final_attn_token_to_image.{proj}.weight"],
-            hf[f"{p}mask_decoder.transformer.final_attn_token_to_image.{proj}.bias"],
-        )
-    _tl(
-        tw.layer_norm_final_attn,
-        hf[f"{p}mask_decoder.transformer.layer_norm_final_attn.weight"],
-        hf[f"{p}mask_decoder.transformer.layer_norm_final_attn.bias"],
-    )
-
-    ma = tv.memory_attention
-    for i in range(4):
-        layer = ma.attention_layers[i]
-        lp = f"{p}memory_attention.layers.{i}"
-        for proj in ["q_proj", "k_proj", "v_proj", "o_proj"]:
-            _td(
-                getattr(layer.self_attn, proj),
-                hf[f"{lp}.self_attn.{proj}.weight"],
-                hf[f"{lp}.self_attn.{proj}.bias"],
-            )
-            _td(
-                getattr(layer.cross_attn_image, proj),
-                hf[f"{lp}.cross_attn_image.{proj}.weight"],
-                hf[f"{lp}.cross_attn_image.{proj}.bias"],
-            )
-        _td(layer.linear1, hf[f"{lp}.linear1.weight"], hf[f"{lp}.linear1.bias"])
-        _td(layer.linear2, hf[f"{lp}.linear2.weight"], hf[f"{lp}.linear2.bias"])
-        for ln in ["layer_norm1", "layer_norm2", "layer_norm3"]:
-            _tl(getattr(layer, ln), hf[f"{lp}.{ln}.weight"], hf[f"{lp}.{ln}.bias"])
-    _tl(
-        ma.layer_norm,
-        hf[f"{p}memory_attention.layer_norm.weight"],
-        hf[f"{p}memory_attention.layer_norm.bias"],
-    )
-
-    mem = tv.memory_encoder
-    mds = mem.mask_downsampler
-    for i in range(len(mds.downsample_layers)):
-        layer = mds.downsample_layers[i]
-        _tc(
-            layer.conv,
-            hf[f"{p}memory_encoder.mask_downsampler.layers.{i}.conv.weight"],
-            hf[f"{p}memory_encoder.mask_downsampler.layers.{i}.conv.bias"],
-        )
-        _tl(
-            layer.layer_norm,
-            hf[f"{p}memory_encoder.mask_downsampler.layers.{i}.layer_norm.weight"],
-            hf[f"{p}memory_encoder.mask_downsampler.layers.{i}.layer_norm.bias"],
-        )
-    _tc(
-        mds.final_conv,
-        hf[f"{p}memory_encoder.mask_downsampler.final_conv.weight"],
-        hf[f"{p}memory_encoder.mask_downsampler.final_conv.bias"],
-    )
-    _tc(
-        mem.feature_projection,
-        hf[f"{p}memory_encoder.feature_projection.weight"],
-        hf[f"{p}memory_encoder.feature_projection.bias"],
-    )
-    for i in range(len(mem.fuser_layers)):
-        block = mem.fuser_layers[i]
-        bp = f"{p}memory_encoder.memory_fuser.layers.{i}"
-        transfer_weights(
-            "depthwise_conv_kernel",
-            block.depthwise_conv.kernel,
-            hf[f"{bp}.depthwise_conv.weight"],
-        )
-        block.depthwise_conv.bias.assign(hf[f"{bp}.depthwise_conv.bias"])
-        _tl(
-            block.layer_norm, hf[f"{bp}.layer_norm.weight"], hf[f"{bp}.layer_norm.bias"]
-        )
-        _td(
-            block.pointwise_conv1,
-            hf[f"{bp}.pointwise_conv1.weight"],
-            hf[f"{bp}.pointwise_conv1.bias"],
-        )
-        _td(
-            block.pointwise_conv2,
-            hf[f"{bp}.pointwise_conv2.weight"],
-            hf[f"{bp}.pointwise_conv2.bias"],
-        )
-        block.scale.assign(hf[f"{bp}.scale"])
-    _tc(
-        mem.projection,
-        hf[f"{p}memory_encoder.projection.weight"],
-        hf[f"{p}memory_encoder.projection.bias"],
-    )
-
-    _tff(tv.object_pointer_proj, hf, f"{p}object_pointer_proj")
-    _tc(
-        tv.mask_downsample,
-        hf[f"{p}mask_downsample.weight"],
-        hf[f"{p}mask_downsample.bias"],
-    )
-    tv.no_memory_embedding.assign(hf[f"{p}no_memory_embedding"])
-    tv.no_memory_positional_encoding.assign(hf[f"{p}no_memory_positional_encoding"])
-    tv.no_object_pointer.assign(hf[f"{p}no_object_pointer"])
-    tv.memory_temporal_positional_encoding.assign(
-        hf[f"{p}memory_temporal_positional_encoding"]
-    )
-    if hasattr(tv, "temporal_positional_encoding_projection_layer"):
-        _td(
-            tv.temporal_positional_encoding_projection_layer,
-            hf[f"{p}temporal_positional_encoding_projection_layer.weight"],
-            hf[f"{p}temporal_positional_encoding_projection_layer.bias"],
-        )
-    if hasattr(tv, "occlusion_spatial_embedding_parameter"):
-        tv.occlusion_spatial_embedding_parameter.assign(
-            hf[f"{p}occlusion_spatial_embedding_parameter"]
-        )
-
-    _tfpn(tv.vision_neck, hf, f"{p}vision_encoder.neck")
-
-
 def convert():
     from transformers.models.sam3_video.modeling_sam3_video import (
         Sam3VideoModel as HFVideoModel,
@@ -657,82 +399,29 @@ def convert():
     hf = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
     print(f"HF: {len(hf)} keys")
 
-    print("\nBuilding Keras models...")
+    # Extract detector-only keys
+    det_hf = {}
+    for k, v in hf.items():
+        if k.startswith("detector_model."):
+            det_hf[k[len("detector_model.") :]] = v
+    print(f"Detector keys: {len(det_hf)}")
+    del hf_model, hf
+
+    print("\nBuilding Keras Sam3...")
     from kmodels.models.sam3.sam3_model import Sam3
-    from kmodels.models.sam3_tracker_video.sam3_tracker_video_model import (
-        Sam3TrackerVideo,
-    )
-    from kmodels.models.sam3_video.sam3_video_model import Sam3Video
 
     sam3 = Sam3(input_shape=(1008, 1008, 3), weights=None)
-    tv = Sam3TrackerVideo(sam3_model=sam3, weights=None)
-    vm = Sam3Video(sam3_model=sam3, tracker_video_model=tv, weights=None)
 
-    print("\nTransferring detector weights (detector_model.*)...")
-    _transfer_detector(sam3, hf, prefix="detector_model")
-
-    print("\nTransferring tracker weights (tracker_model.* + vision_encoder.neck.*)...")
-    tracker_hf = {}
-    for k, v in hf.items():
-        if k.startswith("tracker_model."):
-            tracker_hf[k[len("tracker_model.") :]] = v
-    from transformers.models.sam3_tracker_video.modeling_sam3_tracker_video import (
-        Sam3TrackerVideoModel as HFTVModel,
-    )
-
-    hf_tv_full = HFTVModel.from_pretrained(
-        "facebook/sam3", attn_implementation="eager", token=HF_TOKEN
-    ).eval()
-    for k, v in hf_tv_full.state_dict().items():
-        if k.startswith("vision_encoder.neck."):
-            tracker_hf[k] = v.cpu().numpy()
-    del hf_tv_full
-
-    _transfer_tracker(tv, tracker_hf)
-
-    print("\nTransferring video neck (tracker_neck.*)...")
-    _tfpn(vm.tracker_neck, hf, "tracker_neck")
+    print("\nTransferring detector weights...")
+    _transfer_detector(sam3, det_hf)
 
     print(f"\nSaving {OUTPUT}...")
-    vm_params = sum(w.numpy().size for w in vm.weights)
-    print(f"  Total params: {vm_params:,}")
-    vm.save_weights(OUTPUT)
+    total_params = sum(w.numpy().size for w in sam3.weights)
+    print(f"  Total params: {total_params:,}")
+    sam3.save_weights(OUTPUT)
     size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)
     print(f"  Saved: {OUTPUT} ({size_mb:.0f} MB)")
 
-    print("\nVerifying...")
-    sam3_v = Sam3(input_shape=(1008, 1008, 3), weights=None)
-    tv_v = Sam3TrackerVideo(sam3_model=sam3_v, weights=None)
-    vm_v = Sam3Video(sam3_model=sam3_v, tracker_video_model=tv_v, weights=None)
-    vm_v.load_weights(OUTPUT)
-
-    from keras import ops
-    from PIL import Image
-    from transformers.models.sam3_tracker_video.processing_sam3_tracker_video import (
-        Sam3TrackerVideoProcessor,
-    )
-
-    hf_proc = Sam3TrackerVideoProcessor.from_pretrained("facebook/sam3", token=HF_TOKEN)
-    img = Image.open("real_video_frames/00000.jpg").convert("RGB")
-    inputs = hf_proc(
-        images=img,
-        input_points=[[[[480, 260]]]],
-        input_labels=[[[1]]],
-        return_tensors="pt",
-    )
-
-    with torch.no_grad():
-        pixel_values = inputs["pixel_values"].permute(0, 2, 3, 1).numpy()
-        image_embeddings = tv_v.get_image_features(pixel_values)
-        out = tv_v.predict_masks(
-            image=None,
-            input_points=inputs["input_points"].numpy(),
-            input_labels=inputs["input_labels"].numpy().astype(np.int32),
-            image_embeddings=image_embeddings,
-        )
-    obj = ops.convert_to_numpy(out["object_score_logits"]).flatten()[0]
-    print(f"  obj_score: {obj:.3f} (expected: 18.089)")
-    print(f"  PASS: {abs(obj - 18.089) < 0.01}")
     print("\nDone!")
 
 

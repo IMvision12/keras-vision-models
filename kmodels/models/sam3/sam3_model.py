@@ -1001,9 +1001,9 @@ def _create_sam3_model(
     model.build(None)
 
     if weights in valid_model_weights:
-        from kmodels.models.sam3.weights_config import load_unified_weights
+        from kmodels.utils import load_weights_from_config
 
-        load_unified_weights(sam3_model=model, weights=weights)
+        load_weights_from_config(model, SAM3_WEIGHTS_CONFIG[variant], weights)
     elif weights is not None:
         model.load_weights(weights)
     else:

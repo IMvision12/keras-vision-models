@@ -17,12 +17,13 @@ def inverse_sigmoid(x, eps=1e-3):
 
 
 def box_cxcywh_to_xyxy(boxes):
-    cx, cy, w, h = ops.split(boxes, 4, axis=-1)
-    x0 = cx - 0.5 * w
-    y0 = cy - 0.5 * h
-    x1 = cx + 0.5 * w
-    y1 = cy + 0.5 * h
-    return ops.concatenate([x0, y0, x1, y1], axis=-1)
+    cx, cy, w, h = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
+    return ops.stack([cx - 0.5 * w, cy - 0.5 * h, cx + 0.5 * w, cy + 0.5 * h], axis=-1)
+
+
+def box_xyxy_to_cxcywh(boxes):
+    x0, y0, x1, y1 = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
+    return ops.stack([(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0], axis=-1)
 
 
 def rotate_pairwise(x):

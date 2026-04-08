@@ -11,17 +11,7 @@ from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 from .sam3_model import SAM3Main
-from .sam3_utils import compute_sine_pos_encoding
-
-
-def box_xyxy_to_cxcywh(boxes):
-    x0, y0, x1, y1 = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
-    return np.stack([(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0], axis=-1)
-
-
-def box_cxcywh_to_xyxy(boxes):
-    cx, cy, w, h = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
-    return np.stack([cx - 0.5 * w, cy - 0.5 * h, cx + 0.5 * w, cy + 0.5 * h], axis=-1)
+from .sam3_utils import box_xyxy_to_cxcywh, compute_sine_pos_encoding
 
 
 IMAGE_SIZE = 1008

@@ -1,7 +1,6 @@
 import keras
 import numpy as np
 from keras import ops
-from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 from .sam3_processor import (
@@ -543,10 +542,8 @@ class SAM3SemanticSegmentation(_SAM3Base):
         results = []
         for idx in range(semantic.shape[0]):
             h, w = original_sizes[idx]
-            mask = probs[idx, 0]
+            mask = np.squeeze(probs[idx], axis=-1)
             mask = resize_mask(mask, h, w)
             mask = (mask > threshold).astype(np.int32)
             results.append(mask)
         return results
-
-

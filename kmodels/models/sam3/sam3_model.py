@@ -860,7 +860,7 @@ def sam3_mask_decoder(
     if data_format == "channels_first":
         pixel_feat = layers.Permute((3, 1, 2), name="pixel_decoder_to_nchw")(pixel_feat)
 
-    num_up = len(fpn_hidden_states) - 1
+    num_up = len(fpn_hidden_states) - 2
     for stage_idx in range(num_up):
         pixel_feat = layers.UpSampling2D(
             size=2,

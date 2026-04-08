@@ -10,7 +10,6 @@ from keras import ops
 from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
-from .sam3_model import SAM3Main
 from .sam3_utils import (
     box_xyxy_to_cxcywh,
     compute_scores,
@@ -18,7 +17,6 @@ from .sam3_utils import (
     scale_boxes,
     sigmoid,
 )
-
 
 IMAGE_SIZE = 1008
 RESCALE_FACTOR = 1.0 / 255.0
@@ -164,7 +162,6 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
     )
 
 
-
 def post_process_object_detection(outputs, threshold=0.3, target_sizes=None):
     """Convert raw outputs to detection results.
 
@@ -282,6 +279,8 @@ def _get_decoder_model(model):
     cache_key = f"{model_id}_decoder"
     if cache_key in _SUBMODEL_CACHE:
         return _SUBMODEL_CACHE[cache_key]
+
+    from .sam3_model import SAM3Main
 
     det = model
     cfg = det.get_config()

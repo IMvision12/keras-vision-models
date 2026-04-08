@@ -187,7 +187,7 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         transfer_weights("kernel", dense.kernel, hf[f"{sp}.{n}.weight"])
         dense.bias.assign(hf[f"{sp}.{n}.bias"])
 
-    for s in range(len(det.fpn_scale_factors) - 1):
+    for s in range(len(det.fpn_scale_factors) - 2):
         conv = det.get_layer(f"pixel_decoder_stage_{s}_conv")
         transfer_weights(
             "conv_kernel",
@@ -356,7 +356,8 @@ print("\nTransferring detector weights...")
 _transfer_detector(sam3, hf)
 
 print(f"\nSaving {OUTPUT}...")
-total_params = sum(w.numpy().size for w in sam3.weights)
+all_weights = sam3.weights + sam3.text_encoder.weights + sam3.geometry_encoder.weights
+total_params = sum(w.numpy().size for w in all_weights)
 print(f"  Total params: {total_params:,}")
 sam3.save_weights(OUTPUT)
 size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)

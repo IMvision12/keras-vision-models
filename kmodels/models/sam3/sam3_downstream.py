@@ -1,21 +1,25 @@
 import keras
 import numpy as np
 from keras import ops
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 from .sam3_processor import (
     _SUBMODEL_CACHE,
-    _compute_scores,
     _get_vision_submodel,
     _run_decoder_with_projected,
-    _scale_boxes,
-    _sigmoid,
     preprocess_boxes,
     preprocess_image,
     preprocess_text_with_encoder,
 )
-from .sam3_utils import compute_sine_pos_encoding, resize_mask, resize_masks_batch
+from .sam3_utils import (
+    compute_scores,
+    compute_sine_pos_encoding,
+    resize_mask,
+    resize_masks_batch,
+    scale_boxes,
+    sigmoid,
+)
 
 
 class _SAM3Base:
@@ -391,12 +395,12 @@ class SAM3ObjectDetection(_SAM3Base):
         pred_logits = np.asarray(raw["pred_logits"])
         pred_boxes = np.asarray(raw["pred_boxes"])
         presence = raw.get("presence_logits")
-        batch_scores = _compute_scores(pred_logits, presence)
+        batch_scores = compute_scores(pred_logits, presence)
 
         results = []
         for idx in range(pred_logits.shape[0]):
             scores = batch_scores[idx]
-            boxes = _scale_boxes(pred_boxes[idx], original_sizes[idx])
+            boxes = scale_boxes(pred_boxes[idx], original_sizes[idx])
             keep = scores > threshold
             results.append({"scores": scores[keep], "boxes": boxes[keep]})
         return results
@@ -462,14 +466,14 @@ class SAM3InstanceSegmentation(_SAM3Base):
         pred_boxes = np.asarray(raw["pred_boxes"])
         pred_masks = np.asarray(raw["pred_masks"])
         presence = raw.get("presence_logits")
-        batch_scores = _compute_scores(pred_logits, presence)
-        batch_masks = _sigmoid(pred_masks)
+        batch_scores = compute_scores(pred_logits, presence)
+        batch_masks = sigmoid(pred_masks)
 
         results = []
         for idx in range(pred_logits.shape[0]):
             h, w = original_sizes[idx]
             scores = batch_scores[idx]
-            boxes = _scale_boxes(pred_boxes[idx], original_sizes[idx])
+            boxes = scale_boxes(pred_boxes[idx], original_sizes[idx])
             masks = batch_masks[idx]
 
             keep = scores > threshold
@@ -534,7 +538,7 @@ class SAM3SemanticSegmentation(_SAM3Base):
         )
 
         semantic = np.asarray(raw["semantic_seg"])
-        probs = _sigmoid(semantic)
+        probs = sigmoid(semantic)
 
         results = []
         for idx in range(semantic.shape[0]):
@@ -546,94 +550,3 @@ class SAM3SemanticSegmentation(_SAM3Base):
         return results
 
 
-COLORS = [
-    (255, 0, 0),
-    (0, 255, 0),
-    (0, 0, 255),
-    (255, 255, 0),
-    (255, 0, 255),
-    (0, 255, 255),
-    (128, 0, 0),
-    (0, 128, 0),
-    (0, 0, 128),
-    (128, 128, 0),
-]
-
-
-def draw_detections(image, results, title=""):
-    """Draw detection boxes and scores on image.
-
-    Args:
-        image: PIL Image.
-        results: dict with "scores" and "boxes" (from SAM3ObjectDetection).
-        title: optional title text.
-
-    Returns:
-        PIL Image with drawn detections.
-    """
-
-    vis = image.copy()
-    draw = ImageDraw.Draw(vis)
-    for i, (score, box) in enumerate(zip(results["scores"], results["boxes"])):
-        color = COLORS[i % len(COLORS)]
-        x1, y1, x2, y2 = box
-        draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
-        draw.text((x1, y1 - 12), f"{score:.2f}", fill=color)
-    if title:
-        draw.text((10, 10), title, fill=(255, 255, 255))
-    return vis
-
-
-def draw_instance_masks(image, results, title=""):
-    """Draw instance masks, boxes, and scores on image.
-
-    Args:
-        image: PIL Image.
-        results: dict with "scores", "boxes", "masks" (from SAM3InstanceSegmentation).
-        title: optional title text.
-
-    Returns:
-        PIL Image with drawn masks and boxes.
-    """
-
-    vis = np.array(image, dtype=np.float32)
-    for i in range(len(results["scores"])):
-        mask = np.asarray(results["masks"][i])
-        color = np.array(COLORS[i % len(COLORS)], dtype=np.float32)
-        vis[mask > 0] = vis[mask > 0] * 0.5 + color * 0.5
-
-    vis = Image.fromarray(vis.astype(np.uint8))
-    draw = ImageDraw.Draw(vis)
-    for i, (score, box) in enumerate(zip(results["scores"], results["boxes"])):
-        color = COLORS[i % len(COLORS)]
-        x1, y1, x2, y2 = box
-        draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
-        draw.text((x1, y1 - 12), f"{score:.2f}", fill=color)
-    if title:
-        draw.text((10, 10), title, fill=(255, 255, 255))
-    return vis
-
-
-def draw_semantic_mask(image, mask, title="", color=(0, 200, 255)):
-    """Draw semantic segmentation mask overlay on image.
-
-    Args:
-        image: PIL Image.
-        mask: (H, W) binary mask (from SAM3SemanticSegmentation).
-        title: optional title text.
-        color: RGB tuple for the mask overlay.
-
-    Returns:
-        PIL Image with mask overlay.
-    """
-
-    vis = np.array(image, dtype=np.float32)
-    mask = np.asarray(mask)
-    vis[mask > 0] = vis[mask > 0] * 0.4 + np.array(color, dtype=np.float32) * 0.6
-
-    vis = Image.fromarray(vis.astype(np.uint8))
-    draw = ImageDraw.Draw(vis)
-    pct = 100 * mask.sum() / mask.size
-    label = f"{title} ({pct:.1f}%)" if title else f"{pct:.1f}%"
-    draw.text((10, 10), label, fill=(255, 255, 255))
-    return vis

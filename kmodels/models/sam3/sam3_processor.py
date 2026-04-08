@@ -11,7 +11,13 @@ from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 from .sam3_model import SAM3Main
-from .sam3_utils import box_xyxy_to_cxcywh, compute_sine_pos_encoding
+from .sam3_utils import (
+    box_xyxy_to_cxcywh,
+    compute_scores,
+    compute_sine_pos_encoding,
+    scale_boxes,
+    sigmoid,
+)
 
 
 IMAGE_SIZE = 1008
@@ -158,28 +164,6 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
     )
 
 
-def _sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-np.clip(x, -88, 88)))
-
-
-def _scale_boxes(boxes, target_size):
-    """Scale [0,1] normalized boxes to absolute coordinates."""
-    h, w = target_size
-    return boxes * np.array([w, h, w, h], dtype=np.float32)
-
-
-def _compute_scores(pred_logits, presence_logits):
-    """Compute final scores: sigmoid(logits) * sigmoid(presence)."""
-    scores = _sigmoid(pred_logits)
-    if presence_logits is not None:
-        presence = np.asarray(presence_logits)
-        if presence.ndim == 1:
-            p = _sigmoid(presence[-1:]).reshape(1, 1)
-        else:
-            p = _sigmoid(presence)
-        scores = scores * p
-    return scores
-
 
 def post_process_object_detection(outputs, threshold=0.3, target_sizes=None):
     """Convert raw outputs to detection results.
@@ -189,14 +173,14 @@ def post_process_object_detection(outputs, threshold=0.3, target_sizes=None):
     pred_logits = np.asarray(outputs["pred_logits"])
     pred_boxes = np.asarray(outputs["pred_boxes"])
     presence = outputs.get("presence_logits")
-    batch_scores = _compute_scores(pred_logits, presence)
+    batch_scores = compute_scores(pred_logits, presence)
 
     results = []
     for idx in range(pred_logits.shape[0]):
         scores = batch_scores[idx]
         boxes = pred_boxes[idx].copy()
         if target_sizes is not None:
-            boxes = _scale_boxes(boxes, target_sizes[idx])
+            boxes = scale_boxes(boxes, target_sizes[idx])
         keep = scores > threshold
         results.append({"scores": scores[keep], "boxes": boxes[keep]})
     return results
@@ -213,8 +197,8 @@ def post_process_instance_segmentation(
     pred_boxes = np.asarray(outputs["pred_boxes"])
     pred_masks = np.asarray(outputs["pred_masks"])
     presence = outputs.get("presence_logits")
-    batch_scores = _compute_scores(pred_logits, presence)
-    batch_masks = _sigmoid(pred_masks)
+    batch_scores = compute_scores(pred_logits, presence)
+    batch_masks = sigmoid(pred_masks)
 
     results = []
     for idx in range(pred_logits.shape[0]):
@@ -223,7 +207,7 @@ def post_process_instance_segmentation(
         masks = batch_masks[idx]
 
         if target_sizes is not None:
-            boxes = _scale_boxes(boxes, target_sizes[idx])
+            boxes = scale_boxes(boxes, target_sizes[idx])
 
         keep = scores > threshold
         scores = scores[keep]
@@ -250,7 +234,7 @@ def post_process_semantic_segmentation(outputs, target_sizes=None, threshold=0.5
     Returns: list of binary masks (H, W).
     """
     semantic = np.asarray(outputs["semantic_seg"])
-    probs = _sigmoid(semantic)
+    probs = sigmoid(semantic)
 
     results = []
     for idx in range(semantic.shape[0]):

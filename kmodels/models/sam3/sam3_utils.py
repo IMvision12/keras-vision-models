@@ -6,9 +6,10 @@ import numpy as np
 from keras import ops
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageDraw
 except ImportError:
     Image = None
+    ImageDraw = None
 
 
 def inverse_sigmoid(x, eps=1e-3):
@@ -24,6 +25,27 @@ def box_cxcywh_to_xyxy(boxes):
 def box_xyxy_to_cxcywh(boxes):
     x0, y0, x1, y1 = boxes[..., 0], boxes[..., 1], boxes[..., 2], boxes[..., 3]
     return ops.stack([(x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0], axis=-1)
+
+
+def sigmoid(x):
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -88, 88)))
+
+
+def scale_boxes(boxes, target_size):
+    h, w = target_size
+    return boxes * np.array([w, h, w, h], dtype=np.float32)
+
+
+def compute_scores(pred_logits, presence_logits):
+    scores = sigmoid(pred_logits)
+    if presence_logits is not None:
+        presence = np.asarray(presence_logits)
+        if presence.ndim == 1:
+            p = sigmoid(presence[-1:]).reshape(1, 1)
+        else:
+            p = sigmoid(presence)
+        scores = scores * p
+    return scores
 
 
 def rotate_pairwise(x):
@@ -129,3 +151,62 @@ def resize_masks_batch(masks, target_h, target_w):
     if len(masks) == 0:
         return masks
     return np.stack([resize_mask(m, target_h, target_w) for m in masks])
+
+
+COLORS = [
+    (255, 0, 0),
+    (0, 255, 0),
+    (0, 0, 255),
+    (255, 255, 0),
+    (255, 0, 255),
+    (0, 255, 255),
+    (128, 0, 0),
+    (0, 128, 0),
+    (0, 0, 128),
+    (128, 128, 0),
+]
+
+
+def draw_detections(image, results, title=""):
+    vis = image.copy()
+    draw = ImageDraw.Draw(vis)
+    for i, (score, box) in enumerate(zip(results["scores"], results["boxes"])):
+        color = COLORS[i % len(COLORS)]
+        x1, y1, x2, y2 = box
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
+        draw.text((x1, y1 - 12), f"{score:.2f}", fill=color)
+    if title:
+        draw.text((10, 10), title, fill=(255, 255, 255))
+    return vis
+
+
+def draw_instance_masks(image, results, title=""):
+    vis = np.array(image, dtype=np.float32)
+    for i in range(len(results["scores"])):
+        mask = np.asarray(results["masks"][i])
+        color = np.array(COLORS[i % len(COLORS)], dtype=np.float32)
+        vis[mask > 0] = vis[mask > 0] * 0.5 + color * 0.5
+
+    vis = Image.fromarray(vis.astype(np.uint8))
+    draw = ImageDraw.Draw(vis)
+    for i, (score, box) in enumerate(zip(results["scores"], results["boxes"])):
+        color = COLORS[i % len(COLORS)]
+        x1, y1, x2, y2 = box
+        draw.rectangle([x1, y1, x2, y2], outline=color, width=2)
+        draw.text((x1, y1 - 12), f"{score:.2f}", fill=color)
+    if title:
+        draw.text((10, 10), title, fill=(255, 255, 255))
+    return vis
+
+
+def draw_semantic_mask(image, mask, title="", color=(0, 200, 255)):
+    vis = np.array(image, dtype=np.float32)
+    mask = np.asarray(mask)
+    vis[mask > 0] = vis[mask > 0] * 0.4 + np.array(color, dtype=np.float32) * 0.6
+
+    vis = Image.fromarray(vis.astype(np.uint8))
+    draw = ImageDraw.Draw(vis)
+    pct = 100 * mask.sum() / mask.size
+    label = f"{title} ({pct:.1f}%)" if title else f"{pct:.1f}%"
+    draw.text((10, 10), label, fill=(255, 255, 255))
+    return vis

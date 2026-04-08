@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RF-DETR, D-FINE), segmentation (SAM, SAM2, SegFormer, DeepLabV3, EoMT), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RF-DETR, D-FINE), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -34,6 +34,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
 |-------|-------------|
 | [SAM](docs/sam.md) | Segment Anything Model — promptable segmentation with points, boxes, or masks (ViT-B/L/H) |
 | [SAM2](docs/sam2.md) | Segment Anything Model 2 — next generation of promptable visual segmentation (Hiera Tiny/Small/Base+/Large) |
+| [SAM3](docs/sam3.md) | Segment Anything Model 3 — open-vocabulary detection + segmentation with CLIP text encoder (ViT-L/14) |
 | [SegFormer](docs/segformer.md) | Transformer-based semantic segmentation with MLP decoder, Cityscapes & ADE20K weights |
 | [DeepLabV3](docs/deeplabv3.md) | Atrous convolution-based semantic segmentation |
 | [EoMT](docs/eomt.md) | Encoder-only Mask Transformer for panoptic segmentation |
@@ -118,6 +119,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | EoMT | [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
+    | SAM3 | [SAM 3](https://arxiv.org/abs/2506.09011) | `transformers` |
     | SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers`|
 
 <br>

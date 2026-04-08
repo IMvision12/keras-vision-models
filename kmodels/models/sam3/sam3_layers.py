@@ -918,11 +918,8 @@ class SAM3GeometryEncoder(layers.Layer):
         else:
             feats = vision_features
 
-        batch_size = ops.shape(feats)[0]
-        channels = ops.shape(feats)[1]
         feat_h = ops.shape(feats)[2]
         feat_w = ops.shape(feats)[3]
-        num_boxes = ops.shape(boxes_xyxy_denorm)[1]
         out_h = self.roi_size
         out_w = self.roi_size
 

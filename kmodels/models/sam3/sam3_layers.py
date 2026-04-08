@@ -8,6 +8,22 @@ from .sam3_utils import apply_rotary_pos_emb_2d
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3LearnableEmbedding(layers.Layer):
+    """Zero-initialized learnable embedding broadcast across the batch.
+
+    Used for query embeddings, reference points, and presence tokens in
+    the DETR decoder. Optionally applies sigmoid to the embeddings.
+
+    Args:
+        num_embeddings (int): Number of embedding vectors.
+        embedding_dim (int): Dimension of each embedding vector.
+        apply_sigmoid (bool): Whether to apply sigmoid activation.
+            Defaults to ``False``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, num_embeddings, embedding_dim, apply_sigmoid=False, **kwargs):
         super().__init__(**kwargs)
         self.num_embeddings = num_embeddings
@@ -44,6 +60,24 @@ class SAM3LearnableEmbedding(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3AddPositionEmbedding(layers.Layer):
+    """Learnable absolute position embedding for the ViT backbone.
+
+    Stores a flat ``(num_patches, hidden_size)`` embedding table
+    initialized at the pretrained grid resolution. When the inference
+    grid differs from the pretrained grid, embeddings are tiled and
+    cropped to match.
+
+    Args:
+        num_patches (int): Number of pretrained position embeddings.
+        hidden_size (int): Embedding dimension.
+        pretrain_grid (int): Spatial grid size used during pretraining.
+        grid_size (int): Spatial grid size at inference time.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, num_patches, hidden_size, pretrain_grid, grid_size, **kwargs):
         super().__init__(**kwargs)
         self.num_patches = num_patches
@@ -89,6 +123,20 @@ class SAM3AddPositionEmbedding(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3ViTRoPEAttention(layers.Layer):
+    """Multi-head self-attention with 2-D rotary position embeddings.
+
+    Applies RoPE to queries and keys before computing scaled dot-product
+    attention. Used in the ViT backbone of SAM3.
+
+    Args:
+        hidden_size (int): Input and output feature dimension.
+        num_attention_heads (int): Number of attention heads.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, hidden_size, num_attention_heads, **kwargs):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -157,6 +205,20 @@ class SAM3ViTRoPEAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3ViTLayerScale(layers.Layer):
+    """Per-channel learnable scaling applied after attention and MLP.
+
+    Multiplies the input by a trainable vector initialized to a small
+    constant, stabilizing training in deep ViT models.
+
+    Args:
+        hidden_size (int): Channel dimension.
+        init_value (float): Initial value for the scaling vector.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, hidden_size, init_value, **kwargs):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -187,6 +249,30 @@ class SAM3ViTLayerScale(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3ViTLayer(layers.Layer):
+    """Single ViT transformer block with optional windowed attention.
+
+    Pre-norm architecture: LayerNorm -> RoPE Attention -> LayerNorm -> MLP.
+    Supports windowed attention with padding for local processing, and
+    optional LayerScale for training stability.
+
+    Args:
+        hidden_size (int): Hidden dimension.
+        num_attention_heads (int): Number of attention heads.
+        intermediate_size (int): MLP intermediate dimension.
+        window_size (int): Window size for windowed attention. ``0`` means
+            global attention. Defaults to ``0``.
+        image_size (int): Spatial size of the feature map for RoPE
+            frequency computation. Defaults to ``72``.
+        layer_norm_eps (float): Epsilon for layer normalization.
+            Defaults to ``1e-6``.
+        layer_scale_init_value (float or None): Initial value for
+            LayerScale. ``None`` disables LayerScale. Defaults to ``None``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(
         self,
         hidden_size,
@@ -346,6 +432,22 @@ class SAM3ViTLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3MultiHeadAttention(layers.Layer):
+    """Standard multi-head attention with optional key-value masking.
+
+    Used in the DETR encoder, DETR decoder, geometry encoder, and mask
+    decoder for self-attention and cross-attention operations.
+
+    Args:
+        hidden_size (int): Input and output feature dimension.
+        num_attention_heads (int): Number of attention heads.
+        dropout (float): Dropout rate applied to attention weights.
+            Defaults to ``0.0``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, hidden_size, num_attention_heads, dropout=0.0, **kwargs):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -418,6 +520,27 @@ class SAM3MultiHeadAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3GeometryEncoderLayer(layers.Layer):
+    """Single transformer block for the geometry encoder.
+
+    Pre-norm architecture with self-attention over prompt features,
+    cross-attention to vision features, and a feed-forward MLP. Used
+    to refine box prompt embeddings with vision context.
+
+    Args:
+        hidden_size (int): Hidden dimension. Defaults to ``256``.
+        num_attention_heads (int): Number of attention heads.
+            Defaults to ``8``.
+        intermediate_size (int): MLP intermediate dimension.
+            Defaults to ``2048``.
+        dropout (float): Dropout rate. Defaults to ``0.1``.
+        layer_norm_eps (float): Epsilon for layer normalization.
+            Defaults to ``1e-6``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(
         self,
         hidden_size=256,
@@ -515,6 +638,23 @@ class SAM3GeometryEncoderLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3DecoderMLP(layers.Layer):
+    """Multi-layer perceptron used in the DETR decoder heads.
+
+    Stacks ``num_layers`` dense layers with ReLU activations on all
+    but the last layer. Used for box regression, presence prediction,
+    and reference point refinement.
+
+    Args:
+        input_dim (int): Input feature dimension.
+        hidden_dim (int): Hidden layer dimension.
+        output_dim (int): Output dimension.
+        num_layers (int): Number of dense layers. Defaults to ``2``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2, **kwargs):
         super().__init__(**kwargs)
         self.input_dim = input_dim
@@ -557,7 +697,25 @@ class SAM3DecoderMLP(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3BoxRPB(layers.Layer):
-    """Computes box-conditioned relative position bias for vision cross-attention."""
+    """Box-conditioned relative position bias for vision cross-attention.
+
+    Computes a spatially-aware attention bias based on the relative
+    position of each spatial location to each reference box. The bias
+    is added to attention logits in the DETR decoder's vision
+    cross-attention layers.
+
+    Args:
+        hidden_size (int): Feature dimension used to determine encoding
+            size.
+        num_attention_heads (int): Number of attention heads for the
+            output bias.
+        spatial_h (int): Height of the spatial feature grid.
+        spatial_w (int): Width of the spatial feature grid.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
 
     def __init__(
         self, hidden_size, num_attention_heads, spatial_h, spatial_w, **kwargs
@@ -654,8 +812,27 @@ class SAM3BoxRPB(layers.Layer):
 class SAM3GeometryEncoder(layers.Layer):
     """Encodes bounding box prompts into features for the DETR decoder.
 
-    Combines direct box projection + sine position encoding + label embeddings,
-    refined through transformer layers with cross-attention to vision features.
+    Combines direct box projection, sine position encoding, ROI-aligned
+    visual features, and label embeddings into a unified prompt
+    representation. These are refined through transformer layers with
+    self-attention and cross-attention to flattened vision features.
+
+    Args:
+        hidden_size (int): Hidden dimension. Defaults to ``256``.
+        num_layers (int): Number of transformer refinement layers.
+            Defaults to ``3``.
+        num_attention_heads (int): Number of attention heads.
+            Defaults to ``8``.
+        intermediate_size (int): MLP intermediate dimension.
+            Defaults to ``2048``.
+        dropout (float): Dropout rate. Defaults to ``0.1``.
+        roi_size (int): ROI Align output spatial size. Defaults to ``7``.
+        layer_norm_eps (float): Epsilon for layer normalization.
+            Defaults to ``1e-6``.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
 
     def __init__(
@@ -924,6 +1101,21 @@ class SAM3GeometryEncoder(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3CLIPAttention(layers.Layer):
+    """Multi-head self-attention for the CLIP text encoder.
+
+    Standard scaled dot-product attention without rotary embeddings.
+    Supports an optional additive attention mask for causal masking
+    and padding.
+
+    Args:
+        hidden_size (int): Input and output feature dimension.
+        num_attention_heads (int): Number of attention heads.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, hidden_size, num_attention_heads, **kwargs):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -989,6 +1181,20 @@ class SAM3CLIPAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class CLIPPositionEmbedding(layers.Layer):
+    """Learnable absolute position embedding for the CLIP text encoder.
+
+    Adds a fixed-length position embedding to token embeddings using
+    ``ops.arange`` for position IDs.
+
+    Args:
+        max_pos (int): Maximum sequence length.
+        hidden_size (int): Embedding dimension.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, max_pos, hidden_size, **kwargs):
         super().__init__(**kwargs)
         self.max_pos = max_pos
@@ -1014,6 +1220,20 @@ class CLIPPositionEmbedding(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class CLIPCausalMask(layers.Layer):
+    """Causal attention mask with padding for the CLIP text encoder.
+
+    Combines an upper-triangular causal mask with a padding mask derived
+    from the attention mask input. Outputs a ``(B, 1, seq, seq)`` additive
+    mask suitable for attention logits.
+
+    Args:
+        seq_len (int): Sequence length.
+        **kwargs: Additional keyword arguments passed to the ``Layer`` class.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(self, seq_len, **kwargs):
         super().__init__(**kwargs)
         self.seq_len = seq_len

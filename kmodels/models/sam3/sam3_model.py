@@ -5,10 +5,13 @@ from kmodels.model_registry import register_model
 from kmodels.utils import load_weights_from_config
 
 from .config import SAM3_MODEL_CONFIG, SAM3_WEIGHTS_CONFIG
-from .sam3_clip import build_text_encoder
+from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE
 from .sam3_layers import (
+    CLIPCausalMask,
+    CLIPPositionEmbedding,
     SAM3AddPositionEmbedding,
     SAM3BoxRPB,
+    SAM3CLIPAttention,
     SAM3DecoderMLP,
     SAM3GeometryEncoder,
     SAM3LearnableEmbedding,
@@ -23,6 +26,12 @@ from .sam3_utils import (
 )
 
 LAYER_NORM_EPS = 1e-6
+
+CLIP_HIDDEN_SIZE = 1024
+CLIP_NUM_LAYERS = 24
+CLIP_NUM_HEADS = 16
+CLIP_INTERMEDIATE_SIZE = 4096
+CLIP_MAX_POSITION = 32
 
 
 def compute_rotary_embeddings(
@@ -946,6 +955,92 @@ class SAM3(keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
+
+
+def _clip_encoder_layer(
+    hidden_states, hidden_size, num_attention_heads, intermediate_size,
+    attention_mask, name,
+):
+    """Single CLIP encoder layer (functional): self-attn + MLP."""
+    layer_norm1 = layers.LayerNormalization(
+        epsilon=1e-5, name=f"{name}_layer_norm1"
+    )
+    layer_norm2 = layers.LayerNormalization(
+        epsilon=1e-5, name=f"{name}_layer_norm2"
+    )
+    self_attn = SAM3CLIPAttention(
+        hidden_size, num_attention_heads, name=f"{name}_self_attn"
+    )
+    fc1 = layers.Dense(intermediate_size, name=f"{name}_fc1")
+    fc2 = layers.Dense(hidden_size, name=f"{name}_fc2")
+
+    residual = hidden_states
+    hidden_states = layer_norm1(hidden_states)
+    hidden_states = self_attn(hidden_states, attention_mask=attention_mask)
+    hidden_states = layers.Add(name=f"{name}_add1")([residual, hidden_states])
+
+    residual = hidden_states
+    hidden_states = layer_norm2(hidden_states)
+    hidden_states = fc1(hidden_states)
+    hidden_states = layers.Activation("gelu", name=f"{name}_gelu")(hidden_states)
+    hidden_states = fc2(hidden_states)
+    hidden_states = layers.Add(name=f"{name}_add2")([residual, hidden_states])
+    return hidden_states
+
+
+def build_text_encoder(
+    vocab_size=SAM3_VOCAB_SIZE,
+    hidden_size=CLIP_HIDDEN_SIZE,
+    num_hidden_layers=CLIP_NUM_LAYERS,
+    num_attention_heads=CLIP_NUM_HEADS,
+    intermediate_size=CLIP_INTERMEDIATE_SIZE,
+    max_position_embeddings=CLIP_MAX_POSITION,
+    weights_path=None,
+):
+    """Build SAM3 CLIP text encoder as a functional keras.Model."""
+    input_ids = keras.Input(
+        shape=(max_position_embeddings,), dtype="int32", name="input_ids"
+    )
+    attention_mask = keras.Input(
+        shape=(max_position_embeddings,), dtype="int32", name="attention_mask"
+    )
+
+    hidden_states = layers.Embedding(
+        vocab_size, hidden_size, name="token_embedding"
+    )(input_ids)
+
+    hidden_states = CLIPPositionEmbedding(
+        max_position_embeddings, hidden_size, name="add_position"
+    )(hidden_states)
+
+    combined_mask = CLIPCausalMask(
+        max_position_embeddings, name="causal_mask"
+    )(attention_mask)
+
+    for i in range(num_hidden_layers):
+        hidden_states = _clip_encoder_layer(
+            hidden_states,
+            hidden_size,
+            num_attention_heads,
+            intermediate_size,
+            combined_mask,
+            name=f"layers_{i}",
+        )
+
+    output = layers.LayerNormalization(
+        epsilon=1e-5, name="final_layer_norm"
+    )(hidden_states)
+
+    model = keras.Model(
+        inputs={"input_ids": input_ids, "attention_mask": attention_mask},
+        outputs=output,
+        name="text_encoder",
+    )
+
+    if weights_path is not None:
+        model.load_weights(weights_path)
+
+    return model
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

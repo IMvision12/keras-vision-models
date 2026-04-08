@@ -3,7 +3,7 @@ import numpy as np
 from keras import ops
 from PIL import Image, ImageDraw
 
-from .sam3_clip import SAM3CLIPTokenizer
+from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 from .sam3_model import build_sam3_decoder_model, build_sam3_vision_model
 from .sam3_processor import (
     _SUBMODEL_CACHE,

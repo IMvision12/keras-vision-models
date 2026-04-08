@@ -922,3 +922,115 @@ class SAM3GeometryEncoder(layers.Layer):
             }
         )
         return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class SAM3CLIPAttention(layers.Layer):
+    def __init__(self, hidden_size, num_attention_heads, **kwargs):
+        super().__init__(**kwargs)
+        self.hidden_size = hidden_size
+        self.num_attention_heads = num_attention_heads
+        self.head_dim = hidden_size // num_attention_heads
+        self.scale = self.head_dim**-0.5
+
+    def build(self, input_shape):
+        dim = self.hidden_size
+        self.q_proj = layers.Dense(dim, name="q_proj")
+        self.q_proj.build((None, None, dim))
+        self.k_proj = layers.Dense(dim, name="k_proj")
+        self.k_proj.build((None, None, dim))
+        self.v_proj = layers.Dense(dim, name="v_proj")
+        self.v_proj.build((None, None, dim))
+        self.o_proj = layers.Dense(dim, name="o_proj")
+        self.o_proj.build((None, None, dim))
+        self.built = True
+
+    def call(self, hidden_states, attention_mask=None):
+        q = self.q_proj(hidden_states)
+        k = self.k_proj(hidden_states)
+        v = self.v_proj(hidden_states)
+
+        q_shape = ops.shape(q)
+        k_shape = ops.shape(k)
+        q = ops.reshape(
+            q, (q_shape[0], q_shape[1], self.num_attention_heads, self.head_dim)
+        )
+        k = ops.reshape(
+            k, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
+        )
+        v = ops.reshape(
+            v, (k_shape[0], k_shape[1], self.num_attention_heads, self.head_dim)
+        )
+
+        q = ops.transpose(q, (0, 2, 1, 3))
+        k = ops.transpose(k, (0, 2, 1, 3))
+        v = ops.transpose(v, (0, 2, 1, 3))
+
+        attn_weights = ops.matmul(q, ops.transpose(k, (0, 1, 3, 2))) * self.scale
+        if attention_mask is not None:
+            attn_weights = attn_weights + attention_mask
+        attn_weights = ops.softmax(attn_weights, axis=-1)
+
+        attn_output = ops.matmul(attn_weights, v)
+        attn_output = ops.transpose(attn_output, (0, 2, 1, 3))
+        attn_output = ops.reshape(
+            attn_output, (q_shape[0], q_shape[1], self.hidden_size)
+        )
+        return self.o_proj(attn_output)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "hidden_size": self.hidden_size,
+                "num_attention_heads": self.num_attention_heads,
+            }
+        )
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class CLIPPositionEmbedding(layers.Layer):
+    def __init__(self, max_pos, hidden_size, **kwargs):
+        super().__init__(**kwargs)
+        self.max_pos = max_pos
+        self.hidden_size = hidden_size
+
+    def build(self, input_shape):
+        self.position_embedding = layers.Embedding(
+            self.max_pos, self.hidden_size, name="position_embedding"
+        )
+        self.position_embedding.build((None, self.max_pos))
+        self.built = True
+
+    def call(self, hidden_states):
+        position_ids = ops.arange(self.max_pos, dtype="int32")
+        return hidden_states + self.position_embedding(position_ids)
+
+    def get_config(self):
+        config = super().get_config()
+        config["max_pos"] = self.max_pos
+        config["hidden_size"] = self.hidden_size
+        return config
+
+
+@keras.saving.register_keras_serializable(package="kmodels")
+class CLIPCausalMask(layers.Layer):
+    def __init__(self, seq_len, **kwargs):
+        super().__init__(**kwargs)
+        self.seq_len = seq_len
+
+    def call(self, attention_mask):
+        causal_mask = ops.triu(
+            ops.full((self.seq_len, self.seq_len), -1e9), k=1
+        )
+        pad_mask = ops.cast(
+            1.0 - ops.cast(attention_mask, "float32"), "float32"
+        ) * (-1e9)
+        pad_mask = ops.reshape(pad_mask, (-1, 1, 1, self.seq_len))
+        return causal_mask + pad_mask
+
+    def get_config(self):
+        config = super().get_config()
+        config["seq_len"] = self.seq_len
+        return config

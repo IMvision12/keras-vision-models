@@ -9,7 +9,7 @@ import numpy as np
 from keras import ops
 from PIL import Image
 
-from .sam3_clip import SAM3CLIPTokenizer
+from .sam3_clip_tokenizer import SAM3CLIPTokenizer
 from .sam3_model import SAM3
 from .sam3_utils import compute_sine_pos_encoding
 

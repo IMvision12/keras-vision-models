@@ -342,9 +342,8 @@ class _SAM3Base:
             import keras
 
             df = keras.config.image_data_format()
-            cf = df == "channels_first"
             fpn_1x = fpn_out["fpn_1x"]
-            if cf:
+            if df == "channels_first":
                 enc_h = fpn_1x.shape[2]
                 fpn_1x_nhwc = np.transpose(fpn_1x, (0, 2, 3, 1))
             else:

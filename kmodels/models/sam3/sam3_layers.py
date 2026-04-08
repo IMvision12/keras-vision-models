@@ -776,14 +776,13 @@ class SAM3GeometryEncoder(layers.Layer):
             prompt_features: (B, num_boxes+1, C)
             prompt_mask: (B, num_boxes+1) float
         """
-        cf = data_format == "channels_first"
         batch_size = ops.shape(boxes)[0]
         num_boxes = ops.shape(boxes)[1]
 
         boxes_embed = self.boxes_direct_project(boxes)
 
         if vision_features_spatial is not None:
-            if cf:
+            if data_format == "channels_first":
                 vis_nhwc = ops.transpose(vision_features_spatial, (0, 2, 3, 1))
             else:
                 vis_nhwc = vision_features_spatial
@@ -799,7 +798,7 @@ class SAM3GeometryEncoder(layers.Layer):
             y1 = cy + 0.5 * h
             boxes_xyxy = ops.concatenate([x0, y0, x1, y1], axis=-1)
 
-            spatial_axis = (2, 3) if cf else (1, 2)
+            spatial_axis = (2, 3) if data_format == "channels_first" else (1, 2)
             feat_h = ops.shape(vision_features_spatial)[spatial_axis[0]]
             feat_w = ops.shape(vision_features_spatial)[spatial_axis[1]]
             scale = ops.convert_to_tensor(

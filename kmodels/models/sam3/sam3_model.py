@@ -70,7 +70,6 @@ def _build_vision_backbone(
         backbone_spatial: (B, C, H, W) or (B, H, W, C) depending on data_format.
         grid_size: spatial grid size (H = W).
     """
-    cf = data_format == "channels_first"
     grid_size = vit_image_size // vit_patch_size
     pretrain_grid = vit_pretrain_image_size // vit_patch_size
     num_pretrain_patches = pretrain_grid * pretrain_grid
@@ -86,7 +85,7 @@ def _build_vision_backbone(
     )(pixel_values)
 
     # ViT works in NHWC — if channels_first, convert after patch embed
-    if cf:
+    if data_format == "channels_first":
         patch_embed = layers.Permute((2, 3, 1), name="backbone_patch_to_nhwc")(
             patch_embed
         )
@@ -156,7 +155,7 @@ def _build_vision_backbone(
         name="backbone_out_spatial",
     )(backbone_out_flat)
 
-    if cf:
+    if data_format == "channels_first":
         backbone_out = layers.Permute((3, 1, 2), name="backbone_to_nchw")(backbone_out)
     return backbone_out, grid_size
 
@@ -304,11 +303,10 @@ def _build_detr_encoder(
         encoder_pos_flat: (1, H*W, D) position encoding constant.
         enc_h: encoder spatial size.
     """
-    cf = data_format == "channels_first"
     encoder_vision = fpn_hidden_states[-2]  # 1x scale
     enc_h = grid_size
 
-    if cf:
+    if data_format == "channels_first":
         encoder_vision_flat = layers.Permute((2, 3, 1), name="encoder_vision_to_nhwc")(
             encoder_vision
         )
@@ -634,8 +632,6 @@ def _build_mask_decoder(
         pred_masks: (B, Q, H, W) mask logits (always NCHW for output consistency).
         semantic_seg: spatial semantic segmentation logits in data_format.
     """
-    cf = data_format == "channels_first"
-
     prompt_cross_attn_norm = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS,
         name="mask_decoder_prompt_cross_attn_norm",
@@ -660,7 +656,7 @@ def _build_mask_decoder(
         (enc_h, enc_h, fpn_hidden_size),
         name="pixel_decoder_reshape_encoder",
     )(encoder_for_mask)
-    if cf:
+    if data_format == "channels_first":
         pixel_feat = layers.Permute((3, 1, 2), name="pixel_decoder_to_nchw")(pixel_feat)
 
     num_up = len(fpn_hidden_states) - 2
@@ -687,7 +683,7 @@ def _build_mask_decoder(
         )(pixel_feat)
         pixel_feat = layers.GroupNormalization(
             groups=8,
-            axis=1 if cf else -1,
+            axis=1 if data_format == "channels_first" else -1,
             name=f"pixel_decoder_stage_{stage_idx}_gn",
         )(pixel_feat)
         pixel_feat = layers.ReLU(
@@ -711,7 +707,7 @@ def _build_mask_decoder(
     mask_embeddings = _mask_embedder(decoder_hidden, mask_decoder_hidden_size)
 
     # einsum needs NHWC instance_embed
-    if cf:
+    if data_format == "channels_first":
         instance_nhwc = ops.transpose(instance_embed, (0, 2, 3, 1))
     else:
         instance_nhwc = instance_embed

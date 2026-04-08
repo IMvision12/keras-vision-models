@@ -4,13 +4,14 @@ Matches HF Sam3Processor functionality using pure Keras 3 ops.
 Supports text prompts and box prompts for detection + segmentation.
 """
 
+import keras
 import numpy as np
 from keras import ops
+from PIL import Image
 
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
+from .sam3_clip import SAM3CLIPTokenizer
+from .sam3_model import SAM3
+from .sam3_utils import compute_sine_pos_encoding
 
 
 def box_xyxy_to_cxcywh(boxes):
@@ -89,8 +90,6 @@ def preprocess_text_with_encoder(text, text_encoder_model, tokenizer=None):
         attention_mask: (batch, 32) float32 numpy array.
     """
     if tokenizer is None:
-        from kmodels.models.sam3.sam3_clip import SAM3CLIPTokenizer
-
         tokenizer = SAM3CLIPTokenizer()
 
     input_ids, attention_mask = tokenizer.encode(text)
@@ -281,8 +280,6 @@ _SUBMODEL_CACHE = {}
 
 def _get_vision_submodel(model):
     """Sub-model: full inputs → FPN 1x (NCHW) + projected text (256d)."""
-    import keras
-
     model_id = id(model)
     cache_key = f"{model_id}_vision"
     if cache_key in _SUBMODEL_CACHE:
@@ -306,8 +303,6 @@ def _get_decoder_model(model):
     text_features(1024d) input with a projected_features(256d) input
     that bypasses text_projection.
     """
-
-    from .sam3_model import SAM3
 
     model_id = id(model)
     cache_key = f"{model_id}_decoder"
@@ -446,8 +441,6 @@ def predict(
             "text_attention_mask": text_attention_mask,
         }
         fpn_out = fpn_submodel.predict(fpn_inputs, verbose=0)
-        import keras
-
         df = keras.config.image_data_format()
         fpn_1x = fpn_out["fpn_1x"]
         text_projected = fpn_out["text_projected"]
@@ -459,8 +452,6 @@ def predict(
             fpn_1x_nhwc = fpn_1x
             enc_h = fpn_1x.shape[1]
         vision_flat = fpn_1x_nhwc.reshape(1, enc_h * enc_h, -1)
-
-        from .sam3_utils import compute_sine_pos_encoding
 
         pos = compute_sine_pos_encoding(enc_h, enc_h, 128, normalize=True)
         pos_flat = ops.convert_to_numpy(pos).reshape(1, enc_h * enc_h, -1)

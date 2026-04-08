@@ -727,30 +727,77 @@ class SAM3GeometryEncoder(layers.Layer):
     def _roi_align(
         self, vision_features, boxes_xyxy_denorm, data_format="channels_last"
     ):
-        """ROI Align using torchvision (torch backend).
+        """ROI Align using pure Keras ops with bilinear interpolation.
 
         Args:
-            vision_features_nchw: (B, C, H, W) normalized vision features.
+            vision_features: (B, H, W, C) or (B, C, H, W) feature map.
             boxes_xyxy_denorm: (B, num_boxes, 4) boxes in denormalized xyxy.
 
         Returns:
-            pooled: (B*num_boxes, C, roi_size, roi_size)
+            pooled: (B*num_boxes, C, roi_size, roi_size) in NCHW.
         """
-        import torch
-        import torchvision
-
-        feats = ops.convert_to_tensor(vision_features)
         if data_format == "channels_last":
-            feats = ops.transpose(feats, (0, 3, 1, 2))
-        boxes_list = [
-            ops.convert_to_tensor(boxes_xyxy_denorm[i])
-            for i in range(ops.shape(boxes_xyxy_denorm)[0])
-        ]
-        dtype = torch.float16 if feats.dtype == torch.bfloat16 else feats.dtype
-        pooled = torchvision.ops.roi_align(
-            feats.to(dtype), [b.to(dtype) for b in boxes_list], self.roi_size
-        )
-        return pooled.to(feats.dtype)
+            feats = ops.transpose(vision_features, (0, 3, 1, 2))
+        else:
+            feats = vision_features
+
+        batch_size = ops.shape(feats)[0]
+        channels = ops.shape(feats)[1]
+        feat_h = ops.shape(feats)[2]
+        feat_w = ops.shape(feats)[3]
+        num_boxes = ops.shape(boxes_xyxy_denorm)[1]
+        out_h = self.roi_size
+        out_w = self.roi_size
+
+        all_pooled = []
+        for b in range(ops.shape(boxes_xyxy_denorm)[0]):
+            feat = feats[b]
+            boxes = boxes_xyxy_denorm[b]
+            for n in range(ops.shape(boxes)[0]):
+                x0 = boxes[n, 0]
+                y0 = boxes[n, 1]
+                x1 = boxes[n, 2]
+                y1 = boxes[n, 3]
+
+                step_h = (y1 - y0) / ops.cast(out_h, "float32")
+                step_w = (x1 - x0) / ops.cast(out_w, "float32")
+                center_y = y0 + step_h * (ops.cast(ops.arange(out_h), "float32") + 0.5)
+                center_x = x0 + step_w * (ops.cast(ops.arange(out_w), "float32") + 0.5)
+
+                gy = ops.reshape(center_y, (out_h, 1))
+                gx = ops.reshape(center_x, (1, out_w))
+                gy = ops.broadcast_to(gy, (out_h, out_w))
+                gx = ops.broadcast_to(gx, (out_h, out_w))
+
+                y_floor = ops.cast(ops.floor(gy), "int32")
+                x_floor = ops.cast(ops.floor(gx), "int32")
+                y_ceil = y_floor + 1
+                x_ceil = x_floor + 1
+
+                wy = gy - ops.cast(y_floor, "float32")
+                wx = gx - ops.cast(x_floor, "float32")
+
+                y_floor = ops.clip(y_floor, 0, feat_h - 1)
+                y_ceil = ops.clip(y_ceil, 0, feat_h - 1)
+                x_floor = ops.clip(x_floor, 0, feat_w - 1)
+                x_ceil = ops.clip(x_ceil, 0, feat_w - 1)
+
+                tl = feat[:, y_floor, x_floor]
+                tr = feat[:, y_floor, x_ceil]
+                bl = feat[:, y_ceil, x_floor]
+                br = feat[:, y_ceil, x_ceil]
+
+                w_tl = (1 - wy) * (1 - wx)
+                w_tr = (1 - wy) * wx
+                w_bl = wy * (1 - wx)
+                w_br = wy * wx
+
+                pooled_roi = (
+                    tl * w_tl + tr * w_tr + bl * w_bl + br * w_br
+                )
+                all_pooled.append(pooled_roi)
+
+        return ops.stack(all_pooled, axis=0)
 
     def call(
         self,

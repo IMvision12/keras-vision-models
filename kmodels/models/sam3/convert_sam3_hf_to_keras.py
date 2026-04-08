@@ -236,42 +236,43 @@ def _transfer_detector(sam3_model, hf, prefix=""):
 
     print("  CLIP text encoder...")
     te = sam3_model.text_encoder
-    te.token_embedding.weights[0].assign(
+    te.get_layer("token_embedding").weights[0].assign(
         hf[f"{p}text_encoder.text_model.embeddings.token_embedding.weight"]
     )
-    te.position_embedding.weights[0].assign(
+    te.get_layer("add_position").position_embedding.weights[0].assign(
         hf[f"{p}text_encoder.text_model.embeddings.position_embedding.weight"]
     )
-    for i in tqdm(range(te.num_hidden_layers), desc="  CLIP layers"):
-        layer = te.encoder_layers[i]
+    num_clip_layers = 24
+    for i in tqdm(range(num_clip_layers), desc="  CLIP layers"):
         hp = f"{p}text_encoder.text_model.encoder.layers.{i}"
-        layer.layer_norm1.gamma.assign(hf[f"{hp}.layer_norm1.weight"])
-        layer.layer_norm1.beta.assign(hf[f"{hp}.layer_norm1.bias"])
-        layer.layer_norm2.gamma.assign(hf[f"{hp}.layer_norm2.weight"])
-        layer.layer_norm2.beta.assign(hf[f"{hp}.layer_norm2.bias"])
+        kp = f"layers_{i}"
+        ln1 = te.get_layer(f"{kp}_layer_norm1")
+        ln1.gamma.assign(hf[f"{hp}.layer_norm1.weight"])
+        ln1.beta.assign(hf[f"{hp}.layer_norm1.bias"])
+        ln2 = te.get_layer(f"{kp}_layer_norm2")
+        ln2.gamma.assign(hf[f"{hp}.layer_norm2.weight"])
+        ln2.beta.assign(hf[f"{hp}.layer_norm2.bias"])
+        attn = te.get_layer(f"{kp}_self_attn")
         for proj in ["q_proj", "k_proj", "v_proj"]:
-            dense = getattr(layer.self_attn, proj)
+            dense = getattr(attn, proj)
             transfer_weights(
                 "kernel", dense.kernel, hf[f"{hp}.self_attn.{proj}.weight"]
             )
             dense.bias.assign(hf[f"{hp}.self_attn.{proj}.bias"])
         transfer_weights(
-            "kernel",
-            layer.self_attn.o_proj.kernel,
-            hf[f"{hp}.self_attn.out_proj.weight"],
+            "kernel", attn.o_proj.kernel, hf[f"{hp}.self_attn.out_proj.weight"]
         )
-        layer.self_attn.o_proj.bias.assign(hf[f"{hp}.self_attn.out_proj.bias"])
-        transfer_weights("kernel", layer.fc1.kernel, hf[f"{hp}.mlp.fc1.weight"])
-        layer.fc1.bias.assign(hf[f"{hp}.mlp.fc1.bias"])
-        transfer_weights("kernel", layer.fc2.kernel, hf[f"{hp}.mlp.fc2.weight"])
-        layer.fc2.bias.assign(hf[f"{hp}.mlp.fc2.bias"])
+        attn.o_proj.bias.assign(hf[f"{hp}.self_attn.out_proj.bias"])
+        fc1 = te.get_layer(f"{kp}_fc1")
+        transfer_weights("kernel", fc1.kernel, hf[f"{hp}.mlp.fc1.weight"])
+        fc1.bias.assign(hf[f"{hp}.mlp.fc1.bias"])
+        fc2 = te.get_layer(f"{kp}_fc2")
+        transfer_weights("kernel", fc2.kernel, hf[f"{hp}.mlp.fc2.weight"])
+        fc2.bias.assign(hf[f"{hp}.mlp.fc2.bias"])
 
-    te.final_layer_norm.gamma.assign(
-        hf[f"{p}text_encoder.text_model.final_layer_norm.weight"]
-    )
-    te.final_layer_norm.beta.assign(
-        hf[f"{p}text_encoder.text_model.final_layer_norm.bias"]
-    )
+    fln = te.get_layer("final_layer_norm")
+    fln.gamma.assign(hf[f"{p}text_encoder.text_model.final_layer_norm.weight"])
+    fln.beta.assign(hf[f"{p}text_encoder.text_model.final_layer_norm.bias"])
 
     print("  Geometry encoder...")
     geo = sam3_model.geometry_encoder

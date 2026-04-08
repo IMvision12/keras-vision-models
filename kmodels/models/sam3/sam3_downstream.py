@@ -1,39 +1,10 @@
-"""SAM3 downstream task models.
-
-Provides clean Model classes for each downstream task:
-- SAM3ObjectDetection: bounding box detection with scores
-- SAM3InstanceSegmentation: per-object masks + boxes + scores
-- SAM3SemanticSegmentation: scene-level binary mask for a category
-
-Each wraps the base SAM3 model, text encoder, and optional geometry
-encoder into a single object with a unified predict() interface.
-
-Usage:
-    # Object detection
-    detector = SAM3ObjectDetection.from_pretrained(
-        model_weights="sam3.weights.h5",
-        text_encoder_weights="sam3_text_encoder.weights.h5",
-    )
-    results = detector.predict(image, text="cat")
-    # [{"scores": array, "boxes": array}]
-
-    # Instance segmentation with box prompts
-    segmenter = SAM3InstanceSegmentation.from_pretrained(
-        model_weights="sam3.weights.h5",
-        text_encoder_weights="sam3_text_encoder.weights.h5",
-        geometry_encoder_weights="sam3_geometry_encoder.weights.h5",
-    )
-    results = segmenter.predict(image, text="cat", input_boxes=[[x1,y1,x2,y2]])
-    # [{"scores": array, "boxes": array, "masks": array}]
-"""
-
+import keras
 import numpy as np
+from keras import ops
+from PIL import Image, ImageDraw
 
-try:
-    from PIL import Image
-except ImportError:
-    Image = None
-
+from .sam3_clip import SAM3CLIPTokenizer
+from .sam3_model import build_sam3_decoder_model, build_sam3_vision_model
 from .sam3_processor import (
     _SUBMODEL_CACHE,
     _compute_scores,
@@ -58,8 +29,6 @@ class _SAM3Base:
     """
 
     def __init__(self, sam3_model, tokenizer=None):
-        from .sam3_clip import SAM3CLIPTokenizer
-
         self.model = sam3_model
         self.tokenizer = tokenizer or SAM3CLIPTokenizer()
 
@@ -83,8 +52,6 @@ class _SAM3Base:
         Returns:
             dict with pre-computed features to pass as vision_embeds.
         """
-        from .sam3_model import build_sam3_decoder_model, build_sam3_vision_model
-
         pixel_values, original_size = preprocess_image(image)
 
         model_id = id(self.model)
@@ -117,25 +84,8 @@ class _SAM3Base:
         }
 
     def _get_text_encoder_model(self):
-        """Build a keras.Model wrapper around the text encoder layer."""
-        import keras
-
-        cache_key = f"{id(self.model)}_text_enc_model"
-        if cache_key not in _SUBMODEL_CACHE:
-            from .sam3_clip import SAM3_CONTEXT_LENGTH
-
-            input_ids = keras.Input(
-                shape=(SAM3_CONTEXT_LENGTH,), dtype="int32", name="input_ids"
-            )
-            attention_mask = keras.Input(
-                shape=(SAM3_CONTEXT_LENGTH,), dtype="int32", name="attention_mask"
-            )
-            output = self.model.text_encoder(input_ids, attention_mask=attention_mask)
-            _SUBMODEL_CACHE[cache_key] = keras.Model(
-                inputs={"input_ids": input_ids, "attention_mask": attention_mask},
-                outputs=output,
-            )
-        return _SUBMODEL_CACHE[cache_key]
+        """Return the text encoder model."""
+        return self.model.text_encoder
 
     def get_text_features(self, text):
         """Pre-compute text features for a prompt.
@@ -185,7 +135,6 @@ class _SAM3Base:
             raw: dict of model outputs
             original_sizes: list of (H, W) tuples
         """
-        from keras import ops
 
         if vision_embeds is not None:
             pixel_values = None
@@ -265,16 +214,13 @@ class _SAM3Base:
                     verbose=0,
                 )
             else:
-                from keras import ops
-
+        
                 tp_layer = self.model.detector.get_layer("text_projection")
                 text_proj = ops.convert_to_numpy(
                     tp_layer(ops.convert_to_tensor(text_features))
                 )
                 dec_key = f"{id(self.model)}_decoder"
                 if dec_key not in _SUBMODEL_CACHE:
-                    from .sam3_model import build_sam3_decoder_model
-
                     _SUBMODEL_CACHE[dec_key] = build_sam3_decoder_model(self.model)
                 decoder_model = _SUBMODEL_CACHE[dec_key]
                 raw = decoder_model.predict(
@@ -338,8 +284,6 @@ class _SAM3Base:
             boxes_cxcywh, box_labels, box_mask = preprocess_boxes(
                 [boxes_i], [labels_i], [original_sizes[i]]
             )
-
-            import keras
 
             df = keras.config.image_data_format()
             fpn_1x = fpn_out["fpn_1x"]
@@ -629,7 +573,6 @@ def draw_detections(image, results, title=""):
     Returns:
         PIL Image with drawn detections.
     """
-    from PIL import ImageDraw
 
     vis = image.copy()
     draw = ImageDraw.Draw(vis)
@@ -654,7 +597,6 @@ def draw_instance_masks(image, results, title=""):
     Returns:
         PIL Image with drawn masks and boxes.
     """
-    from PIL import ImageDraw
 
     vis = np.array(image, dtype=np.float32)
     for i in range(len(results["scores"])):
@@ -686,7 +628,6 @@ def draw_semantic_mask(image, mask, title="", color=(0, 200, 255)):
     Returns:
         PIL Image with mask overlay.
     """
-    from PIL import ImageDraw
 
     vis = np.array(image, dtype=np.float32)
     mask = np.asarray(mask)

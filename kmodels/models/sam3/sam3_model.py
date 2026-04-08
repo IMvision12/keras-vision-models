@@ -2,12 +2,15 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
+from kmodels.utils import load_weights_from_config
 
 from .config import SAM3_MODEL_CONFIG, SAM3_WEIGHTS_CONFIG
+from .sam3_clip import build_text_encoder
 from .sam3_layers import (
     SAM3AddPositionEmbedding,
     SAM3BoxRPB,
     SAM3DecoderMLP,
+    SAM3GeometryEncoder,
     SAM3LearnableEmbedding,
     SAM3MultiHeadAttention,
     SAM3ViTLayer,
@@ -959,13 +962,9 @@ class SAM3Model(keras.Model):
 
     def __init__(self, detector, **kwargs):
         super().__init__(name=kwargs.pop("name", "SAM3Model"), **kwargs)
-        from .sam3_clip import SAM3CLIPTextEncoder
-        from .sam3_layers import SAM3GeometryEncoder
-
         self.detector = detector
 
-        self.text_encoder = SAM3CLIPTextEncoder(name="text_encoder")
-        self.text_encoder.build((None, 32))
+        self.text_encoder = build_text_encoder()
 
         self.geometry_encoder = SAM3GeometryEncoder(
             hidden_size=detector.detr_encoder_hidden_size,
@@ -1027,8 +1026,6 @@ def _create_sam3_model(
     model.build(None)
 
     if weights in valid_model_weights:
-        from kmodels.utils import load_weights_from_config
-
         load_weights_from_config(model, SAM3_WEIGHTS_CONFIG[variant], weights)
     elif weights is not None:
         model.load_weights(weights)

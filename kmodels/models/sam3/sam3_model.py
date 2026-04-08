@@ -62,7 +62,7 @@ def compute_rotary_embeddings(
     return cos, sin
 
 
-def _build_vision_backbone(
+def sam3_vision_backbone(
     pixel_values,
     vit_hidden_size,
     vit_num_hidden_layers,
@@ -170,7 +170,7 @@ def _build_vision_backbone(
     return backbone_out, grid_size
 
 
-def _build_fpn_neck(
+def sam3_fpn_neck(
     backbone_spatial,
     vit_hidden_size,
     fpn_hidden_size,
@@ -239,7 +239,7 @@ def _build_fpn_neck(
     return fpn_hidden_states
 
 
-def _detr_encoder_layer(
+def sam3_detr_encoder_layer(
     vision_feats,
     text_feats,
     vision_pos,
@@ -293,7 +293,7 @@ def _detr_encoder_layer(
     return vision_feats
 
 
-def _build_detr_encoder(
+def sam3_detr_encoder(
     fpn_hidden_states,
     text_projected,
     text_attn_mask,
@@ -336,7 +336,7 @@ def _build_detr_encoder(
 
     encoder_output = encoder_vision_flat
     for i in range(detr_encoder_num_layers):
-        encoder_output = _detr_encoder_layer(
+        encoder_output = sam3_detr_encoder_layer(
             encoder_output,
             text_projected,
             encoder_pos_flat,
@@ -351,7 +351,7 @@ def _build_detr_encoder(
     return encoder_output, encoder_pos_flat, enc_h
 
 
-def _detr_decoder_layer(
+def sam3_detr_decoder_layer(
     hidden_states,
     query_pos,
     text_feats,
@@ -423,7 +423,7 @@ def _detr_decoder_layer(
     return hidden_states
 
 
-def _dot_product_scoring(
+def sam3_dot_product_scoring(
     decoder_hidden_states,
     text_features,
     text_mask,
@@ -462,7 +462,7 @@ def _dot_product_scoring(
     return logits
 
 
-def _build_detr_decoder(
+def sam3_detr_decoder(
     encoder_output,
     encoder_pos_flat,
     text_projected,
@@ -561,7 +561,7 @@ def _build_detr_decoder(
 
         vision_cross_attn_mask = box_rpb(reference_points)
 
-        hidden_states = _detr_decoder_layer(
+        hidden_states = sam3_detr_decoder_layer(
             hidden_states,
             query_pos,
             text_projected,
@@ -599,7 +599,7 @@ def _build_detr_decoder(
     pred_boxes_cxcywh = ops.sigmoid(inverse_sigmoid(last_ref_boxes) + final_box_offsets)
     pred_boxes = box_cxcywh_to_xyxy(pred_boxes_cxcywh)
 
-    pred_logits = _dot_product_scoring(
+    pred_logits = sam3_dot_product_scoring(
         decoder_hidden,
         text_projected,
         text_attention_mask,
@@ -613,7 +613,7 @@ def _build_detr_decoder(
     return decoder_hidden, pred_boxes, pred_logits, presence_logits_stacked
 
 
-def _mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
+def sam3_mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
     """3-layer MLP: Dense → ReLU → Dense → ReLU → Dense."""
     x = layers.Dense(hidden_size, name=f"{name_prefix}_linear1")(x)
     x = layers.ReLU(name=f"{name_prefix}_relu1")(x)
@@ -623,7 +623,7 @@ def _mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
     return x
 
 
-def _build_mask_decoder(
+def sam3_mask_decoder(
     encoder_output,
     decoder_hidden,
     text_projected,
@@ -711,7 +711,7 @@ def _build_mask_decoder(
         name="mask_decoder_semantic_proj",
     )(pixel_feat)
 
-    mask_embeddings = _mask_embedder(decoder_hidden, mask_decoder_hidden_size)
+    mask_embeddings = sam3_mask_embedder(decoder_hidden, mask_decoder_hidden_size)
 
     if data_format == "channels_first":
         instance_nhwc = ops.transpose(instance_embed, (0, 2, 3, 1))
@@ -785,7 +785,7 @@ class SAM3(keras.Model):
         )
 
         grid_size = vit_image_size // vit_patch_size
-        backbone_spatial, grid_size = _build_vision_backbone(
+        backbone_spatial, grid_size = sam3_vision_backbone(
             pixel_values,
             vit_hidden_size=vit_hidden_size,
             vit_num_hidden_layers=vit_num_hidden_layers,
@@ -800,7 +800,7 @@ class SAM3(keras.Model):
             data_format=data_format,
         )
 
-        fpn_hidden_states = _build_fpn_neck(
+        fpn_hidden_states = sam3_fpn_neck(
             backbone_spatial,
             vit_hidden_size,
             fpn_hidden_size,
@@ -819,7 +819,7 @@ class SAM3(keras.Model):
             name="text_attn_mask",
         )(text_attention_mask)
 
-        encoder_output, encoder_pos_flat, enc_h = _build_detr_encoder(
+        encoder_output, encoder_pos_flat, enc_h = sam3_detr_encoder(
             fpn_hidden_states,
             text_projected,
             text_attn_mask,
@@ -833,7 +833,7 @@ class SAM3(keras.Model):
             data_format=data_format,
         )
 
-        decoder_hidden, pred_boxes, pred_logits, presence_logits = _build_detr_decoder(
+        decoder_hidden, pred_boxes, pred_logits, presence_logits = sam3_detr_decoder(
             encoder_output,
             encoder_pos_flat,
             text_projected,
@@ -848,7 +848,7 @@ class SAM3(keras.Model):
             detr_decoder_dropout=detr_decoder_dropout,
         )
 
-        pred_masks, semantic_seg = _build_mask_decoder(
+        pred_masks, semantic_seg = sam3_mask_decoder(
             encoder_output,
             decoder_hidden,
             text_projected,
@@ -957,7 +957,7 @@ class SAM3(keras.Model):
         return cls(**config)
 
 
-def _clip_encoder_layer(
+def sam3_clip_encoder_layer(
     hidden_states, hidden_size, num_attention_heads, intermediate_size,
     attention_mask, name,
 ):
@@ -1018,7 +1018,7 @@ def build_text_encoder(
     )(attention_mask)
 
     for i in range(num_hidden_layers):
-        hidden_states = _clip_encoder_layer(
+        hidden_states = sam3_clip_encoder_layer(
             hidden_states,
             hidden_size,
             num_attention_heads,
@@ -1086,7 +1086,7 @@ class SAM3Model(keras.Model):
         return cls(detector=detector, **config)
 
 
-def _create_sam3_model(
+def sam3_create_model(
     variant, input_shape=None, input_tensor=None, weights=None, **kwargs
 ):
     config = SAM3_MODEL_CONFIG[variant]
@@ -1132,7 +1132,7 @@ def _create_sam3_model(
 
 @register_model
 def Sam3(input_shape=None, input_tensor=None, weights=None, **kwargs):
-    return _create_sam3_model(
+    return sam3_create_model(
         "Sam3",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -1185,7 +1185,7 @@ def build_sam3_decoder_model(sam3_model):
         name="text_attn_mask",
     )(text_mask_in)
 
-    encoder_output, encoder_pos_flat, enc_h = _build_detr_encoder(
+    encoder_output, encoder_pos_flat, enc_h = sam3_detr_encoder(
         fpn_hidden_states,
         text_proj_in,
         text_attn_mask,
@@ -1198,7 +1198,7 @@ def build_sam3_decoder_model(sam3_model):
         detr_encoder_dropout=cfg["detr_encoder_dropout"],
     )
 
-    decoder_hidden, pred_boxes, pred_logits, presence_logits = _build_detr_decoder(
+    decoder_hidden, pred_boxes, pred_logits, presence_logits = sam3_detr_decoder(
         encoder_output,
         encoder_pos_flat,
         text_proj_in,
@@ -1213,7 +1213,7 @@ def build_sam3_decoder_model(sam3_model):
         detr_decoder_dropout=cfg["detr_decoder_dropout"],
     )
 
-    pred_masks, semantic_seg = _build_mask_decoder(
+    pred_masks, semantic_seg = sam3_mask_decoder(
         encoder_output,
         decoder_hidden,
         text_proj_in,

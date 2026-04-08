@@ -24,7 +24,6 @@ vit_name_mapping = {
 
 
 def _transfer_detector(sam3_model, hf, prefix=""):
-    """Transfer all detector weights from HF state dict."""
     p = f"{prefix}." if prefix else ""
     det = sam3_model.detector
 

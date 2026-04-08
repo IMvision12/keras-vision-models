@@ -688,6 +688,7 @@ class SAM3GeometryEncoder(layers.Layer):
             dim,
             kernel_size=self.roi_size,
             padding="valid",
+            data_format="channels_last",
             name="boxes_pool_project",
         )
         self.boxes_pool_project.build((None, self.roi_size, self.roi_size, dim))
@@ -723,7 +724,9 @@ class SAM3GeometryEncoder(layers.Layer):
             self.transformer_layers.append(layer)
         self.built = True
 
-    def _roi_align(self, vision_features_nchw, boxes_xyxy_denorm):
+    def _roi_align(
+        self, vision_features, boxes_xyxy_denorm, data_format="channels_last"
+    ):
         """ROI Align using torchvision (torch backend).
 
         Args:
@@ -736,7 +739,9 @@ class SAM3GeometryEncoder(layers.Layer):
         import torch
         import torchvision
 
-        feats = ops.convert_to_tensor(vision_features_nchw)
+        feats = ops.convert_to_tensor(vision_features)
+        if data_format == "channels_last":
+            feats = ops.transpose(feats, (0, 3, 1, 2))  # NHWC -> NCHW for torchvision
         boxes_list = [
             ops.convert_to_tensor(boxes_xyxy_denorm[i])
             for i in range(ops.shape(boxes_xyxy_denorm)[0])
@@ -754,7 +759,8 @@ class SAM3GeometryEncoder(layers.Layer):
         box_mask,
         vision_features_flat,
         vision_pos_flat,
-        vision_features_nchw=None,
+        vision_features_spatial=None,
+        data_format="channels_last",
     ):
         """
         Args:
@@ -763,21 +769,25 @@ class SAM3GeometryEncoder(layers.Layer):
             box_mask: (B, num_boxes) float, 1=valid 0=padding
             vision_features_flat: (B, H*W, C) for cross-attention
             vision_pos_flat: (1, H*W, C) position encoding
-            vision_features_nchw: (B, C, H, W) FPN features for ROI Align.
-                If None, ROI Align pooling is skipped.
+            vision_features_spatial: (B, C, H, W) or (B, H, W, C) FPN features
+                for ROI Align. If None, ROI Align pooling is skipped.
+            data_format: "channels_first" or "channels_last".
         Returns:
             prompt_features: (B, num_boxes+1, C)
             prompt_mask: (B, num_boxes+1) float
         """
+        cf = data_format == "channels_first"
         batch_size = ops.shape(boxes)[0]
         num_boxes = ops.shape(boxes)[1]
 
         boxes_embed = self.boxes_direct_project(boxes)
 
-        if vision_features_nchw is not None:
-            vis_nhwc = ops.transpose(vision_features_nchw, (0, 2, 3, 1))
+        if vision_features_spatial is not None:
+            if cf:
+                vis_nhwc = ops.transpose(vision_features_spatial, (0, 2, 3, 1))
+            else:
+                vis_nhwc = vision_features_spatial
             vis_nhwc = self.vision_layer_norm(vis_nhwc)
-            vis_nchw = ops.transpose(vis_nhwc, (0, 3, 1, 2))
 
             cx = boxes[..., 0:1]
             cy = boxes[..., 1:2]
@@ -789,16 +799,19 @@ class SAM3GeometryEncoder(layers.Layer):
             y1 = cy + 0.5 * h
             boxes_xyxy = ops.concatenate([x0, y0, x1, y1], axis=-1)
 
-            feat_h = ops.shape(vision_features_nchw)[2]
-            feat_w = ops.shape(vision_features_nchw)[3]
+            spatial_axis = (2, 3) if cf else (1, 2)
+            feat_h = ops.shape(vision_features_spatial)[spatial_axis[0]]
+            feat_w = ops.shape(vision_features_spatial)[spatial_axis[1]]
             scale = ops.convert_to_tensor(
                 [feat_w, feat_h, feat_w, feat_h], dtype="float32"
             )
             scale = ops.reshape(scale, (1, 1, 4))
             boxes_xyxy_denorm = boxes_xyxy * ops.cast(scale, boxes_xyxy.dtype)
 
-            pooled = self._roi_align(vis_nchw, boxes_xyxy_denorm)
-            pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))
+            pooled = self._roi_align(
+                vision_features_spatial, boxes_xyxy_denorm, data_format
+            )
+            pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))  # ROI always returns NCHW
             pooled_proj = self.boxes_pool_project(pooled_nhwc)
             pooled_proj = ops.reshape(
                 pooled_proj, (batch_size, num_boxes, self.hidden_size)

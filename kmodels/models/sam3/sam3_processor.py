@@ -446,17 +446,25 @@ def predict(
             "text_attention_mask": text_attention_mask,
         }
         fpn_out = fpn_submodel.predict(fpn_inputs, verbose=0)
-        fpn_1x_nchw = fpn_out["fpn_1x"]  # (1, 256, 72, 72)
+        import keras
+
+        df = keras.config.image_data_format()
+        cf = df == "channels_first"
+        fpn_1x = fpn_out["fpn_1x"]
         text_projected = fpn_out["text_projected"]  # (1, seq, 256)
 
-        fpn_1x_nhwc = np.transpose(fpn_1x_nchw, (0, 2, 3, 1))
-        enc_h = fpn_1x_nchw.shape[2]
+        if cf:
+            fpn_1x_nhwc = np.transpose(fpn_1x, (0, 2, 3, 1))
+            enc_h = fpn_1x.shape[2]
+        else:
+            fpn_1x_nhwc = fpn_1x
+            enc_h = fpn_1x.shape[1]
         vision_flat = fpn_1x_nhwc.reshape(1, enc_h * enc_h, -1)
 
         from .sam3_utils import compute_sine_pos_encoding
 
-        pos_np = compute_sine_pos_encoding(enc_h, enc_h, 128, normalize=True)
-        pos_flat = pos_np.transpose(0, 2, 3, 1).reshape(1, enc_h * enc_h, -1)
+        pos = compute_sine_pos_encoding(enc_h, enc_h, 128, normalize=True)
+        pos_flat = ops.convert_to_numpy(pos).reshape(1, enc_h * enc_h, -1)
 
         geo_features, geo_mask = geometry_encoder(
             boxes_cxcywh,
@@ -464,7 +472,8 @@ def predict(
             box_mask,
             vision_flat,
             pos_flat,
-            vision_features_nchw=fpn_1x_nchw,
+            vision_features_spatial=fpn_1x,
+            data_format=df,
         )
         geo_features = ops.convert_to_numpy(ops.stop_gradient(geo_features))
         geo_mask = ops.convert_to_numpy(ops.stop_gradient(geo_mask))

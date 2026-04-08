@@ -65,9 +65,19 @@ def sine_encode_boxes(boxes, num_pos_feats=128, temperature=10000):
 
 
 def compute_sine_pos_encoding(
-    height, width, num_pos_feats, temperature=10000, normalize=True
+    height,
+    width,
+    num_pos_feats,
+    temperature=10000,
+    normalize=True,
+    data_format="channels_last",
 ):
-    """2D sine position encoding grid. Returns (1, 2*num_pos_feats, H, W)."""
+    """2D sine position encoding grid.
+
+    Returns:
+        channels_first: (1, 2*num_pos_feats, H, W)
+        channels_last:  (1, H, W, 2*num_pos_feats)
+    """
     scale = 2 * math.pi
     ones = ops.ones((1, height, width), dtype="float32")
     y_embed = ops.cumsum(ones, axis=1)
@@ -99,7 +109,8 @@ def compute_sine_pos_encoding(
     )
 
     pos = ops.concatenate([pos_y, pos_x], axis=-1)
-    pos = ops.transpose(pos, (0, 3, 1, 2))
+    if data_format == "channels_first":
+        pos = ops.transpose(pos, (0, 3, 1, 2))
     return pos
 
 

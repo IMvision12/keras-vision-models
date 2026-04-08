@@ -62,13 +62,15 @@ def _build_vision_backbone(
     vit_global_attn_indexes,
     vit_rope_theta,
     vit_pretrain_image_size,
+    data_format="channels_last",
 ):
     """ViT backbone: patch embed → position embed → LN → N transformer layers.
 
     Returns:
-        backbone_nchw: (B, C, H, W) backbone features in NCHW format.
+        backbone_spatial: (B, C, H, W) or (B, H, W, C) depending on data_format.
         grid_size: spatial grid size (H = W).
     """
+    cf = data_format == "channels_first"
     grid_size = vit_image_size // vit_patch_size
     pretrain_grid = vit_pretrain_image_size // vit_patch_size
     num_pretrain_patches = pretrain_grid * pretrain_grid
@@ -79,8 +81,15 @@ def _build_vision_backbone(
         strides=vit_patch_size,
         padding="valid",
         use_bias=False,
+        data_format=data_format,
         name="backbone_patch_embed",
     )(pixel_values)
+
+    # ViT works in NHWC — if channels_first, convert after patch embed
+    if cf:
+        patch_embed = layers.Permute((2, 3, 1), name="backbone_patch_to_nhwc")(
+            patch_embed
+        )
 
     hidden_states = layers.Reshape(
         (grid_size * grid_size, vit_hidden_size),
@@ -121,6 +130,7 @@ def _build_vision_backbone(
         scale=vit_window_size / grid_size,
     )
 
+    # ViT layers always work in NHWC
     for i in range(vit_num_hidden_layers):
         win = vit_window_size if i not in vit_global_attn_indexes else 0
         if win > 0:
@@ -146,15 +156,22 @@ def _build_vision_backbone(
         name="backbone_out_spatial",
     )(backbone_out_flat)
 
-    backbone_nchw = layers.Permute((3, 1, 2), name="backbone_to_nchw")(backbone_out)
-    return backbone_nchw, grid_size
+    if cf:
+        backbone_out = layers.Permute((3, 1, 2), name="backbone_to_nchw")(backbone_out)
+    return backbone_out, grid_size
 
 
-def _build_fpn_neck(backbone_nchw, vit_hidden_size, fpn_hidden_size, fpn_scale_factors):
+def _build_fpn_neck(
+    backbone_spatial,
+    vit_hidden_size,
+    fpn_hidden_size,
+    fpn_scale_factors,
+    data_format="channels_last",
+):
     """FPN neck: multi-scale feature pyramid from backbone output.
 
     Returns:
-        fpn_hidden_states: list of (B, C, H, W) tensors at each scale.
+        fpn_hidden_states: list of spatial tensors at each scale.
     """
     fpn_hidden_states = []
 
@@ -164,15 +181,15 @@ def _build_fpn_neck(backbone_nchw, vit_hidden_size, fpn_hidden_size, fpn_scale_f
                 vit_hidden_size // 2,
                 kernel_size=2,
                 strides=2,
-                data_format="channels_first",
+                data_format=data_format,
                 name=f"fpn_level_{level_idx}_deconv1",
-            )(backbone_nchw)
+            )(backbone_spatial)
             x = layers.Activation("gelu", name=f"fpn_level_{level_idx}_gelu1")(x)
             x = layers.Conv2DTranspose(
                 vit_hidden_size // 4,
                 kernel_size=2,
                 strides=2,
-                data_format="channels_first",
+                data_format=data_format,
                 name=f"fpn_level_{level_idx}_deconv2",
             )(x)
             x = layers.Activation("gelu", name=f"fpn_level_{level_idx}_gelu2")(x)
@@ -181,31 +198,31 @@ def _build_fpn_neck(backbone_nchw, vit_hidden_size, fpn_hidden_size, fpn_scale_f
                 vit_hidden_size // 2,
                 kernel_size=2,
                 strides=2,
-                data_format="channels_first",
+                data_format=data_format,
                 name=f"fpn_level_{level_idx}_deconv1",
-            )(backbone_nchw)
+            )(backbone_spatial)
             x = layers.Activation("gelu", name=f"fpn_level_{level_idx}_gelu1")(x)
         elif scale_factor == 1.0:
-            x = backbone_nchw
+            x = backbone_spatial
         else:
             x = layers.MaxPooling2D(
                 pool_size=2,
                 strides=2,
-                data_format="channels_first",
+                data_format=data_format,
                 name=f"fpn_level_{level_idx}_pool",
-            )(backbone_nchw)
+            )(backbone_spatial)
 
         x = layers.Conv2D(
             fpn_hidden_size,
             kernel_size=1,
-            data_format="channels_first",
+            data_format=data_format,
             name=f"fpn_level_{level_idx}_proj1",
         )(x)
         x = layers.Conv2D(
             fpn_hidden_size,
             kernel_size=3,
             padding="same",
-            data_format="channels_first",
+            data_format=data_format,
             name=f"fpn_level_{level_idx}_proj2",
         )(x)
         fpn_hidden_states.append(x)
@@ -278,6 +295,7 @@ def _build_detr_encoder(
     detr_encoder_num_attention_heads,
     detr_encoder_intermediate_size,
     detr_encoder_dropout,
+    data_format="channels_last",
 ):
     """DETR encoder: self-attention on vision + cross-attention to text.
 
@@ -286,20 +304,27 @@ def _build_detr_encoder(
         encoder_pos_flat: (1, H*W, D) position encoding constant.
         enc_h: encoder spatial size.
     """
+    cf = data_format == "channels_first"
     encoder_vision = fpn_hidden_states[-2]  # 1x scale
     enc_h = grid_size
 
-    encoder_vision_flat = layers.Permute((2, 3, 1), name="encoder_vision_to_nhwc")(
-        encoder_vision
-    )
+    if cf:
+        encoder_vision_flat = layers.Permute((2, 3, 1), name="encoder_vision_to_nhwc")(
+            encoder_vision
+        )
+    else:
+        encoder_vision_flat = encoder_vision
     encoder_vision_flat = layers.Reshape(
         (enc_h * enc_h, fpn_hidden_size), name="encoder_vision_flatten"
     )(encoder_vision_flat)
 
+    # Position encoding needed as (1, H*W, C) — always generate NHWC then flatten
     enc_pos = compute_sine_pos_encoding(
-        enc_h, enc_h, fpn_hidden_size // 2, normalize=True
+        enc_h,
+        enc_h,
+        fpn_hidden_size // 2,
+        normalize=True,
     )
-    enc_pos = ops.transpose(enc_pos, (0, 2, 3, 1))
     encoder_pos_flat = ops.reshape(enc_pos, (1, enc_h * enc_h, fpn_hidden_size))
 
     encoder_output = encoder_vision_flat
@@ -601,13 +626,16 @@ def _build_mask_decoder(
     fpn_hidden_size,
     mask_decoder_hidden_size,
     mask_decoder_num_attention_heads,
+    data_format="channels_last",
 ):
     """Mask decoder: prompt cross-attention → pixel decoder → mask prediction.
 
     Returns:
-        pred_masks: (B, Q, H, W) mask logits.
-        semantic_seg: (B, 1, H, W) semantic segmentation logits.
+        pred_masks: (B, Q, H, W) mask logits (always NCHW for output consistency).
+        semantic_seg: spatial semantic segmentation logits in data_format.
     """
+    cf = data_format == "channels_first"
+
     prompt_cross_attn_norm = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS,
         name="mask_decoder_prompt_cross_attn_norm",
@@ -626,70 +654,67 @@ def _build_mask_decoder(
     )
     encoder_for_mask = encoder_output + encoder_for_mask
 
+    # Reshape (B, H*W, C) → spatial. Always reshape to NHWC first,
+    # then permute to NCHW if needed.
     pixel_feat = layers.Reshape(
         (enc_h, enc_h, fpn_hidden_size),
         name="pixel_decoder_reshape_encoder",
     )(encoder_for_mask)
-    pixel_feat = layers.Permute((3, 1, 2), name="pixel_decoder_to_nchw")(pixel_feat)
+    if cf:
+        pixel_feat = layers.Permute((3, 1, 2), name="pixel_decoder_to_nchw")(pixel_feat)
 
     num_up = len(fpn_hidden_states) - 2
     for stage_idx in range(num_up):
-        pixel_feat_nhwc = layers.Permute(
-            (2, 3, 1),
-            name=f"pixel_decoder_stage_{stage_idx}_to_nhwc",
-        )(pixel_feat)
-        pixel_feat_nhwc = layers.UpSampling2D(
+        pixel_feat = layers.UpSampling2D(
             size=2,
             interpolation="nearest",
+            data_format=data_format,
             name=f"pixel_decoder_stage_{stage_idx}_upsample",
-        )(pixel_feat_nhwc)
+        )(pixel_feat)
 
         skip_idx = len(fpn_hidden_states) - 3 - stage_idx
         if skip_idx >= 0:
-            skip_nhwc = layers.Permute(
-                (2, 3, 1),
-                name=f"pixel_decoder_stage_{stage_idx}_skip_to_nhwc",
-            )(fpn_hidden_states[skip_idx])
-            pixel_feat_nhwc = layers.Add(
+            pixel_feat = layers.Add(
                 name=f"pixel_decoder_stage_{stage_idx}_add_skip",
-            )([pixel_feat_nhwc, skip_nhwc])
+            )([pixel_feat, fpn_hidden_states[skip_idx]])
 
-        pixel_feat_nhwc = layers.Conv2D(
+        pixel_feat = layers.Conv2D(
             mask_decoder_hidden_size,
             kernel_size=3,
             padding="same",
+            data_format=data_format,
             name=f"pixel_decoder_stage_{stage_idx}_conv",
-        )(pixel_feat_nhwc)
-        pixel_feat_nhwc = layers.GroupNormalization(
+        )(pixel_feat)
+        pixel_feat = layers.GroupNormalization(
             groups=8,
+            axis=1 if cf else -1,
             name=f"pixel_decoder_stage_{stage_idx}_gn",
-        )(pixel_feat_nhwc)
-        pixel_feat_nhwc = layers.ReLU(
+        )(pixel_feat)
+        pixel_feat = layers.ReLU(
             name=f"pixel_decoder_stage_{stage_idx}_relu",
-        )(pixel_feat_nhwc)
-
-        pixel_feat = layers.Permute(
-            (3, 1, 2),
-            name=f"pixel_decoder_stage_{stage_idx}_to_nchw",
-        )(pixel_feat_nhwc)
+        )(pixel_feat)
 
     instance_embed = layers.Conv2D(
         mask_decoder_hidden_size,
         kernel_size=1,
-        data_format="channels_first",
+        data_format=data_format,
         name="mask_decoder_instance_proj",
     )(pixel_feat)
 
     semantic_seg = layers.Conv2D(
         1,
         kernel_size=1,
-        data_format="channels_first",
+        data_format=data_format,
         name="mask_decoder_semantic_proj",
     )(pixel_feat)
 
     mask_embeddings = _mask_embedder(decoder_hidden, mask_decoder_hidden_size)
 
-    instance_nhwc = layers.Permute((2, 3, 1), name="instance_to_nhwc")(instance_embed)
+    # einsum needs NHWC instance_embed
+    if cf:
+        instance_nhwc = ops.transpose(instance_embed, (0, 2, 3, 1))
+    else:
+        instance_nhwc = instance_embed
     pred_masks = ops.einsum("bqc,bhwc->bqhw", mask_embeddings, instance_nhwc)
 
     return pred_masks, semantic_seg
@@ -732,8 +757,13 @@ class SAM3(keras.Model):
         name="SAM3",
         **kwargs,
     ):
+        data_format = keras.config.image_data_format()
+
         if input_shape is None:
-            input_shape = (vit_image_size, vit_image_size, 3)
+            if data_format == "channels_first":
+                input_shape = (3, vit_image_size, vit_image_size)
+            else:
+                input_shape = (vit_image_size, vit_image_size, 3)
 
         if input_tensor is not None:
             if not utils.is_keras_tensor(input_tensor):
@@ -753,7 +783,7 @@ class SAM3(keras.Model):
         )
 
         grid_size = vit_image_size // vit_patch_size
-        backbone_nchw, grid_size = _build_vision_backbone(
+        backbone_spatial, grid_size = _build_vision_backbone(
             pixel_values,
             vit_hidden_size=vit_hidden_size,
             vit_num_hidden_layers=vit_num_hidden_layers,
@@ -765,13 +795,15 @@ class SAM3(keras.Model):
             vit_global_attn_indexes=vit_global_attn_indexes,
             vit_rope_theta=vit_rope_theta,
             vit_pretrain_image_size=vit_pretrain_image_size,
+            data_format=data_format,
         )
 
         fpn_hidden_states = _build_fpn_neck(
-            backbone_nchw,
+            backbone_spatial,
             vit_hidden_size,
             fpn_hidden_size,
             fpn_scale_factors,
+            data_format=data_format,
         )
 
         text_projected = layers.Dense(detr_encoder_hidden_size, name="text_projection")(
@@ -796,6 +828,7 @@ class SAM3(keras.Model):
             detr_encoder_num_attention_heads=detr_encoder_num_attention_heads,
             detr_encoder_intermediate_size=detr_encoder_intermediate_size,
             detr_encoder_dropout=detr_encoder_dropout,
+            data_format=data_format,
         )
 
         decoder_hidden, pred_boxes, pred_logits, presence_logits = _build_detr_decoder(
@@ -823,6 +856,7 @@ class SAM3(keras.Model):
             fpn_hidden_size=fpn_hidden_size,
             mask_decoder_hidden_size=mask_decoder_hidden_size,
             mask_decoder_num_attention_heads=mask_decoder_num_attention_heads,
+            data_format=data_format,
         )
 
         fpn_05x = fpn_hidden_states[-1]
@@ -877,6 +911,7 @@ class SAM3(keras.Model):
         self.text_projection_dim = text_projection_dim
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
+        self._data_format = data_format
 
     def get_config(self):
         config = super().get_config()
@@ -985,7 +1020,10 @@ def _create_sam3_model(
 
     if input_shape is None:
         image_size = config["vit_image_size"]
-        input_shape = (image_size, image_size, 3)
+        if keras.config.image_data_format() == "channels_first":
+            input_shape = (3, image_size, image_size)
+        else:
+            input_shape = (image_size, image_size, 3)
 
     detector = SAM3(
         input_shape=input_shape,

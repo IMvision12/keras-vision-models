@@ -25,19 +25,20 @@ IMAGE_STD = np.array([0.5, 0.5, 0.5], dtype=np.float32)
 
 
 def preprocess_image(image, target_size=IMAGE_SIZE):
-    """Preprocess image for SAM3: resize, rescale, normalize.
+    """Preprocess an image for SAM3 inference.
 
-    Uses keras.ops.image.resize for backend-native bilinear interpolation
-    (matches torchvision on torch backend, tf.image on TF backend).
-    Rescales via float64 intermediate to match HF's precision.
+    Resizes to a square target size using backend-native bilinear
+    interpolation, applies rescaling via float64 intermediate to
+    match HF precision, and normalizes with ImageNet-style mean/std.
 
     Args:
-        image: PIL Image, numpy array (H,W,3), or file path.
-        target_size: int, target square size.
+        image: PIL Image, numpy array ``(H, W, 3)``, or file path.
+        target_size (int): Target square size. Defaults to ``1008``.
 
     Returns:
-        pixel_values: (1, H, W, 3) float32 normalized.
-        original_size: (height, width) tuple.
+        Tuple of ``(pixel_values, original_size)`` where
+        ``pixel_values`` is ``(1, H, W, 3)`` float32 and
+        ``original_size`` is ``(height, width)``.
     """
     if isinstance(image, str):
         if Image is None:
@@ -75,13 +76,15 @@ def preprocess_text_with_encoder(text, text_encoder_model, tokenizer=None):
     """Tokenize and encode text using the CLIP text encoder.
 
     Args:
-        text: str or list of str.
-        text_encoder_model: Keras SAM3 text encoder model.
-        tokenizer: SAM3CLIPTokenizer instance. If None, creates one automatically.
+        text: String or list of strings to encode.
+        text_encoder_model: Keras CLIP text encoder model (functional).
+        tokenizer: ``SAM3CLIPTokenizer`` instance. If ``None``, creates
+            one automatically.
 
     Returns:
-        text_features: (batch, 32, 1024) numpy array.
-        attention_mask: (batch, 32) float32 numpy array.
+        Tuple of ``(text_features, attention_mask)`` where
+        ``text_features`` is ``(batch, 32, 1024)`` and
+        ``attention_mask`` is ``(batch, 32)`` float32.
     """
     if tokenizer is None:
         tokenizer = SAM3CLIPTokenizer()
@@ -101,17 +104,20 @@ POINT_PAD_VALUE = -10
 def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
     """Normalize and convert box prompts to model input format.
 
+    Converts absolute pixel coordinates to normalized ``(cx, cy, w, h)``
+    format and pads to the maximum number of boxes in the batch.
+
     Args:
-        input_boxes: list of list of [x1,y1,x2,y2] boxes per image.
-            Shape: [batch, num_boxes, 4] in absolute pixel coordinates.
-        input_boxes_labels: list of list of int labels (0 or 1) per image.
-            Shape: [batch, num_boxes].
-        original_sizes: list of (H, W) tuples per image.
+        input_boxes: List of list of ``[x1, y1, x2, y2]`` boxes per
+            image in absolute pixel coordinates.
+        input_boxes_labels: List of list of int labels (0 or 1) per
+            image, or ``None`` for all-positive.
+        original_sizes: List of ``(H, W)`` tuples per image.
 
     Returns:
-        boxes_cxcywh: (batch, max_boxes, 4) float32, normalized cxcywh.
-        box_labels: (batch, max_boxes) int32.
-        box_mask: (batch, max_boxes) float32, 1=valid 0=padding.
+        Tuple of ``(boxes_cxcywh, box_labels, box_mask)`` where
+        shapes are ``(batch, max_boxes, 4)``, ``(batch, max_boxes)``,
+        and ``(batch, max_boxes)`` respectively.
     """
     if isinstance(input_boxes, np.ndarray):
         input_boxes = input_boxes.tolist()
@@ -163,9 +169,20 @@ def preprocess_boxes(input_boxes, input_boxes_labels, original_sizes):
 
 
 def post_process_object_detection(outputs, threshold=0.3, target_sizes=None):
-    """Convert raw outputs to detection results.
+    """Convert raw model outputs to detection results.
 
-    Returns: list of dict with 'scores' and 'boxes'.
+    Applies sigmoid scoring with optional presence logits, scales
+    boxes to target image sizes, and filters by confidence threshold.
+
+    Args:
+        outputs: Dict with ``"pred_logits"`` ``(B, Q)`` and
+            ``"pred_boxes"`` ``(B, Q, 4)`` in normalized cxcywh.
+        threshold (float): Minimum score to keep. Defaults to ``0.3``.
+        target_sizes: List of ``(H, W)`` tuples for box scaling,
+            or ``None``.
+
+    Returns:
+        List of dicts, each with ``"scores"`` and ``"boxes"`` arrays.
     """
     pred_logits = np.asarray(outputs["pred_logits"])
     pred_boxes = np.asarray(outputs["pred_boxes"])
@@ -186,9 +203,22 @@ def post_process_object_detection(outputs, threshold=0.3, target_sizes=None):
 def post_process_instance_segmentation(
     outputs, threshold=0.3, mask_threshold=0.5, target_sizes=None
 ):
-    """Convert raw outputs to instance segmentation results.
+    """Convert raw model outputs to instance segmentation results.
 
-    Returns: list of dict with 'scores', 'boxes', 'masks'.
+    Applies sigmoid to masks, resizes to target sizes using PIL
+    bilinear interpolation, and binarizes with ``mask_threshold``.
+
+    Args:
+        outputs: Dict with ``"pred_logits"``, ``"pred_boxes"``, and
+            ``"pred_masks"`` ``(B, Q, H, W)``.
+        threshold (float): Minimum score to keep. Defaults to ``0.3``.
+        mask_threshold (float): Binarization threshold for masks.
+            Defaults to ``0.5``.
+        target_sizes: List of ``(H, W)`` tuples, or ``None``.
+
+    Returns:
+        List of dicts, each with ``"scores"``, ``"boxes"``, and
+        ``"masks"`` arrays.
     """
     pred_logits = np.asarray(outputs["pred_logits"])
     pred_boxes = np.asarray(outputs["pred_boxes"])
@@ -226,9 +256,19 @@ def post_process_instance_segmentation(
 
 
 def post_process_semantic_segmentation(outputs, target_sizes=None, threshold=0.5):
-    """Convert raw outputs to semantic segmentation maps.
+    """Convert raw model outputs to semantic segmentation maps.
 
-    Returns: list of binary masks (H, W).
+    Applies sigmoid to the single-channel semantic output, resizes
+    to target sizes, and binarizes with ``threshold``.
+
+    Args:
+        outputs: Dict with ``"semantic_seg"`` ``(B, 1, H, W)`` or
+            ``(B, H, W, 1)``.
+        target_sizes: List of ``(H, W)`` tuples, or ``None``.
+        threshold (float): Binarization threshold. Defaults to ``0.5``.
+
+    Returns:
+        List of ``(H, W)`` int32 binary mask arrays.
     """
     semantic = np.asarray(outputs["semantic_seg"])
     probs = sigmoid(semantic)
@@ -250,7 +290,18 @@ _SUBMODEL_CACHE = {}
 
 
 def _get_vision_submodel(model):
-    """Sub-model: full inputs → FPN 1x (NCHW) + projected text (256d)."""
+    """Build a vision-only sub-model for FPN feature extraction.
+
+    Creates a ``keras.Model`` that outputs the 1x FPN feature map
+    and projected text features from the full SAM3 model. Results
+    are cached per model instance.
+
+    Args:
+        model: ``SAM3Main`` instance.
+
+    Returns:
+        ``keras.Model`` with outputs ``{"fpn_1x", "text_projected"}``.
+    """
     model_id = id(model)
     cache_key = f"{model_id}_vision"
     if cache_key in _SUBMODEL_CACHE:
@@ -268,13 +319,18 @@ def _get_vision_submodel(model):
 
 
 def _get_decoder_model(model):
-    """Build a model that takes pixel_values + pre-projected features (256d).
+    """Build a decoder model that bypasses text projection.
 
-    Shares all weights with the original SAM3 model but replaces the
-    text_features(1024d) input with a projected_features(256d) input
-    that bypasses text_projection.
+    Creates a copy of the SAM3 model where the text projection layer
+    is replaced with an identity mapping, allowing pre-projected 256d
+    features (from text + geometry) to be passed directly.
+
+    Args:
+        model: ``SAM3Main`` instance.
+
+    Returns:
+        ``SAM3Main`` instance with identity text projection.
     """
-
     model_id = id(model)
     cache_key = f"{model_id}_decoder"
     if cache_key in _SUBMODEL_CACHE:
@@ -317,7 +373,21 @@ def _get_decoder_model(model):
 
 
 def _run_decoder_with_projected(model, pixel_values, combined_features, combined_mask):
-    """Run SAM3 with pre-projected 256d features via decoder model."""
+    """Run SAM3 inference with pre-projected 256d features.
+
+    Uses the decoder model (with identity text projection) to run
+    inference using combined text + geometry features that have
+    already been projected to the encoder hidden dimension.
+
+    Args:
+        model: ``SAM3Main`` instance.
+        pixel_values: ``(1, H, W, 3)`` preprocessed image.
+        combined_features: ``(1, seq, 256)`` projected features.
+        combined_mask: ``(1, seq)`` attention mask.
+
+    Returns:
+        Dict of raw model outputs.
+    """
     decoder_model = _get_decoder_model(model)
     return decoder_model.predict(
         {
@@ -346,31 +416,46 @@ def predict(
 ):
     """End-to-end SAM3 prediction pipeline.
 
-    Supports three modes:
-    - Mode A (text-only): text prompt → detection + segmentation.
-    - Mode B (box-guided): box prompts (text defaults to "visual").
-    - Mode C (hybrid): text + box prompts combined.
+    Supports three prompt modes:
+
+    - **Mode A** (text-only): Text prompt for detection + segmentation.
+    - **Mode B** (box-guided): Box prompts with implicit "visual" text.
+    - **Mode C** (hybrid): Text + box prompts combined.
+
+    When box prompts are provided, the geometry encoder fuses box
+    features with vision features, and the combined prompt is passed
+    through a decoder model with identity text projection.
 
     Args:
-        model: Keras SAM3 segmentation model.
+        model: ``SAM3Main`` instance.
         image: PIL Image, numpy array, or file path.
-        text: Text prompt string (requires tokenizer + text_encoder_model).
-        tokenizer: CLIP tokenizer.
-        text_encoder_model: Keras CLIP text encoder model.
-        text_features: Pre-computed (1, seq, 1024) features.
-        text_attention_mask: (1, seq) mask.
-        input_boxes: list of [x1,y1,x2,y2] boxes per image (pixel coords).
-            Shape: [[box1, box2, ...]] for single image.
-        input_boxes_labels: list of int labels per image (1=positive, 0=negative).
-            Shape: [[label1, label2, ...]] for single image. Defaults to all 1s.
-        geometry_encoder: SAM3GeometryEncoder layer with loaded weights.
-            Required when input_boxes is provided.
-        threshold: Detection score threshold.
-        mask_threshold: Mask binarization threshold.
-        return_raw: Return raw model outputs.
+        text (str): Text prompt. Required unless ``text_features``
+            or ``input_boxes`` is provided.
+        tokenizer: ``SAM3CLIPTokenizer`` instance. Created
+            automatically if ``None``.
+        text_encoder_model: Keras CLIP text encoder model. Required
+            when ``text`` is provided.
+        text_features: Pre-computed ``(1, seq, 1024)`` text features.
+        text_attention_mask: ``(1, seq)`` mask for pre-computed
+            features.
+        input_boxes: List of ``[x1, y1, x2, y2]`` boxes in absolute
+            pixel coordinates.
+        input_boxes_labels: List of int labels per box (1=positive,
+            0=negative). Defaults to all positive.
+        geometry_encoder: ``SAM3GeometryEncoder`` layer. Required
+            when ``input_boxes`` is provided.
+        threshold (float): Detection score threshold.
+            Defaults to ``0.3``.
+        mask_threshold (float): Mask binarization threshold.
+            Defaults to ``0.5``.
+        return_raw (bool): Return raw model outputs instead of
+            post-processed results. Defaults to ``False``.
 
     Returns:
-        dict with 'detection', 'instance_segmentation', 'semantic_segmentation'.
+        Dict with ``"detection"``, ``"instance_segmentation"``, and
+        ``"semantic_segmentation"`` keys, each containing a list of
+        per-image result dicts. If ``return_raw=True``, returns the
+        raw model output dict instead.
     """
     pixel_values, original_size = preprocess_image(image)
 

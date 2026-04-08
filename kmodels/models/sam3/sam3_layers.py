@@ -65,12 +65,12 @@ class SAM3AddPositionEmbedding(layers.Layer):
             (1, self.pretrain_grid, self.pretrain_grid, self.hidden_size),
         )
         if self.grid_size != self.pretrain_grid:
-            pos = ops.transpose(pos, (0, 3, 1, 2))  # (1, C, H, W)
+            pos = ops.transpose(pos, (0, 3, 1, 2))
             repeat_h = self.grid_size // self.pretrain_grid + 1
             repeat_w = self.grid_size // self.pretrain_grid + 1
             pos = ops.tile(pos, (1, 1, repeat_h, repeat_w))
             pos = pos[:, :, : self.grid_size, : self.grid_size]
-            pos = ops.transpose(pos, (0, 2, 3, 1))  # (1, H, W, C)
+            pos = ops.transpose(pos, (0, 2, 3, 1))
         pos = ops.reshape(pos, (1, self.grid_size * self.grid_size, self.hidden_size))
         return x + pos
 
@@ -602,7 +602,7 @@ class SAM3BoxRPB(layers.Layer):
 
         coords_w = ops.reshape(coords_w, (1, 1, self.spatial_w, 1))
         coords_h = ops.reshape(coords_h, (1, 1, self.spatial_h, 1))
-        x0 = ops.expand_dims(x0, 2)  # (B, Q, 1, 1)
+        x0 = ops.expand_dims(x0, 2)
         x1 = ops.expand_dims(x1, 2)
         y0 = ops.expand_dims(y0, 2)
         y1 = ops.expand_dims(y1, 2)
@@ -614,17 +614,17 @@ class SAM3BoxRPB(layers.Layer):
         deltas_x = ops.sign(deltas_x) * ops.log2(ops.abs(deltas_x * 8.0) + 1.0) / log2_8
         deltas_y = ops.sign(deltas_y) * ops.log2(ops.abs(deltas_y * 8.0) + 1.0) / log2_8
 
-        rpb_x = self.box_rpb_embed_x(deltas_x)  # (B, Q, W, heads)
-        rpb_y = self.box_rpb_embed_y(deltas_y)  # (B, Q, H, heads)
+        rpb_x = self.box_rpb_embed_x(deltas_x)
+        rpb_y = self.box_rpb_embed_y(deltas_y)
 
         rpb = ops.expand_dims(rpb_y, 3) + ops.expand_dims(rpb_x, 2)
 
         hw_slices = [rpb[:, :, hi, :, :] for hi in range(self.spatial_h)]
-        rpb_flat = ops.concatenate(hw_slices, axis=2)  # (B, Q, H*W, heads)
-        rpb_out = ops.transpose(rpb_flat, (0, 3, 1, 2))  # (B, heads, Q, H*W)
+        rpb_flat = ops.concatenate(hw_slices, axis=2)
+        rpb_out = ops.transpose(rpb_flat, (0, 3, 1, 2))
 
         zeros = ops.zeros_like(rpb_out[:, :, :1, :])
-        rpb_out = ops.concatenate([zeros, rpb_out], axis=2)  # (B, heads, Q+1, H*W)
+        rpb_out = ops.concatenate([zeros, rpb_out], axis=2)
         return rpb_out
 
     def compute_output_spec(self, reference_boxes):
@@ -741,7 +741,7 @@ class SAM3GeometryEncoder(layers.Layer):
 
         feats = ops.convert_to_tensor(vision_features)
         if data_format == "channels_last":
-            feats = ops.transpose(feats, (0, 3, 1, 2))  # NHWC -> NCHW for torchvision
+            feats = ops.transpose(feats, (0, 3, 1, 2))
         boxes_list = [
             ops.convert_to_tensor(boxes_xyxy_denorm[i])
             for i in range(ops.shape(boxes_xyxy_denorm)[0])
@@ -810,16 +810,16 @@ class SAM3GeometryEncoder(layers.Layer):
             pooled = self._roi_align(
                 vision_features_spatial, boxes_xyxy_denorm, data_format
             )
-            pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))  # ROI always returns NCHW
+            pooled_nhwc = ops.transpose(pooled, (0, 2, 3, 1))
             pooled_proj = self.boxes_pool_project(pooled_nhwc)
             pooled_proj = ops.reshape(
                 pooled_proj, (batch_size, num_boxes, self.hidden_size)
             )
             boxes_embed = boxes_embed + pooled_proj
 
-        cx = boxes[..., 0]  # (B, nb)
+        cx = boxes[..., 0]
         cy = boxes[..., 1]
-        w_box = boxes[..., 2:3]  # (B, nb, 1)
+        w_box = boxes[..., 2:3]
         h_box = boxes[..., 3:4]
 
         scale = 2.0 * math.pi
@@ -829,7 +829,7 @@ class SAM3GeometryEncoder(layers.Layer):
 
         def _encode_1d(coord):
             c = coord * scale
-            c = ops.expand_dims(c, -1) / dim_t  # (B, nb, num_feats)
+            c = ops.expand_dims(c, -1) / dim_t
             c_sin = ops.sin(c[..., 0::2])
             c_cos = ops.cos(c[..., 1::2])
             return ops.reshape(
@@ -837,7 +837,7 @@ class SAM3GeometryEncoder(layers.Layer):
                 ops.shape(c_sin)[:-1] + (num_feats,),
             )
 
-        pos_x = _encode_1d(cx)  # (B, nb, num_feats)
+        pos_x = _encode_1d(cx)
         pos_y = _encode_1d(cy)
 
         pos_with_hw = ops.concatenate([pos_y, pos_x, h_box, w_box], axis=-1)

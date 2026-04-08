@@ -51,7 +51,7 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
 
     if Image is not None and isinstance(image, Image.Image):
         original_size = (image.height, image.width)
-        image = np.array(image)  # uint8 HWC
+        image = np.array(image)
     else:
         image = np.asarray(image)
         original_size = (image.shape[0], image.shape[1])
@@ -62,14 +62,14 @@ def preprocess_image(image, target_size=IMAGE_SIZE):
                 image = image.astype(np.uint8)
 
     image_t = ops.convert_to_tensor(image.astype(np.float32) / 256.0)
-    image_4d = ops.expand_dims(image_t, 0)  # (1, H, W, 3)
+    image_4d = ops.expand_dims(image_t, 0)
     resized = ops.image.resize(
         image_4d, (target_size, target_size), interpolation="bilinear"
     )
     resized = resized * 256.0
     resized = ops.clip(resized, 0, 255)
     resized = ops.round(resized)
-    resized = ops.convert_to_numpy(resized)[0]  # (H, W, 3) float32
+    resized = ops.convert_to_numpy(resized)[0]
 
     image = (resized.astype(np.float64) * RESCALE_FACTOR).astype(np.float32)
     image = (image - IMAGE_MEAN) / IMAGE_STD
@@ -318,7 +318,7 @@ def _get_decoder_model(model):
     cfg = det.get_config()
     decoder_model = SAM3(
         input_shape=det._input_shape_val,
-        text_hidden_size=cfg["detr_encoder_hidden_size"],  # 256 instead of 1024
+        text_hidden_size=cfg["detr_encoder_hidden_size"],
         **{
             k: v
             for k, v in cfg.items()
@@ -450,7 +450,7 @@ def predict(
 
         df = keras.config.image_data_format()
         fpn_1x = fpn_out["fpn_1x"]
-        text_projected = fpn_out["text_projected"]  # (1, seq, 256)
+        text_projected = fpn_out["text_projected"]
 
         if df == "channels_first":
             fpn_1x_nhwc = np.transpose(fpn_1x, (0, 2, 3, 1))

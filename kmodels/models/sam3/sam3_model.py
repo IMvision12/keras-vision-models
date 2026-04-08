@@ -84,7 +84,6 @@ def _build_vision_backbone(
         name="backbone_patch_embed",
     )(pixel_values)
 
-    # ViT works in NHWC — if channels_first, convert after patch embed
     if data_format == "channels_first":
         patch_embed = layers.Permute((2, 3, 1), name="backbone_patch_to_nhwc")(
             patch_embed
@@ -129,7 +128,6 @@ def _build_vision_backbone(
         scale=vit_window_size / grid_size,
     )
 
-    # ViT layers always work in NHWC
     for i in range(vit_num_hidden_layers):
         win = vit_window_size if i not in vit_global_attn_indexes else 0
         if win > 0:
@@ -303,7 +301,7 @@ def _build_detr_encoder(
         encoder_pos_flat: (1, H*W, D) position encoding constant.
         enc_h: encoder spatial size.
     """
-    encoder_vision = fpn_hidden_states[-2]  # 1x scale
+    encoder_vision = fpn_hidden_states[-2]
     enc_h = grid_size
 
     if data_format == "channels_first":
@@ -316,7 +314,6 @@ def _build_detr_encoder(
         (enc_h * enc_h, fpn_hidden_size), name="encoder_vision_flatten"
     )(encoder_vision_flat)
 
-    # Position encoding needed as (1, H*W, C) — always generate NHWC then flatten
     enc_pos = compute_sine_pos_encoding(
         enc_h,
         enc_h,
@@ -650,8 +647,6 @@ def _build_mask_decoder(
     )
     encoder_for_mask = encoder_output + encoder_for_mask
 
-    # Reshape (B, H*W, C) → spatial. Always reshape to NHWC first,
-    # then permute to NCHW if needed.
     pixel_feat = layers.Reshape(
         (enc_h, enc_h, fpn_hidden_size),
         name="pixel_decoder_reshape_encoder",
@@ -706,7 +701,6 @@ def _build_mask_decoder(
 
     mask_embeddings = _mask_embedder(decoder_hidden, mask_decoder_hidden_size)
 
-    # einsum needs NHWC instance_embed
     if data_format == "channels_first":
         instance_nhwc = ops.transpose(instance_embed, (0, 2, 3, 1))
     else:

@@ -188,7 +188,7 @@ class _SAM3Base:
         from keras import ops
 
         if vision_embeds is not None:
-            pixel_values = None  # not needed — decoder model uses FPN directly
+            pixel_values = None
             original_sizes = [vision_embeds["original_size"]]
             batch_size = 1
         else:
@@ -203,9 +203,9 @@ class _SAM3Base:
             original_sizes = []
             for img in images:
                 pv, orig = preprocess_image(img)
-                all_pixels.append(pv[0])  # (H, W, 3)
+                all_pixels.append(pv[0])
                 original_sizes.append(orig)
-            pixel_values = np.stack(all_pixels)  # (B, H, W, 3)
+            pixel_values = np.stack(all_pixels)
             batch_size = len(images)
 
         if texts is not None and isinstance(texts, str):

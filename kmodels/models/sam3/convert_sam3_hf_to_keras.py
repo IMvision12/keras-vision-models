@@ -390,7 +390,6 @@ def convert():
     hf = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
     print(f"HF: {len(hf)} keys")
 
-    # Extract detector-only keys
     det_hf = {}
     for k, v in hf.items():
         if k.startswith("detector_model."):

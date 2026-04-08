@@ -958,16 +958,16 @@ class SAM3(keras.Model):
 
 
 def sam3_clip_encoder_layer(
-    hidden_states, hidden_size, num_attention_heads, intermediate_size,
-    attention_mask, name,
+    hidden_states,
+    hidden_size,
+    num_attention_heads,
+    intermediate_size,
+    attention_mask,
+    name,
 ):
     """Single CLIP encoder layer (functional): self-attn + MLP."""
-    layer_norm1 = layers.LayerNormalization(
-        epsilon=1e-5, name=f"{name}_layer_norm1"
-    )
-    layer_norm2 = layers.LayerNormalization(
-        epsilon=1e-5, name=f"{name}_layer_norm2"
-    )
+    layer_norm1 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm1")
+    layer_norm2 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm2")
     self_attn = SAM3CLIPAttention(
         hidden_size, num_attention_heads, name=f"{name}_self_attn"
     )
@@ -1005,17 +1005,17 @@ def build_text_encoder(
         shape=(max_position_embeddings,), dtype="int32", name="attention_mask"
     )
 
-    hidden_states = layers.Embedding(
-        vocab_size, hidden_size, name="token_embedding"
-    )(input_ids)
+    hidden_states = layers.Embedding(vocab_size, hidden_size, name="token_embedding")(
+        input_ids
+    )
 
     hidden_states = CLIPPositionEmbedding(
         max_position_embeddings, hidden_size, name="add_position"
     )(hidden_states)
 
-    combined_mask = CLIPCausalMask(
-        max_position_embeddings, name="causal_mask"
-    )(attention_mask)
+    combined_mask = CLIPCausalMask(max_position_embeddings, name="causal_mask")(
+        attention_mask
+    )
 
     for i in range(num_hidden_layers):
         hidden_states = sam3_clip_encoder_layer(
@@ -1027,9 +1027,9 @@ def build_text_encoder(
             name=f"layers_{i}",
         )
 
-    output = layers.LayerNormalization(
-        epsilon=1e-5, name="final_layer_norm"
-    )(hidden_states)
+    output = layers.LayerNormalization(epsilon=1e-5, name="final_layer_norm")(
+        hidden_states
+    )
 
     model = keras.Model(
         inputs={"input_ids": input_ids, "attention_mask": attention_mask},

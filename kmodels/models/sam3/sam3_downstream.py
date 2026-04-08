@@ -214,7 +214,6 @@ class _SAM3Base:
                     verbose=0,
                 )
             else:
-        
                 tp_layer = self.model.detector.get_layer("text_projection")
                 text_proj = ops.convert_to_numpy(
                     tp_layer(ops.convert_to_tensor(text_features))

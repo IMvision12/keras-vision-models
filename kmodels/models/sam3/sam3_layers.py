@@ -792,9 +792,7 @@ class SAM3GeometryEncoder(layers.Layer):
                 w_bl = wy * (1 - wx)
                 w_br = wy * wx
 
-                pooled_roi = (
-                    tl * w_tl + tr * w_tr + bl * w_bl + br * w_br
-                )
+                pooled_roi = tl * w_tl + tr * w_tr + bl * w_bl + br * w_br
                 all_pooled.append(pooled_roi)
 
         return ops.stack(all_pooled, axis=0)
@@ -1021,12 +1019,10 @@ class CLIPCausalMask(layers.Layer):
         self.seq_len = seq_len
 
     def call(self, attention_mask):
-        causal_mask = ops.triu(
-            ops.full((self.seq_len, self.seq_len), -1e9), k=1
+        causal_mask = ops.triu(ops.full((self.seq_len, self.seq_len), -1e9), k=1)
+        pad_mask = ops.cast(1.0 - ops.cast(attention_mask, "float32"), "float32") * (
+            -1e9
         )
-        pad_mask = ops.cast(
-            1.0 - ops.cast(attention_mask, "float32"), "float32"
-        ) * (-1e9)
         pad_mask = ops.reshape(pad_mask, (-1, 1, 1, self.seq_len))
         return causal_mask + pad_mask
 

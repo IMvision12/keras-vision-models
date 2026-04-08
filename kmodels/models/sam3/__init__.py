@@ -3,4 +3,4 @@ from kmodels.models.sam3.sam3_downstream import (
     SAM3ObjectDetection,
     SAM3SemanticSegmentation,
 )
-from kmodels.models.sam3.sam3_model import Sam3
+from kmodels.models.sam3.sam3_model import SAM3

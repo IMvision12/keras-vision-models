@@ -917,8 +917,8 @@ def sam3_mask_decoder(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SAM3(keras.Model):
-    """SAM3 detector: functional Keras model for open-vocabulary detection.
+class SAM3Main(keras.Model):
+    """SAM3: unified open-vocabulary detector, segmenter, and promptable model.
 
     Builds the complete detection pipeline as a functional graph:
     ViT backbone, FPN neck, DETR encoder/decoder with iterative box
@@ -996,7 +996,7 @@ class SAM3(keras.Model):
         text_projection_dim=512,
         input_shape=None,
         input_tensor=None,
-        name="SAM3",
+        name="SAM3Main",
         **kwargs,
     ):
         data_format = keras.config.image_data_format()
@@ -1123,6 +1123,14 @@ class SAM3(keras.Model):
             **kwargs,
         )
 
+        self.text_encoder = build_text_encoder()
+
+        self.geometry_encoder = SAM3GeometryEncoder(
+            hidden_size=detr_encoder_hidden_size,
+            name="geometry_encoder",
+        )
+        self.geometry_encoder.build((None, None, 4))
+
         self.vit_hidden_size = vit_hidden_size
         self.vit_intermediate_size = vit_intermediate_size
         self.vit_num_hidden_layers = vit_num_hidden_layers
@@ -1154,6 +1162,129 @@ class SAM3(keras.Model):
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
         self._data_format = data_format
+
+    def build_decoder_model(self):
+        """Build a decoder-only sub-model from pre-computed FPN features.
+
+        Returns:
+            ``keras.Model`` with inputs ``{fpn_0..3, text_projected,
+            text_attention_mask}`` and detection outputs.
+        """
+        cfg = self.get_config()
+        fpn_hidden_size = cfg["fpn_hidden_size"]
+        grid_size = cfg["vit_image_size"] // cfg["vit_patch_size"]
+
+        fpn_0_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_0")
+        fpn_1_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_1")
+        fpn_2_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_2")
+        fpn_3_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_3")
+        text_proj_in = layers.Input(
+            shape=(None, cfg["detr_encoder_hidden_size"]),
+            name="text_projected",
+            dtype="float32",
+        )
+        text_mask_in = layers.Input(
+            shape=(None,), name="text_attention_mask", dtype="float32"
+        )
+
+        fpn_hidden_states = [fpn_0_in, fpn_1_in, fpn_2_in, fpn_3_in]
+
+        text_attn_mask = layers.Lambda(
+            lambda m: ops.expand_dims(
+                ops.expand_dims((1.0 - m) * (-1e9), axis=1), axis=1
+            ),
+            name="text_attn_mask",
+        )(text_mask_in)
+
+        encoder_output, encoder_pos_flat, enc_h = sam3_detr_encoder(
+            fpn_hidden_states,
+            text_proj_in,
+            text_attn_mask,
+            grid_size=grid_size,
+            fpn_hidden_size=fpn_hidden_size,
+            detr_encoder_hidden_size=cfg["detr_encoder_hidden_size"],
+            detr_encoder_num_layers=cfg["detr_encoder_num_layers"],
+            detr_encoder_num_attention_heads=cfg["detr_encoder_num_attention_heads"],
+            detr_encoder_intermediate_size=cfg["detr_encoder_intermediate_size"],
+            detr_encoder_dropout=cfg["detr_encoder_dropout"],
+        )
+
+        decoder_hidden, pred_boxes, pred_logits, presence_logits = sam3_detr_decoder(
+            encoder_output,
+            encoder_pos_flat,
+            text_proj_in,
+            text_attn_mask,
+            text_mask_in,
+            enc_h,
+            detr_decoder_hidden_size=cfg["detr_decoder_hidden_size"],
+            detr_decoder_num_layers=cfg["detr_decoder_num_layers"],
+            detr_decoder_num_queries=cfg["detr_decoder_num_queries"],
+            detr_decoder_num_attention_heads=cfg["detr_decoder_num_attention_heads"],
+            detr_decoder_intermediate_size=cfg["detr_decoder_intermediate_size"],
+            detr_decoder_dropout=cfg["detr_decoder_dropout"],
+        )
+
+        pred_masks, semantic_seg = sam3_mask_decoder(
+            encoder_output,
+            decoder_hidden,
+            text_proj_in,
+            text_attn_mask,
+            fpn_hidden_states,
+            enc_h,
+            fpn_hidden_size=fpn_hidden_size,
+            mask_decoder_hidden_size=cfg["mask_decoder_hidden_size"],
+            mask_decoder_num_attention_heads=cfg["mask_decoder_num_attention_heads"],
+        )
+
+        fpn_3_identity = layers.Identity(name="fpn_3_passthrough")(fpn_3_in)
+
+        outputs = {
+            "pred_masks": pred_masks,
+            "pred_boxes": pred_boxes,
+            "pred_logits": pred_logits,
+            "presence_logits": presence_logits,
+            "semantic_seg": semantic_seg,
+            "fpn_05x": fpn_3_identity,
+        }
+
+        decoder_model = keras.Model(
+            inputs={
+                "fpn_0": fpn_0_in,
+                "fpn_1": fpn_1_in,
+                "fpn_2": fpn_2_in,
+                "fpn_3": fpn_3_in,
+                "text_projected": text_proj_in,
+                "text_attention_mask": text_mask_in,
+            },
+            outputs=outputs,
+            name="SAM3_decoder",
+        )
+
+        orig_weights = {w.path: w.numpy() for w in self.weights}
+        for w in decoder_model.weights:
+            path = w.path.replace("SAM3_decoder/", "SAM3Main/")
+            if path in orig_weights and w.shape == orig_weights[path].shape:
+                w.assign(orig_weights[path])
+
+        return decoder_model
+
+    def build_vision_model(self):
+        """Build a vision-only sub-model that outputs FPN features.
+
+        Returns:
+            ``keras.Model`` with outputs ``{fpn_0..3, text_projected}``.
+        """
+        outputs = {}
+        for i in range(4):
+            layer = self.get_layer(f"fpn_level_{i}_proj2")
+            outputs[f"fpn_{i}"] = layer.output
+        outputs["text_projected"] = self.get_layer("text_projection").output
+
+        return keras.Model(
+            inputs=self.input,
+            outputs=outputs,
+            name="SAM3_vision",
+        )
 
     def get_config(self):
         config = super().get_config()
@@ -1327,121 +1458,8 @@ def build_text_encoder(
     return model
 
 
-@keras.saving.register_keras_serializable(package="kmodels")
-class SAM3Model(keras.Model):
-    """Unified SAM3 model containing all components.
-
-    Wraps the core detector (``SAM3`` functional model), CLIP text
-    encoder (``build_text_encoder``), and geometry encoder
-    (``SAM3GeometryEncoder``) into a single ``keras.Model``. All
-    weights are saved and loaded together from one file.
-
-    Returned by the ``Sam3()`` factory function. Downstream task
-    classes (``SAM3ObjectDetection``, etc.) wrap this model.
-
-    Args:
-        detector: ``SAM3`` functional model instance.
-        **kwargs: Additional keyword arguments passed to ``keras.Model``.
-
-    References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
-    """
-
-    def __init__(self, detector, **kwargs):
-        super().__init__(name=kwargs.pop("name", "SAM3Model"), **kwargs)
-        self.detector = detector
-
-        self.text_encoder = build_text_encoder()
-
-        self.geometry_encoder = SAM3GeometryEncoder(
-            hidden_size=detector.detr_encoder_hidden_size,
-            name="geometry_encoder",
-        )
-        self.geometry_encoder.build((None, None, 4))
-
-    def call(self, inputs, training=None):
-        return self.detector(inputs, training=training)
-
-    def build(self, input_shape=None):
-        if not self.built:
-            self.detector.build(input_shape)
-            self.built = True
-
-    def get_config(self):
-        config = super().get_config()
-        config["detector"] = keras.saving.serialize_keras_object(self.detector)
-        return config
-
-    @classmethod
-    def from_config(cls, config):
-        detector = keras.saving.deserialize_keras_object(config.pop("detector"))
-        return cls(detector=detector, **config)
-
-
-def sam3_create_model(
-    variant, input_shape=None, input_tensor=None, weights=None, **kwargs
-):
-    """Instantiate a SAM3 model variant from the model registry.
-
-    Builds the detector, text encoder, and geometry encoder, optionally
-    loading pretrained weights.
-
-    Args:
-        variant (str): Model variant name (e.g. ``"Sam3"``).
-        input_shape (tuple or None): Input image shape.
-        input_tensor: Optional input tensor.
-        weights (str or None): Weight identifier or file path.
-        **kwargs: Additional keyword arguments passed to ``SAM3``.
-
-    Returns:
-        ``SAM3Model`` instance with all components.
-
-    References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
-    """
-    config = SAM3_MODEL_CONFIG[variant]
-
-    valid_model_weights = []
-    if variant in SAM3_WEIGHTS_CONFIG:
-        valid_model_weights = list(SAM3_WEIGHTS_CONFIG[variant].keys())
-    valid_weights = [None] + valid_model_weights
-
-    if weights not in valid_weights and not isinstance(weights, str):
-        raise ValueError(
-            f"Invalid weights: {weights}. "
-            f"Supported: {', '.join(str(w) for w in valid_weights)}, or a file path."
-        )
-
-    if input_shape is None:
-        image_size = config["vit_image_size"]
-        if keras.config.image_data_format() == "channels_first":
-            input_shape = (3, image_size, image_size)
-        else:
-            input_shape = (image_size, image_size, 3)
-
-    detector = SAM3(
-        input_shape=input_shape,
-        input_tensor=input_tensor,
-        name=variant,
-        **config,
-        **kwargs,
-    )
-
-    model = SAM3Model(detector=detector)
-    model.build(None)
-
-    if weights in valid_model_weights:
-        load_weights_from_config(model, SAM3_WEIGHTS_CONFIG[variant], weights)
-    elif weights is not None:
-        model.load_weights(weights)
-    else:
-        print("No weights loaded.")
-
-    return model
-
-
 @register_model
-def Sam3(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
     """SAM3 open-vocabulary detector, segmenter, and promptable model.
 
     Factory function that builds the full SAM3 model including ViT-L
@@ -1457,164 +1475,36 @@ def Sam3(input_shape=None, input_tensor=None, weights=None, **kwargs):
         **kwargs: Additional keyword arguments.
 
     Returns:
-        ``SAM3Model`` instance.
+        ``SAM3Main`` instance.
 
     References:
         - SAM 3: https://arxiv.org/abs/2506.09011
     """
-    return sam3_create_model(
-        "Sam3",
+    config = SAM3_MODEL_CONFIG["SAM3"]
+
+    valid_model_weights = []
+    if "SAM3" in SAM3_WEIGHTS_CONFIG:
+        valid_model_weights = list(SAM3_WEIGHTS_CONFIG["SAM3"].keys())
+    valid_weights = [None] + valid_model_weights
+
+    if weights not in valid_weights and not isinstance(weights, str):
+        raise ValueError(
+            f"Invalid weights: {weights}. "
+            f"Supported: {', '.join(str(w) for w in valid_weights)}, or a file path."
+        )
+
+    model = SAM3Main(
         input_shape=input_shape,
         input_tensor=input_tensor,
-        weights=weights,
+        **config,
         **kwargs,
     )
 
+    if weights in valid_model_weights:
+        load_weights_from_config(model, SAM3_WEIGHTS_CONFIG["SAM3"], weights)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
 
-def build_sam3_decoder_model(sam3_model):
-    """Build a decoder-only sub-model from pre-computed FPN features.
-
-    Creates a ``keras.Model`` that takes FPN outputs and projected text
-    as inputs, skipping the vision backbone. Use with
-    ``build_sam3_vision_model()`` for efficient multi-prompt inference
-    on the same image.
-
-    Args:
-        sam3_model: Trained ``SAM3Model`` instance to copy config and
-            weights from.
-
-    Returns:
-        ``keras.Model`` with inputs ``{fpn_0, fpn_1, fpn_2, fpn_3,
-        text_projected, text_attention_mask}`` and detection outputs.
-
-    References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
-    """
-    det = sam3_model.detector if hasattr(sam3_model, "detector") else sam3_model
-    cfg = det.get_config()
-    fpn_hidden_size = cfg["fpn_hidden_size"]
-    grid_size = cfg["vit_image_size"] // cfg["vit_patch_size"]
-
-    fpn_0_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_0")
-    fpn_1_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_1")
-    fpn_2_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_2")
-    fpn_3_in = layers.Input(shape=(fpn_hidden_size, None, None), name="fpn_3")
-    text_proj_in = layers.Input(
-        shape=(None, cfg["detr_encoder_hidden_size"]),
-        name="text_projected",
-        dtype="float32",
-    )
-    text_mask_in = layers.Input(
-        shape=(None,), name="text_attention_mask", dtype="float32"
-    )
-
-    fpn_hidden_states = [fpn_0_in, fpn_1_in, fpn_2_in, fpn_3_in]
-
-    text_attn_mask = layers.Lambda(
-        lambda m: ops.expand_dims(ops.expand_dims((1.0 - m) * (-1e9), axis=1), axis=1),
-        name="text_attn_mask",
-    )(text_mask_in)
-
-    encoder_output, encoder_pos_flat, enc_h = sam3_detr_encoder(
-        fpn_hidden_states,
-        text_proj_in,
-        text_attn_mask,
-        grid_size=grid_size,
-        fpn_hidden_size=fpn_hidden_size,
-        detr_encoder_hidden_size=cfg["detr_encoder_hidden_size"],
-        detr_encoder_num_layers=cfg["detr_encoder_num_layers"],
-        detr_encoder_num_attention_heads=cfg["detr_encoder_num_attention_heads"],
-        detr_encoder_intermediate_size=cfg["detr_encoder_intermediate_size"],
-        detr_encoder_dropout=cfg["detr_encoder_dropout"],
-    )
-
-    decoder_hidden, pred_boxes, pred_logits, presence_logits = sam3_detr_decoder(
-        encoder_output,
-        encoder_pos_flat,
-        text_proj_in,
-        text_attn_mask,
-        text_mask_in,
-        enc_h,
-        detr_decoder_hidden_size=cfg["detr_decoder_hidden_size"],
-        detr_decoder_num_layers=cfg["detr_decoder_num_layers"],
-        detr_decoder_num_queries=cfg["detr_decoder_num_queries"],
-        detr_decoder_num_attention_heads=cfg["detr_decoder_num_attention_heads"],
-        detr_decoder_intermediate_size=cfg["detr_decoder_intermediate_size"],
-        detr_decoder_dropout=cfg["detr_decoder_dropout"],
-    )
-
-    pred_masks, semantic_seg = sam3_mask_decoder(
-        encoder_output,
-        decoder_hidden,
-        text_proj_in,
-        text_attn_mask,
-        fpn_hidden_states,
-        enc_h,
-        fpn_hidden_size=fpn_hidden_size,
-        mask_decoder_hidden_size=cfg["mask_decoder_hidden_size"],
-        mask_decoder_num_attention_heads=cfg["mask_decoder_num_attention_heads"],
-    )
-
-    fpn_3_identity = layers.Identity(name="fpn_3_passthrough")(fpn_3_in)
-
-    outputs = {
-        "pred_masks": pred_masks,
-        "pred_boxes": pred_boxes,
-        "pred_logits": pred_logits,
-        "presence_logits": presence_logits,
-        "semantic_seg": semantic_seg,
-        "fpn_05x": fpn_3_identity,
-    }
-
-    decoder_model = keras.Model(
-        inputs={
-            "fpn_0": fpn_0_in,
-            "fpn_1": fpn_1_in,
-            "fpn_2": fpn_2_in,
-            "fpn_3": fpn_3_in,
-            "text_projected": text_proj_in,
-            "text_attention_mask": text_mask_in,
-        },
-        outputs=outputs,
-        name="SAM3_decoder",
-    )
-
-    orig_weights = {w.path: w.numpy() for w in det.weights}
-    for w in decoder_model.weights:
-        path = w.path.replace("SAM3_decoder/", "SAM3/")
-        if path in orig_weights and w.shape == orig_weights[path].shape:
-            w.assign(orig_weights[path])
-
-    return decoder_model
-
-
-def build_sam3_vision_model(sam3_model):
-    """Build a vision-only sub-model that outputs FPN features.
-
-    Creates a ``keras.Model`` with the same inputs as ``SAM3`` that
-    outputs FPN feature maps and projected text features. Use with
-    ``build_sam3_decoder_model()`` for efficient multi-prompt inference
-    where the backbone runs once per image.
-
-    Args:
-        sam3_model: Trained ``SAM3Model`` instance.
-
-    Returns:
-        ``keras.Model`` with outputs ``{fpn_0, fpn_1, fpn_2, fpn_3,
-        text_projected}``.
-
-    References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
-    """
-    det = sam3_model.detector
-    outputs = {}
-    for i in range(4):
-        layer = det.get_layer(f"fpn_level_{i}_proj2")
-        outputs[f"fpn_{i}"] = layer.output
-    outputs["text_projected"] = det.get_layer("text_projection").output
-
-    return keras.Model(
-        inputs=det.input,
-        outputs=outputs,
-        name="SAM3_vision",
-    )
+    return model

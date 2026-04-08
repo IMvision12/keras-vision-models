@@ -4,7 +4,6 @@ from keras import ops
 from PIL import Image, ImageDraw
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
-from .sam3_model import build_sam3_decoder_model, build_sam3_vision_model
 from .sam3_processor import (
     _SUBMODEL_CACHE,
     _compute_scores,
@@ -59,9 +58,9 @@ class _SAM3Base:
         dec_key = f"{model_id}_decoder"
 
         if vis_key not in _SUBMODEL_CACHE:
-            _SUBMODEL_CACHE[vis_key] = build_sam3_vision_model(self.model)
+            _SUBMODEL_CACHE[vis_key] = self.model.build_vision_model()
         if dec_key not in _SUBMODEL_CACHE:
-            _SUBMODEL_CACHE[dec_key] = build_sam3_decoder_model(self.model)
+            _SUBMODEL_CACHE[dec_key] = self.model.build_decoder_model()
 
         vision_model = _SUBMODEL_CACHE[vis_key]
         dummy_text = np.zeros((1, 1, 1024), dtype=np.float32)
@@ -214,13 +213,13 @@ class _SAM3Base:
                     verbose=0,
                 )
             else:
-                tp_layer = self.model.detector.get_layer("text_projection")
+                tp_layer = self.model.get_layer("text_projection")
                 text_proj = ops.convert_to_numpy(
                     tp_layer(ops.convert_to_tensor(text_features))
                 )
                 dec_key = f"{id(self.model)}_decoder"
                 if dec_key not in _SUBMODEL_CACHE:
-                    _SUBMODEL_CACHE[dec_key] = build_sam3_decoder_model(self.model)
+                    _SUBMODEL_CACHE[dec_key] = self.model.build_decoder_model()
                 decoder_model = _SUBMODEL_CACHE[dec_key]
                 raw = decoder_model.predict(
                     {

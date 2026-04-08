@@ -10,7 +10,7 @@ from keras import ops
 from PIL import Image
 
 from .sam3_clip_tokenizer import SAM3CLIPTokenizer
-from .sam3_model import SAM3
+from .sam3_model import SAM3Main
 from .sam3_utils import compute_sine_pos_encoding
 
 
@@ -285,7 +285,7 @@ def _get_vision_submodel(model):
     if cache_key in _SUBMODEL_CACHE:
         return _SUBMODEL_CACHE[cache_key]
 
-    det = model.detector if hasattr(model, "detector") else model
+    det = model
     fpn_1x = det.get_layer("fpn_level_2_proj2")
     text_proj = det.get_layer("text_projection")
     sub = keras.Model(
@@ -309,9 +309,9 @@ def _get_decoder_model(model):
     if cache_key in _SUBMODEL_CACHE:
         return _SUBMODEL_CACHE[cache_key]
 
-    det = model.detector if hasattr(model, "detector") else model
+    det = model
     cfg = det.get_config()
-    decoder_model = SAM3(
+    decoder_model = SAM3Main(
         input_shape=det._input_shape_val,
         text_hidden_size=cfg["detr_encoder_hidden_size"],
         **{
@@ -330,7 +330,7 @@ def _get_decoder_model(model):
 
     orig_weights = {w.path: w.numpy() for w in det.weights}
     for w in decoder_model.weights:
-        path = w.path.replace("SAM3_decoder/", "SAM3/")
+        path = w.path.replace("SAM3_decoder/", "SAM3Main/")
         if path in orig_weights:
             if w.shape == orig_weights[path].shape:
                 w.assign(orig_weights[path])

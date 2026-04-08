@@ -1,5 +1,5 @@
 SAM3_MODEL_CONFIG = {
-    "Sam3": {
+    "SAM3": {
         "vit_hidden_size": 1024,
         "vit_intermediate_size": 4736,
         "vit_num_hidden_layers": 32,
@@ -38,5 +38,5 @@ SAM3_MODEL_CONFIG = {
 }
 
 SAM3_WEIGHTS_CONFIG = {
-    "Sam3": {},
+    "SAM3": {},
 }

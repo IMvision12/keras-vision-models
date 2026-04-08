@@ -5,7 +5,7 @@ os.environ["KERAS_BACKEND"] = "torch"
 from tqdm import tqdm
 from transformers import Sam3Model
 
-from kmodels.models.sam3.sam3_model import Sam3
+from kmodels.models.sam3.sam3_model import SAM3
 from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -25,7 +25,7 @@ vit_name_mapping = {
 
 def _transfer_detector(sam3_model, hf, prefix=""):
     p = f"{prefix}." if prefix else ""
-    det = sam3_model.detector
+    det = sam3_model
 
     print("  ViT backbone...")
     patch_conv = det.get_layer("backbone_patch_embed")
@@ -349,8 +349,8 @@ hf = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
 print(f"HF: {len(hf)} keys")
 del hf_model
 
-print("\nBuilding Keras Sam3...")
-sam3 = Sam3(input_shape=(1008, 1008, 3), weights=None)
+print("\nBuilding Keras SAM3...")
+sam3 = SAM3(input_shape=(1008, 1008, 3), weights=None)
 
 print("\nTransferring detector weights...")
 _transfer_detector(sam3, hf)

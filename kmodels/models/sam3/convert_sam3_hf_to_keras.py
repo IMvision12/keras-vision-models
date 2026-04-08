@@ -2,11 +2,11 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"
 
-from tqdm import tqdm  # noqa: E402
-from transformers import Sam3Model  # noqa: E402
+from tqdm import tqdm
+from transformers import Sam3Model
 
-from kmodels.models.sam3.sam3_model import Sam3  # noqa: E402
-from kmodels.utils.weight_transfer_torch_to_keras import (  # noqa: E402
+from kmodels.models.sam3.sam3_model import Sam3
+from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
@@ -188,7 +188,7 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         transfer_weights("kernel", dense.kernel, hf[f"{sp}.{n}.weight"])
         dense.bias.assign(hf[f"{sp}.{n}.bias"])
 
-    for s in range(len(det.fpn_scale_factors) - 2):
+    for s in range(len(det.fpn_scale_factors) - 1):
         conv = det.get_layer(f"pixel_decoder_stage_{s}_conv")
         transfer_weights(
             "conv_kernel",

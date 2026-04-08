@@ -10,7 +10,7 @@ SAM3 is an open-vocabulary, promptable detection and segmentation model. It comb
 
 | Model | Parameters | Backbone | Description | Weights |
 |-------|-----------|----------|-------------|---------|
-| `SAM3` | ~839M | ViT-L/14 | Open-vocabulary detector + segmenter | HF `facebook/sam3` |
+| `SAM3` | ~839M | ViT-L/14 | Open-vocabulary detector + segmenter | `sam3` |
 
 The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 layers, 1024d) and geometry encoder for box prompts.
 
@@ -22,9 +22,8 @@ os.environ["KERAS_BACKEND"] = "torch"
 
 from kmodels.models.sam3 import SAM3
 
-# Create model and load weights
-model = SAM3(input_shape=(1008, 1008, 3), weights=None)
-model.load_weights("sam3.weights.h5")
+# Create model with pretrained weights
+model = SAM3(input_shape=(1008, 1008, 3), weights="sam3")
 ```
 
 ## Object Detection
@@ -214,8 +213,7 @@ from kmodels.models.sam3 import SAM3, SAM3ObjectDetection, SAM3InstanceSegmentat
 from kmodels.models.sam3.sam3_utils import draw_detections, draw_instance_masks
 
 # Load model
-model = SAM3(input_shape=(1008, 1008, 3), weights=None)
-model.load_weights("sam3.weights.h5")
+model = SAM3(input_shape=(1008, 1008, 3), weights="sam3")
 
 image = Image.open("photo.jpg")
 

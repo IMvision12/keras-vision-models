@@ -359,7 +359,7 @@ print(f"\nSaving {OUTPUT}...")
 all_weights = sam3.weights + sam3.text_encoder.weights + sam3.geometry_encoder.weights
 total_params = sum(w.numpy().size for w in all_weights)
 print(f"  Total params: {total_params:,}")
-sam3.save_weights(OUTPUT)
+sam3.save_weights(OUTPUT, max_shard_size=1.5)
 size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)
 print(f"  Saved: {OUTPUT} ({size_mb:.0f} MB)")
 

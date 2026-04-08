@@ -37,11 +37,26 @@ CLIP_MAX_POSITION = 32
 def compute_rotary_embeddings(
     hidden_size, num_attention_heads, end_x, end_y, rope_theta=10000.0, scale=1.0
 ):
-    """Compute 2D rotary position embeddings (cos, sin) using Keras ops.
+    """Compute 2-D rotary position embeddings for ViT attention.
+
+    Generates cos/sin frequencies for spatial positions in a 2-D grid,
+    used by ``SAM3ViTRoPEAttention`` to encode spatial structure.
+
+    Args:
+        hidden_size (int): Total hidden dimension.
+        num_attention_heads (int): Number of attention heads.
+        end_x (int): Grid width.
+        end_y (int): Grid height.
+        rope_theta (float): Base frequency for RoPE.
+            Defaults to ``10000.0``.
+        scale (float): Coordinate scaling factor.
+            Defaults to ``1.0``.
 
     Returns:
-        cos: (end_x * end_y, head_dim) float32 tensor.
-        sin: (end_x * end_y, head_dim) float32 tensor.
+        Tuple of ``(cos, sin)``, each ``(end_x * end_y, head_dim)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     head_dim = hidden_size // num_attention_heads
     dim_range = ops.cast(ops.arange(0, head_dim, 4), "float32")[: head_dim // 4]
@@ -76,11 +91,34 @@ def sam3_vision_backbone(
     vit_pretrain_image_size,
     data_format="channels_last",
 ):
-    """ViT backbone: patch embed → position embed → LN → N transformer layers.
+    """ViT backbone: patch embed, position embed, and transformer layers.
+
+    Builds the vision backbone as a functional graph. Patch embedding
+    is followed by learnable position embeddings, layer normalization,
+    and ``vit_num_hidden_layers`` transformer blocks with windowed or
+    global RoPE attention. Internally processes in NHWC; permutes
+    to/from NCHW when ``data_format`` is ``"channels_first"``.
+
+    Args:
+        pixel_values: Input image tensor.
+        vit_hidden_size (int): Hidden dimension.
+        vit_num_hidden_layers (int): Number of transformer layers.
+        vit_num_attention_heads (int): Number of attention heads.
+        vit_intermediate_size (int): MLP intermediate dimension.
+        vit_image_size (int): Input image spatial size.
+        vit_patch_size (int): Patch embedding kernel/stride size.
+        vit_window_size (int): Window size for windowed attention.
+        vit_global_attn_indexes (tuple): Layer indices using global attention.
+        vit_rope_theta (float): RoPE base frequency.
+        vit_pretrain_image_size (int): Image size used during pretraining.
+        data_format (str): ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        backbone_spatial: (B, C, H, W) or (B, H, W, C) depending on data_format.
-        grid_size: spatial grid size (H = W).
+        Tuple of ``(backbone_spatial, grid_size)`` where
+        ``backbone_spatial`` is ``(B, H, W, C)`` or ``(B, C, H, W)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     grid_size = vit_image_size // vit_patch_size
     pretrain_grid = vit_pretrain_image_size // vit_patch_size
@@ -177,10 +215,24 @@ def sam3_fpn_neck(
     fpn_scale_factors,
     data_format="channels_last",
 ):
-    """FPN neck: multi-scale feature pyramid from backbone output.
+    """Feature Pyramid Network neck producing multi-scale features.
+
+    Generates a list of feature maps at different spatial scales from the
+    single-scale backbone output. Upscaling uses transposed convolutions;
+    downscaling uses max pooling. Each level has two 3x3 projection convs.
+
+    Args:
+        backbone_spatial: Backbone output tensor.
+        vit_hidden_size (int): Backbone channel dimension.
+        fpn_hidden_size (int): FPN output channel dimension.
+        fpn_scale_factors (tuple): Scale factors for each FPN level.
+        data_format (str): ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        fpn_hidden_states: list of spatial tensors at each scale.
+        List of spatial feature tensors, one per scale level.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     fpn_hidden_states = []
 
@@ -250,7 +302,29 @@ def sam3_detr_encoder_layer(
     dropout,
     name,
 ):
-    """Single DETR encoder layer (functional): self-attn + text cross-attn + MLP."""
+    """Single DETR encoder layer: self-attention, text cross-attention, and MLP.
+
+    Pre-norm transformer block that refines vision features through
+    self-attention with positional encoding, cross-attention to text
+    features, and a feed-forward network.
+
+    Args:
+        vision_feats: Vision feature tensor ``(B, H*W, D)``.
+        text_feats: Text feature tensor ``(B, seq, D)``.
+        vision_pos: Vision position encoding ``(1, H*W, D)``.
+        text_mask: Text attention mask ``(B, seq)``.
+        hidden_size (int): Hidden dimension.
+        num_attention_heads (int): Number of attention heads.
+        intermediate_size (int): MLP intermediate dimension.
+        dropout (float): Dropout rate.
+        name (str): Layer name prefix.
+
+    Returns:
+        Updated vision features ``(B, H*W, D)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     self_attn = SAM3MultiHeadAttention(
         hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
     )
@@ -306,12 +380,31 @@ def sam3_detr_encoder(
     detr_encoder_dropout,
     data_format="channels_last",
 ):
-    """DETR encoder: self-attention on vision + cross-attention to text.
+    """DETR encoder: stacked layers of vision self-attention and text cross-attention.
+
+    Flattens the 1x FPN feature map to a sequence, adds sine position
+    encoding, and passes through ``detr_encoder_num_layers`` encoder
+    layers. Projects text features to the encoder hidden dimension.
+
+    Args:
+        fpn_hidden_states (list): FPN feature maps at each scale.
+        text_projected: Text features ``(B, seq, text_dim)``.
+        text_attn_mask: Text attention mask ``(B, seq)``.
+        grid_size (int): Spatial size of the 1x FPN level.
+        fpn_hidden_size (int): FPN channel dimension.
+        detr_encoder_hidden_size (int): Encoder hidden dimension.
+        detr_encoder_num_layers (int): Number of encoder layers.
+        detr_encoder_num_attention_heads (int): Number of attention heads.
+        detr_encoder_intermediate_size (int): MLP intermediate dimension.
+        detr_encoder_dropout (float): Dropout rate.
+        data_format (str): ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        encoder_output: (B, H*W, D) encoded vision features.
-        encoder_pos_flat: (1, H*W, D) position encoding constant.
-        enc_h: encoder spatial size.
+        Tuple of ``(encoder_output, encoder_pos_flat, enc_h)`` where
+        ``encoder_output`` is ``(B, H*W, D)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     encoder_vision = fpn_hidden_states[-2]
     enc_h = grid_size
@@ -365,8 +458,33 @@ def sam3_detr_decoder_layer(
     dropout,
     name,
 ):
-    """Single DETR decoder layer (functional): self-attn + text cross-attn
-    + vision cross-attn + MLP."""
+    """Single DETR decoder layer: self-attention, text and vision cross-attention, and MLP.
+
+    Pre-norm transformer block with four sub-layers: query self-attention,
+    text cross-attention, vision cross-attention with box-conditioned RPB,
+    and a feed-forward network.
+
+    Args:
+        hidden_states: Query tensor ``(B, Q, D)``.
+        query_pos: Query position encoding ``(B, Q, D)``.
+        text_feats: Projected text features ``(B, seq, D)``.
+        vision_feats: Encoded vision features ``(B, H*W, D)``.
+        vision_pos: Vision position encoding ``(1, H*W, D)``.
+        text_mask: Text attention mask ``(B, seq)``.
+        vision_mask: Box RPB attention bias ``(B, heads, Q+1, H*W)``
+            or ``None``.
+        hidden_size (int): Hidden dimension.
+        num_attention_heads (int): Number of attention heads.
+        intermediate_size (int): MLP intermediate dimension.
+        dropout (float): Dropout rate.
+        name (str): Layer name prefix.
+
+    Returns:
+        Updated query tensor ``(B, Q, D)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     self_attn = SAM3MultiHeadAttention(
         hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
     )
@@ -431,7 +549,27 @@ def sam3_dot_product_scoring(
     intermediate_size=2048,
     name="dot_product_scoring",
 ):
-    """Dot-product scoring: text MLP + pooling + projection → logits."""
+    """Dot-product scoring for text-query classification.
+
+    Processes text features through an MLP, projects both text and query
+    embeddings to a shared space, and computes classification logits via
+    dot product. Used for open-vocabulary detection scoring.
+
+    Args:
+        decoder_hidden_states: Decoder output ``(B, Q, D)``.
+        text_features: Text features ``(B, seq, text_dim)``.
+        text_mask: Text attention mask ``(B, seq)``.
+        hidden_size (int): Projection dimension.
+        intermediate_size (int): Text MLP intermediate dimension.
+            Defaults to ``2048``.
+        name (str): Layer name prefix.
+
+    Returns:
+        Classification logits ``(B, Q)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     text_mlp_fc1 = layers.Dense(intermediate_size, name=f"{name}_text_mlp_fc1")
     text_mlp_fc2 = layers.Dense(hidden_size, name=f"{name}_text_mlp_fc2")
     text_mlp_out_norm = layers.LayerNormalization(
@@ -476,13 +614,36 @@ def sam3_detr_decoder(
     detr_decoder_intermediate_size,
     detr_decoder_dropout,
 ):
-    """DETR decoder: iterative box refinement with cross-attention.
+    """DETR decoder with iterative box refinement.
+
+    Stacks ``detr_decoder_num_layers`` decoder layers with learnable
+    query embeddings and iterative reference point refinement. Each
+    layer performs self-attention, text cross-attention, and vision
+    cross-attention with box-conditioned relative position bias.
+    Produces object queries, refined bounding boxes, classification
+    logits, and per-layer presence scores.
+
+    Args:
+        encoder_output: Encoded vision features ``(B, H*W, D)``.
+        encoder_pos_flat: Vision position encoding ``(1, H*W, D)``.
+        text_projected: Projected text features ``(B, seq, D)``.
+        text_attn_mask: Text padding mask ``(B, seq)``.
+        text_attention_mask: Original text attention mask.
+        enc_h (int): Encoder spatial height.
+        detr_decoder_hidden_size (int): Decoder hidden dimension.
+        detr_decoder_num_layers (int): Number of decoder layers.
+        detr_decoder_num_queries (int): Number of object queries.
+        detr_decoder_num_attention_heads (int): Number of attention heads.
+        detr_decoder_intermediate_size (int): MLP intermediate dimension.
+        detr_decoder_dropout (float): Dropout rate.
 
     Returns:
-        decoder_hidden: (B, Q, D) last layer's output.
-        pred_boxes: (B, Q, 4) predicted boxes in xyxy format.
-        pred_logits: (B, Q) classification logits.
-        presence_logits_stacked: (num_layers,) presence logits.
+        Tuple of ``(decoder_hidden, pred_boxes, pred_logits,
+        presence_logits)`` where ``pred_boxes`` is ``(B, Q, 4)``
+        in cxcywh format.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     query_embed = SAM3LearnableEmbedding(
         detr_decoder_num_queries,
@@ -614,7 +775,19 @@ def sam3_detr_decoder(
 
 
 def sam3_mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
-    """3-layer MLP: Dense → ReLU → Dense → ReLU → Dense."""
+    """Three-layer MLP that projects decoder queries to mask embeddings.
+
+    Args:
+        x: Input tensor ``(B, Q, D)``.
+        hidden_size (int): Hidden and output dimension.
+        name_prefix (str): Layer name prefix.
+
+    Returns:
+        Mask embedding tensor ``(B, Q, D)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     x = layers.Dense(hidden_size, name=f"{name_prefix}_linear1")(x)
     x = layers.ReLU(name=f"{name_prefix}_relu1")(x)
     x = layers.Dense(hidden_size, name=f"{name_prefix}_linear2")(x)
@@ -635,11 +808,32 @@ def sam3_mask_decoder(
     mask_decoder_num_attention_heads,
     data_format="channels_last",
 ):
-    """Mask decoder: prompt cross-attention → pixel decoder → mask prediction.
+    """Mask decoder: pixel decoder with skip connections and mask prediction.
+
+    Applies prompt-conditioned cross-attention to encoder features,
+    upsamples through a pixel decoder with FPN skip connections, and
+    produces per-query instance masks via einsum and a semantic
+    segmentation map via 1x1 convolution.
+
+    Args:
+        encoder_output: Encoded vision features ``(B, H*W, D)``.
+        decoder_hidden: Decoder query output ``(B, Q, D)``.
+        text_projected: Projected text features ``(B, seq, D)``.
+        text_attn_mask: Text attention mask ``(B, seq)``.
+        fpn_hidden_states (list): FPN feature maps for skip connections.
+        enc_h (int): Encoder spatial height.
+        fpn_hidden_size (int): FPN channel dimension.
+        mask_decoder_hidden_size (int): Pixel decoder hidden dimension.
+        mask_decoder_num_attention_heads (int): Attention heads for
+            prompt cross-attention.
+        data_format (str): ``"channels_last"`` or ``"channels_first"``.
 
     Returns:
-        pred_masks: (B, Q, H, W) mask logits (always NCHW for output consistency).
-        semantic_seg: spatial semantic segmentation logits in data_format.
+        Tuple of ``(pred_masks, semantic_seg)`` where ``pred_masks``
+        is ``(B, Q, H, W)`` in NCHW format.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     prompt_cross_attn_norm = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS,
@@ -724,6 +918,52 @@ def sam3_mask_decoder(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SAM3(keras.Model):
+    """SAM3 detector: functional Keras model for open-vocabulary detection.
+
+    Builds the complete detection pipeline as a functional graph:
+    ViT backbone, FPN neck, DETR encoder/decoder with iterative box
+    refinement, dot-product scoring, and mask decoder. Supports both
+    ``"channels_last"`` and ``"channels_first"`` via
+    ``keras.config.image_data_format()``.
+
+    Args:
+        vit_hidden_size (int): ViT hidden dimension. Defaults to ``1024``.
+        vit_intermediate_size (int): ViT MLP dimension. Defaults to ``4736``.
+        vit_num_hidden_layers (int): Number of ViT layers. Defaults to ``32``.
+        vit_num_attention_heads (int): ViT attention heads. Defaults to ``16``.
+        vit_image_size (int): Input image size. Defaults to ``1008``.
+        vit_patch_size (int): Patch size. Defaults to ``14``.
+        vit_window_size (int): Windowed attention size. Defaults to ``24``.
+        vit_global_attn_indexes (tuple): Global attention layer indices.
+        vit_rope_theta (float): RoPE base frequency. Defaults to ``10000.0``.
+        vit_pretrain_image_size (int): Pretrained image size. Defaults to ``336``.
+        fpn_hidden_size (int): FPN channel dimension. Defaults to ``256``.
+        fpn_scale_factors (tuple): FPN scale factors.
+        detr_encoder_hidden_size (int): Encoder dimension. Defaults to ``256``.
+        detr_encoder_num_layers (int): Encoder layers. Defaults to ``6``.
+        detr_encoder_num_attention_heads (int): Encoder heads. Defaults to ``8``.
+        detr_encoder_intermediate_size (int): Encoder MLP dimension.
+        detr_encoder_dropout (float): Encoder dropout. Defaults to ``0.1``.
+        detr_decoder_hidden_size (int): Decoder dimension. Defaults to ``256``.
+        detr_decoder_num_layers (int): Decoder layers. Defaults to ``6``.
+        detr_decoder_num_queries (int): Object queries. Defaults to ``200``.
+        detr_decoder_num_attention_heads (int): Decoder heads. Defaults to ``8``.
+        detr_decoder_intermediate_size (int): Decoder MLP dimension.
+        detr_decoder_dropout (float): Decoder dropout. Defaults to ``0.1``.
+        mask_decoder_hidden_size (int): Mask decoder dimension.
+        mask_decoder_num_upsampling_stages (int): Pixel decoder stages.
+        mask_decoder_num_attention_heads (int): Mask decoder heads.
+        text_hidden_size (int): Text encoder dimension. Defaults to ``1024``.
+        text_projection_dim (int): Text projection dimension.
+        input_shape (tuple or None): Model input shape.
+        input_tensor: Optional input tensor.
+        name (str): Model name. Defaults to ``"SAM3"``.
+        **kwargs: Additional keyword arguments.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
+
     def __init__(
         self,
         vit_hidden_size=1024,
@@ -965,7 +1205,26 @@ def sam3_clip_encoder_layer(
     attention_mask,
     name,
 ):
-    """Single CLIP encoder layer (functional): self-attn + MLP."""
+    """Single CLIP encoder layer: self-attention with causal mask and MLP.
+
+    Pre-norm transformer block with GELU-activated feed-forward network.
+    Used inside ``build_text_encoder`` to construct the CLIP text model.
+
+    Args:
+        hidden_states: Input tensor ``(B, seq, D)``.
+        hidden_size (int): Hidden dimension.
+        num_attention_heads (int): Number of attention heads.
+        intermediate_size (int): MLP intermediate dimension.
+        attention_mask: Combined causal + padding mask
+            ``(B, 1, seq, seq)``.
+        name (str): Layer name prefix.
+
+    Returns:
+        Updated hidden states ``(B, seq, D)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     layer_norm1 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm1")
     layer_norm2 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm2")
     self_attn = SAM3CLIPAttention(
@@ -997,7 +1256,32 @@ def build_text_encoder(
     max_position_embeddings=CLIP_MAX_POSITION,
     weights_path=None,
 ):
-    """Build SAM3 CLIP text encoder as a functional keras.Model."""
+    """Build the CLIP text encoder as a functional ``keras.Model``.
+
+    Constructs a 24-layer CLIP text transformer with token and position
+    embeddings, causal masking, and final layer normalization. Returns
+    the last hidden state for all tokens.
+
+    Args:
+        vocab_size (int): Vocabulary size. Defaults to ``49408``.
+        hidden_size (int): Hidden dimension. Defaults to ``1024``.
+        num_hidden_layers (int): Number of transformer layers.
+            Defaults to ``24``.
+        num_attention_heads (int): Number of attention heads.
+            Defaults to ``16``.
+        intermediate_size (int): MLP intermediate dimension.
+            Defaults to ``4096``.
+        max_position_embeddings (int): Maximum sequence length.
+            Defaults to ``32``.
+        weights_path (str or None): Path to ``.weights.h5`` file.
+
+    Returns:
+        ``keras.Model`` with inputs ``{input_ids, attention_mask}``
+        and output ``(B, seq_len, hidden_size)``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     input_ids = keras.Input(
         shape=(max_position_embeddings,), dtype="int32", name="input_ids"
     )
@@ -1047,12 +1331,20 @@ def build_text_encoder(
 class SAM3Model(keras.Model):
     """Unified SAM3 model containing all components.
 
-    Holds the core detector (vision backbone + FPN + DETR + mask decoder),
-    CLIP text encoder, and geometry encoder in one model. All weights are
-    saved/loaded together in a single file.
+    Wraps the core detector (``SAM3`` functional model), CLIP text
+    encoder (``build_text_encoder``), and geometry encoder
+    (``SAM3GeometryEncoder``) into a single ``keras.Model``. All
+    weights are saved and loaded together from one file.
 
-    This is the model returned by the Sam3() factory function.
-    Downstream task classes (SAM3ObjectDetection, etc.) wrap this model.
+    Returned by the ``Sam3()`` factory function. Downstream task
+    classes (``SAM3ObjectDetection``, etc.) wrap this model.
+
+    Args:
+        detector: ``SAM3`` functional model instance.
+        **kwargs: Additional keyword arguments passed to ``keras.Model``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
 
     def __init__(self, detector, **kwargs):
@@ -1089,6 +1381,24 @@ class SAM3Model(keras.Model):
 def sam3_create_model(
     variant, input_shape=None, input_tensor=None, weights=None, **kwargs
 ):
+    """Instantiate a SAM3 model variant from the model registry.
+
+    Builds the detector, text encoder, and geometry encoder, optionally
+    loading pretrained weights.
+
+    Args:
+        variant (str): Model variant name (e.g. ``"Sam3"``).
+        input_shape (tuple or None): Input image shape.
+        input_tensor: Optional input tensor.
+        weights (str or None): Weight identifier or file path.
+        **kwargs: Additional keyword arguments passed to ``SAM3``.
+
+    Returns:
+        ``SAM3Model`` instance with all components.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     config = SAM3_MODEL_CONFIG[variant]
 
     valid_model_weights = []
@@ -1132,6 +1442,26 @@ def sam3_create_model(
 
 @register_model
 def Sam3(input_shape=None, input_tensor=None, weights=None, **kwargs):
+    """SAM3 open-vocabulary detector, segmenter, and promptable model.
+
+    Factory function that builds the full SAM3 model including ViT-L
+    backbone, FPN, DETR encoder/decoder, CLIP text encoder, geometry
+    encoder, and mask decoder. Supports 839M parameters.
+
+    Args:
+        input_shape (tuple or None): Input image shape. Defaults to
+            ``(1008, 1008, 3)`` for channels_last.
+        input_tensor: Optional input tensor.
+        weights (str or None): ``None`` for random init, or a path to
+            a ``.weights.h5`` file.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        ``SAM3Model`` instance.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
+    """
     return sam3_create_model(
         "Sam3",
         input_shape=input_shape,
@@ -1142,23 +1472,23 @@ def Sam3(input_shape=None, input_tensor=None, weights=None, **kwargs):
 
 
 def build_sam3_decoder_model(sam3_model):
-    """Build a decoder-only model that takes pre-computed FPN features.
+    """Build a decoder-only sub-model from pre-computed FPN features.
 
-    Takes FPN outputs + projected text (256d) as inputs, skipping the
-    vision backbone. Use with build_sam3_vision_model() for efficient
-    multi-prompt inference on the same image.
+    Creates a ``keras.Model`` that takes FPN outputs and projected text
+    as inputs, skipping the vision backbone. Use with
+    ``build_sam3_vision_model()`` for efficient multi-prompt inference
+    on the same image.
 
     Args:
-        sam3_model: a trained SAM3 model to copy config and weights from.
+        sam3_model: Trained ``SAM3Model`` instance to copy config and
+            weights from.
 
     Returns:
-        decoder_model: keras.Model with inputs:
-            - fpn_0: (B, 256, 288, 288) FPN 4x
-            - fpn_1: (B, 256, 144, 144) FPN 2x
-            - fpn_2: (B, 256, 72, 72) FPN 1x
-            - fpn_3: (B, 256, 36, 36) FPN 0.5x
-            - text_projected: (B, seq, 256) pre-projected text features
-            - text_attention_mask: (B, seq) float mask
+        ``keras.Model`` with inputs ``{fpn_0, fpn_1, fpn_2, fpn_3,
+        text_projected, text_attention_mask}`` and detection outputs.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     det = sam3_model.detector if hasattr(sam3_model, "detector") else sam3_model
     cfg = det.get_config()
@@ -1259,17 +1589,22 @@ def build_sam3_decoder_model(sam3_model):
 
 
 def build_sam3_vision_model(sam3_model):
-    """Build a vision-only model that outputs FPN features + text projection.
+    """Build a vision-only sub-model that outputs FPN features.
 
-    Use with build_sam3_decoder_model() for efficient multi-prompt inference.
+    Creates a ``keras.Model`` with the same inputs as ``SAM3`` that
+    outputs FPN feature maps and projected text features. Use with
+    ``build_sam3_decoder_model()`` for efficient multi-prompt inference
+    where the backbone runs once per image.
 
     Args:
-        sam3_model: a trained SAM3 model.
+        sam3_model: Trained ``SAM3Model`` instance.
 
     Returns:
-        vision_model: keras.Model with same inputs as SAM3, outputs:
-            - fpn_0 through fpn_3: FPN level features (NCHW)
-            - text_projected: projected text features (256d)
+        ``keras.Model`` with outputs ``{fpn_0, fpn_1, fpn_2, fpn_3,
+        text_projected}``.
+
+    References:
+        - SAM 3: https://arxiv.org/abs/2506.09011
     """
     det = sam3_model.detector
     outputs = {}

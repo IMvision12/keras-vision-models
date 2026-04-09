@@ -88,7 +88,7 @@ COCO_CLASSES = [
 ]
 
 
-def RTDETRImageProcessor(
+def RTDETRV2ImageProcessor(
     image: Union[str, np.ndarray, Image.Image],
     size: Optional[Dict[str, int]] = None,
     resample: str = "bilinear",
@@ -96,10 +96,10 @@ def RTDETRImageProcessor(
     rescale_factor: float = 1 / 255,
     return_tensor: bool = True,
 ) -> Union[keras.KerasTensor, np.ndarray]:
-    """Preprocess an image for RT-DETR inference.
+    """Preprocess an image for RT-DETRv2 inference.
 
     Handles loading, resizing, and rescaling to match the preprocessing
-    used during RT-DETR training. Unlike DETR, RT-DETR does **not**
+    used during RT-DETRv2 training. Unlike DETR, RT-DETRv2 does **not**
     apply ImageNet normalization; only rescaling to ``[0, 1]`` is needed.
 
     Args:
@@ -119,10 +119,12 @@ def RTDETRImageProcessor(
 
     Example:
         ```python
-        from kmodels.models.rt_detr import RTDETRImageProcessor, RTDETRResNet50
+        from kmodels.models.rt_detr_v2 import (
+            RTDETRV2ImageProcessor, RTDETRV2ResNet50,
+        )
 
-        model = RTDETRResNet50(weights="coco")
-        img = RTDETRImageProcessor("photo.jpg")
+        model = RTDETRV2ResNet50(weights="coco")
+        img = RTDETRV2ImageProcessor("photo.jpg")
         output = model(img, training=False)
         ```
     """
@@ -163,16 +165,16 @@ def RTDETRImageProcessor(
     return image
 
 
-def RTDETRPostProcessor(
+def RTDETRV2PostProcessor(
     outputs: Dict[str, keras.KerasTensor],
     threshold: float = 0.5,
     num_top_queries: int = 300,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
     label_names: Optional[List[str]] = None,
 ) -> List[Dict[str, np.ndarray]]:
-    """Post-process raw RT-DETR outputs into usable detections.
+    """Post-process raw RT-DETRv2 outputs into usable detections.
 
-    RT-DETR uses sigmoid activation (not softmax) and has no dedicated
+    RT-DETRv2 uses sigmoid activation (not softmax) and has no dedicated
     background class. This post-processor applies sigmoid to raw logits,
     selects top-K scoring ``(query, class)`` pairs, converts boxes from
     normalised ``(cx, cy, w, h)`` to ``(x_min, y_min, x_max, y_max)``
@@ -204,14 +206,14 @@ def RTDETRPostProcessor(
 
     Example:
         ```python
-        from kmodels.models.rt_detr import (
-            RTDETRResNet50, RTDETRImageProcessor, RTDETRPostProcessor,
+        from kmodels.models.rt_detr_v2 import (
+            RTDETRV2ResNet50, RTDETRV2ImageProcessor, RTDETRV2PostProcessor,
         )
 
-        model = RTDETRResNet50(weights="coco")
-        img = RTDETRImageProcessor("photo.jpg")
+        model = RTDETRV2ResNet50(weights="coco")
+        img = RTDETRV2ImageProcessor("photo.jpg")
         output = model(img, training=False)
-        results = RTDETRPostProcessor(
+        results = RTDETRV2PostProcessor(
             output, threshold=0.5, target_sizes=[(orig_h, orig_w)],
         )
         for r in results:

@@ -219,56 +219,53 @@ def RTDETRPostProcessor(
                 print(f"{name}: {score:.2f}")
         ```
     """
-    logits = keras.ops.convert_to_numpy(outputs["logits"])
-    boxes = keras.ops.convert_to_numpy(outputs["pred_boxes"])
+    ops = keras.ops
+    logits = ops.convert_to_tensor(outputs["logits"])
+    boxes = ops.convert_to_tensor(outputs["pred_boxes"])
 
-    batch_size = logits.shape[0]
-    num_classes = logits.shape[2]
+    batch_size = int(logits.shape[0])
+    num_queries = int(logits.shape[1])
+    num_classes = int(logits.shape[2])
 
-    probs = _sigmoid(logits)
+    probs = ops.sigmoid(logits)
+
+    flat_probs = ops.reshape(probs, (batch_size, num_queries * num_classes))
+    num_select = min(num_top_queries, num_queries * num_classes)
+    topk_scores, topk_indices = ops.top_k(flat_probs, k=num_select)
+
+    topk_box_indices = topk_indices // num_classes
+    topk_labels = topk_indices % num_classes
+
+    gather_idx = ops.expand_dims(topk_box_indices, axis=-1)
+    gather_idx = ops.repeat(gather_idx, 4, axis=-1)
+    topk_boxes = ops.take_along_axis(boxes, gather_idx, axis=1)
+
+    cx = topk_boxes[..., 0]
+    cy = topk_boxes[..., 1]
+    w = topk_boxes[..., 2]
+    h = topk_boxes[..., 3]
+    xyxy_boxes = ops.stack([cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2], axis=-1)
+
+    if target_sizes is not None:
+        scales = ops.convert_to_tensor(
+            [[w_i, h_i, w_i, h_i] for (h_i, w_i) in target_sizes],
+            dtype="float32",
+        )
+        xyxy_boxes = xyxy_boxes * ops.expand_dims(scales, axis=1)
+
+    topk_scores_np = ops.convert_to_numpy(topk_scores)
+    topk_labels_np = ops.convert_to_numpy(topk_labels)
+    xyxy_boxes_np = ops.convert_to_numpy(xyxy_boxes)
+
+    _names = label_names if label_names is not None else COCO_CLASSES
 
     results = []
     for i in range(batch_size):
-        prob_i = probs[i]
-        boxes_i = boxes[i]
+        keep = topk_scores_np[i] > threshold
+        scores = topk_scores_np[i][keep]
+        labels = topk_labels_np[i][keep]
+        kept_boxes = xyxy_boxes_np[i][keep]
 
-        flat_scores = prob_i.reshape(-1)
-        num_select = min(num_top_queries, flat_scores.shape[0])
-        topk_indices = np.argpartition(flat_scores, -num_select)[-num_select:]
-        topk_indices = topk_indices[np.argsort(-flat_scores[topk_indices])]
-
-        topk_scores = flat_scores[topk_indices]
-        topk_box_indices = topk_indices // num_classes
-        topk_labels = topk_indices % num_classes
-
-        topk_boxes = boxes_i[topk_box_indices]
-
-        keep = topk_scores > threshold
-        scores = topk_scores[keep]
-        labels = topk_labels[keep]
-        kept_boxes = topk_boxes[keep]
-
-        cx, cy, w, h = (
-            kept_boxes[:, 0],
-            kept_boxes[:, 1],
-            kept_boxes[:, 2],
-            kept_boxes[:, 3],
-        )
-        x_min = cx - w / 2
-        y_min = cy - h / 2
-        x_max = cx + w / 2
-        y_max = cy + h / 2
-        xyxy_boxes = np.stack([x_min, y_min, x_max, y_max], axis=-1)
-
-        if target_sizes is not None:
-            img_h, img_w = target_sizes[i]
-            scale = np.array(
-                [img_w, img_h, img_w, img_h],
-                dtype=np.float32,
-            )
-            xyxy_boxes = xyxy_boxes * scale
-
-        _names = label_names if label_names is not None else COCO_CLASSES
         mapped_names = [_names[l] if l < len(_names) else f"class_{l}" for l in labels]
 
         results.append(
@@ -276,17 +273,8 @@ def RTDETRPostProcessor(
                 "scores": scores,
                 "labels": labels,
                 "label_names": mapped_names,
-                "boxes": xyxy_boxes,
+                "boxes": kept_boxes,
             }
         )
 
     return results
-
-
-def _sigmoid(x: np.ndarray) -> np.ndarray:
-    """Numerically stable sigmoid."""
-    return np.where(
-        x >= 0,
-        1.0 / (1.0 + np.exp(-x)),
-        np.exp(x) / (1.0 + np.exp(x)),
-    )

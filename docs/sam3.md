@@ -170,30 +170,6 @@ model = SAM3(input_shape=(3, 1008, 1008), weights=None)
 
 All Conv2D, UpSampling2D, and GroupNormalization layers use the configured data format. The ViT backbone processes internally in NHWC and permutes at boundaries when channels_first is set.
 
-## Weight Conversion from HuggingFace
-
-```bash
-export HF_TOKEN=your_token
-python -m kmodels.models.sam3.convert_sam3_hf_to_keras
-```
-
-This converts weights from the `facebook/sam3` HuggingFace checkpoint to Keras format. The conversion uses `transfer_weights` and `transfer_nested_layer_weights` utilities for automatic kernel transposition.
-
-## File Structure
-
-```
-kmodels/models/sam3/
-    __init__.py              # Public exports
-    config.py                # Model configuration
-    sam3_model.py            # SAM3Main class, functional builders, factory
-    sam3_layers.py           # All layer classes (ViT, DETR, CLIP, Geometry)
-    sam3_utils.py            # Box ops, positional encodings, visualization
-    sam3_clip_tokenizer.py   # BPE tokenizer (no HF dependency)
-    sam3_processor.py        # Preprocessing, post-processing, caching
-    sam3_downstream.py       # Task classes (Detection, Instance, Semantic)
-    convert_sam3_hf_to_keras.py  # HF weight conversion script
-```
-
 ## Performance Tips
 
 1. **Use pre-computed features** when running multiple prompts on the same image via `get_vision_features()`.

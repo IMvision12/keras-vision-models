@@ -415,6 +415,21 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
         )
         return self.output_proj(output)
 
+    def compute_output_spec(
+        self, query, reference_points, input_flatten, position_embeddings=None, **kwargs
+    ):
+        if not self.value_proj.built:
+            self.value_proj.build(input_flatten.shape)
+        if not self.sampling_offsets.built:
+            self.sampling_offsets.build(query.shape)
+        if not self.attention_weights_proj.built:
+            self.attention_weights_proj.build(query.shape)
+        if not self.output_proj.built:
+            self.output_proj.build(query.shape)
+        if not self.built:
+            self.build(query.shape)
+        return keras.KerasTensor(query.shape, dtype=query.dtype)
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -425,148 +440,6 @@ class RTDETRV2MultiScaleDeformableAttention(layers.Layer):
                 "n_points": self.n_points,
                 "spatial_shapes": self.spatial_shapes,
                 "level_start_index": self.level_start_index,
-            }
-        )
-        return config
-
-
-@keras.saving.register_keras_serializable(package="kmodels")
-class RTDETRV2DecoderLayer(layers.Layer):
-    """Single RT-DETR decoder layer with self-attention, deformable
-    cross-attention, and feedforward network.
-
-    Uses post-norm architecture: residual -> dropout -> add -> layernorm.
-
-    Reference:
-        - [RT-DETR](https://arxiv.org/abs/2304.08069)
-
-    Args:
-        d_model: Integer, model dimension. Defaults to `256`.
-        num_heads: Integer, attention heads. Defaults to `8`.
-        dim_feedforward: Integer, FFN intermediate dim. Defaults to `1024`.
-        dropout_rate: Float, dropout rate. Defaults to `0.0`.
-        activation: String, FFN activation. Defaults to `"relu"`.
-        n_levels: Integer, feature levels for deformable attn. Defaults
-            to `3`.
-        n_points: Integer, sampling points. Defaults to `4`.
-        spatial_shapes: List of (H, W) tuples.
-        level_start_index: List of start indices.
-        block_prefix: String, name prefix.
-        **kwargs: Additional keyword arguments.
-    """
-
-    def __init__(
-        self,
-        d_model=256,
-        num_heads=8,
-        dim_feedforward=1024,
-        dropout_rate=0.0,
-        activation="relu",
-        n_levels=3,
-        n_points=4,
-        spatial_shapes=None,
-        level_start_index=None,
-        block_prefix="decoder_layers_0",
-        **kwargs,
-    ):
-        super().__init__(**kwargs)
-        self.d_model = d_model
-        self.num_heads = num_heads
-        self.dim_feedforward = dim_feedforward
-        self.dropout_rate = dropout_rate
-        self.activation = activation
-        self.n_levels = n_levels
-        self.n_points = n_points
-        self.spatial_shapes = spatial_shapes or []
-        self.level_start_index = level_start_index or [0]
-        self.block_prefix = block_prefix
-
-        bp = block_prefix
-        self.self_attn = RTDETRV2MultiHeadAttention(
-            hidden_dim=self.d_model,
-            num_heads=self.num_heads,
-            dropout_rate=0.0,
-            block_prefix=f"{bp}_self_attn",
-            name=f"{bp}_self_attn",
-        )
-        self.self_attn_layer_norm = layers.LayerNormalization(
-            epsilon=1e-5,
-            name=f"{bp}_self_attn_layer_norm",
-        )
-
-        self.encoder_attn = RTDETRV2MultiScaleDeformableAttention(
-            d_model=self.d_model,
-            n_levels=self.n_levels,
-            n_heads=self.num_heads,
-            n_points=self.n_points,
-            spatial_shapes=self.spatial_shapes,
-            level_start_index=self.level_start_index,
-            name=f"{bp}_encoder_attn",
-        )
-        self.encoder_attn_layer_norm = layers.LayerNormalization(
-            epsilon=1e-5,
-            name=f"{bp}_encoder_attn_layer_norm",
-        )
-
-        self.fc1 = layers.Dense(
-            self.dim_feedforward,
-            activation=self.activation,
-            name=f"{bp}_fc1",
-        )
-        self.fc2 = layers.Dense(self.d_model, name=f"{bp}_fc2")
-        self.final_layer_norm = layers.LayerNormalization(
-            epsilon=1e-5,
-            name=f"{bp}_final_layer_norm",
-        )
-
-    def call(
-        self,
-        hidden_states,
-        encoder_hidden_states,
-        query_pos,
-        reference_points,
-        training=None,
-    ):
-        # Self-attention with position embeddings added to Q and K
-        q = k = hidden_states + query_pos
-        residual = hidden_states
-        attn_out = self.self_attn(q, k, hidden_states, training=training)
-        hidden_states = self.self_attn_layer_norm(residual + attn_out)
-
-        # Deformable cross-attention
-        residual = hidden_states
-        cross_out = self.encoder_attn(
-            hidden_states,
-            reference_points,
-            encoder_hidden_states,
-            position_embeddings=query_pos,
-        )
-        hidden_states = self.encoder_attn_layer_norm(residual + cross_out)
-
-        # FFN
-        residual = hidden_states
-        ff_out = self.fc2(self.fc1(hidden_states))
-        hidden_states = self.final_layer_norm(residual + ff_out)
-
-        return hidden_states
-
-    def compute_output_spec(self, *args, **kwargs):
-        return keras.KerasTensor(args[0].shape, dtype=args[0].dtype)
-
-    def get_config(self):
-        config = super().get_config()
-        config.update(
-            {
-                "d_model": self.d_model,
-                "num_heads": self.num_heads,
-                "dim_feedforward": self.dim_feedforward,
-                "dropout_rate": self.dropout_rate,
-                "activation": self.activation,
-                "n_levels": self.n_levels,
-                "n_points": self.n_points,
-                "spatial_shapes": self.spatial_shapes,
-                "level_start_index": self.level_start_index,
-                "block_prefix": self.block_prefix,
             }
         )
         return config

@@ -7,8 +7,8 @@ from kmodels.utils import load_weights_from_config
 
 from .config import RT_DETR_V2_MODEL_CONFIG, RT_DETR_V2_WEIGHTS_CONFIG
 from .rt_detr_v2_layers import (
-    RTDETRV2DecoderLayer,
     RTDETRV2MultiHeadAttention,
+    RTDETRV2MultiScaleDeformableAttention,
 )
 
 
@@ -514,6 +514,95 @@ def rt_detr_aifi_encoder_layer(
     return x
 
 
+def rt_detr_v2_decoder_layer(
+    hidden_states,
+    encoder_hidden_states,
+    query_pos,
+    reference_points,
+    d_model,
+    num_heads,
+    dim_feedforward,
+    activation,
+    n_levels,
+    n_points,
+    spatial_shapes,
+    level_start_index,
+    name="decoder_layers_0",
+):
+    """Single RT-DETRv2 decoder layer built with the functional API.
+
+    Composes self-attention, multi-scale deformable cross-attention, and a
+    feedforward network with post-norm residual connections. Mirrors the
+    style of ``rt_detr_aifi_encoder_layer``.
+
+    Reference:
+        - `RT-DETR <https://arxiv.org/abs/2304.08069>`_
+
+    Args:
+        hidden_states: Query tensor of shape ``(B, num_queries, d_model)``.
+        encoder_hidden_states: Flattened multi-scale memory of shape
+            ``(B, total_tokens, d_model)``.
+        query_pos: Positional embedding for queries, broadcast over
+            self-attention Q/K and added to the deformable attention input.
+        reference_points: Reference boxes of shape ``(B, num_queries, 1, 4)``.
+        d_model: Model hidden dimension.
+        num_heads: Number of attention heads.
+        dim_feedforward: FFN intermediate dimension.
+        activation: FFN activation name.
+        n_levels: Number of feature levels for deformable attention.
+        n_points: Sampling points per level/head.
+        spatial_shapes: List of ``(H, W)`` tuples per feature level.
+        level_start_index: List of token start indices per level.
+        name: String, layer name prefix shared by all sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, num_queries, d_model)``.
+    """
+    sa = RTDETRV2MultiHeadAttention(
+        hidden_dim=d_model,
+        num_heads=num_heads,
+        block_prefix=f"{name}_self_attn",
+        name=f"{name}_self_attn",
+    )
+    q = k = layers.Add(name=f"{name}_sa_qk_add")([hidden_states, query_pos])
+    residual = hidden_states
+    attn_out = sa(q, k, hidden_states)
+    hidden_states = layers.LayerNormalization(
+        epsilon=1e-5, name=f"{name}_self_attn_layer_norm"
+    )(layers.Add(name=f"{name}_sa_res")([residual, attn_out]))
+
+    ea = RTDETRV2MultiScaleDeformableAttention(
+        d_model=d_model,
+        n_levels=n_levels,
+        n_heads=num_heads,
+        n_points=n_points,
+        spatial_shapes=spatial_shapes,
+        level_start_index=level_start_index,
+        name=f"{name}_encoder_attn",
+    )
+    residual = hidden_states
+    cross_out = ea(
+        hidden_states,
+        reference_points,
+        encoder_hidden_states,
+        position_embeddings=query_pos,
+    )
+    hidden_states = layers.LayerNormalization(
+        epsilon=1e-5, name=f"{name}_encoder_attn_layer_norm"
+    )(layers.Add(name=f"{name}_ca_res")([residual, cross_out]))
+
+    residual = hidden_states
+    ff = layers.Dense(dim_feedforward, activation=activation, name=f"{name}_fc1")(
+        hidden_states
+    )
+    ff = layers.Dense(d_model, name=f"{name}_fc2")(ff)
+    hidden_states = layers.LayerNormalization(
+        epsilon=1e-5, name=f"{name}_final_layer_norm"
+    )(layers.Add(name=f"{name}_ff_res")([residual, ff]))
+
+    return hidden_states
+
+
 @keras.saving.register_keras_serializable(package="kmodels")
 class RTDETRV2(keras.Model):
     """RT-DETR: Real-Time DEtection TRansformer.
@@ -828,7 +917,11 @@ class RTDETRV2(keras.Model):
             # v2: pass ref_points as (B, Q, 1, 4) — deformable attention
             # handles level broadcasting internally via merged offsets
             rp_in = ops.expand_dims(ref_pts, axis=2)
-            dl = RTDETRV2DecoderLayer(
+            hs = rt_detr_v2_decoder_layer(
+                hs,
+                source_flat,
+                query_pos,
+                rp_in,
                 d_model=d_model,
                 num_heads=decoder_num_heads,
                 dim_feedforward=decoder_ffn_dim,
@@ -837,10 +930,8 @@ class RTDETRV2(keras.Model):
                 n_points=decoder_n_points,
                 spatial_shapes=spatial_shapes,
                 level_start_index=level_start,
-                block_prefix=f"decoder_layers_{di}",
                 name=f"decoder_layers_{di}",
             )
-            hs = dl(hs, source_flat, query_pos, rp_in)
             logits_i = layers.Dense(num_labels, name=f"class_embed_{di}")(hs)
             bb_i = layers.Dense(d_model, activation="relu", name=f"bbox_embed_{di}_0")(
                 hs

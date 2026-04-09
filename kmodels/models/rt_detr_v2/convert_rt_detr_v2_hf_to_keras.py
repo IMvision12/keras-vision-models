@@ -285,38 +285,51 @@ for model_config in model_configs:
     for i in tqdm(range(num_dec), desc="Transferring decoder layers"):
         hf_dl = f"model.decoder.layers.{i}"
         k_dl = f"decoder_layers_{i}"
-        dec_layer = keras_model.get_layer(k_dl)
 
-        decoder_name_mapping: Dict[str, str] = {
-            f"{k_dl}_self_attn.{k_dl}_self_attn_": "self_attn.",
-            f"{k_dl}_encoder_attn.": "encoder_attn.",
-            f"{k_dl}_self_attn_layer_norm.": "self_attn_layer_norm.",
-            f"{k_dl}_encoder_attn_layer_norm.": "encoder_attn_layer_norm.",
-            f"{k_dl}_final_layer_norm.": "final_layer_norm.",
-            f"{k_dl}_fc1.": "mlp.fc1.",
-            f"{k_dl}_fc2.": "mlp.fc2.",
+        sa_mapping: Dict[str, str] = {
+            f"{k_dl}_self_attn_": "",
             "out_proj": "o_proj",
             "kernel": "weight",
-            "gamma": "weight",
             "beta": "bias",
         }
-
-        skipped = transfer_nested_layer_weights(
-            dec_layer,
-            sd,
-            hf_dl,
-            name_mapping=decoder_name_mapping,
+        sa = keras_model.get_layer(f"{k_dl}_self_attn")
+        transfer_nested_layer_weights(
+            sa, sd, f"{hf_dl}.self_attn", name_mapping=sa_mapping
         )
 
-        ea = dec_layer.encoder_attn
+        ea = keras_model.get_layer(f"{k_dl}_encoder_attn")
+        transfer_nested_layer_weights(
+            ea,
+            sd,
+            f"{hf_dl}.encoder_attn",
+            name_mapping={"kernel": "weight", "beta": "bias"},
+            skip_paths=["n_points_scale"],
+        )
         hf_scale_key = f"{hf_dl}.encoder_attn.n_points_scale"
         if hf_scale_key in sd:
             ea.n_points_scale.assign(sd[hf_scale_key])
 
-        if skipped:
-            for w, path in skipped:
-                if "n_points_scale" not in path:
-                    print(f"  WARNING: Skipped {path}")
+        for k_name, hf_suffix in [
+            (f"{k_dl}_self_attn_layer_norm", "self_attn_layer_norm"),
+            (f"{k_dl}_encoder_attn_layer_norm", "encoder_attn_layer_norm"),
+            (f"{k_dl}_final_layer_norm", "final_layer_norm"),
+        ]:
+            ln = keras_model.get_layer(k_name)
+            transfer_nested_layer_weights(
+                ln, sd, f"{hf_dl}.{hf_suffix}", name_mapping=backbone_name_mapping
+            )
+
+        for k_name, hf_suffix in [
+            (f"{k_dl}_fc1", "mlp.fc1"),
+            (f"{k_dl}_fc2", "mlp.fc2"),
+        ]:
+            fc = keras_model.get_layer(k_name)
+            transfer_nested_layer_weights(
+                fc,
+                sd,
+                f"{hf_dl}.{hf_suffix}",
+                name_mapping={"kernel": "weight", "beta": "bias"},
+            )
 
     for i in tqdm(range(num_dec), desc="Transferring detection heads"):
         try:

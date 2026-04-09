@@ -481,6 +481,22 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
+    "RTDETRV2ResNet18": {
+        "module": "kmodels.models.rt_detr_v2",
+        "model_cls": "RTDETRV2ResNet18",
+        "model_type": "object_detection",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (128, 128, 3),
+            "num_queries": 10,
+            "num_labels": 80,
+        },
+        "input_shape": (2, 128, 128, 3),
+        "expected_output_shape": {
+            "logits": (2, 10, 80),
+            "pred_boxes": (2, 10, 4),
+        },
+    },
     "RFDETRNano": {
         "module": "kmodels.models.rf_detr",
         "model_cls": "RFDETRNano",

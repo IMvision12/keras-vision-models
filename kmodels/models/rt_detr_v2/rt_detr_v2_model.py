@@ -633,10 +633,17 @@ class RTDETRV2(keras.Model):
             )(p)
             proj_feats.append(p)
 
+        if data_format == "channels_first":
+            spatial_h, spatial_w = input_shape[1], input_shape[2]
+        else:
+            spatial_h, spatial_w = input_shape[0], input_shape[1]
+
         for ai, enc_lvl in enumerate(encode_proj_layers):
             feat = proj_feats[enc_lvl]
-            h = input_shape[0] // feat_strides[enc_lvl]
-            w = input_shape[1] // feat_strides[enc_lvl]
+            if data_format == "channels_first":
+                feat = layers.Permute((2, 3, 1), name=f"aifi_{ai}_to_cl")(feat)
+            h = spatial_h // feat_strides[enc_lvl]
+            w = spatial_w // feat_strides[enc_lvl]
             flat = layers.Reshape(
                 (h * w, encoder_hidden_dim), name=f"aifi_{ai}_flatten"
             )(feat)
@@ -653,9 +660,12 @@ class RTDETRV2(keras.Model):
                     activation=encoder_activation_function,
                     name=f"aifi_{ai}_layers_{li}",
                 )
-            proj_feats[enc_lvl] = layers.Reshape(
+            unflat = layers.Reshape(
                 (h, w, encoder_hidden_dim), name=f"aifi_{ai}_unflatten"
             )(flat)
+            if data_format == "channels_first":
+                unflat = layers.Permute((3, 1, 2), name=f"aifi_{ai}_to_cf")(unflat)
+            proj_feats[enc_lvl] = unflat
 
         num_fpn = num_feature_levels - 1
         fpn = [proj_feats[-1]]
@@ -744,12 +754,12 @@ class RTDETRV2(keras.Model):
             )(p)
             dec_sources.append(p)
 
-        spatial_shapes = [
-            (input_shape[0] // s, input_shape[1] // s) for s in feat_strides
-        ]
+        spatial_shapes = [(spatial_h // s, spatial_w // s) for s in feat_strides]
         flat_list = []
         for i, src in enumerate(dec_sources):
             hi, wi = spatial_shapes[i]
+            if data_format == "channels_first":
+                src = layers.Permute((2, 3, 1), name=f"dec_flat_{i}_to_cl")(src)
             flat_list.append(
                 layers.Reshape((hi * wi, d_model), name=f"dec_flat_{i}")(src)
             )
@@ -803,7 +813,7 @@ class RTDETRV2(keras.Model):
         idx3 = ops.expand_dims(topk_idx, -1)
         target = ops.take_along_axis(enc_out, idx3, axis=1)
         target = ops.stop_gradient(target)
-        idx4 = ops.broadcast_to(idx3, [ops.shape(topk_idx)[0], num_queries, 4])
+        idx4 = ops.repeat(idx3, 4, axis=-1)
         ref_logit = ops.take_along_axis(enc_bb_logits, idx4, axis=1)
         ref_logit = ops.stop_gradient(ref_logit)
 

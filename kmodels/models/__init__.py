@@ -36,6 +36,7 @@ from kmodels.models import (
     resnext,
     rf_detr,
     rt_detr,
+    rt_detr_v2,
     sam,
     sam2,
     segformer,

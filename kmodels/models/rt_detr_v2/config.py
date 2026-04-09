@@ -34,8 +34,24 @@ RT_DETR_V2_MODEL_CONFIG = {
 }
 
 RT_DETR_V2_WEIGHTS_CONFIG = {
-    "RTDETRV2ResNet18": {"coco": {"url": ""}},
-    "RTDETRV2ResNet34": {"coco": {"url": ""}},
-    "RTDETRV2ResNet50": {"coco": {"url": ""}},
-    "RTDETRV2ResNet101": {"coco": {"url": ""}},
+    "RTDETRV2ResNet18": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r18vd_coco.weights.h5"
+        },
+    },
+    "RTDETRV2ResNet34": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r34vd_coco.weights.h5"
+        },
+    },
+    "RTDETRV2ResNet50": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r50vd_coco.weights.h5"
+        },
+    },
+    "RTDETRV2ResNet101": {
+        "coco": {
+            "url": "https://github.com/IMvision12/keras-models/releases/download/rt-detrv2/rtdetr_v2_r101vd_coco.weights.h5"
+        },
+    },
 }

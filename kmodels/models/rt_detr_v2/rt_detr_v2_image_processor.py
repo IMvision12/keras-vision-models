@@ -170,6 +170,7 @@ def RTDETRV2PostProcessor(
     threshold: float = 0.5,
     num_top_queries: int = 300,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
+    label_names: Optional[List[str]] = None,
 ) -> List[Dict[str, np.ndarray]]:
     """Post-process raw RT-DETRv2 outputs into usable detections.
 
@@ -191,6 +192,9 @@ def RTDETRV2PostProcessor(
             in the batch. Used to convert normalised boxes to pixel
             coordinates. If ``None``, boxes stay in ``[0, 1]``
             coordinates.
+        label_names: Custom class name list for mapping label indices to
+            names. If ``None``, defaults to COCO class names. Provide this
+            when using a model fine-tuned on a custom dataset.
 
     Returns:
         List of dicts (one per image in the batch), each containing:
@@ -266,15 +270,14 @@ def RTDETRV2PostProcessor(
             )
             xyxy_boxes = xyxy_boxes * scale
 
-        label_names = [
-            COCO_CLASSES[l] if l < len(COCO_CLASSES) else f"class_{l}" for l in labels
-        ]
+        _names = label_names if label_names is not None else COCO_CLASSES
+        mapped_names = [_names[l] if l < len(_names) else f"class_{l}" for l in labels]
 
         results.append(
             {
                 "scores": scores,
                 "labels": labels,
-                "label_names": label_names,
+                "label_names": mapped_names,
                 "boxes": xyxy_boxes,
             }
         )

@@ -51,7 +51,13 @@ def rt_detr_sine_pos_embed_np(height, width, embed_dim, temperature=10000):
 
 
 def rt_detr_backbone(
-    input_tensor, block_repeats, hidden_sizes, embedding_size, layer_type="bottleneck"
+    input_tensor,
+    block_repeats,
+    hidden_sizes,
+    embedding_size,
+    layer_type="bottleneck",
+    data_format=None,
+    channels_axis=-1,
 ):
     """Build a ResNet-vd backbone for RT-DETR feature extraction.
 
@@ -77,12 +83,12 @@ def rt_detr_backbone(
         layer_type: String, ``"bottleneck"`` for 3-layer blocks
             (ResNet-50/101) or ``"basic"`` for 2-layer blocks
             (ResNet-18/34). Defaults to ``"bottleneck"``.
+        data_format: String, Keras data format.
+        channels_axis: Integer, channel axis index.
 
     Returns:
         Tuple of three feature tensors from stages 1, 2, and 3.
     """
-    df = keras.config.image_data_format()
-    ca = -1 if df == "channels_last" else 1
     x = input_tensor
     stem_cfgs = [
         (embedding_size // 2, 2),
@@ -90,22 +96,27 @@ def rt_detr_backbone(
         (embedding_size, 1),
     ]
     for i, (out_ch, stride) in enumerate(stem_cfgs):
-        x = layers.ZeroPadding2D(padding=1, data_format=df)(x)
+        x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
         x = layers.Conv2D(
             out_ch,
             3,
             strides=stride,
             padding="valid",
             use_bias=False,
-            data_format=df,
+            data_format=data_format,
             name=f"backbone_embedder_{i}_conv",
         )(x)
         x = layers.BatchNormalization(
-            axis=ca, epsilon=1e-5, momentum=0.1, name=f"backbone_embedder_{i}_bn"
+            axis=channels_axis,
+            epsilon=1e-5,
+            momentum=0.1,
+            name=f"backbone_embedder_{i}_bn",
         )(x)
         x = layers.ReLU()(x)
-    x = layers.ZeroPadding2D(padding=1, data_format=df)(x)
-    x = layers.MaxPooling2D(pool_size=3, strides=2, padding="valid", data_format=df)(x)
+    x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
+    x = layers.MaxPooling2D(
+        pool_size=3, strides=2, padding="valid", data_format=data_format
+    )(x)
     stage_outputs = []
     is_basic = layer_type == "basic"
     if is_basic:
@@ -119,18 +130,18 @@ def rt_detr_backbone(
             pf = f"backbone_stage{si}_{bi}"
             st = 2 if bi == 0 and si > 0 else 1
             res = x
-            in_ch = res.shape[ca]
+            in_ch = res.shape[channels_axis]
             if is_basic:
                 # Basic block: 3x3 conv -> BN -> ReLU -> 3x3 conv -> BN
                 if st > 1:
-                    x = layers.ZeroPadding2D(padding=1, data_format=df)(x)
+                    x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
                     x = layers.Conv2D(
                         out_ch,
                         3,
                         strides=st,
                         padding="valid",
                         use_bias=False,
-                        data_format=df,
+                        data_format=data_format,
                         name=f"{pf}_conv1",
                     )(x)
                 else:
@@ -139,11 +150,11 @@ def rt_detr_backbone(
                         3,
                         padding="same",
                         use_bias=False,
-                        data_format=df,
+                        data_format=data_format,
                         name=f"{pf}_conv1",
                     )(x)
                 x = layers.BatchNormalization(
-                    axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn1"
+                    axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn1"
                 )(x)
                 x = layers.ReLU()(x)
                 x = layers.Conv2D(
@@ -151,11 +162,11 @@ def rt_detr_backbone(
                     3,
                     padding="same",
                     use_bias=False,
-                    data_format=df,
+                    data_format=data_format,
                     name=f"{pf}_conv2",
                 )(x)
                 x = layers.BatchNormalization(
-                    axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn2"
+                    axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn2"
                 )(x)
             else:
                 # Bottleneck: 1x1 -> 3x3 -> 1x1
@@ -164,22 +175,22 @@ def rt_detr_backbone(
                     1,
                     padding="valid",
                     use_bias=False,
-                    data_format=df,
+                    data_format=data_format,
                     name=f"{pf}_conv1",
                 )(x)
                 x = layers.BatchNormalization(
-                    axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn1"
+                    axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn1"
                 )(x)
                 x = layers.ReLU()(x)
                 if st > 1:
-                    x = layers.ZeroPadding2D(padding=1, data_format=df)(x)
+                    x = layers.ZeroPadding2D(padding=1, data_format=data_format)(x)
                     x = layers.Conv2D(
                         filt,
                         3,
                         strides=st,
                         padding="valid",
                         use_bias=False,
-                        data_format=df,
+                        data_format=data_format,
                         name=f"{pf}_conv2",
                     )(x)
                 else:
@@ -188,11 +199,11 @@ def rt_detr_backbone(
                         3,
                         padding="same",
                         use_bias=False,
-                        data_format=df,
+                        data_format=data_format,
                         name=f"{pf}_conv2",
                     )(x)
                 x = layers.BatchNormalization(
-                    axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn2"
+                    axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn2"
                 )(x)
                 x = layers.ReLU()(x)
                 x = layers.Conv2D(
@@ -200,11 +211,11 @@ def rt_detr_backbone(
                     1,
                     padding="valid",
                     use_bias=False,
-                    data_format=df,
+                    data_format=data_format,
                     name=f"{pf}_conv3",
                 )(x)
                 x = layers.BatchNormalization(
-                    axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn3"
+                    axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{pf}_bn3"
                 )(x)
             needs_shortcut = in_ch != out_ch or st != 1 or (is_basic and bi == 0)
             if needs_shortcut:
@@ -214,27 +225,36 @@ def rt_detr_backbone(
                         1,
                         padding="valid",
                         use_bias=False,
-                        data_format=df,
+                        data_format=data_format,
                         name=f"{pf}_shortcut_conv",
                     )(res)
                     res = layers.BatchNormalization(
-                        axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_shortcut_bn"
+                        axis=channels_axis,
+                        epsilon=1e-5,
+                        momentum=0.1,
+                        name=f"{pf}_shortcut_bn",
                     )(res)
                 else:
                     if st > 1:
                         res = layers.AveragePooling2D(
-                            pool_size=2, strides=2, padding="valid", data_format=df
+                            pool_size=2,
+                            strides=2,
+                            padding="valid",
+                            data_format=data_format,
                         )(res)
                     res = layers.Conv2D(
                         out_ch,
                         1,
                         padding="valid",
                         use_bias=False,
-                        data_format=df,
+                        data_format=data_format,
                         name=f"{pf}_shortcut_conv",
                     )(res)
                     res = layers.BatchNormalization(
-                        axis=ca, epsilon=1e-5, momentum=0.1, name=f"{pf}_shortcut_bn"
+                        axis=channels_axis,
+                        epsilon=1e-5,
+                        momentum=0.1,
+                        name=f"{pf}_shortcut_bn",
                     )(res)
             x = layers.Add()([x, res])
             x = layers.ReLU()(x)
@@ -243,7 +263,15 @@ def rt_detr_backbone(
 
 
 def rt_detr_conv_norm(
-    x, out_ch, ks, stride, padding=None, activation=None, df=None, ca=-1, name=""
+    x,
+    out_ch,
+    ks,
+    stride,
+    padding=None,
+    activation=None,
+    data_format=None,
+    channels_axis=-1,
+    name="",
 ):
     """Convolution + BatchNorm + optional activation block.
 
@@ -264,8 +292,8 @@ def rt_detr_conv_norm(
             ``(ks - 1) // 2``.
         activation: String or ``None``, activation name
             (e.g., ``"silu"``).
-        df: String, Keras data format.
-        ca: Integer, channel axis index.
+        data_format: String, Keras data format.
+        channels_axis: Integer, channel axis index.
         name: String, layer name prefix.
 
     Returns:
@@ -274,25 +302,27 @@ def rt_detr_conv_norm(
     """
     pad = (ks - 1) // 2 if padding is None else padding
     if pad > 0:
-        x = layers.ZeroPadding2D(padding=pad, data_format=df)(x)
+        x = layers.ZeroPadding2D(padding=pad, data_format=data_format)(x)
     x = layers.Conv2D(
         out_ch,
         ks,
         strides=stride,
         padding="valid",
         use_bias=False,
-        data_format=df,
+        data_format=data_format,
         name=f"{name}_conv",
     )(x)
     x = layers.BatchNormalization(
-        axis=ca, epsilon=1e-5, momentum=0.1, name=f"{name}_norm"
+        axis=channels_axis, epsilon=1e-5, momentum=0.1, name=f"{name}_norm"
     )(x)
     if activation is not None:
         x = layers.Activation(activation, name=f"{name}_act")(x)
     return x
 
 
-def rt_detr_rep_vgg_block(x, ch, activation="silu", df=None, ca=-1, name=""):
+def rt_detr_rep_vgg_block(
+    x, ch, activation="silu", data_format=None, channels_axis=-1, name=""
+):
     """RepVGG block with parallel 3x3 and 1x1 convolution branches.
 
     Applies two parallel convolution paths (3x3 and 1x1), sums their
@@ -308,21 +338,46 @@ def rt_detr_rep_vgg_block(x, ch, activation="silu", df=None, ca=-1, name=""):
         x: Input tensor.
         ch: Integer, number of channels for both branches.
         activation: String, activation name. Defaults to ``"silu"``.
-        df: String, Keras data format.
-        ca: Integer, channel axis index.
+        data_format: String, Keras data format.
+        channels_axis: Integer, channel axis index.
         name: String, layer name prefix.
 
     Returns:
         Output tensor of the same shape as the input.
     """
-    b1 = rt_detr_conv_norm(x, ch, 3, 1, padding=1, df=df, ca=ca, name=f"{name}_conv1")
-    b2 = rt_detr_conv_norm(x, ch, 1, 1, padding=0, df=df, ca=ca, name=f"{name}_conv2")
+    b1 = rt_detr_conv_norm(
+        x,
+        ch,
+        3,
+        1,
+        padding=1,
+        data_format=data_format,
+        channels_axis=channels_axis,
+        name=f"{name}_conv1",
+    )
+    b2 = rt_detr_conv_norm(
+        x,
+        ch,
+        1,
+        1,
+        padding=0,
+        data_format=data_format,
+        channels_axis=channels_axis,
+        name=f"{name}_conv2",
+    )
     y = layers.Add(name=f"{name}_add")([b1, b2])
     return layers.Activation(activation, name=f"{name}_act")(y)
 
 
 def rt_detr_csp_rep_layer(
-    x, out_ch, expansion=1.0, num_blocks=3, activation="silu", df=None, ca=-1, name=""
+    x,
+    out_ch,
+    expansion=1.0,
+    num_blocks=3,
+    activation="silu",
+    data_format=None,
+    channels_axis=-1,
+    name="",
 ):
     """Cross Stage Partial layer with RepVGG blocks.
 
@@ -344,8 +399,8 @@ def rt_detr_csp_rep_layer(
         num_blocks: Integer, number of RepVGG bottleneck blocks.
             Defaults to ``3``.
         activation: String, activation name. Defaults to ``"silu"``.
-        df: String, Keras data format.
-        ca: Integer, channel axis index.
+        data_format: String, Keras data format.
+        channels_axis: Integer, channel axis index.
         name: String, layer name prefix.
 
     Returns:
@@ -359,13 +414,18 @@ def rt_detr_csp_rep_layer(
         1,
         padding=0,
         activation=activation,
-        df=df,
-        ca=ca,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_conv1",
     )
     for i in range(num_blocks):
         p1 = rt_detr_rep_vgg_block(
-            p1, hid, activation=activation, df=df, ca=ca, name=f"{name}_bottlenecks_{i}"
+            p1,
+            hid,
+            activation=activation,
+            data_format=data_format,
+            channels_axis=channels_axis,
+            name=f"{name}_bottlenecks_{i}",
         )
     p2 = rt_detr_conv_norm(
         x,
@@ -374,8 +434,8 @@ def rt_detr_csp_rep_layer(
         1,
         padding=0,
         activation=activation,
-        df=df,
-        ca=ca,
+        data_format=data_format,
+        channels_axis=channels_axis,
         name=f"{name}_conv2",
     )
     merged = layers.Add(name=f"{name}_merge")([p1, p2])
@@ -387,8 +447,8 @@ def rt_detr_csp_rep_layer(
             1,
             padding=0,
             activation=activation,
-            df=df,
-            ca=ca,
+            data_format=data_format,
+            channels_axis=channels_axis,
             name=f"{name}_conv3",
         )
     return merged
@@ -531,8 +591,8 @@ class RTDETRV2(keras.Model):
         name="RTDETRV2",
         **kwargs,
     ):
-        df = keras.config.image_data_format()
-        ca = -1 if df == "channels_last" else 1
+        data_format = keras.config.image_data_format()
+        channels_axis = -1 if data_format == "channels_last" else 1
         if input_shape is None:
             input_shape = (640, 640, 3)
         if input_tensor is None:
@@ -550,6 +610,8 @@ class RTDETRV2(keras.Model):
             list(backbone_hidden_sizes),
             backbone_embedding_size,
             layer_type=backbone_layer_type,
+            data_format=data_format,
+            channels_axis=channels_axis,
         )
         bk_feats = [feat_s3, feat_s4, feat_s5]
 
@@ -560,11 +622,14 @@ class RTDETRV2(keras.Model):
                 1,
                 padding="valid",
                 use_bias=False,
-                data_format=df,
+                data_format=data_format,
                 name=f"encoder_input_proj_{i}_conv",
             )(feat)
             p = layers.BatchNormalization(
-                axis=ca, epsilon=1e-5, momentum=0.1, name=f"encoder_input_proj_{i}_bn"
+                axis=channels_axis,
+                epsilon=1e-5,
+                momentum=0.1,
+                name=f"encoder_input_proj_{i}_bn",
             )(p)
             proj_feats.append(p)
 
@@ -604,23 +669,28 @@ class RTDETRV2(keras.Model):
                 1,
                 padding=0,
                 activation=activation_function,
-                df=df,
-                ca=ca,
+                data_format=data_format,
+                channels_axis=channels_axis,
                 name=f"lateral_convs_{idx}",
             )
             fpn[-1] = top
             top = layers.UpSampling2D(
-                size=2, interpolation="nearest", data_format=df, name=f"fpn_up_{idx}"
+                size=2,
+                interpolation="nearest",
+                data_format=data_format,
+                name=f"fpn_up_{idx}",
             )(top)
-            fused = layers.Concatenate(axis=ca, name=f"fpn_cat_{idx}")([top, bk_feat])
+            fused = layers.Concatenate(axis=channels_axis, name=f"fpn_cat_{idx}")(
+                [top, bk_feat]
+            )
             fpn.append(
                 rt_detr_csp_rep_layer(
                     fused,
                     encoder_hidden_dim,
                     expansion=hidden_expansion,
                     activation=activation_function,
-                    df=df,
-                    ca=ca,
+                    data_format=data_format,
+                    channels_axis=channels_axis,
                     name=f"fpn_blocks_{idx}",
                 )
             )
@@ -637,19 +707,21 @@ class RTDETRV2(keras.Model):
                 2,
                 padding=1,
                 activation=activation_function,
-                df=df,
-                ca=ca,
+                data_format=data_format,
+                channels_axis=channels_axis,
                 name=f"downsample_convs_{idx}",
             )
-            fused = layers.Concatenate(axis=ca, name=f"pan_cat_{idx}")([down, fpn_feat])
+            fused = layers.Concatenate(axis=channels_axis, name=f"pan_cat_{idx}")(
+                [down, fpn_feat]
+            )
             pan.append(
                 rt_detr_csp_rep_layer(
                     fused,
                     encoder_hidden_dim,
                     expansion=hidden_expansion,
                     activation=activation_function,
-                    df=df,
-                    ca=ca,
+                    data_format=data_format,
+                    channels_axis=channels_axis,
                     name=f"pan_blocks_{idx}",
                 )
             )
@@ -661,11 +733,14 @@ class RTDETRV2(keras.Model):
                 1,
                 padding="valid",
                 use_bias=False,
-                data_format=df,
+                data_format=data_format,
                 name=f"decoder_input_proj_{i}_conv",
             )(feat)
             p = layers.BatchNormalization(
-                axis=ca, epsilon=1e-5, momentum=0.1, name=f"decoder_input_proj_{i}_bn"
+                axis=channels_axis,
+                epsilon=1e-5,
+                momentum=0.1,
+                name=f"decoder_input_proj_{i}_bn",
             )(p)
             dec_sources.append(p)
 

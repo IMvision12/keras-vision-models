@@ -14,7 +14,7 @@ SAM3 is an open-vocabulary, promptable detection and segmentation model. It comb
 
 The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 layers, 1024d) and geometry encoder for box prompts.
 
-## Weights Setup
+## Weights License
 
 SAM3 weights are gated on HuggingFace. Before using `weights="sam3"`:
 

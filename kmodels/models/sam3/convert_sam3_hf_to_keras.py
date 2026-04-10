@@ -1,7 +1,5 @@
 import os
 
-os.environ["KERAS_BACKEND"] = "torch"
-
 from tqdm import tqdm
 from transformers import Sam3Model
 
@@ -10,9 +8,6 @@ from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
-
-HF_TOKEN = os.environ.get("HF_TOKEN", "")
-OUTPUT = "sam3.weights.h5"
 
 vit_name_mapping = {
     "mlp_fc1": "mlp.fc1",
@@ -23,7 +18,7 @@ vit_name_mapping = {
 }
 
 
-def _transfer_detector(sam3_model, hf, prefix=""):
+def transfer_sam3_weights(sam3_model, hf, prefix=""):
     p = f"{prefix}." if prefix else ""
     det = sam3_model
 
@@ -341,26 +336,32 @@ def _transfer_detector(sam3_model, hf, prefix=""):
         layer.fc2.bias.assign(hf[f"{gp}.mlp.fc2.bias"])
 
 
-print("Loading HF Sam3Model...")
-hf_model = Sam3Model.from_pretrained(
-    "facebook/sam3", attn_implementation="eager", token=HF_TOKEN
-).eval()
-hf = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
-print(f"HF: {len(hf)} keys")
-del hf_model
+if __name__ == "__main__":
+    HF_TOKEN = os.environ.get("HF_TOKEN")
+    OUTPUT = "sam3.weights.h5"
 
-print("\nBuilding Keras SAM3...")
-sam3 = SAM3(input_shape=(1008, 1008, 3), weights=None)
+    print("Loading HF Sam3Model...")
+    hf_model = Sam3Model.from_pretrained(
+        "facebook/sam3", attn_implementation="eager", token=HF_TOKEN
+    ).eval()
+    hf = {k: v.cpu().numpy() for k, v in hf_model.state_dict().items()}
+    print(f"HF: {len(hf)} keys")
+    del hf_model
 
-print("\nTransferring detector weights...")
-_transfer_detector(sam3, hf)
+    print("\nBuilding Keras SAM3...")
+    sam3 = SAM3(input_shape=(1008, 1008, 3), weights=None)
 
-print(f"\nSaving {OUTPUT}...")
-all_weights = sam3.weights + sam3.text_encoder.weights + sam3.geometry_encoder.weights
-total_params = sum(w.numpy().size for w in all_weights)
-print(f"  Total params: {total_params:,}")
-sam3.save_weights(OUTPUT, max_shard_size=1.5)
-size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)
-print(f"  Saved: {OUTPUT} ({size_mb:.0f} MB)")
+    print("\nTransferring detector weights...")
+    transfer_sam3_weights(sam3, hf)
 
-print("\nDone!")
+    print(f"\nSaving {OUTPUT}...")
+    all_weights = (
+        sam3.weights + sam3.text_encoder.weights + sam3.geometry_encoder.weights
+    )
+    total_params = sum(w.numpy().size for w in all_weights)
+    print(f"  Total params: {total_params:,}")
+    sam3.save_weights(OUTPUT, max_shard_size=1.5)
+    size_mb = os.path.getsize(OUTPUT) / (1024 * 1024)
+    print(f"  Saved: {OUTPUT} ({size_mb:.0f} MB)")
+
+    print("\nDone!")

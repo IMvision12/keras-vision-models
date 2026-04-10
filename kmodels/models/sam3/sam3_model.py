@@ -2,9 +2,9 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import load_weights_from_config
+from kmodels.utils.hf_gated_weight_download import load_gated_weights_from_hf
 
-from .config import SAM3_MODEL_CONFIG, SAM3_WEIGHTS_CONFIG
+from .config import SAM3_HF_MODEL_ID, SAM3_MODEL_CONFIG
 from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE
 from .sam3_layers import (
     CLIPCausalMask,
@@ -1466,12 +1466,19 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
     backbone, FPN, DETR encoder/decoder, CLIP text encoder, geometry
     encoder, and mask decoder. Supports 839M parameters.
 
+    SAM3 weights are distributed under Meta's SAM License and require
+    accepting the license at https://huggingface.co/facebook/sam3.
+    On first use with ``weights="sam3"``, the model is downloaded from
+    HuggingFace, converted to Keras format, and cached locally at
+    ``~/.cache/kmodels/sam3/``.
+
     Args:
         input_shape (tuple or None): Input image shape. Defaults to
             ``(1008, 1008, 3)`` for channels_last.
         input_tensor: Optional input tensor.
-        weights (str or None): ``None`` for random init, or a path to
-            a ``.weights.h5`` file.
+        weights (str or None): ``"sam3"`` to download and convert from
+            HuggingFace (cached after first run), ``None`` for random
+            init, or a file path to a ``.weights.h5`` file.
         **kwargs: Additional keyword arguments.
 
     Returns:
@@ -1482,17 +1489,6 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
     """
     config = SAM3_MODEL_CONFIG["SAM3"]
 
-    valid_model_weights = []
-    if "SAM3" in SAM3_WEIGHTS_CONFIG:
-        valid_model_weights = list(SAM3_WEIGHTS_CONFIG["SAM3"].keys())
-    valid_weights = [None] + valid_model_weights
-
-    if weights not in valid_weights and not isinstance(weights, str):
-        raise ValueError(
-            f"Invalid weights: {weights}. "
-            f"Supported: {', '.join(str(w) for w in valid_weights)}, or a file path."
-        )
-
     model = SAM3Main(
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -1500,8 +1496,17 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
         **kwargs,
     )
 
-    if weights in valid_model_weights:
-        load_weights_from_config(model, SAM3_WEIGHTS_CONFIG["SAM3"], weights)
+    if weights == "sam3":
+        from .convert_sam3_hf_to_keras import transfer_sam3_weights
+
+        load_gated_weights_from_hf(
+            model=model,
+            model_name="sam3",
+            hf_model_id=SAM3_HF_MODEL_ID,
+            transfer_fn=transfer_sam3_weights,
+            hf_model_cls="Sam3Model",
+            hf_kwargs={"attn_implementation": "eager"},
+        )
     elif weights is not None:
         model.load_weights(weights)
     else:

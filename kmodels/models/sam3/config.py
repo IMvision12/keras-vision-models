@@ -37,8 +37,4 @@ SAM3_MODEL_CONFIG = {
     },
 }
 
-SAM3_WEIGHTS_CONFIG = {
-    "SAM3": {
-        "sam3": "https://github.com/IMvision12/keras-models/releases/download/sam3/sam3.weights.json",
-    },
-}
+SAM3_HF_MODEL_ID = "facebook/sam3"

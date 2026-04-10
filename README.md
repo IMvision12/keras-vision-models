@@ -49,6 +49,13 @@ pip install -U git+https://github.com/IMvision12/keras-models
 | [RF-DETR](docs/rf_detr.md) | Real-time detection transformer (Nano, Small, Medium, Base, Large variants) |
 | [D-FINE](docs/dfine.md) | Fine-grained distribution refinement detector with HGNetV2 backbone (Nano/Small/Medium/Large/XLarge) |
 
+**Feature Extraction**
+
+| Model | Description |
+|-------|-------------|
+| [DINO](docs/dino.md) | Self-supervised ViT-S/B and ResNet-50 backbones trained with self-distillation |
+| [DINOv2](docs/dino.md) | Improved self-supervised ViT-S/B/L backbones with LayerScale, trained on LVD-142M |
+
 **Vision-Language Models**
 
 | Model | Description |
@@ -123,6 +130,15 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
     | SAM3 | [SAM 3](https://arxiv.org/abs/2506.09011) | `transformers` |
     | SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers`|
+
+<br>
+
+- Feature Extraction
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | DINO | [Emerging Properties in Self-Supervised Vision Transformers](https://arxiv.org/abs/2104.14294) | `torch.hub` |
+    | DINOv2 | [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193) | `transformers` |
 
 <br>
 

@@ -14,19 +14,14 @@ SAM3 is an open-vocabulary, promptable detection and segmentation model. It comb
 
 The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 layers, 1024d) and geometry encoder for box prompts.
 
-## License
+## Weights Setup
 
-SAM3 weights are distributed under [Meta's SAM License](https://github.com/facebookresearch/sam3/blob/main/LICENSE). The license allows commercial use and redistribution with the following requirements:
+SAM3 weights are gated on HuggingFace. Before using `weights="sam3"`:
 
-- You must include a copy of the SAM License when redistributing.
-- You must acknowledge SAM3 usage in published research.
-- Military, nuclear, weapons, espionage, and ITAR-regulated uses are prohibited.
-
-Weights are **not** bundled with kmodels. On first use with `weights="sam3"`, they are downloaded from Meta's gated HuggingFace repo, converted to Keras format, and cached locally at `~/.cache/kmodels/sam3/`.
-
-**Setup (one-time):**
 1. Accept the license at https://huggingface.co/facebook/sam3
 2. Authenticate: `huggingface-cli login` or set `export HF_TOKEN=<your_token>`
+
+On first use, weights are downloaded, converted to Keras, and cached at `~/.cache/kmodels/sam3/`.
 
 ## Basic Usage
 

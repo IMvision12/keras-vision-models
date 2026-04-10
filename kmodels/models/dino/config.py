@@ -56,27 +56,27 @@ DINO_RESNET_MODEL_CONFIG = {
 DINO_WEIGHTS_CONFIG = {
     "DinoViTSmall16": {
         "dino": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino/dino_vits16.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dino_vits16.weights.h5",
         },
     },
     "DinoViTSmall8": {
         "dino": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino/dino_vits8.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dino_vits8.weights.h5",
         },
     },
     "DinoViTBase16": {
         "dino": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino/dino_vitb16.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dino_vitb16.weights.h5",
         },
     },
     "DinoViTBase8": {
         "dino": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino/dino_vitb8.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dino_vitb8.weights.h5",
         },
     },
     "DinoResNet50": {
         "dino": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino/dino_resnet50.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dino_resnet50.weights.h5",
         },
     },
 }

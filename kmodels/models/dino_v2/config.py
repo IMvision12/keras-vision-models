@@ -40,17 +40,17 @@ DINOV2_MODEL_CONFIG = {
 DINOV2_WEIGHTS_CONFIG = {
     "DinoV2Small14": {
         "dinov2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino_v2/dinov2_vits14.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dinov2_vits14.weights.h5",
         },
     },
     "DinoV2Base14": {
         "dinov2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino_v2/dinov2_vitb14.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dinov2_vitb14.weights.h5",
         },
     },
     "DinoV2Large14": {
         "dinov2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/dino_v2/dinov2_vitl14.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/DinoV1_V2/dinov2_vitl14.weights.h5",
         },
     },
 }

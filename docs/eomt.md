@@ -1,6 +1,6 @@
 # EoMT
 
-**Paper**: [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957)
+**Paper**: [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108)
 
 EoMT (Encoder-only Mask Transformer) is a panoptic segmentation model that simplifies the standard encoder-decoder mask transformer pipeline by using only an encoder architecture. This approach reduces complexity while maintaining competitive segmentation performance.
 

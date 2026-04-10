@@ -4,7 +4,7 @@
 
 SAM3 is an open-vocabulary, promptable detection and segmentation model. It combines a ViT-L vision backbone with a DETR-style encoder/decoder for object detection, a CLIP text encoder for open-vocabulary understanding, and a mask decoder for instance and semantic segmentation. SAM3 supports text prompts, box prompts, or both for flexible inference.
 
-**Reference:** [SAM 3](https://arxiv.org/abs/2506.09011) (Meta AI, 2025)
+**Reference:** [SAM 3: Segment Anything with Concepts](https://arxiv.org/abs/2511.16719) (Meta AI, 2025)
 
 ## Available Models
 
@@ -216,9 +216,9 @@ for i, (score, box) in enumerate(zip(
 
 ```bibtex
 @article{sam3,
-  title={SAM 3},
+  title={SAM 3: Segment Anything with Concepts},
   author={Meta AI},
-  journal={arXiv preprint arXiv:2506.09011},
+  journal={arXiv preprint arXiv:2511.16719},
   year={2025}
 }
 ```

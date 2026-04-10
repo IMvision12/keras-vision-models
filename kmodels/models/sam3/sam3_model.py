@@ -56,7 +56,7 @@ def compute_rotary_embeddings(
         Tuple of ``(cos, sin)``, each ``(end_x * end_y, head_dim)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     head_dim = hidden_size // num_attention_heads
     dim_range = ops.cast(ops.arange(0, head_dim, 4), "float32")[: head_dim // 4]
@@ -118,7 +118,7 @@ def sam3_vision_backbone(
         ``backbone_spatial`` is ``(B, H, W, C)`` or ``(B, C, H, W)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     grid_size = vit_image_size // vit_patch_size
     pretrain_grid = vit_pretrain_image_size // vit_patch_size
@@ -232,7 +232,7 @@ def sam3_fpn_neck(
         List of spatial feature tensors, one per scale level.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     fpn_hidden_states = []
 
@@ -323,7 +323,7 @@ def sam3_detr_encoder_layer(
         Updated vision features ``(B, H*W, D)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     self_attn = SAM3MultiHeadAttention(
         hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
@@ -404,7 +404,7 @@ def sam3_detr_encoder(
         ``encoder_output`` is ``(B, H*W, D)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     encoder_vision = fpn_hidden_states[-2]
     enc_h = grid_size
@@ -483,7 +483,7 @@ def sam3_detr_decoder_layer(
         Updated query tensor ``(B, Q, D)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     self_attn = SAM3MultiHeadAttention(
         hidden_size, num_attention_heads, dropout, name=f"{name}_self_attn"
@@ -568,7 +568,7 @@ def sam3_dot_product_scoring(
         Classification logits ``(B, Q)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     text_mlp_fc1 = layers.Dense(intermediate_size, name=f"{name}_text_mlp_fc1")
     text_mlp_fc2 = layers.Dense(hidden_size, name=f"{name}_text_mlp_fc2")
@@ -643,7 +643,7 @@ def sam3_detr_decoder(
         in cxcywh format.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     query_embed = SAM3LearnableEmbedding(
         detr_decoder_num_queries,
@@ -786,7 +786,7 @@ def sam3_mask_embedder(x, hidden_size, name_prefix="mask_embedder"):
         Mask embedding tensor ``(B, Q, D)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     x = layers.Dense(hidden_size, name=f"{name_prefix}_linear1")(x)
     x = layers.ReLU(name=f"{name_prefix}_relu1")(x)
@@ -833,7 +833,7 @@ def sam3_mask_decoder(
         is ``(B, Q, H, W)`` in NCHW format.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     prompt_cross_attn_norm = layers.LayerNormalization(
         epsilon=LAYER_NORM_EPS,
@@ -961,7 +961,7 @@ class SAM3Main(keras.Model):
         **kwargs: Additional keyword arguments.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(
@@ -1354,7 +1354,7 @@ def sam3_clip_encoder_layer(
         Updated hidden states ``(B, seq, D)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     layer_norm1 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm1")
     layer_norm2 = layers.LayerNormalization(epsilon=1e-5, name=f"{name}_layer_norm2")
@@ -1411,7 +1411,7 @@ def build_text_encoder(
         and output ``(B, seq_len, hidden_size)``.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     input_ids = keras.Input(
         shape=(max_position_embeddings,), dtype="int32", name="input_ids"
@@ -1478,7 +1478,7 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
         ``SAM3Main`` instance.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
     config = SAM3_MODEL_CONFIG["SAM3"]
 

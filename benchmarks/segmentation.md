@@ -1,0 +1,117 @@
+# Segmentation — Per-Variant Paper Metrics & Params
+
+Paper-reported segmentation metrics and parameter counts for **every segmentation variant in kmodels**, taken from the **original publication's main results table** for that variant. `Params (M)` is computed by directly instantiating the model from the kmodels registry. Variants are listed in increasing parameter order within each family.
+
+The headline metric varies by family because each task uses a different evaluation protocol:
+
+- **Semantic segmentation** (DeepLabV3, SegFormer, EoMT-semantic): mean IoU (mIoU) on the relevant validation set
+- **Panoptic segmentation** (EoMT-panoptic): Panoptic Quality (PQ)
+- **Promptable segmentation** (SAM, SAM 2): primary metric is zero-shot IoU averaged across many datasets and click-prompt budgets — there is no single canonical "headline number" comparable across variants, so the numbers below are from the paper's main aggregate Table where available
+- **Open-vocabulary detection + segmentation** (SAM 3): box/mask AP on LVIS
+
+Each family section cites the exact paper Table the values came from. `—` means the paper doesn't report that variant or the value is not reliably documented in a single canonical table.
+
+---
+
+### DeepLabV3 &mdash; [paper](https://arxiv.org/abs/1706.05587)
+
+Paper baselines: Tables 4 & 6 of Chen et al. 2017 (PASCAL VOC 2012 val, single-scale, COCO+JFT pretraining was used in the paper for the highest result; the in1k-only baselines are reported in earlier tables). The kmodels weights come from torchvision and are trained on a COCO subset that mimics the PASCAL VOC 21-class taxonomy, so they should be evaluated on that subset rather than the full PASCAL VOC test set.
+
+| Variant | Paper mIoU (%) | Dataset | Params (M) | Source |
+|---------|---------------:|---------|-----------:|--------|
+| `DeepLabV3ResNet50`  | — | — | 40 | torchvision-trained, paper does not break out R50 vs R101 in the main result |
+| `DeepLabV3ResNet101` | 79.3 | PASCAL VOC 2012 val | 59 | DeepLabV3 Table 4 (R101 baseline, no JFT) |
+
+### EoMT &mdash; [paper](https://arxiv.org/abs/2503.19108)
+
+Paper baselines: Table 3 of Kerssies et al. 2025 — model-size ablation on COCO panoptic with DINOv2 pretraining at 640² input. EoMT is evaluated in two flavours: with **mask annealing** active during inference (`w/ Mask`) and the default **no-masking** version that runs ~2× faster. The released checkpoints kmodels downloads correspond to the no-masking column; both are listed below for reference.
+
+| Variant | PQ (no mask) | PQ (w/ mask) | Params (M) |
+|---------|------------:|------------:|-----------:|
+| `EoMT_Small` | 44.7 | 46.1 | 24  |
+| `EoMT_Base`  | 50.6 | 51.5 | 93  |
+| `EoMT_Large` | 56.0 | 56.2 | 316 |
+
+For the ViT-L variant only, the paper provides additional task results (Tables 4–6) showing how the same architecture transfers across protocols:
+
+| Task / Dataset | Input | Metric | Value | Source |
+|----------------|-------|--------|------:|--------|
+| COCO panoptic | 640² | PQ | 56.0 | Table 4 |
+| COCO panoptic | 1280² | PQ | 58.3 | Table 4 |
+| COCO instance | 640² | mask AP | 45.2 | Table 6 |
+| COCO instance | 1280² | mask AP | 48.8 | Table 6 |
+| ADE20K panoptic† | 640² | PQ | 50.6 | Table 4 |
+| ADE20K panoptic† | 1280² | PQ | 51.7 | Table 4 |
+| Cityscapes semantic | 1024² | mIoU | 84.2 | Table 5 |
+| ADE20K semantic | 512² | mIoU | 58.4 | Table 5 |
+
+†Pre-trained for COCO panoptic before transfer.
+
+EoMT also matches ViT-Adapter + Mask2Former on quality while running **up to ~4× faster** thanks to its plain-ViT design (e.g. ViT-L: 128 FPS vs. 29 FPS). The paper additionally evaluates a much larger ViT-g variant (1164M params, 57.0 PQ at 640² / 59.2 PQ at 1280²) which is not currently exposed in kmodels.
+
+### SAM &mdash; [paper](https://arxiv.org/abs/2304.02643)
+
+Paper baselines: Figure 13 (right) of Kirillov et al. 2023 — the only per-variant comparison the SAM paper publishes is the encoder-scaling ablation. The plot reports mIoU averaged across the 23-dataset zero-shot benchmark for two prompting modes:
+
+- **1-click** = single positive click, top-ranked of SAM's three mask outputs
+- **1-click (oracle)** = single positive click, best of SAM's three mask outputs against the ground truth
+
+Values are read from Figure 13 (right) with ~0.3 mIoU precision since the paper doesn't tabulate them. The paper's text observes that "ViT-H improves substantially over ViT-B, but has only marginal gains over ViT-L".
+
+| Variant | 1-click mIoU (%) | 1-click oracle mIoU (%) | Params (M) |
+|---------|-----------------:|------------------------:|-----------:|
+| `SAM_ViT_Base`  | 57.0 | 69.0 | 94  |
+| `SAM_ViT_Large` | 58.5 | 71.5 | 308 |
+| `SAM_ViT_Huge`  | 59.0 | 72.5 | 641 |
+
+The SAM 2 paper's Table 5 gives a tabulated counterpart for SAM (ViT-H) on a slightly extended evaluation: **58.1** 1-click mIoU on SA-23 (and **81.3** with 5 clicks), confirming that SAM ViT-H sits in the high-58/low-59 range. SAM also reports, for the default ViT-H release: zero-shot mask AR@1000 = **59.3** on LVIS object proposals (Table 4); edge-detection on BSDS500 = ODS **0.768** / R50 **0.928** (Table 3); and instance segmentation on LVIS with ViTDet boxes = mask AP **44.7** (Table 5).
+
+### SAM 2 &mdash; [paper](https://arxiv.org/abs/2408.00714)
+
+Paper baselines: Table 17 of Ravi et al. 2024 (semi-supervised VOS task with first-frame ground-truth mask prompts). The headline metric is **J&F mean**. Numbers are reported on six standard video object segmentation benchmarks. Per the paper, all results use the **SAM 2.1** checkpoint set; the values below correspond to the version trained on the full SA-1B + SA-V + internal data mix (the released checkpoints in [`facebookresearch/sam2`](https://github.com/facebookresearch/sam2)), which are what kmodels downloads.
+
+| Variant | SA-V val | SA-V test | MOSE val | DAVIS17 val | LVOS val | Params (M) |
+|---------|---------:|----------:|---------:|------------:|---------:|-----------:|
+| `Sam2Tiny`     | 75.2 | 76.5 | 71.8 | 89.4 | 77.5 | 38  |
+| `Sam2Small`    | 77.0 | 76.6 | 73.5 | 89.6 | 77.3 | 46  |
+| `Sam2BasePlus` | 77.5 | 78.2 | 73.8 | 90.0 | 77.7 | 81  |
+| `Sam2Large`    | 78.6 | 79.5 | 74.6 | 90.2 | 80.1 | 226 |
+
+All values are J&F mean (%). SAM 2 sets a new state of the art on every benchmark above by a wide margin — for example, on SA-V val, the prior-best Cutie-base+ achieves 61.3 J&F vs. SAM 2 (Hiera-T) at 75.2 (+13.9 with the smallest variant). On MOSE val, prior-best Cutie-base+ scores 71.7 vs. SAM 2 (Hiera-L) at 74.6.
+
+### SAM 3 &mdash; [paper](https://arxiv.org/abs/2511.16719)
+
+Paper baselines: Table 1 of Ravi et al. 2025 (image concept segmentation with text). SAM 3 is an open-vocabulary, prompt-driven detector + segmenter; the paper evaluates it on many benchmarks. The headline numbers below are from the main image evaluation in Table 1 — LVIS for closed-vocabulary box/mask AP, COCO for closed-vocabulary box AP, and the new SA-Co/Gold benchmark introduced in the paper for open-vocabulary instance segmentation (`cgF1`). Single ViT-L/14 variant in kmodels.
+
+| Variant | LVIS mask AP | LVIS box AP | COCO box AP | SA-Co/Gold cgF1 | Params (M) |
+|---------|-------------:|------------:|-----------:|---------------:|-----------:|
+| `SAM3` | 48.5 | 53.6 | 56.4 | 54.1 | 478 |
+
+Additional metrics from Table 1: ADE-847 mIoU = 13.8, PascalContext-59 mIoU = 60.8, Cityscapes mIoU = 65.2, COCO-O AP_o = 55.7. SAM 3 sets a new state-of-the-art on closed-vocabulary COCO and on LVIS box/mask AP, and roughly **doubles** the prior best (OWLv2*) on the SA-Co/Gold open-vocabulary benchmark.
+
+### SegFormer &mdash; [paper](https://arxiv.org/abs/2105.15203)
+
+Paper baselines: Tables 1 & 7 of Xie et al. 2021 (single-scale, val sets).
+
+| Variant | Cityscapes mIoU (%) | ADE20K mIoU (%) | Params (M) | Source |
+|---------|--------------------:|----------------:|-----------:|--------|
+| `SegFormerB0` | 76.2 | 37.4 | 3.8 | SegFormer Table 1 / 7 |
+| `SegFormerB1` | 78.5 | 42.2 | 14  | SegFormer Table 1 / 7 |
+| `SegFormerB2` | 81.0 | 46.5 | 28  | SegFormer Table 1 / 7 |
+| `SegFormerB3` | 81.7 | 49.4 | 47  | SegFormer Table 1 / 7 |
+| `SegFormerB4` | 82.3 | 50.3 | 64  | SegFormer Table 1 / 7 |
+| `SegFormerB5` | 82.4 | 51.0 | 85  | SegFormer Table 1 / 7 |
+
+---
+
+## Picking a Model
+
+| Constraint | Good starting points |
+|------------|----------------------|
+| **Smallest semantic segmenter** (< 10M) | `SegFormerB0` |
+| **Mid-range semantic segmentation** (15–50M) | `SegFormerB2`, `SegFormerB3`, `DeepLabV3ResNet50`, `EoMT_Small` |
+| **Maximum semantic accuracy** | `SegFormerB5`, `DeepLabV3ResNet101`, `EoMT_Large` |
+| **Promptable segmentation (point/box/mask prompts)** | `SAM_ViT_Base` for speed, `SAM_ViT_Huge` for quality |
+| **Promptable + video / next-gen** | `Sam2Tiny` → `Sam2Large` |
+| **Open-vocabulary detection + segmentation** | `SAM3` (CLIP-style text prompts) |
+| **Panoptic segmentation** | `EoMT_*` |

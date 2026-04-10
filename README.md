@@ -24,38 +24,11 @@ pip install -U git+https://github.com/IMvision12/keras-models
 
 ## 📑 Documentation
 
-| Topic | Description |
-|-------|-------------|
-| [Backbone Models](docs/backbones.md) | Classification backbones (ViT, ResNet, Swin, ConvNeXt, EfficientNet, and more) with usage examples and model listing |
+Per-model usage guides — covering loading pre-trained weights, preprocessing, inference, post-processing, and full visualization examples — live in the [`docs/`](docs/) folder. Each model in the tables below has a dedicated page there (e.g. [`docs/rt_detr_v2.md`](docs/rt_detr_v2.md), [`docs/sam2.md`](docs/sam2.md), [`docs/clip.md`](docs/clip.md), [`docs/backbones.md`](docs/backbones.md)).
 
-**Segmentation**
+## 📊 Benchmarks
 
-| Model | Description |
-|-------|-------------|
-| [SAM](docs/sam.md) | Segment Anything Model — promptable segmentation with points, boxes, or masks (ViT-B/L/H) |
-| [SAM2](docs/sam2.md) | Segment Anything Model 2 — next generation of promptable visual segmentation (Hiera Tiny/Small/Base+/Large) |
-| [SAM3](docs/sam3.md) | Segment Anything Model 3 — open-vocabulary detection + segmentation with CLIP text encoder (ViT-L/14) |
-| [SegFormer](docs/segformer.md) | Transformer-based semantic segmentation with MLP decoder, Cityscapes & ADE20K weights |
-| [DeepLabV3](docs/deeplabv3.md) | Atrous convolution-based semantic segmentation |
-| [EoMT](docs/eomt.md) | Encoder-only Mask Transformer for panoptic segmentation |
-
-**Object Detection**
-
-| Model | Description |
-|-------|-------------|
-| [DETR](docs/detr.md) | End-to-end object detection with Transformers (ResNet-50/101 backbones) |
-| [RT-DETR](docs/rt_detr.md) | Real-time DETR with ResNet-vd backbone and hybrid encoder (ResNet-18/34/50/101 variants) |
-| [RT-DETRv2](docs/rt_detr_v2.md) | RT-DETR v2 with selective multi-scale deformable attention and learnable per-level sampling scale (ResNet-18/34/50/101 variants) |
-| [RF-DETR](docs/rf_detr.md) | Real-time detection transformer (Nano, Small, Medium, Base, Large variants) |
-| [D-FINE](docs/dfine.md) | Fine-grained distribution refinement detector with HGNetV2 backbone (Nano/Small/Medium/Large/XLarge) |
-
-**Vision-Language Models**
-
-| Model | Description |
-|-------|-------------|
-| [CLIP](docs/clip.md) | Contrastive Language-Image Pre-training for zero-shot classification |
-| [SigLIP](docs/siglip.md) | Sigmoid loss-based language-image pre-training with multilingual support |
-| [SigLIP2](docs/siglip2.md) | Next-gen SigLIP with improved semantic understanding and 256K vocabulary |
+Per-variant paper-reported metrics and parameter counts for every model family — for picking a model that fits your accuracy/size budget — live in [`benchmarks/`](benchmarks/). The metric depends on the task: ImageNet-1K **Top-1** for backbones, COCO val2017 **box AP** for object detection, **mIoU / PQ / J&F** for segmentation (depending on the family's evaluation protocol), and parameter counts for vision-language models. See [`benchmarks/backbones.md`](benchmarks/backbones.md), [`benchmarks/object_detection.md`](benchmarks/object_detection.md), [`benchmarks/segmentation.md`](benchmarks/segmentation.md), and [`benchmarks/vlm.md`](benchmarks/vlm.md).
 
 ## 📑 Models
 
@@ -109,7 +82,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | DETR | [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872) | `transformers`|
     | RT-DETR | [DETRs Beat YOLOs on Real-time Object Detection](https://arxiv.org/abs/2304.08069) | `transformers` |
     | RT-DETRv2 | [RT-DETRv2: Improved Baseline with Bag-of-Freebies for Real-Time Detection Transformers](https://arxiv.org/abs/2407.17140) | `transformers` |
-    | RF-DETR | [RF-DETR: Real-Time Detection Transformer](https://arxiv.org/abs/2502.18860) | `rfdetr` |
+    | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `rfdetr` |
 
 <br>
 
@@ -118,10 +91,10 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
-    | EoMT | [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957) | `transformers` |
+    | EoMT | [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
-    | SAM3 | [SAM 3](https://arxiv.org/abs/2506.09011) | `transformers` |
+    | SAM3 | [SAM 3: Segment Anything with Concepts](https://arxiv.org/abs/2511.16719) | `transformers` |
     | SegFormer | [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://arxiv.org/abs/2105.15203) | `transformers`|
 
 <br>

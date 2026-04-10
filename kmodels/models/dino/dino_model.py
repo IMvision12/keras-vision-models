@@ -10,7 +10,7 @@ from .config import (
 )
 
 
-def _build_dino_vit(
+def DinoViT(
     model_name,
     include_top,
     as_backbone,
@@ -25,6 +25,43 @@ def _build_dino_vit(
     name,
     **kwargs,
 ):
+    """Instantiates a DINO Vision Transformer backbone.
+
+    Builds a standard ViT pretrained with the DINO self-supervised method.
+
+    Reference:
+    - [Emerging Properties in Self-Supervised Vision Transformers](https://arxiv.org/abs/2104.14294)
+
+    Args:
+        model_name: String, key into ``DINO_VIT_MODEL_CONFIG`` selecting the
+            variant (e.g. ``"DinoViTSmall16"``).
+        include_top: Boolean, whether to include a classification head.
+            Defaults to ``False``.
+        as_backbone: Boolean, whether to return intermediate feature maps.
+            When True, returns a list of feature maps at different stages.
+            Defaults to ``False``.
+        include_normalization: Boolean, whether to include normalization layers
+            at the start of the network. When True, input images should be in
+            uint8 format with values in [0, 255]. Defaults to ``True``.
+        normalization_mode: String, specifying the normalization mode to use.
+            Defaults to ``"imagenet"``.
+        weights: String, one of ``"dino"`` (pretrained) or a filepath to
+            custom weights. Set to ``None`` for random initialization.
+        input_tensor: Optional Keras tensor to use as input.
+        input_shape: Optional tuple specifying the input shape.
+            Defaults to ``(224, 224, 3)``.
+        pooling: Optional pooling mode when ``include_top=False``:
+            - ``None``: output is the token sequence ``(B, N, dim)``
+            - ``"avg"``: global average pooling
+            - ``"max"``: global max pooling
+        num_classes: Integer, number of output classes when ``include_top=True``.
+        classifier_activation: String or callable, activation for the
+            classification head. Defaults to ``"softmax"``.
+        name: String, the name of the model.
+
+    Returns:
+        A Keras ``Model`` instance.
+    """
     if include_top and num_classes is None:
         num_classes = 1000
 
@@ -57,7 +94,7 @@ def _build_dino_vit(
     return model
 
 
-def _build_dino_resnet(
+def DinoResNet(
     model_name,
     include_top,
     as_backbone,
@@ -72,6 +109,42 @@ def _build_dino_resnet(
     name,
     **kwargs,
 ):
+    """Instantiates a DINO ResNet backbone.
+
+    Builds a ResNet-50 pretrained with the DINO self-supervised method.
+
+    Reference:
+    - [Emerging Properties in Self-Supervised Vision Transformers](https://arxiv.org/abs/2104.14294)
+
+    Args:
+        model_name: String, key into ``DINO_RESNET_MODEL_CONFIG`` selecting
+            the variant (e.g. ``"DinoResNet50"``).
+        include_top: Boolean, whether to include a classification head.
+            Defaults to ``False``.
+        as_backbone: Boolean, whether to return intermediate feature maps.
+            When True, returns a list of feature maps at different stages.
+            Defaults to ``False``.
+        include_normalization: Boolean, whether to include normalization layers
+            at the start of the network. When True, input images should be in
+            uint8 format with values in [0, 255]. Defaults to ``True``.
+        normalization_mode: String, specifying the normalization mode to use.
+            Defaults to ``"imagenet"``.
+        weights: String, one of ``"dino"`` (pretrained) or a filepath to
+            custom weights. Set to ``None`` for random initialization.
+        input_tensor: Optional Keras tensor to use as input.
+        input_shape: Optional tuple specifying the input shape.
+        pooling: Optional pooling mode when ``include_top=False``:
+            - ``None``: output is the spatial feature map ``(B, H, W, C)``
+            - ``"avg"``: global average pooling ``(B, C)``
+            - ``"max"``: global max pooling ``(B, C)``
+        num_classes: Integer, number of output classes when ``include_top=True``.
+        classifier_activation: String or callable, activation for the
+            classification head. Defaults to ``"softmax"``.
+        name: String, the name of the model.
+
+    Returns:
+        A Keras ``Model`` instance.
+    """
     if include_top and num_classes is None:
         num_classes = 1000
 
@@ -118,8 +191,7 @@ def DinoViTSmall16(
     name="DinoViTSmall16",
     **kwargs,
 ):
-    """DINO ViT-S/16 (21 M params backbone, 16x16 patches)."""
-    return _build_dino_vit(
+    return DinoViT(
         "DinoViTSmall16",
         include_top,
         as_backbone,
@@ -151,8 +223,7 @@ def DinoViTSmall8(
     name="DinoViTSmall8",
     **kwargs,
 ):
-    """DINO ViT-S/8 (21 M params backbone, 8x8 patches)."""
-    return _build_dino_vit(
+    return DinoViT(
         "DinoViTSmall8",
         include_top,
         as_backbone,
@@ -184,8 +255,7 @@ def DinoViTBase16(
     name="DinoViTBase16",
     **kwargs,
 ):
-    """DINO ViT-B/16 (85 M params backbone, 16x16 patches)."""
-    return _build_dino_vit(
+    return DinoViT(
         "DinoViTBase16",
         include_top,
         as_backbone,
@@ -217,8 +287,7 @@ def DinoViTBase8(
     name="DinoViTBase8",
     **kwargs,
 ):
-    """DINO ViT-B/8 (85 M params backbone, 8x8 patches)."""
-    return _build_dino_vit(
+    return DinoViT(
         "DinoViTBase8",
         include_top,
         as_backbone,
@@ -250,8 +319,7 @@ def DinoResNet50(
     name="DinoResNet50",
     **kwargs,
 ):
-    """DINO ResNet-50 (torchvision ResNet-50 trained with DINO)."""
-    return _build_dino_resnet(
+    return DinoResNet(
         "DinoResNet50",
         include_top,
         as_backbone,

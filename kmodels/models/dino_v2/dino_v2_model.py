@@ -1,31 +1,3 @@
-"""DINOv2 models in pure Keras 3.
-
-Implements the self-supervised models from
-`DINOv2: Learning Robust Visual Features without Supervision
-<https://arxiv.org/abs/2304.07193>`_ (Oquab et al., 2024).  Weights are
-converted from the official HuggingFace checkpoints ``facebook/dinov2-*``.
-
-DINOv2 is structurally a standard ViT with ``patch_size=14``, per-block
-**LayerScale** (``init_values=1.0``), and no classification head.  The
-``ViT-G/14`` variant (SwiGLU FFN) is not included.
-
-Available variants:
-
-* ``DinoV2Small14`` -- ViT-S/14 (~22 M params)
-* ``DinoV2Base14``  -- ViT-B/14 (~86 M params)
-* ``DinoV2Large14`` -- ViT-L/14 (~300 M params)
-
-Example::
-
-    from kmodels.models.dino_v2 import DinoV2Small14
-
-    # Backbone (token sequence)
-    model = DinoV2Small14(weights="dinov2")                          # (B, 257, 384)
-
-    # Intermediate feature maps for FPN / segmentation
-    feat = DinoV2Small14(weights="dinov2", as_backbone=True)         # list of tensors
-"""
-
 from kmodels.model_registry import register_model
 from kmodels.models.vit.vit_model import VisionTransformer
 from kmodels.utils import get_all_weight_names, load_weights_from_config
@@ -33,7 +5,7 @@ from kmodels.utils import get_all_weight_names, load_weights_from_config
 from .config import DINOV2_MODEL_CONFIG, DINOV2_WEIGHTS_CONFIG
 
 
-def _build_dinov2(
+def DinoV2(
     model_name,
     include_top,
     as_backbone,
@@ -48,6 +20,44 @@ def _build_dinov2(
     name,
     **kwargs,
 ):
+    """Instantiates a DINOv2 Vision Transformer backbone.
+
+    Builds a ViT with LayerScale pretrained with the DINOv2 self-supervised
+    method.
+
+    Reference:
+    - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
+
+    Args:
+        model_name: String, key into ``DINOV2_MODEL_CONFIG`` selecting the
+            variant (e.g. ``"DinoV2Small14"``).
+        include_top: Boolean, whether to include a classification head.
+            Defaults to ``False``.
+        as_backbone: Boolean, whether to return intermediate feature maps.
+            When True, returns a list of feature maps at different stages.
+            Defaults to ``False``.
+        include_normalization: Boolean, whether to include normalization layers
+            at the start of the network. When True, input images should be in
+            uint8 format with values in [0, 255]. Defaults to ``True``.
+        normalization_mode: String, specifying the normalization mode to use.
+            Defaults to ``"imagenet"``.
+        weights: String, one of ``"dinov2"`` (pretrained) or a filepath to
+            custom weights. Set to ``None`` for random initialization.
+        input_tensor: Optional Keras tensor to use as input.
+        input_shape: Optional tuple specifying the input shape.
+            Defaults to ``(224, 224, 3)``.
+        pooling: Optional pooling mode when ``include_top=False``:
+            - ``None``: output is the token sequence ``(B, N, dim)``
+            - ``"avg"``: global average pooling
+            - ``"max"``: global max pooling
+        num_classes: Integer, number of output classes when ``include_top=True``.
+        classifier_activation: String or callable, activation for the
+            classification head. Defaults to ``"softmax"``.
+        name: String, the name of the model.
+
+    Returns:
+        A Keras ``Model`` instance.
+    """
     if include_top and num_classes is None:
         num_classes = 1000
 
@@ -95,8 +105,7 @@ def DinoV2Small14(
     name="DinoV2Small14",
     **kwargs,
 ):
-    """DINOv2 ViT-S/14 (~22 M params, 14x14 patches)."""
-    return _build_dinov2(
+    return DinoV2(
         "DinoV2Small14",
         include_top,
         as_backbone,
@@ -128,8 +137,7 @@ def DinoV2Base14(
     name="DinoV2Base14",
     **kwargs,
 ):
-    """DINOv2 ViT-B/14 (~86 M params, 14x14 patches)."""
-    return _build_dinov2(
+    return DinoV2(
         "DinoV2Base14",
         include_top,
         as_backbone,
@@ -161,8 +169,7 @@ def DinoV2Large14(
     name="DinoV2Large14",
     **kwargs,
 ):
-    """DINOv2 ViT-L/14 (~300 M params, 14x14 patches)."""
-    return _build_dinov2(
+    return DinoV2(
         "DinoV2Large14",
         include_top,
         as_backbone,

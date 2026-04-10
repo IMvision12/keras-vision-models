@@ -1,22 +1,13 @@
-"""Convert Facebook DINO checkpoints (backbone-only) to kmodels Keras weights.
-
-Backbone weights come from **torch.hub** (``facebookresearch/dino:main``).
-
-Usage:
-    python convert_dino_torch_to_keras.py
-"""
-
 import gc
 import re
-from typing import Dict
+from typing import Dict, List, Tuple, Type
 
 import keras
 import numpy as np
 import torch
 from tqdm import tqdm
 
-from kmodels.models import dino as dino_kmodels
-from kmodels.models.dino.config import DINO_TORCH_HUB
+from kmodels.models import dino
 from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kmodels.utils.weight_split_torch_and_keras import split_model_weights
 from kmodels.utils.weight_transfer_torch_to_keras import (
@@ -25,46 +16,13 @@ from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
-# --------------------------------------------------------------------------- #
-# Registry
-# --------------------------------------------------------------------------- #
-
-DINO_VARIANTS = {
-    "DinoViTSmall16": {
-        "kind": "vit",
-        "ctor": dino_kmodels.DinoViTSmall16,
-        "input_shape": (224, 224, 3),
-        "save_name": "dino_vits16",
-    },
-    "DinoViTSmall8": {
-        "kind": "vit",
-        "ctor": dino_kmodels.DinoViTSmall8,
-        "input_shape": (224, 224, 3),
-        "save_name": "dino_vits8",
-    },
-    "DinoViTBase16": {
-        "kind": "vit",
-        "ctor": dino_kmodels.DinoViTBase16,
-        "input_shape": (224, 224, 3),
-        "save_name": "dino_vitb16",
-    },
-    "DinoViTBase8": {
-        "kind": "vit",
-        "ctor": dino_kmodels.DinoViTBase8,
-        "input_shape": (224, 224, 3),
-        "save_name": "dino_vitb8",
-    },
-    "DinoResNet50": {
-        "kind": "resnet",
-        "ctor": dino_kmodels.DinoResNet50,
-        "input_shape": (224, 224, 3),
-        "save_name": "dino_resnet50",
-    },
+DINO_TORCH_HUB = {
+    "DinoViTSmall16": "dino_vits16",
+    "DinoViTSmall8": "dino_vits8",
+    "DinoViTBase16": "dino_vitb16",
+    "DinoViTBase8": "dino_vitb8",
+    "DinoResNet50": "dino_resnet50",
 }
-
-# --------------------------------------------------------------------------- #
-# Keras -> PyTorch name mappings
-# --------------------------------------------------------------------------- #
 
 VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
@@ -96,82 +54,98 @@ RESNET_NAME_MAPPING: Dict[str, str] = {
     "moving.variance": "running_var",
 }
 
-# --------------------------------------------------------------------------- #
-# Backbone weight transfer
-# --------------------------------------------------------------------------- #
+DINO_WEIGHTS_CONFIG: List[Tuple[Type[keras.Model], str, str, int, str]] = [
+    (dino.DinoViTSmall16, "DinoViTSmall16", "vit", 224, "dino_vits16"),
+    (dino.DinoViTSmall8, "DinoViTSmall8", "vit", 224, "dino_vits8"),
+    (dino.DinoViTBase16, "DinoViTBase16", "vit", 224, "dino_vitb16"),
+    (dino.DinoViTBase8, "DinoViTBase8", "vit", 224, "dino_vitb8"),
+    (dino.DinoResNet50, "DinoResNet50", "resnet", 224, "dino_resnet50"),
+]
 
+for keras_model_cls, hub_key, kind, resolution, save_name in DINO_WEIGHTS_CONFIG:
+    torch_hub_name = DINO_TORCH_HUB[hub_key]
+    input_shape = [resolution, resolution, 3]
 
-def _transfer_backbone(
-    keras_model: keras.Model, torch_sd: Dict[str, torch.Tensor], kind: str
-) -> None:
+    print(f"\n{'=' * 60}")
+    print(f"Converting: {hub_key}  (torch.hub: {torch_hub_name})")
+    print(f"{'=' * 60}")
+
+    torch_model: torch.nn.Module = torch.hub.load(
+        "facebookresearch/dino:main", torch_hub_name, pretrained=True
+    ).eval()
+
+    trainable_torch_weights, non_trainable_torch_weights, _ = split_model_weights(
+        torch_model
+    )
+    torch_weights_dict: Dict[str, torch.Tensor] = {
+        **trainable_torch_weights,
+        **non_trainable_torch_weights,
+    }
+
+    keras_model: keras.Model = keras_model_cls(
+        include_top=False,
+        include_normalization=False,
+        input_shape=input_shape,
+        pooling="avg" if kind == "resnet" else None,
+        weights=None,
+    )
+
+    trainable_keras_weights, non_trainable_keras_weights = split_model_weights(
+        keras_model
+    )
+
     name_mapping = VIT_NAME_MAPPING if kind == "vit" else RESNET_NAME_MAPPING
-    trainable, non_trainable = split_model_weights(keras_model)
-    all_weights = trainable + non_trainable
 
     for keras_weight, keras_weight_name in tqdm(
-        all_weights,
-        total=len(all_weights),
-        desc="  backbone",
+        trainable_keras_weights + non_trainable_keras_weights,
+        total=len(trainable_keras_weights + non_trainable_keras_weights),
+        desc="Transferring weights",
     ):
-        torch_name = keras_weight_name
+        torch_weight_name: str = keras_weight_name
         for old, new in name_mapping.items():
-            torch_name = torch_name.replace(old, new)
+            torch_weight_name = torch_weight_name.replace(old, new)
 
         if kind == "vit":
-            torch_name = re.sub(r"pos_embed_variable_\d+$", "pos_embed", torch_name)
-            torch_name = re.sub(r"cls_token_variable_\d+$", "cls_token", torch_name)
+            torch_weight_name = re.sub(
+                r"pos_embed_variable_\d+$", "pos_embed", torch_weight_name
+            )
+            torch_weight_name = re.sub(
+                r"cls_token_variable_\d+$", "cls_token", torch_weight_name
+            )
 
-            if "attention" in torch_name:
-                transfer_attention_weights(keras_weight_name, keras_weight, torch_sd)
+            if "attention" in torch_weight_name:
+                transfer_attention_weights(
+                    keras_weight_name, keras_weight, torch_weights_dict
+                )
                 continue
 
-        if torch_name not in torch_sd:
-            raise WeightMappingError(keras_weight_name, torch_name)
+        if torch_weight_name not in torch_weights_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
 
-        tw = torch_sd[torch_name]
-        if torch_name in ("cls_token", "pos_embed"):
-            keras_weight.assign(tw.numpy())
+        torch_weight: torch.Tensor = torch_weights_dict[torch_weight_name]
+
+        if torch_weight_name in ("cls_token", "pos_embed"):
+            keras_weight.assign(torch_weight)
             continue
 
         if not compare_keras_torch_names(
-            keras_weight_name, keras_weight, torch_name, tw
+            keras_weight_name, keras_weight, torch_weight_name, torch_weight
         ):
             raise WeightShapeMismatchError(
-                keras_weight_name, keras_weight.shape, torch_name, tw.shape
+                keras_weight_name,
+                keras_weight.shape,
+                torch_weight_name,
+                torch_weight.shape,
             )
-        transfer_weights(keras_weight_name, keras_weight, tw)
 
-
-# --------------------------------------------------------------------------- #
-# Forward-pass verification
-# --------------------------------------------------------------------------- #
-
-
-def _verify_backbone(
-    name: str,
-    kind: str,
-    keras_model: keras.Model,
-    torch_sd: Dict[str, torch.Tensor],
-    input_shape,
-) -> None:
-    hub_name = DINO_TORCH_HUB[name]
-    if kind == "vit":
-        ref = torch.hub.load("facebookresearch/dino:main", hub_name, pretrained=False)
-        ref.load_state_dict(torch_sd, strict=False)
-    else:
-        from torchvision.models import resnet50
-
-        ref = resnet50(weights=None)
-        ref.fc = torch.nn.Identity()
-        ref.load_state_dict(torch_sd, strict=False)
-    ref.eval()
+        transfer_weights(keras_weight_name, keras_weight, torch_weight)
 
     h, w, c = input_shape
     rng = np.random.default_rng(0)
     x = rng.standard_normal((1, c, h, w)).astype(np.float32)
 
     with torch.no_grad():
-        t_out = ref(torch.from_numpy(x)).cpu().numpy()
+        t_out = torch_model(torch.from_numpy(x)).cpu().numpy()
 
     k_in = np.transpose(x, (0, 2, 3, 1))
     k_raw = keras_model(k_in, training=False)
@@ -180,60 +154,19 @@ def _verify_backbone(
     )
 
     if kind == "vit":
-        k_out = k_out[:, 0]  # [CLS] token
+        k_out = k_out[:, 0]
 
     diff = float(np.abs(k_out - t_out).max())
-    assert diff < 1e-3, f"{name} backbone: max diff {diff:.2e}"
-    print(f"  backbone OK  (max diff = {diff:.2e})")
+    assert diff < 1e-3, f"{hub_key}: max diff {diff:.2e}"
+    print(f"  Verification OK (max diff = {diff:.2e})")
 
+    model_filename = f"{save_name}.weights.h5"
+    keras_model.save_weights(model_filename)
+    print(f"  Saved -> {model_filename}")
 
-# --------------------------------------------------------------------------- #
-# Main
-# --------------------------------------------------------------------------- #
-
-
-def main() -> None:
-    for name, info in DINO_VARIANTS.items():
-        print("\n" + "=" * 60)
-        print(f"Converting: {name}")
-        print("=" * 60)
-
-        kind = info["kind"]
-        ctor = info["ctor"]
-        ishape = info["input_shape"]
-        save = info["save_name"]
-
-        # ---- 1. Load backbone from torch.hub ----
-        hub_name = DINO_TORCH_HUB[name]
-        print(f"  torch.hub: {hub_name}")
-        torch_bb = torch.hub.load(
-            "facebookresearch/dino:main", hub_name, pretrained=True
-        )
-        torch_bb.eval()
-        bb_sd = dict(torch_bb.state_dict())
-
-        # ---- 2. Build Keras model (backbone-only), transfer weights ----
-        keras_model = ctor(
-            include_top=False,
-            include_normalization=False,
-            input_shape=ishape,
-            weights=None,
-        )
-        _transfer_backbone(keras_model, bb_sd, kind)
-
-        # ---- 3. Verify ----
-        _verify_backbone(name, kind, keras_model, bb_sd, ishape)
-
-        # ---- 4. Save ----
-        keras_model.save_weights(f"{save}.weights.h5")
-        print(f"  saved -> {save}.weights.h5")
-
-        del keras_model, torch_bb, bb_sd
-        keras.backend.clear_session()
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-
-if __name__ == "__main__":
-    main()
+    del keras_model, torch_model, torch_weights_dict
+    del trainable_torch_weights, non_trainable_torch_weights
+    del trainable_keras_weights, non_trainable_keras_weights
+    keras.backend.clear_session()
+    gc.collect()
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None

@@ -53,14 +53,6 @@ DINO_RESNET_MODEL_CONFIG = {
     },
 }
 
-# Torch-hub model names (backbone-only via torch.hub.load).
-DINO_TORCH_HUB = {
-    "DinoViTSmall16": "dino_vits16",
-    "DinoViTSmall8": "dino_vits8",
-    "DinoViTBase16": "dino_vitb16",
-    "DinoViTBase8": "dino_vitb8",
-    "DinoResNet50": "dino_resnet50",
-}
 DINO_WEIGHTS_CONFIG = {
     "DinoViTSmall16": {
         "dino": {

@@ -101,17 +101,3 @@ Paper baselines: Tables 1 & 7 of Xie et al. 2021 (single-scale, val sets).
 | `SegFormerB3` | 81.7 | 49.4 | 47  | SegFormer Table 1 / 7 |
 | `SegFormerB4` | 82.3 | 50.3 | 64  | SegFormer Table 1 / 7 |
 | `SegFormerB5` | 82.4 | 51.0 | 85  | SegFormer Table 1 / 7 |
-
----
-
-## Picking a Model
-
-| Constraint | Good starting points |
-|------------|----------------------|
-| **Smallest semantic segmenter** (< 10M) | `SegFormerB0` |
-| **Mid-range semantic segmentation** (15–50M) | `SegFormerB2`, `SegFormerB3`, `DeepLabV3ResNet50`, `EoMT_Small` |
-| **Maximum semantic accuracy** | `SegFormerB5`, `DeepLabV3ResNet101`, `EoMT_Large` |
-| **Promptable segmentation (point/box/mask prompts)** | `SAM_ViT_Base` for speed, `SAM_ViT_Huge` for quality |
-| **Promptable + video / next-gen** | `Sam2Tiny` → `Sam2Large` |
-| **Open-vocabulary detection + segmentation** | `SAM3` (CLIP-style text prompts) |
-| **Panoptic segmentation** | `EoMT_*` |

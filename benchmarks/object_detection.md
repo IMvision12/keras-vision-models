@@ -68,16 +68,3 @@ Paper baselines: Table 2 of Robinson et al. 2025 (COCO val2017 detection). RF-DE
 | `RFDETRMedium` | 54.7 | 73.5 | 59.2 | 30 |
 | `RFDETRBase`   | —    | —    | —    | 27 |
 | `RFDETRLarge`  | 56.5 | 75.1 | 61.3 | 30 |
-
----
-
-## Picking a Model
-
-| Constraint | Good starting points |
-|------------|----------------------|
-| **Smallest detector** (≤ 10M params) | `DFineNano`, `DFineSmall` |
-| **Real-time on a single GPU** (20–45M, ~48–52 AP) | `RTDETRResNet18`, `RTDETRV2ResNet18`, `RTDETRResNet34`, `RFDETRNano`, `RFDETRSmall`, `DFineMedium` |
-| **Best AP / latency tradeoff** (~53–56 AP) | `RTDETRResNet50`, `RTDETRV2ResNet50`, `DFineLarge`, `RFDETRMedium`, `RFDETRLarge` |
-| **Maximum AP** (≥ 56 AP) | `DFineXLarge`, `RTDETRResNet101` (with Objects365 pretrain), `RFDETRLarge` |
-| **Pre-DETR baseline** | `DETRResNet50`/`DETRResNet101` — slower (500-epoch training) but a useful reference |
-| **DINOv2 backbone via NAS** | RF-DETR — small differences in params translate to large AP gains thanks to NAS-discovered configs |

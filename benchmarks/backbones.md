@@ -454,18 +454,3 @@ Paper baseline: Table 1 of Chollet 2017 (single-crop on ImageNet val). kmodels u
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
 | `Xception` | 79.0 | 83.2 | 40 | `xception65.ra3_in1k` |
-
----
-
-## Picking a Model
-
-A few rules of thumb for matching a variant to your needs:
-
-| Constraint | Good starting points |
-|------------|----------------------|
-| **Mobile / edge** (≤ 5M params) | `MobileNetV3Small100`, `MobileNetV2WM100`, `MobileViTXXS`, `MobileViTV2M050`, `ConvNeXtAtto`, `ConvNeXtV2Atto`, `EfficientNetB0`, `MiT_B0` |
-| **Desktop / single-GPU** (10–50M, ≥ 80% Top-1) | `ConvNeXtTiny`, `ConvNeXtV2Tiny`, `EfficientNetV2S`, `SwinTinyP4W7`, `MaxViTTiny`, `ResNet50`, `DEiT3Small16` |
-| **Maximum accuracy** (≥ 87% Top-1) | `ConvNeXtV2Huge`, `MaxViTXLarge`, `ConvNeXtV2Large`, `DEiT3Large16`, `EfficientNetL2`, `SwinV2LargeW12`, `ViTLarge16` |
-| **Pure-conv inductive bias** | ResNet, ResNetV2, ResNeXt, EfficientNet, ConvNeXt, ConvMixer, DenseNet |
-| **Hybrid attention-conv** | MaxViT, NextViT, MobileViT, EfficientFormer, PoolFormer, InceptionNeXt |
-| **Pure transformer / MLP** | ViT, DeiT, DeiT3, Swin, FlexiViT, MLP-Mixer, ResMLP, PiT, CaiT |

@@ -116,7 +116,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | DETR | [End-to-End Object Detection with Transformers](https://arxiv.org/abs/2005.12872) | `transformers`|
     | RT-DETR | [DETRs Beat YOLOs on Real-time Object Detection](https://arxiv.org/abs/2304.08069) | `transformers` |
     | RT-DETRv2 | [RT-DETRv2: Improved Baseline with Bag-of-Freebies for Real-Time Detection Transformers](https://arxiv.org/abs/2407.17140) | `transformers` |
-    | RF-DETR | [RF-DETR: Real-Time Detection Transformer](https://arxiv.org/abs/2502.18860) | `rfdetr` |
+    | RF-DETR | [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554) | `rfdetr` |
 
 <br>
 
@@ -125,7 +125,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | DeepLabV3 | [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/abs/1706.05587) | `torchvision` |
-    | EoMT | [Encoder-only Mask Transformer for Panoptic Segmentation](https://arxiv.org/abs/2504.07957) | `transformers` |
+    | EoMT | [Your ViT is Secretly an Image Segmentation Model](https://arxiv.org/abs/2503.19108) | `transformers` |
     | SAM | [Segment Anything](https://arxiv.org/abs/2304.02643) | `transformers` |
     | SAM2 | [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) | `transformers` |
     | SAM3 | [SAM 3](https://arxiv.org/abs/2506.09011) | `transformers` (gated) |

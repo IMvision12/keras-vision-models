@@ -21,7 +21,7 @@ class SAM3LearnableEmbedding(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, num_embeddings, embedding_dim, apply_sigmoid=False, **kwargs):
@@ -75,7 +75,7 @@ class SAM3AddPositionEmbedding(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, num_patches, hidden_size, pretrain_grid, grid_size, **kwargs):
@@ -134,7 +134,7 @@ class SAM3ViTRoPEAttention(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, hidden_size, num_attention_heads, **kwargs):
@@ -216,7 +216,7 @@ class SAM3ViTLayerScale(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, hidden_size, init_value, **kwargs):
@@ -270,7 +270,7 @@ class SAM3ViTLayer(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(
@@ -445,7 +445,7 @@ class SAM3MultiHeadAttention(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, hidden_size, num_attention_heads, dropout=0.0, **kwargs):
@@ -538,7 +538,7 @@ class SAM3GeometryEncoderLayer(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(
@@ -652,7 +652,7 @@ class SAM3DecoderMLP(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2, **kwargs):
@@ -714,7 +714,7 @@ class SAM3BoxRPB(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(
@@ -832,7 +832,7 @@ class SAM3GeometryEncoder(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(
@@ -1110,7 +1110,7 @@ class SAM3CLIPAttention(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, hidden_size, num_attention_heads, **kwargs):
@@ -1189,7 +1189,7 @@ class CLIPPositionEmbedding(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, max_pos, hidden_size, **kwargs):
@@ -1228,7 +1228,7 @@ class CLIPCausalMask(layers.Layer):
         **kwargs: Additional keyword arguments passed to the ``Layer`` class.
 
     References:
-        - SAM 3: https://arxiv.org/abs/2506.09011
+        - SAM 3: https://arxiv.org/abs/2511.16719
     """
 
     def __init__(self, seq_len, **kwargs):

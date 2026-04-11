@@ -1,8 +1,8 @@
 # RF-DETR
 
-**Paper**: [RF-DETR: Real-Time Detection Transformer](https://arxiv.org/abs/2502.18860)
+**Paper**: [RF-DETR: Neural Architecture Search for Real-Time Detection Transformers](https://arxiv.org/abs/2511.09554)
 
-RF-DETR is a real-time object detection model based on the DETR framework, designed for high-speed inference while maintaining strong detection accuracy. It comes in multiple size variants to balance speed and accuracy for different deployment scenarios.
+RF-DETR is a real-time object detection model based on the DETR framework, using neural architecture search to find efficient configurations and a DINOv2 backbone. It comes in multiple size variants to balance speed and accuracy for different deployment scenarios.
 
 ## Model Variants
 

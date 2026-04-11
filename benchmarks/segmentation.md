@@ -15,7 +15,6 @@ Each family section cites the exact paper Table the values came from. `—` mean
 
 ### DeepLabV3 &mdash; [paper](https://arxiv.org/abs/1706.05587)
 
-Paper baselines: Tables 4 & 6 of Chen et al. 2017 (PASCAL VOC 2012 val, single-scale, COCO+JFT pretraining was used in the paper for the highest result; the in1k-only baselines are reported in earlier tables). The kmodels weights come from torchvision and are trained on a COCO subset that mimics the PASCAL VOC 21-class taxonomy, so they should be evaluated on that subset rather than the full PASCAL VOC test set.
 
 | Variant | Paper mIoU (%) | Dataset | Params (M) | Source |
 |---------|---------------:|---------|-----------:|--------|
@@ -24,7 +23,6 @@ Paper baselines: Tables 4 & 6 of Chen et al. 2017 (PASCAL VOC 2012 val, single-s
 
 ### EoMT &mdash; [paper](https://arxiv.org/abs/2503.19108)
 
-Paper baselines: Table 3 of Kerssies et al. 2025 — model-size ablation on COCO panoptic with DINOv2 pretraining at 640² input. EoMT is evaluated in two flavours: with **mask annealing** active during inference (`w/ Mask`) and the default **no-masking** version that runs ~2× faster. The released checkpoints kmodels downloads correspond to the no-masking column; both are listed below for reference.
 
 | Variant | PQ (no mask) | PQ (w/ mask) | Params (M) |
 |---------|------------:|------------:|-----------:|
@@ -51,7 +49,6 @@ EoMT also matches ViT-Adapter + Mask2Former on quality while running **up to ~4�
 
 ### SAM &mdash; [paper](https://arxiv.org/abs/2304.02643)
 
-Paper baselines: Figure 13 (right) of Kirillov et al. 2023 — the only per-variant comparison the SAM paper publishes is the encoder-scaling ablation. The plot reports mIoU averaged across the 23-dataset zero-shot benchmark for two prompting modes:
 
 - **1-click** = single positive click, top-ranked of SAM's three mask outputs
 - **1-click (oracle)** = single positive click, best of SAM's three mask outputs against the ground truth
@@ -68,7 +65,6 @@ The SAM 2 paper's Table 5 gives a tabulated counterpart for SAM (ViT-H) on a sli
 
 ### SAM 2 &mdash; [paper](https://arxiv.org/abs/2408.00714)
 
-Paper baselines: Table 17 of Ravi et al. 2024 (semi-supervised VOS task with first-frame ground-truth mask prompts). The headline metric is **J&F mean**. Numbers are reported on six standard video object segmentation benchmarks. Per the paper, all results use the **SAM 2.1** checkpoint set; the values below correspond to the version trained on the full SA-1B + SA-V + internal data mix (the released checkpoints in [`facebookresearch/sam2`](https://github.com/facebookresearch/sam2)), which are what kmodels downloads.
 
 | Variant | SA-V val | SA-V test | MOSE val | DAVIS17 val | LVOS val | Params (M) |
 |---------|---------:|----------:|---------:|------------:|---------:|-----------:|
@@ -81,7 +77,6 @@ All values are J&F mean (%). SAM 2 sets a new state of the art on every benchmar
 
 ### SAM 3 &mdash; [paper](https://arxiv.org/abs/2511.16719)
 
-Paper baselines: Table 1 of Ravi et al. 2025 (image concept segmentation with text). SAM 3 is an open-vocabulary, prompt-driven detector + segmenter; the paper evaluates it on many benchmarks. The headline numbers below are from the main image evaluation in Table 1 — LVIS for closed-vocabulary box/mask AP, COCO for closed-vocabulary box AP, and the new SA-Co/Gold benchmark introduced in the paper for open-vocabulary instance segmentation (`cgF1`). Single ViT-L/14 variant in kmodels.
 
 | Variant | LVIS mask AP | LVIS box AP | COCO box AP | SA-Co/Gold cgF1 | Params (M) |
 |---------|-------------:|------------:|-----------:|---------------:|-----------:|
@@ -91,7 +86,6 @@ Additional metrics from Table 1: ADE-847 mIoU = 13.8, PascalContext-59 mIoU = 60
 
 ### SegFormer &mdash; [paper](https://arxiv.org/abs/2105.15203)
 
-Paper baselines: Tables 1 & 7 of Xie et al. 2021 (single-scale, val sets).
 
 | Variant | Cityscapes mIoU (%) | ADE20K mIoU (%) | Params (M) | Source |
 |---------|--------------------:|----------------:|-----------:|--------|

@@ -8,7 +8,6 @@ The metric is COCO val2017 single-scale **box AP** (not multi-scale TTA). Each f
 
 ### DETR &mdash; [paper](https://arxiv.org/abs/2005.12872)
 
-Paper baselines: Table 1 of Carion et al. 2020 (COCO val, 500 epochs).
 
 | Variant | Box AP | AP50 | AP75 | Params (M) |
 |---------|------:|----:|----:|-----------:|
@@ -17,7 +16,6 @@ Paper baselines: Table 1 of Carion et al. 2020 (COCO val, 500 epochs).
 
 ### RT-DETR &mdash; [paper](https://arxiv.org/abs/2304.08069)
 
-Paper baselines: Table 2 of Lv et al. 2023 (COCO val2017, single-scale). The `coco_o365` variants use Objects365 pretraining followed by COCO fine-tuning, reported in the updated v3 of the paper.
 
 | Variant | Weights | Box AP | Params (M) |
 |---------|---------|------:|-----------:|
@@ -31,7 +29,6 @@ Paper baselines: Table 2 of Lv et al. 2023 (COCO val2017, single-scale). The `co
 
 ### RT-DETRv2 &mdash; [paper](https://arxiv.org/abs/2407.17140)
 
-Paper baselines: Table 2 of Lv et al. 2024. v2 keeps the v1 backbone sizes but adds the selective multi-scale deformable attention with learnable `n_points_scale`.
 
 | Variant | Box AP | Params (M) |
 |---------|------:|-----------:|
@@ -42,7 +39,6 @@ Paper baselines: Table 2 of Lv et al. 2024. v2 keeps the v1 backbone sizes but a
 
 ### D-FINE &mdash; [paper](https://arxiv.org/abs/2410.13842)
 
-Paper baselines: Table 3 of Peng et al. 2024 (COCO val2017, single-scale). The COCO+Objects365 numbers come from the same table's "+ Objects365" rows.
 
 | Variant | Weights | Box AP | Params (M) |
 |---------|---------|------:|-----------:|
@@ -59,7 +55,6 @@ Paper baselines: Table 3 of Peng et al. 2024 (COCO val2017, single-scale). The C
 
 ### RF-DETR &mdash; [paper](https://arxiv.org/abs/2511.09554)
 
-Paper baselines: Table 2 of Robinson et al. 2025 (COCO val2017 detection). RF-DETR uses neural architecture search over a DINOv2 backbone to discover efficient real-time detection configurations. The paper reports seven NAS variants (N / S / M / L / XL / 2XL / Max); kmodels currently exposes the four smaller NAS variants plus a legacy `Base` that pre-dates the NAS rework and isn't reported in the new paper.
 
 | Variant | Box AP | AP50 | AP75 | Params (M) |
 |---------|------:|----:|----:|-----------:|

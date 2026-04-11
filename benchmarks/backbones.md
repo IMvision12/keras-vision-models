@@ -15,7 +15,6 @@ The `Best` value is generally **higher** than the `Paper` value because most arc
 
 ### CaiT &mdash; [paper](https://arxiv.org/abs/2103.17239)
 
-Paper baselines: Table 5 of Touvron et al. 2021 (without distillation, in1k-only).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -29,7 +28,6 @@ Paper baselines: Table 5 of Touvron et al. 2021 (without distillation, in1k-only
 
 ### ConvMixer &mdash; [paper](https://arxiv.org/abs/2201.09792)
 
-Paper baselines: Table 1 of Trockman & Kolter 2022.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -39,7 +37,6 @@ Paper baselines: Table 1 of Trockman & Kolter 2022.
 
 ### ConvNeXt &mdash; [paper](https://arxiv.org/abs/2201.03545)
 
-Paper baselines: Table 2 of Liu et al. 2022 (in1k-only, 224, single-crop). The Atto/Femto/Pico/Nano sizes are timm additions and not in the paper.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -55,7 +52,6 @@ Paper baselines: Table 2 of Liu et al. 2022 (in1k-only, 224, single-crop). The A
 
 ### ConvNeXt V2 &mdash; [paper](https://arxiv.org/abs/2301.00808)
 
-Paper baselines: Table 5 of Woo et al. 2023 (FCMAE pretrained → in1k fine-tuned, single-crop, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -70,7 +66,6 @@ Paper baselines: Table 5 of Woo et al. 2023 (FCMAE pretrained → in1k fine-tune
 
 ### DeiT &mdash; [paper](https://arxiv.org/abs/2012.12877)
 
-Paper baselines: Table 6 of Touvron et al. 2021 (in1k-only, 224 unless noted).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -83,7 +78,6 @@ Paper baselines: Table 6 of Touvron et al. 2021 (in1k-only, 224 unless noted).
 
 ### DeiT III &mdash; [paper](https://arxiv.org/abs/2204.07118)
 
-Paper baselines: Table 4 of Touvron et al. 2022 (in1k from scratch, 224 unless noted).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -95,7 +89,6 @@ Paper baselines: Table 4 of Touvron et al. 2022 (in1k from scratch, 224 unless n
 
 ### DenseNet &mdash; [paper](https://arxiv.org/abs/1608.06993)
 
-Paper baselines: Table 2 of Huang et al. 2017 (single-crop, single-model on ImageNet val).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -106,7 +99,6 @@ Paper baselines: Table 2 of Huang et al. 2017 (single-crop, single-model on Imag
 
 ### EfficientFormer &mdash; [paper](https://arxiv.org/abs/2206.01191)
 
-Paper baselines: Table 1 of Li et al. 2022 (in1k from scratch, no distillation).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -116,7 +108,6 @@ Paper baselines: Table 1 of Li et al. 2022 (in1k from scratch, no distillation).
 
 ### EfficientNet &mdash; [paper](https://arxiv.org/abs/1905.11946)
 
-Paper baselines: Table 2 of Tan & Le 2019 (single-crop, single-model). B8 and L2 come from the [Noisy Student](https://arxiv.org/abs/1911.04252) paper.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -145,7 +136,6 @@ Lite variants come from the [TensorFlow EfficientNet-Lite blog post / repo](http
 
 ### EfficientNetV2 &mdash; [paper](https://arxiv.org/abs/2104.00298)
 
-Paper baselines: Table 7 of Tan & Le 2021 (in1k-from-scratch baselines for S/M/L; B-series use the EfficientNetV1 conventions). XL is in21k-pretrained only.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -160,7 +150,6 @@ Paper baselines: Table 7 of Tan & Le 2021 (in1k-from-scratch baselines for S/M/L
 
 ### FlexiViT &mdash; [paper](https://arxiv.org/abs/2212.08013)
 
-Paper baselines: Table 1 of Beyer et al. 2022 (in1k 1200ep, average of 16/32 patch sizes).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -194,7 +183,6 @@ Paper baseline: Szegedy et al. 2016 Table 5.
 
 ### InceptionNeXt &mdash; [paper](https://arxiv.org/abs/2303.16900)
 
-Paper baselines: Table 4 of Yu et al. 2023 (in1k 300ep, single-crop, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -205,7 +193,6 @@ Paper baselines: Table 4 of Yu et al. 2023 (in1k 300ep, single-crop, 224).
 
 ### MaxViT &mdash; [paper](https://arxiv.org/abs/2204.01697)
 
-Paper baselines: Table 2 of Tu et al. 2022 (in1k from scratch, 224, single-crop).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -217,7 +204,6 @@ Paper baselines: Table 2 of Tu et al. 2022 (in1k from scratch, 224, single-crop)
 
 ### MiT &mdash; [paper](https://arxiv.org/abs/2105.15203)
 
-Paper baselines: Table 5 of Xie et al. 2021 (SegFormer) — ImageNet-1K pretraining, single-crop. (timm doesn't validate MiT as a standalone classifier.)
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -230,7 +216,6 @@ Paper baselines: Table 5 of Xie et al. 2021 (SegFormer) — ImageNet-1K pretrain
 
 ### MLP-Mixer &mdash; [paper](https://arxiv.org/abs/2105.01601)
 
-Paper baselines: Table 1 of Tolstikhin et al. 2021 (in1k from scratch).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -239,7 +224,6 @@ Paper baselines: Table 1 of Tolstikhin et al. 2021 (in1k from scratch).
 
 ### MobileNetV2 &mdash; [paper](https://arxiv.org/abs/1801.04381)
 
-Paper baselines: Table 4 of Sandler et al. 2018 (single-crop, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -251,7 +235,6 @@ Paper baselines: Table 4 of Sandler et al. 2018 (single-crop, 224).
 
 ### MobileNetV3 &mdash; [paper](https://arxiv.org/abs/1905.02244)
 
-Paper baselines: Table 3 of Howard et al. 2019 (224, single-crop).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -264,7 +247,6 @@ Paper baselines: Table 3 of Howard et al. 2019 (224, single-crop).
 
 ### MobileViT &mdash; [paper](https://arxiv.org/abs/2110.02178)
 
-Paper baselines: Table 2 of Mehta & Rastegari 2021.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -274,7 +256,6 @@ Paper baselines: Table 2 of Mehta & Rastegari 2021.
 
 ### MobileViTV2 &mdash; [paper](https://arxiv.org/abs/2206.02680)
 
-Paper baselines: Table 3 of Mehta & Rastegari 2022 (in1k from scratch, 256).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -288,7 +269,6 @@ Paper baselines: Table 3 of Mehta & Rastegari 2022 (in1k from scratch, 256).
 
 ### NextViT &mdash; [paper](https://arxiv.org/abs/2207.05501)
 
-Paper baselines: Table 4 of Li et al. 2022 (in1k from scratch, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -298,7 +278,6 @@ Paper baselines: Table 4 of Li et al. 2022 (in1k from scratch, 224).
 
 ### PiT &mdash; [paper](https://arxiv.org/abs/2103.16302)
 
-Paper baselines: Table 4 of Heo et al. 2021 (in1k from scratch, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -313,7 +292,6 @@ Paper baselines: Table 4 of Heo et al. 2021 (in1k from scratch, 224).
 
 ### PoolFormer &mdash; [paper](https://arxiv.org/abs/2111.11418)
 
-Paper baselines: Table 1 of Yu et al. 2021 (in1k from scratch, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -325,7 +303,6 @@ Paper baselines: Table 1 of Yu et al. 2021 (in1k from scratch, 224).
 
 ### Res2Net &mdash; [paper](https://arxiv.org/abs/1904.01169)
 
-Paper baselines: Table 4 of Gao et al. 2019 (single-crop, 224).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -339,7 +316,6 @@ Paper baselines: Table 4 of Gao et al. 2019 (single-crop, 224).
 
 ### ResMLP &mdash; [paper](https://arxiv.org/abs/2105.03404)
 
-Paper baselines: Table 1 of Touvron et al. 2021 (no distillation).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -350,7 +326,6 @@ Paper baselines: Table 1 of Touvron et al. 2021 (no distillation).
 
 ### ResNet &mdash; [paper](https://arxiv.org/abs/1512.03385)
 
-Paper baselines: Table 5 of He et al. 2015 (single-crop, single-model on ImageNet val).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -360,7 +335,6 @@ Paper baselines: Table 5 of He et al. 2015 (single-crop, single-model on ImageNe
 
 ### ResNetV2 / BiT &mdash; [paper](https://arxiv.org/abs/1912.11370)
 
-Paper baselines: Table 4 of Kolesnikov et al. 2019 (BiT-M = ImageNet-21k pretrained → in1k fine-tuned). The 152x2 variant is not in the paper main table.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -373,7 +347,6 @@ Paper baselines: Table 4 of Kolesnikov et al. 2019 (BiT-M = ImageNet-21k pretrai
 
 ### ResNeXt &mdash; [paper](https://arxiv.org/abs/1611.05431)
 
-Paper baselines: Table 3 of Xie et al. 2017 (single-crop, 224). The `32x16d` and `32x32d` Instagram-pretrained variants come from [Mahajan et al. 2018](https://arxiv.org/abs/1805.00932).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -385,7 +358,6 @@ Paper baselines: Table 3 of Xie et al. 2017 (single-crop, 224). The `32x16d` and
 
 ### SENet &mdash; [paper](https://arxiv.org/abs/1709.01507)
 
-Paper baselines: Table 2 of Hu et al. 2017 (single-crop on ImageNet val).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -396,7 +368,6 @@ Paper baselines: Table 2 of Hu et al. 2017 (single-crop on ImageNet val).
 
 ### Swin Transformer &mdash; [paper](https://arxiv.org/abs/2103.14030)
 
-Paper baselines: Table 1 of Liu et al. 2021 (in1k from scratch, 224 unless noted).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -409,7 +380,6 @@ Paper baselines: Table 1 of Liu et al. 2021 (in1k from scratch, 224 unless noted
 
 ### Swin Transformer V2 &mdash; [paper](https://arxiv.org/abs/2111.09883)
 
-Paper baselines: Table 1 of Liu et al. 2021 (in1k from scratch, single-crop). Multiple window-size variants come from timm.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -424,7 +394,6 @@ Paper baselines: Table 1 of Liu et al. 2021 (in1k from scratch, single-crop). Mu
 
 ### VGG &mdash; [paper](https://arxiv.org/abs/1409.1556)
 
-Paper baselines: Table 4 of Simonyan & Zisserman 2014 (single-crop, single-model). BN variants are not in the original paper (added by torchvision).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -435,7 +404,6 @@ Paper baselines: Table 4 of Simonyan & Zisserman 2014 (single-crop, single-model
 
 ### ViT &mdash; [paper](https://arxiv.org/abs/2010.11929)
 
-Paper baselines: Table 5 of Dosovitskiy et al. 2020 (ImageNet-21k pretrained → in1k fine-tuned at 384). The Tiny/Small variants come from the [augreg paper](https://arxiv.org/abs/2106.10270).
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|
@@ -449,7 +417,6 @@ Paper baselines: Table 5 of Dosovitskiy et al. 2020 (ImageNet-21k pretrained →
 
 ### Xception &mdash; [paper](https://arxiv.org/abs/1610.02357)
 
-Paper baseline: Table 1 of Chollet 2017 (single-crop on ImageNet val). kmodels uses Xception-65; the original paper reports the Xception-71 architecture with slightly different numbers.
 
 | Variant | Paper Top-1 (%) | Best Top-1 (%) | Params (M) | Source (best) |
 |---------|----------------:|---------------:|-----------:|---------------|

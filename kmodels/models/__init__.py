@@ -11,6 +11,7 @@ from kmodels.models import (
     dfine,
     dino,
     dino_v2,
+    dino_v3,
     efficientformer,
     efficientnet,
     efficientnet_lite,

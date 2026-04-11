@@ -43,7 +43,11 @@ from .config import (
     DINOV3_CONVNEXT_MODEL_CONFIG,
     DINOV3_VIT_MODEL_CONFIG,
 )
-from .convert_dino_v3_hf_to_keras import DINOV3_HF_MODEL_IDS
+from .convert_dino_v3_hf_to_keras import (
+    DINOV3_HF_MODEL_IDS,
+    transfer_dinov3_convnext_weights,
+    transfer_dinov3_vit_weights,
+)
 from .dino_v3_layers import (
     DinoV3Attention,
     DinoV3CLSToken,
@@ -416,8 +420,6 @@ def DinoV3ViT_builder(
     )
 
     if weights == "dinov3":
-        from .convert_dino_v3_hf_to_keras import transfer_dinov3_vit_weights
-
         load_gated_weights_from_hf(
             model=model,
             model_name=model_name.lower(),
@@ -496,8 +498,6 @@ def DinoV3ConvNeXt_builder(
     )
 
     if weights == "dinov3":
-        from .convert_dino_v3_hf_to_keras import transfer_dinov3_convnext_weights
-
         load_gated_weights_from_hf(
             model=model,
             model_name=model_name.lower(),

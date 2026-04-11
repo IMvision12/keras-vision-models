@@ -1,3 +1,5 @@
+import math
+
 import keras
 import numpy as np
 from keras import layers, ops, utils
@@ -15,11 +17,184 @@ from kmodels.models.sam2.sam2_layers import (
 from kmodels.utils import load_weights_from_config
 
 from .config import SAM2_VIDEO_MODEL_CONFIG, SAM2_VIDEO_WEIGHTS_CONFIG
-from .sam2_video_layers import (
-    Sam2VideoFeedForward,
-    Sam2VideoMemoryAttention,
-    Sam2VideoMemoryEncoder,
-)
+from .sam2_video_layers import Sam2VideoMemoryAttention
+
+
+def sam2_video_feed_forward(input_dim, hidden_dim, output_dim, num_layers, name):
+    proj_in = layers.Dense(hidden_dim, name=f"{name}_proj_in")
+    hidden_layers = [
+        layers.Dense(hidden_dim, name=f"{name}_hidden_{i}")
+        for i in range(num_layers - 2)
+    ]
+    proj_out = layers.Dense(output_dim, name=f"{name}_proj_out")
+    return proj_in, hidden_layers, proj_out
+
+
+def sam2_video_feed_forward_call(x, proj_in, hidden_layers, proj_out):
+    x = ops.relu(proj_in(x))
+    for layer in hidden_layers:
+        x = ops.relu(layer(x))
+    return proj_out(x)
+
+
+def sam2_video_mask_downsampler(embed_dim, name):
+    num_stages = 4
+    ds_convs = []
+    ds_lns = []
+    in_ch = 1
+    for i in range(num_stages):
+        out_ch = in_ch * 4
+        ds_convs.append(
+            layers.Conv2D(
+                out_ch,
+                3,
+                strides=2,
+                padding="valid",
+                data_format="channels_first",
+                name=f"{name}_conv_{i}",
+            )
+        )
+        ds_lns.append(layers.LayerNormalization(epsilon=1e-6, name=f"{name}_ln_{i}"))
+        in_ch = out_ch
+    final_conv = layers.Conv2D(
+        embed_dim,
+        1,
+        padding="valid",
+        data_format="channels_first",
+        name=f"{name}_final_conv",
+    )
+    return ds_convs, ds_lns, final_conv
+
+
+def sam2_video_mask_downsampler_call(x, ds_convs, ds_lns, final_conv):
+    for conv, ln in zip(ds_convs, ds_lns):
+        x = ops.pad(x, [[0, 0], [0, 0], [1, 1], [1, 1]])
+        x = conv(x)
+        x = ops.transpose(x, [0, 2, 3, 1])
+        x = ln(x)
+        x = ops.transpose(x, [0, 3, 1, 2])
+        x = ops.nn.gelu(x, approximate=False)
+    return final_conv(x)
+
+
+def sam2_video_cx_block(embed_dim, intermediate_dim, kernel_size, name):
+    dw_conv = layers.DepthwiseConv2D(
+        kernel_size,
+        padding="valid",
+        data_format="channels_first",
+        name=f"{name}_dw_conv",
+    )
+    ln = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_ln")
+    pw1 = layers.Dense(intermediate_dim, name=f"{name}_pw1")
+    pw2 = layers.Dense(embed_dim, name=f"{name}_pw2")
+    return dw_conv, ln, pw1, pw2
+
+
+def sam2_video_cx_block_call(x, dw_conv, ln, pw1, pw2, scale, padding):
+    residual = x
+    x = ops.pad(x, [[0, 0], [0, 0], [padding, padding], [padding, padding]])
+    x = dw_conv(x)
+    x = ops.transpose(x, [0, 2, 3, 1])
+    x = ln(x)
+    x = pw1(x)
+    x = ops.nn.gelu(x, approximate=False)
+    x = pw2(x)
+    x = scale * x
+    x = ops.transpose(x, [0, 3, 1, 2])
+    return residual + x
+
+
+def sam2_video_memory_fuser(num_blocks, embed_dim, intermediate_dim, kernel_size, name):
+    blocks = []
+    for i in range(num_blocks):
+        blocks.append(
+            sam2_video_cx_block(embed_dim, intermediate_dim, kernel_size, f"{name}_{i}")
+        )
+    return blocks
+
+
+def sam2_video_memory_fuser_call(x, blocks, scales, padding):
+    for (dw_conv, ln, pw1, pw2), scale in zip(blocks, scales):
+        x = sam2_video_cx_block_call(x, dw_conv, ln, pw1, pw2, scale, padding)
+    return x
+
+
+def sam2_video_sine_position_embedding(x, num_pos_feats, temperature=10000):
+    scale = 2.0 * math.pi
+    shape = ops.shape(x)
+    h, w = shape[2], shape[3]
+    y_embed = ops.cast(ops.expand_dims(ops.arange(1, h + 1), 1), dtype="float32")
+    x_embed = ops.cast(ops.expand_dims(ops.arange(1, w + 1), 0), dtype="float32")
+    y_embed = ops.broadcast_to(y_embed, [h, w])
+    x_embed = ops.broadcast_to(x_embed, [h, w])
+
+    eps = 1e-6
+    y_embed = y_embed / (y_embed[-1:, :] + eps) * scale
+    x_embed = x_embed / (x_embed[:, -1:] + eps) * scale
+
+    dim_t = ops.cast(ops.arange(num_pos_feats), dtype="float32")
+    dim_t = temperature ** (2 * (dim_t // 2) / num_pos_feats)
+
+    pos_x = ops.expand_dims(x_embed, -1) / dim_t
+    pos_y = ops.expand_dims(y_embed, -1) / dim_t
+
+    pos_x = ops.reshape(
+        ops.stack([ops.sin(pos_x[:, :, 0::2]), ops.cos(pos_x[:, :, 1::2])], axis=3),
+        [h, w, num_pos_feats],
+    )
+    pos_y = ops.reshape(
+        ops.stack([ops.sin(pos_y[:, :, 0::2]), ops.cos(pos_y[:, :, 1::2])], axis=3),
+        [h, w, num_pos_feats],
+    )
+
+    pos = ops.concatenate([pos_y, pos_x], axis=-1)
+    pos = ops.transpose(pos, [2, 0, 1])
+    return ops.expand_dims(pos, 0)
+
+
+def sam2_video_memory_encoder(hidden_size, output_channels, name):
+    ds_convs, ds_lns, ds_final_conv = sam2_video_mask_downsampler(
+        hidden_size, f"{name}_mask_ds"
+    )
+    feature_proj = layers.Conv2D(
+        hidden_size,
+        1,
+        padding="valid",
+        data_format="channels_first",
+        name=f"{name}_feature_proj",
+    )
+    fuser_blocks = sam2_video_memory_fuser(2, hidden_size, 1024, 7, f"{name}_fuser")
+    projection = layers.Conv2D(
+        output_channels,
+        1,
+        padding="valid",
+        data_format="channels_first",
+        name=f"{name}_projection",
+    )
+    return ds_convs, ds_lns, ds_final_conv, feature_proj, fuser_blocks, projection
+
+
+def sam2_video_memory_encoder_call(
+    vision_features,
+    masks,
+    ds_convs,
+    ds_lns,
+    ds_final_conv,
+    feature_proj,
+    fuser_blocks,
+    fuser_scales,
+    projection,
+    num_pos_feats,
+):
+    masks = sam2_video_mask_downsampler_call(masks, ds_convs, ds_lns, ds_final_conv)
+    vision_features = feature_proj(vision_features)
+    vision_features = vision_features + masks
+    vision_features = sam2_video_memory_fuser_call(
+        vision_features, fuser_blocks, fuser_scales, padding=3
+    )
+    vision_features = projection(vision_features)
+    pos_enc = sam2_video_sine_position_embedding(vision_features, num_pos_feats)
+    return vision_features, pos_enc
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -330,17 +505,22 @@ class Sam2Video(keras.Model):
             rope_feat_sizes=[64, 64],
             name="memory_attention",
         )
-        self.memory_encoder = Sam2VideoMemoryEncoder(
-            hidden_size=self.FPN_HIDDEN_SIZE,
-            output_channels=self.MEM_DIM,
-            name="memory_encoder",
-        )
-        self.object_pointer_proj = Sam2VideoFeedForward(
-            input_dim=self.FPN_HIDDEN_SIZE,
-            hidden_dim=self.FPN_HIDDEN_SIZE,
-            output_dim=self.FPN_HIDDEN_SIZE,
-            num_layers=3,
-            name="object_pointer_proj",
+        (
+            self.mem_enc_ds_convs,
+            self.mem_enc_ds_lns,
+            self.mem_enc_ds_final_conv,
+            self.mem_enc_feature_proj,
+            self.mem_enc_fuser_blocks,
+            self.mem_enc_projection,
+        ) = sam2_video_memory_encoder(self.FPN_HIDDEN_SIZE, self.MEM_DIM, "mem_enc")
+        self.obj_ptr_proj_in, self.obj_ptr_proj_hidden_layers, self.obj_ptr_proj_out = (
+            sam2_video_feed_forward(
+                self.FPN_HIDDEN_SIZE,
+                self.FPN_HIDDEN_SIZE,
+                self.FPN_HIDDEN_SIZE,
+                num_layers=3,
+                name="obj_ptr_proj",
+            )
         )
         self.mask_downsample_layer = layers.Conv2D(
             1,
@@ -394,12 +574,38 @@ class Sam2Video(keras.Model):
         dummy_q = ops.zeros((1, 4096, self.FPN_HIDDEN_SIZE))
         self.memory_attention(dummy_q, dummy_mem, training=False)
 
+        self.mem_enc_fuser_scales = []
+        for i in range(2):
+            self.mem_enc_fuser_scales.append(
+                self.add_weight(
+                    name=f"mem_enc_fuser_{i}_scale",
+                    shape=(self.FPN_HIDDEN_SIZE,),
+                    initializer="zeros",
+                )
+            )
+
         dummy_feat = ops.zeros((1, self.FPN_HIDDEN_SIZE, 4, 4))
         dummy_mask = ops.zeros((1, 1, 64, 64))
-        self.memory_encoder(dummy_feat, dummy_mask)
+        sam2_video_memory_encoder_call(
+            dummy_feat,
+            dummy_mask,
+            self.mem_enc_ds_convs,
+            self.mem_enc_ds_lns,
+            self.mem_enc_ds_final_conv,
+            self.mem_enc_feature_proj,
+            self.mem_enc_fuser_blocks,
+            self.mem_enc_fuser_scales,
+            self.mem_enc_projection,
+            self.MEM_DIM // 2,
+        )
 
         dummy_tok = ops.zeros((1, self.FPN_HIDDEN_SIZE))
-        self.object_pointer_proj(dummy_tok)
+        sam2_video_feed_forward_call(
+            dummy_tok,
+            self.obj_ptr_proj_in,
+            self.obj_ptr_proj_hidden_layers,
+            self.obj_ptr_proj_out,
+        )
 
         dummy_ds_mask = ops.zeros((1, 1, 16, 16))
         self.mask_downsample_layer(dummy_ds_mask)

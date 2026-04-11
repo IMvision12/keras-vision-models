@@ -1,5 +1,6 @@
 from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
 from kmodels.utils.file_downloader import download_file, validate_url
+from kmodels.utils.hf_gated_weight_download import load_gated_weights_from_hf
 from kmodels.utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.utils.model_weights_util import (
     get_all_weight_names,

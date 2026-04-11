@@ -14,15 +14,22 @@ SAM3 is an open-vocabulary, promptable detection and segmentation model. It comb
 
 The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 layers, 1024d) and geometry encoder for box prompts.
 
+## Weights License
+
+SAM3 weights are gated on HuggingFace. Before using `weights="sam3"`:
+
+1. Accept the license at https://huggingface.co/facebook/sam3
+2. Authenticate: `huggingface-cli login` or set `export HF_TOKEN=<your_token>`
+
+On first use, weights are downloaded, converted to Keras, and cached at `~/.cache/kmodels/sam3/`.
+
 ## Basic Usage
 
 ```python
-import os
-os.environ["KERAS_BACKEND"] = "torch"
-
 from kmodels.models.sam3 import SAM3
 
-# Create model with pretrained weights
+# First call: downloads from HF, converts, caches (~5 min)
+# Subsequent calls: loads from cache instantly
 model = SAM3(input_shape=(1008, 1008, 3), weights="sam3")
 ```
 

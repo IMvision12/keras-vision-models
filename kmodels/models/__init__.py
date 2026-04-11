@@ -9,6 +9,8 @@ from kmodels.models import (
     densenet,
     detr,
     dfine,
+    dino,
+    dino_v2,
     efficientformer,
     efficientnet,
     efficientnet_lite,

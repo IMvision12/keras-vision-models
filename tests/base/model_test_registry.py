@@ -471,6 +471,32 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 42, 42, 3),
         "expected_output_shape": (2, 1000),
     },
+    "DinoV3ViTSmall16": {
+        "module": "kmodels.models.dino_v3",
+        "model_cls": "DinoV3ViTSmall16",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (32, 32, 3),
+            "include_top": True,
+            "num_classes": 1000,
+        },
+        "input_shape": (2, 32, 32, 3),
+        "expected_output_shape": (2, 1000),
+    },
+    "DinoV3ConvNeXtTiny": {
+        "module": "kmodels.models.dino_v3",
+        "model_cls": "DinoV3ConvNeXtTiny",
+        "model_type": "backbone",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (32, 32, 3),
+            "include_top": True,
+            "num_classes": 1000,
+        },
+        "input_shape": (2, 32, 32, 3),
+        "expected_output_shape": (2, 1000),
+    },
     "DFineSmall": {
         "module": "kmodels.models.dfine",
         "model_cls": "DFineSmall",

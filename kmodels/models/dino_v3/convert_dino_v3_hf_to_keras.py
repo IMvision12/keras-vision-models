@@ -122,50 +122,29 @@ def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
 
 _VAR_MAP = {"kernel": "weight", "gamma": "weight", "bias": "bias", "beta": "bias"}
 
+DINOV3_CONVNEXT_WEIGHT_MAPPING = {
+    r"stem_conv_(kernel|bias)": "model.stages.0.downsample_layers.0.{v}",
+    r"stem_layernorm_(gamma|beta)": "model.stages.0.downsample_layers.1.{v}",
+    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "model.stages.{0}.downsample_layers.0.{v}",
+    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "model.stages.{0}.downsample_layers.1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "model.stages.{0}.layers.{1}.gamma",
+    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "model.stages.{0}.layers.{1}.depthwise_conv.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "model.stages.{0}.layers.{1}.layer_norm.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv2.{v}",
+    r"final_layernorm_(gamma|beta)": "layer_norm.{v}",
+}
+
 
 def _keras_to_hf_convnext(keras_name: str):
-    m = re.match(r"stem_conv_(kernel|bias)", keras_name)
-    if m:
-        return f"model.stages.0.downsample_layers.0.{_VAR_MAP[m.group(1)]}"
-
-    m = re.match(r"stem_layernorm_(gamma|beta)", keras_name)
-    if m:
-        return f"model.stages.0.downsample_layers.1.{_VAR_MAP[m.group(1)]}"
-
-    m = re.match(r"stages_(\d+)_downsampling_layernorm_(gamma|beta)", keras_name)
-    if m:
-        stage = int(m.group(1))
-        return f"model.stages.{stage}.downsample_layers.0.{_VAR_MAP[m.group(2)]}"
-
-    m = re.match(r"stages_(\d+)_downsampling_conv_(kernel|bias)", keras_name)
-    if m:
-        stage = int(m.group(1))
-        return f"model.stages.{stage}.downsample_layers.1.{_VAR_MAP[m.group(2)]}"
-
-    m = re.match(r"stages_(\d+)_blocks_(\d+)_layer_scale_variable", keras_name)
-    if m:
-        return f"model.stages.{m.group(1)}.layers.{m.group(2)}.gamma"
-
-    m = re.match(r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)", keras_name)
-    if m:
-        return f"model.stages.{m.group(1)}.layers.{m.group(2)}.depthwise_conv.{_VAR_MAP[m.group(3)]}"
-
-    m = re.match(r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)", keras_name)
-    if m:
-        return f"model.stages.{m.group(1)}.layers.{m.group(2)}.layer_norm.{_VAR_MAP[m.group(3)]}"
-
-    m = re.match(r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)", keras_name)
-    if m:
-        return f"model.stages.{m.group(1)}.layers.{m.group(2)}.pointwise_conv1.{_VAR_MAP[m.group(3)]}"
-
-    m = re.match(r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)", keras_name)
-    if m:
-        return f"model.stages.{m.group(1)}.layers.{m.group(2)}.pointwise_conv2.{_VAR_MAP[m.group(3)]}"
-
-    m = re.match(r"final_layernorm_(gamma|beta)", keras_name)
-    if m:
-        return f"layer_norm.{_VAR_MAP[m.group(1)]}"
-
+    for pattern, template in DINOV3_CONVNEXT_WEIGHT_MAPPING.items():
+        m = re.match(pattern, keras_name)
+        if m:
+            groups = m.groups()
+            var_group = groups[-1] if groups[-1] in _VAR_MAP else None
+            idx_groups = groups if var_group is None else groups[:-1]
+            v = _VAR_MAP[var_group] if var_group else ""
+            return template.format(*idx_groups, v=v)
     return None
 
 

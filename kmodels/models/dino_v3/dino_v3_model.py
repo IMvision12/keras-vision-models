@@ -1,35 +1,3 @@
-"""DINOv3 models in pure Keras 3.
-
-Implements the self-supervised models from
-`DINOv3 <https://arxiv.org/abs/2508.10104>`_ (Meta, 2025).
-
-DINOv3 ViT differs from standard ViT in three ways:
-
-- **2D RoPE** (theta=100) instead of learned position embeddings
-- **SwiGLU FFN** for plus variants; standard GELU MLP for S/B/L
-- **Register tokens** (4 extra learnable tokens prepended after CLS)
-
-ConvNeXt variants are ConvNeXt-v2 (GRN) distilled from the DINOv3 ViT-7B
-teacher.
-
-DINOv3 weights are gated on HuggingFace. On first use with
-``weights="dinov3"``, they are downloaded, converted to Keras, and cached
-at ``~/.cache/kmodels/<model_name>/``.
-
-Available ViT variants::
-
-    DinoV3ViTSmall16   -- ViT-S/16  (~21 M params, GELU MLP)
-    DinoV3ViTBase16    -- ViT-B/16  (~86 M params, GELU MLP)
-    DinoV3ViTLarge16   -- ViT-L/16  (~300 M params, GELU MLP)
-
-Available ConvNeXt variants::
-
-    DinoV3ConvNeXtTiny   -- ConvNeXt-v2-Tiny  (~29 M params)
-    DinoV3ConvNeXtSmall  -- ConvNeXt-v2-Small (~50 M params)
-    DinoV3ConvNeXtBase   -- ConvNeXt-v2-Base  (~89 M params)
-    DinoV3ConvNeXtLarge  -- ConvNeXt-v2-Large (~198 M params)
-"""
-
 import keras
 from keras import layers, ops, utils
 from keras.src.applications import imagenet_utils
@@ -360,7 +328,7 @@ class DinoV3ViT(keras.Model):
         return cls(**config)
 
 
-def DinoV3ViT_builder(
+def dinov3_model(
     model_name,
     include_top,
     as_backbone,
@@ -375,13 +343,13 @@ def DinoV3ViT_builder(
     name,
     **kwargs,
 ):
-    """Instantiates a DINOv3 ViT backbone.
+    """Instantiates a DINOv3 model (ViT or ConvNeXt variant).
 
     Reference:
     - [DINOv3](https://arxiv.org/abs/2508.10104)
 
     Args:
-        model_name: String, key into ``DINOV3_VIT_MODEL_CONFIG``.
+        model_name: String, key into model config (ViT or ConvNeXt).
         include_top: Boolean, whether to include a classification head.
         as_backbone: Boolean, whether to return intermediate feature maps.
         include_normalization: Boolean, whether to include input normalization.
@@ -400,109 +368,56 @@ def DinoV3ViT_builder(
     if include_top and num_classes is None:
         num_classes = 1000
 
-    if input_shape is None and input_tensor is None:
-        input_shape = (224, 224, 3)
+    is_vit = model_name in DINOV3_VIT_MODEL_CONFIG
 
-    model = DinoV3ViT(
-        **DINOV3_VIT_MODEL_CONFIG[model_name],
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=None,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+    if is_vit:
+        if input_shape is None and input_tensor is None:
+            input_shape = (224, 224, 3)
 
-    if weights == "dinov3":
-        load_gated_weights_from_hf(
-            model=model,
-            model_name=model_name.lower(),
-            hf_model_id=DINOV3_HF_MODEL_IDS[model_name],
-            transfer_fn=transfer_dinov3_vit_weights,
+        model = DinoV3ViT(
+            **DINOV3_VIT_MODEL_CONFIG[model_name],
+            include_top=include_top,
+            as_backbone=as_backbone,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            weights=None,
+            name=name,
+            input_tensor=input_tensor,
+            input_shape=input_shape,
+            pooling=pooling,
+            num_classes=num_classes,
+            classifier_activation=classifier_activation,
+            **kwargs,
         )
-    elif weights is not None:
-        model.load_weights(weights)
+        transfer_fn = transfer_dinov3_vit_weights
     else:
-        print("No weights loaded.")
-
-    return model
-
-
-def DinoV3ConvNeXt_builder(
-    model_name,
-    include_top,
-    as_backbone,
-    include_normalization,
-    normalization_mode,
-    weights,
-    input_tensor,
-    input_shape,
-    pooling,
-    num_classes,
-    classifier_activation,
-    name,
-    **kwargs,
-):
-    """Instantiates a DINOv3 ConvNeXt-v2 backbone.
-
-    ConvNeXt variants are standard ConvNeXt-v2 (with GRN) distilled from
-    the DINOv3 ViT-7B teacher.
-
-    Reference:
-    - [DINOv3](https://arxiv.org/abs/2508.10104)
-
-    Args:
-        model_name: String, key into ``DINOV3_CONVNEXT_MODEL_CONFIG``.
-        include_top: Boolean, whether to include a classification head.
-        as_backbone: Boolean, whether to return intermediate feature maps.
-        include_normalization: Boolean, whether to include input normalization.
-        normalization_mode: String, normalization mode.
-        weights: String, ``"dinov3"`` for gated HF weights, file path, or None.
-        input_tensor: Optional Keras tensor as input.
-        input_shape: Optional tuple for input shape.
-        pooling: Optional pooling mode when ``include_top=False``.
-        num_classes: Integer, number of output classes.
-        classifier_activation: String, activation for classification head.
-        name: String, model name.
-
-    Returns:
-        A Keras ``Model`` instance.
-    """
-    if include_top and num_classes is None:
-        num_classes = 1000
-
-    model = ConvNeXt(
-        **DINOV3_CONVNEXT_MODEL_CONFIG[model_name],
-        drop_path_rate=0.0,
-        layer_scale_init_value=1e-6,
-        use_grn=False,
-        use_conv=True,
-        include_top=include_top,
-        as_backbone=as_backbone,
-        include_normalization=include_normalization,
-        normalization_mode=normalization_mode,
-        weights=None,
-        name=name,
-        input_tensor=input_tensor,
-        input_shape=input_shape,
-        pooling=pooling,
-        num_classes=num_classes,
-        classifier_activation=classifier_activation,
-        **kwargs,
-    )
+        model = ConvNeXt(
+            **DINOV3_CONVNEXT_MODEL_CONFIG[model_name],
+            drop_path_rate=0.0,
+            layer_scale_init_value=1e-6,
+            use_grn=False,
+            use_conv=True,
+            include_top=include_top,
+            as_backbone=as_backbone,
+            include_normalization=include_normalization,
+            normalization_mode=normalization_mode,
+            weights=None,
+            name=name,
+            input_tensor=input_tensor,
+            input_shape=input_shape,
+            pooling=pooling,
+            num_classes=num_classes,
+            classifier_activation=classifier_activation,
+            **kwargs,
+        )
+        transfer_fn = transfer_dinov3_convnext_weights
 
     if weights == "dinov3":
         load_gated_weights_from_hf(
             model=model,
             model_name=model_name.lower(),
             hf_model_id=DINOV3_HF_MODEL_IDS[model_name],
-            transfer_fn=transfer_dinov3_convnext_weights,
+            transfer_fn=transfer_fn,
         )
     elif weights is not None:
         model.load_weights(weights)
@@ -528,7 +443,7 @@ def DinoV3ViTSmall16(
     **kwargs,
 ):
     """DINOv3 ViT-S/16 (~21 M params, GELU MLP, 16x16 patches)."""
-    return DinoV3ViT_builder(
+    return dinov3_model(
         "DinoV3ViTSmall16",
         include_top,
         as_backbone,
@@ -561,7 +476,7 @@ def DinoV3ViTBase16(
     **kwargs,
 ):
     """DINOv3 ViT-B/16 (~86 M params, GELU MLP, 16x16 patches)."""
-    return DinoV3ViT_builder(
+    return dinov3_model(
         "DinoV3ViTBase16",
         include_top,
         as_backbone,
@@ -594,7 +509,7 @@ def DinoV3ViTLarge16(
     **kwargs,
 ):
     """DINOv3 ViT-L/16 (~300 M params, GELU MLP, 16x16 patches)."""
-    return DinoV3ViT_builder(
+    return dinov3_model(
         "DinoV3ViTLarge16",
         include_top,
         as_backbone,
@@ -627,7 +542,7 @@ def DinoV3ConvNeXtTiny(
     **kwargs,
 ):
     """DINOv3 ConvNeXt-v2-Tiny (~29 M params, distilled from ViT-7B)."""
-    return DinoV3ConvNeXt_builder(
+    return dinov3_model(
         "DinoV3ConvNeXtTiny",
         include_top,
         as_backbone,
@@ -660,7 +575,7 @@ def DinoV3ConvNeXtSmall(
     **kwargs,
 ):
     """DINOv3 ConvNeXt-v2-Small (~50 M params, distilled from ViT-7B)."""
-    return DinoV3ConvNeXt_builder(
+    return dinov3_model(
         "DinoV3ConvNeXtSmall",
         include_top,
         as_backbone,
@@ -693,7 +608,7 @@ def DinoV3ConvNeXtBase(
     **kwargs,
 ):
     """DINOv3 ConvNeXt-v2-Base (~89 M params, distilled from ViT-7B)."""
-    return DinoV3ConvNeXt_builder(
+    return dinov3_model(
         "DinoV3ConvNeXtBase",
         include_top,
         as_backbone,
@@ -726,7 +641,7 @@ def DinoV3ConvNeXtLarge(
     **kwargs,
 ):
     """DINOv3 ConvNeXt-v2-Large (~198 M params, distilled from ViT-7B)."""
-    return DinoV3ConvNeXt_builder(
+    return dinov3_model(
         "DinoV3ConvNeXtLarge",
         include_top,
         as_backbone,

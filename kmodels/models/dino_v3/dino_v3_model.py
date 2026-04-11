@@ -25,7 +25,22 @@ from .dino_v3_layers import (
 
 
 def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx):
-    """SwiGLU feed-forward: gate = SiLU(x W1), up = x W2, out = (gate * up) W3."""
+    """
+    Implements a SwiGLU feed-forward network.
+
+    Computes ``gate = SiLU(x @ W_gate)``, ``up = x @ W_up``, and returns
+    ``(gate * up) @ W_down``. SwiGLU typically yields better performance
+    than standard GELU MLP at the same parameter count.
+
+    Args:
+        x: Input tensor of shape ``(batch, seq_len, dim)``.
+        dim: Integer, output dimension (same as input).
+        hidden_dim: Integer, intermediate dimension for gate and up projections.
+        block_idx: Integer, block index used for layer naming.
+
+    Returns:
+        Output tensor of the same shape as the input.
+    """
     gate = layers.Dense(
         hidden_dim, use_bias=True, name=f"blocks_{block_idx}_swiglu_gate"
     )(x)
@@ -39,7 +54,18 @@ def dinov3_swiglu_ffn(x, dim, hidden_dim, block_idx):
 
 
 def dinov3_mlp_block(x, dim, hidden_dim, block_idx):
-    """Standard GELU MLP."""
+    """
+    Implements a standard two-layer MLP with GELU activation.
+
+    Args:
+        x: Input tensor of shape ``(batch, seq_len, dim)``.
+        dim: Integer, output dimension (same as input).
+        hidden_dim: Integer, intermediate hidden dimension.
+        block_idx: Integer, block index used for layer naming.
+
+    Returns:
+        Output tensor of the same shape as the input.
+    """
     x = layers.Dense(hidden_dim, use_bias=True, name=f"blocks_{block_idx}_dense_1")(x)
     x = layers.Activation("gelu", name=f"blocks_{block_idx}_gelu")(x)
     x = layers.Dense(dim, use_bias=True, name=f"blocks_{block_idx}_dense_2")(x)
@@ -59,6 +85,33 @@ def dinov3_transformer_block(
     rope_cos,
     rope_sin,
 ):
+    """
+    Implements a DINOv3 transformer block with self-attention and MLP.
+
+    The block consists of two residual branches:
+    1. Multi-head self-attention with 2D RoPE
+    2. Feed-forward network (SwiGLU or standard GELU MLP)
+
+    Both branches use pre-normalization (LayerNorm) and optional LayerScale.
+
+    Args:
+        inputs: Input tensor of shape ``(batch, seq_len, dim)``.
+        dim: Integer, embedding dimension.
+        num_heads: Integer, number of attention heads.
+        mlp_hidden_dim: Integer, hidden dimension for the MLP.
+        num_prefix_tokens: Integer, number of non-patch tokens (CLS + registers)
+            excluded from RoPE.
+        rope_theta: Float, RoPE frequency base.
+        use_swiglu: Boolean, whether to use SwiGLU FFN instead of GELU MLP.
+        init_values: Float or None, initial value for LayerScale. If None,
+            LayerScale is not applied.
+        block_idx: Integer, block index used for layer naming.
+        rope_cos: Tensor, precomputed RoPE cosine table.
+        rope_sin: Tensor, precomputed RoPE sine table.
+
+    Returns:
+        Output tensor with the same shape as the input.
+    """
     x = layers.LayerNormalization(
         epsilon=1e-6, axis=-1, name=f"blocks_{block_idx}_layernorm_1"
     )(inputs)
@@ -442,7 +495,6 @@ def DinoV3ViTSmall16(
     name="DinoV3ViTSmall16",
     **kwargs,
 ):
-    """DINOv3 ViT-S/16 (~21 M params, GELU MLP, 16x16 patches)."""
     return dinov3_model(
         "DinoV3ViTSmall16",
         include_top,
@@ -475,7 +527,6 @@ def DinoV3ViTBase16(
     name="DinoV3ViTBase16",
     **kwargs,
 ):
-    """DINOv3 ViT-B/16 (~86 M params, GELU MLP, 16x16 patches)."""
     return dinov3_model(
         "DinoV3ViTBase16",
         include_top,
@@ -508,7 +559,6 @@ def DinoV3ViTLarge16(
     name="DinoV3ViTLarge16",
     **kwargs,
 ):
-    """DINOv3 ViT-L/16 (~300 M params, GELU MLP, 16x16 patches)."""
     return dinov3_model(
         "DinoV3ViTLarge16",
         include_top,
@@ -541,7 +591,6 @@ def DinoV3ConvNeXtTiny(
     name="DinoV3ConvNeXtTiny",
     **kwargs,
 ):
-    """DINOv3 ConvNeXt-v2-Tiny (~29 M params, distilled from ViT-7B)."""
     return dinov3_model(
         "DinoV3ConvNeXtTiny",
         include_top,
@@ -574,7 +623,6 @@ def DinoV3ConvNeXtSmall(
     name="DinoV3ConvNeXtSmall",
     **kwargs,
 ):
-    """DINOv3 ConvNeXt-v2-Small (~50 M params, distilled from ViT-7B)."""
     return dinov3_model(
         "DinoV3ConvNeXtSmall",
         include_top,
@@ -607,7 +655,6 @@ def DinoV3ConvNeXtBase(
     name="DinoV3ConvNeXtBase",
     **kwargs,
 ):
-    """DINOv3 ConvNeXt-v2-Base (~89 M params, distilled from ViT-7B)."""
     return dinov3_model(
         "DinoV3ConvNeXtBase",
         include_top,
@@ -640,7 +687,6 @@ def DinoV3ConvNeXtLarge(
     name="DinoV3ConvNeXtLarge",
     **kwargs,
 ):
-    """DINOv3 ConvNeXt-v2-Large (~198 M params, distilled from ViT-7B)."""
     return dinov3_model(
         "DinoV3ConvNeXtLarge",
         include_top,

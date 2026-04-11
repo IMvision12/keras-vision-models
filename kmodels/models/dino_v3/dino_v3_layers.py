@@ -5,7 +5,15 @@ from keras import InputSpec, layers, ops
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DinoV3CLSToken(layers.Layer):
-    """Prepend a learnable CLS token to the input sequence."""
+    """
+    Prepends a learnable CLS token to the input patch sequence.
+
+    The CLS token is a trainable vector broadcast across the batch and
+    concatenated at position 0, following the standard ViT convention.
+
+    Args:
+        **kwargs: Additional keyword arguments passed to the base ``Layer``.
+    """
 
     def build(self, input_shape):
         self.cls_token = self.add_weight(
@@ -23,7 +31,21 @@ class DinoV3CLSToken(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DinoV3RegisterTokens(layers.Layer):
-    """Insert learnable register tokens after CLS token."""
+    """
+    Inserts learnable register tokens after the CLS token.
+
+    Register tokens are extra learnable vectors inserted between the CLS token
+    and the patch tokens. They act as memory slots that improve attention map
+    quality and reduce artifact tokens.
+
+    Reference:
+    - [Vision Transformers Need Registers](https://arxiv.org/abs/2309.16588)
+
+    Args:
+        num_tokens: Integer, number of register tokens to insert.
+            Defaults to ``4``.
+        **kwargs: Additional keyword arguments passed to the base ``Layer``.
+    """
 
     def __init__(self, num_tokens=4, **kwargs):
         super().__init__(**kwargs)
@@ -52,28 +74,32 @@ class DinoV3RegisterTokens(layers.Layer):
 
 
 def build_rope_2d_cache(grid_h, grid_w, head_dim, theta=100.0):
-    """Precompute 2D RoPE cos/sin matching the HuggingFace DINOv3 implementation.
-
-    Patch centers are normalized to [-1, +1], then multiplied by ``2 * pi``
-    and the inverse-frequency vector.  The angle tensor is shaped
-    ``(H*W, 2, head_dim//4)`` → flattened → tiled to ``(H*W, head_dim)``.
-
-    Returns ``(cos, sin)`` each of shape ``(grid_h * grid_w, head_dim)``.
     """
-    # inv_freq: arange(0, 1, step=4/head_dim) gives head_dim//4 values
+    Precompute 2D Rotary Position Embedding (RoPE) cos/sin tables.
+
+    Patch center coordinates are normalized to ``[-1, +1]``, multiplied by
+    ``2 * pi`` and the inverse-frequency vector, then tiled to fill the full
+    head dimension. This matches the HuggingFace DINOv3 implementation.
+
+    Args:
+        grid_h: Integer, number of patch rows.
+        grid_w: Integer, number of patch columns.
+        head_dim: Integer, dimension of each attention head.
+        theta: Float, RoPE frequency base. Defaults to ``100.0``.
+
+    Returns:
+        Tuple ``(cos, sin)``, each a NumPy array of shape
+        ``(grid_h * grid_w, head_dim)``.
+    """
     inv_freq = 1.0 / (theta ** np.arange(0, 1, 4 / head_dim, dtype=np.float32))
 
-    # Patch center coordinates normalized to [-1, +1]
     coords_h = (np.arange(0.5, grid_h, dtype=np.float32) / grid_h) * 2.0 - 1.0
     coords_w = (np.arange(0.5, grid_w, dtype=np.float32) / grid_w) * 2.0 - 1.0
 
-    # Meshgrid -> (H*W, 2)
     gh, gw = np.meshgrid(coords_h, coords_w, indexing="ij")
-    coords = np.stack([gh.ravel(), gw.ravel()], axis=-1)  # (H*W, 2)
+    coords = np.stack([gh.ravel(), gw.ravel()], axis=-1)
 
-    # angles: (H*W, 2, head_dim//4)
     angles = 2.0 * np.pi * coords[:, :, None] * inv_freq[None, None, :]
-    # flatten -> (H*W, head_dim//2), tile -> (H*W, head_dim)
     angles = angles.reshape(grid_h * grid_w, -1)
     angles = np.tile(angles, (1, 2))
 
@@ -92,11 +118,23 @@ def _apply_rope(x, cos, sin):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DinoV3Attention(layers.Layer):
-    """Multi-head self-attention with 2D RoPE for DINOv3.
+    """
+    Multi-head self-attention with 2D Rotary Position Embeddings (RoPE).
 
-    Separate Q, K, V projections (Q bias=True, K bias=False, V bias=True).
-    2D Rotary Position Embedding applied to Q and K patch tokens only;
-    CLS and register tokens are excluded from RoPE.
+    Uses separate Q, K, V projections following the DINOv3 convention:
+    Q and V have bias, K does not. 2D RoPE is applied to Q and K patch
+    tokens only; CLS and register tokens are excluded from positional encoding.
+
+    Args:
+        dim: Integer, total embedding dimension.
+        num_heads: Integer, number of attention heads. Defaults to ``8``.
+        attn_drop: Float, dropout rate for attention weights. Defaults to ``0.0``.
+        proj_drop: Float, dropout rate for output projection. Defaults to ``0.0``.
+        num_prefix_tokens: Integer, number of non-patch tokens (CLS + registers)
+            excluded from RoPE. Defaults to ``5``.
+        rope_theta: Float, RoPE frequency base. Defaults to ``100.0``.
+        block_prefix: String, prefix for layer naming. If None, uses ``"blocks"``.
+        **kwargs: Additional keyword arguments passed to the base ``Layer``.
     """
 
     def __init__(
@@ -133,7 +171,6 @@ class DinoV3Attention(layers.Layer):
         self._rope_sin = None
 
     def set_rope_cache(self, cos, sin):
-        """Set the precomputed RoPE cos/sin tensors."""
         self._rope_cos = cos
         self._rope_sin = sin
 

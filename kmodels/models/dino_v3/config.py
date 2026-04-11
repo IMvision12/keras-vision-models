@@ -52,13 +52,3 @@ DINOV3_CONVNEXT_MODEL_CONFIG = {
         "projection_dims": [192, 384, 768, 1536],
     },
 }
-
-DINOV3_HF_MODEL_IDS = {
-    "DinoV3ViTSmall16": "facebook/dinov3-vits16-pretrain-lvd1689m",
-    "DinoV3ViTBase16": "facebook/dinov3-vitb16-pretrain-lvd1689m",
-    "DinoV3ViTLarge16": "facebook/dinov3-vitl16-pretrain-lvd1689m",
-    "DinoV3ConvNeXtTiny": "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
-    "DinoV3ConvNeXtSmall": "facebook/dinov3-convnext-small-pretrain-lvd1689m",
-    "DinoV3ConvNeXtBase": "facebook/dinov3-convnext-base-pretrain-lvd1689m",
-    "DinoV3ConvNeXtLarge": "facebook/dinov3-convnext-large-pretrain-lvd1689m",
-}

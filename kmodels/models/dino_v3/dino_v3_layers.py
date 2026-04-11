@@ -1,5 +1,3 @@
-"""Custom layers for DINOv3: learnable tokens, 2D RoPE, and attention."""
-
 import keras
 import numpy as np
 from keras import InputSpec, layers, ops

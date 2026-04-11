@@ -41,9 +41,9 @@ from kmodels.utils.hf_gated_weight_download import load_gated_weights_from_hf
 
 from .config import (
     DINOV3_CONVNEXT_MODEL_CONFIG,
-    DINOV3_HF_MODEL_IDS,
     DINOV3_VIT_MODEL_CONFIG,
 )
+from .convert_dino_v3_hf_to_keras import DINOV3_HF_MODEL_IDS
 from .dino_v3_layers import (
     DinoV3Attention,
     DinoV3CLSToken,

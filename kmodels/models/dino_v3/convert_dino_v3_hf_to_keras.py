@@ -10,6 +10,16 @@ from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_weights,
 )
 
+DINOV3_HF_MODEL_IDS = {
+    "DinoV3ViTSmall16": "facebook/dinov3-vits16-pretrain-lvd1689m",
+    "DinoV3ViTBase16": "facebook/dinov3-vitb16-pretrain-lvd1689m",
+    "DinoV3ViTLarge16": "facebook/dinov3-vitl16-pretrain-lvd1689m",
+    "DinoV3ConvNeXtTiny": "facebook/dinov3-convnext-tiny-pretrain-lvd1689m",
+    "DinoV3ConvNeXtSmall": "facebook/dinov3-convnext-small-pretrain-lvd1689m",
+    "DinoV3ConvNeXtBase": "facebook/dinov3-convnext-base-pretrain-lvd1689m",
+    "DinoV3ConvNeXtLarge": "facebook/dinov3-convnext-large-pretrain-lvd1689m",
+}
+
 DINOV3_VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "patch.embed": "embeddings.patch_embeddings",
@@ -191,7 +201,6 @@ if __name__ == "__main__":
     import torch
     from transformers import AutoModel
 
-    from kmodels.models.dino_v3.config import DINOV3_HF_MODEL_IDS
     from kmodels.models.dino_v3.dino_v3_model import (
         DinoV3ConvNeXtBase,
         DinoV3ConvNeXtLarge,

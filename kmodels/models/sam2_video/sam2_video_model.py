@@ -495,22 +495,6 @@ def Sam2VideoTiny(
     weights=None,
     **kwargs,
 ):
-    """
-    Instantiates SAM2 Video Tiny (~38 M params).
-
-    Hiera-Tiny backbone with memory attention for video segmentation.
-
-    Reference:
-    - [SAM 2](https://arxiv.org/abs/2408.00714)
-
-    Args:
-        input_shape: Optional tuple for input shape.
-        input_tensor: Optional Keras tensor as input.
-        weights: String, ``"sam2_video"`` for HF weights, file path, or None.
-
-    Returns:
-        A Keras ``Model`` instance.
-    """
     return _create_sam2_video_model(
         "Sam2VideoTiny", input_shape, input_tensor, weights, **kwargs
     )
@@ -523,22 +507,6 @@ def Sam2VideoSmall(
     weights=None,
     **kwargs,
 ):
-    """
-    Instantiates SAM2 Video Small (~46 M params).
-
-    Hiera-Small backbone with memory attention for video segmentation.
-
-    Reference:
-    - [SAM 2](https://arxiv.org/abs/2408.00714)
-
-    Args:
-        input_shape: Optional tuple for input shape.
-        input_tensor: Optional Keras tensor as input.
-        weights: String, ``"sam2_video"`` for HF weights, file path, or None.
-
-    Returns:
-        A Keras ``Model`` instance.
-    """
     return _create_sam2_video_model(
         "Sam2VideoSmall", input_shape, input_tensor, weights, **kwargs
     )
@@ -551,22 +519,6 @@ def Sam2VideoBasePlus(
     weights=None,
     **kwargs,
 ):
-    """
-    Instantiates SAM2 Video Base+ (~81 M params).
-
-    Hiera-Base+ backbone with memory attention for video segmentation.
-
-    Reference:
-    - [SAM 2](https://arxiv.org/abs/2408.00714)
-
-    Args:
-        input_shape: Optional tuple for input shape.
-        input_tensor: Optional Keras tensor as input.
-        weights: String, ``"sam2_video"`` for HF weights, file path, or None.
-
-    Returns:
-        A Keras ``Model`` instance.
-    """
     return _create_sam2_video_model(
         "Sam2VideoBasePlus", input_shape, input_tensor, weights, **kwargs
     )
@@ -579,22 +531,6 @@ def Sam2VideoLarge(
     weights=None,
     **kwargs,
 ):
-    """
-    Instantiates SAM2 Video Large (~224 M params).
-
-    Hiera-Large backbone with memory attention for video segmentation.
-
-    Reference:
-    - [SAM 2](https://arxiv.org/abs/2408.00714)
-
-    Args:
-        input_shape: Optional tuple for input shape.
-        input_tensor: Optional Keras tensor as input.
-        weights: String, ``"sam2_video"`` for HF weights, file path, or None.
-
-    Returns:
-        A Keras ``Model`` instance.
-    """
     return _create_sam2_video_model(
         "Sam2VideoLarge", input_shape, input_tensor, weights, **kwargs
     )

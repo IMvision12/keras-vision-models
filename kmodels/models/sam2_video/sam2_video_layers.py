@@ -4,22 +4,6 @@ from keras import layers, ops
 
 
 def build_rope_2d_axial_cache(end_x, end_y, dim, theta=10000.0):
-    """
-    Precompute 2D axial RoPE cos/sin tables for memory attention.
-
-    Uses pairwise rotation: frequencies are repeat-interleaved by 2 so
-    each consecutive pair of dimensions shares the same frequency.
-
-    Args:
-        end_x: Integer, spatial width of the grid.
-        end_y: Integer, spatial height of the grid.
-        dim: Integer, total embedding dimension (must be divisible by 4).
-        theta: Float, RoPE frequency base. Defaults to ``10000.0``.
-
-    Returns:
-        Tuple ``(cos, sin)``, each a NumPy array of shape
-        ``(end_x * end_y, dim)``.
-    """
     i = np.arange(0, dim, 4, dtype=np.float32)[: dim // 4]
     freqs = 1.0 / (theta ** (i / dim))
 
@@ -57,8 +41,8 @@ def _apply_rope_2d(q, k, cos, sin, num_k_exclude_rope=0, rope_k_repeat=False):
 
     if rope_k_repeat and k_rot.shape[-2] != q.shape[-2]:
         repeat_factor = k_rot.shape[-2] // q.shape[-2]
-        cos_k = ops.repeat(cos, repeat_factor, axis=2)
-        sin_k = ops.repeat(sin, repeat_factor, axis=2)
+        cos_k = ops.tile(cos, [1, 1, repeat_factor, 1])
+        sin_k = ops.tile(sin, [1, 1, repeat_factor, 1])
     else:
         cos_k = cos
         sin_k = sin
@@ -73,24 +57,6 @@ def _apply_rope_2d(q, k, cos, sin, num_k_exclude_rope=0, rope_k_repeat=False):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2VideoRoPEAttention(layers.Layer):
-    """
-    Multi-head attention with 2D axial RoPE for memory attention.
-
-    Uses separate Q, K, V projections with optional different key/value
-    input dimension (for cross-attention with lower-dimensional memory).
-
-    Args:
-        hidden_size: Integer, query/output dimension. Defaults to ``256``.
-        kv_in_dim: Integer, key/value input dimension. If None, same as
-            hidden_size. Defaults to ``None``.
-        num_heads: Integer, number of attention heads. Defaults to ``1``.
-        rope_k_repeat: Boolean, whether to repeat RoPE frequencies for keys
-            when key sequence is longer than query sequence (cross-attention).
-            Defaults to ``False``.
-        dropout_p: Float, attention dropout rate. Defaults to ``0.1``.
-        **kwargs: Additional keyword arguments passed to the base ``Layer``.
-    """
-
     def __init__(
         self,
         hidden_size=256,
@@ -143,12 +109,19 @@ class Sam2VideoRoPEAttention(layers.Layer):
             rope_k_repeat=self.rope_k_repeat,
         )
 
-        q = q * self.scale
-        attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
-        attn = ops.softmax(attn)
-        attn = self.attn_drop(attn, training=training)
+        if keras.backend.backend() == "torch":
+            import torch.nn.functional as F
 
-        x = ops.matmul(attn, v)
+            x = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False
+            )
+        else:
+            q = q * self.scale
+            attn = ops.matmul(q, ops.swapaxes(k, -2, -1))
+            attn = ops.softmax(attn)
+            attn = self.attn_drop(attn, training=training)
+            x = ops.matmul(attn, v)
+
         x = ops.transpose(x, [0, 2, 1, 3])
         x = ops.reshape(x, [batch, point_batch, -1, self.hidden_size])
 
@@ -170,23 +143,6 @@ class Sam2VideoRoPEAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2VideoMemoryAttentionLayer(layers.Layer):
-    """
-    Single memory attention layer with self-attention, cross-attention, and FFN.
-
-    Pre-norm architecture: LayerNorm before each sub-layer, with residual
-    connections. Self-attention uses RoPE on current frame features.
-    Cross-attention attends to memory features (64-dim) with RoPE.
-
-    Args:
-        hidden_size: Integer, hidden dimension. Defaults to ``256``.
-        kv_in_dim: Integer, memory key/value dimension. Defaults to ``64``.
-        num_heads: Integer, number of attention heads. Defaults to ``1``.
-        ffn_hidden_size: Integer, FFN hidden dimension. Defaults to ``2048``.
-        dropout: Float, dropout rate. Defaults to ``0.1``.
-        rope_dropout: Float, RoPE attention dropout. Defaults to ``0.1``.
-        **kwargs: Additional keyword arguments passed to the base ``Layer``.
-    """
-
     def __init__(
         self,
         hidden_size=256,
@@ -287,26 +243,6 @@ class Sam2VideoMemoryAttentionLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2VideoMemoryAttention(layers.Layer):
-    """
-    Multi-layer memory attention with 2D axial RoPE.
-
-    Stacks N ``Sam2VideoMemoryAttentionLayer`` blocks followed by a final
-    LayerNorm. Position embeddings for queries are added with a 0.1 scale
-    factor before the attention stack.
-
-    Args:
-        hidden_size: Integer, hidden dimension. Defaults to ``256``.
-        kv_in_dim: Integer, memory dimension. Defaults to ``64``.
-        num_layers: Integer, number of attention layers. Defaults to ``4``.
-        num_heads: Integer, number of attention heads. Defaults to ``1``.
-        ffn_hidden_size: Integer, FFN hidden dim. Defaults to ``2048``.
-        dropout: Float, dropout rate. Defaults to ``0.1``.
-        rope_theta: Float, RoPE frequency base. Defaults to ``10000.0``.
-        rope_feat_sizes: List of 2 integers, spatial grid size for RoPE.
-            Defaults to ``[64, 64]``.
-        **kwargs: Additional keyword arguments passed to the base ``Layer``.
-    """
-
     def __init__(
         self,
         hidden_size=256,

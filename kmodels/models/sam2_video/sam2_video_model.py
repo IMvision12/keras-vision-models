@@ -199,40 +199,6 @@ def sam2_video_memory_encoder_call(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2Video(keras.Model):
-    """Segment Anything Model 2 for video segmentation.
-
-    Extends SAM2 with memory-conditioned attention for temporal tracking.
-    The architecture adds a memory attention module (4-layer RoPE transformer),
-    a memory encoder (ConvNeXt fuser), and object pointer tokens on top of the
-    standard Hiera backbone, prompt encoder, and mask decoder.
-
-    For initial frames (no prior memory), the model behaves identically to
-    SAM2 image segmentation. For subsequent frames, memory features from
-    previous predictions condition the current frame's features via
-    cross-attention.
-
-    Reference:
-    - [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714)
-
-    Args:
-        hidden_size: Integer, initial Hiera hidden dimension.
-        blocks_per_stage: List of integers, blocks per backbone stage.
-        embed_dim_per_stage: List of integers, embedding dims per stage.
-        num_attention_heads_per_stage: List of integers, heads per stage.
-        window_size_per_stage: List of integers, window sizes per stage.
-        global_attention_blocks: List of integers, global attention block indices.
-        backbone_channel_list: List of integers, FPN channel dimensions.
-        window_pos_embed_bg_size: Tuple of integers, positional embedding
-            background size. Defaults to ``(7, 7)``.
-        input_shape: Optional tuple for input shape.
-        input_tensor: Optional Keras tensor as input.
-        name: String, model name. Defaults to ``"Sam2Video"``.
-
-    Returns:
-        A Keras ``Model`` instance with dict outputs:
-        ``pred_masks``, ``iou_scores``, ``object_score_logits``.
-    """
-
     IMAGE_SIZE = 1024
     PATCH_KERNEL = (7, 7)
     PATCH_STRIDE = (4, 4)
@@ -416,6 +382,7 @@ class Sam2Video(keras.Model):
         ]
         image_embeddings = fpn_hidden_states_list[-1]
 
+        image_embeddings_raw = image_embeddings
         no_mem_embed_layer = SAM2NoMemoryEmbedding(
             hidden_size=self.FPN_HIDDEN_SIZE,
             data_format=data_format,
@@ -475,8 +442,11 @@ class Sam2Video(keras.Model):
             ]
         )
 
-        pred_masks = decoder_output["pred_masks"][:, :, 1:, :, :]
-        iou_scores = decoder_output["iou_scores"][:, :, 1:]
+        pred_masks_all = decoder_output["pred_masks"]
+        iou_scores_all = decoder_output["iou_scores"]
+        mask_tokens_out_all = decoder_output["mask_tokens_out"]
+        pred_masks = pred_masks_all[:, :, 1:, :, :]
+        iou_scores = iou_scores_all[:, :, 1:]
         object_score_logits = decoder_output["object_score_logits"]
 
         super().__init__(
@@ -489,6 +459,16 @@ class Sam2Video(keras.Model):
                 "pred_masks": pred_masks,
                 "iou_scores": iou_scores,
                 "object_score_logits": object_score_logits,
+                "image_embeddings_raw": image_embeddings_raw,
+                "image_embeddings": image_embeddings,
+                "high_res_feat_s0": high_res_feat_s0,
+                "high_res_feat_s1": high_res_feat_s1,
+                "image_pe": image_pe,
+                "sparse_embeddings": sparse_embeddings,
+                "dense_embeddings": dense_embeddings,
+                "mask_tokens_out_all": mask_tokens_out_all,
+                "pred_masks_all": pred_masks_all,
+                "iou_scores_all": iou_scores_all,
             },
             name=name,
             **kwargs,

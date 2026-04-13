@@ -321,9 +321,10 @@ def _transfer_video_params(keras_model, hf_sd):
         hf_sd["memory_temporal_positional_encoding"]
     )
     keras_model.no_object_pointer.assign(hf_sd["no_object_pointer"])
-    keras_model.occlusion_spatial_embedding_parameter.assign(
-        hf_sd["occlusion_spatial_embedding_parameter"]
-    )
+    if "occlusion_spatial_embedding_parameter" in hf_sd:
+        keras_model.occlusion_spatial_embedding_parameter.assign(
+            hf_sd["occlusion_spatial_embedding_parameter"]
+        )
 
     transfer_weights(
         "kernel",
@@ -353,14 +354,22 @@ def _transfer_video_params(keras_model, hf_sd):
     )
     keras_model.mask_downsample_layer.bias.assign(hf_sd["mask_downsample.bias"])
 
-    transfer_weights(
-        "kernel",
-        keras_model.temporal_pos_enc_proj.kernel,
-        hf_sd["temporal_positional_encoding_projection_layer.weight"],
-    )
-    keras_model.temporal_pos_enc_proj.bias.assign(
-        hf_sd["temporal_positional_encoding_projection_layer.bias"]
-    )
+    if "temporal_positional_encoding_projection_layer.weight" in hf_sd:
+        transfer_weights(
+            "kernel",
+            keras_model.temporal_pos_enc_proj.kernel,
+            hf_sd["temporal_positional_encoding_projection_layer.weight"],
+        )
+        keras_model.temporal_pos_enc_proj.bias.assign(
+            hf_sd["temporal_positional_encoding_projection_layer.bias"]
+        )
+    else:
+        keras_model.temporal_pos_enc_proj.kernel.assign(
+            np.zeros_like(keras_model.temporal_pos_enc_proj.kernel.numpy())
+        )
+        keras_model.temporal_pos_enc_proj.bias.assign(
+            np.zeros_like(keras_model.temporal_pos_enc_proj.bias.numpy())
+        )
 
 
 def transfer_sam2_video_weights(keras_model, hf_state_dict):
@@ -390,29 +399,31 @@ if __name__ == "__main__":
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
 
+    from kmodels.models.sam2_video.config import SAM2_VIDEO_HF_MODEL_IDS
+
     VARIANTS = [
         (
             "Sam2VideoTiny",
             Sam2VideoTiny,
-            "facebook/sam2.1-hiera-tiny",
+            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoTiny"],
             "sam2_video_hiera_tiny",
         ),
         (
             "Sam2VideoSmall",
             Sam2VideoSmall,
-            "facebook/sam2.1-hiera-small",
+            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoSmall"],
             "sam2_video_hiera_small",
         ),
         (
             "Sam2VideoBasePlus",
             Sam2VideoBasePlus,
-            "facebook/sam2.1-hiera-base-plus",
+            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoBasePlus"],
             "sam2_video_hiera_base_plus",
         ),
         (
             "Sam2VideoLarge",
             Sam2VideoLarge,
-            "facebook/sam2.1-hiera-large",
+            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoLarge"],
             "sam2_video_hiera_large",
         ),
     ]

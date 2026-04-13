@@ -288,7 +288,10 @@ def _transfer_memory_encoder(keras_model, hf_sd):
 
     for i in range(2):
         hf_pfx = f"memory_encoder.memory_fuser.layers.{i}"
-        dw_conv, ln, pw1, pw2 = keras_model.mem_enc_fuser_blocks[i]
+        dw_conv = keras_model.mem_enc_fuser_dw_convs[i]
+        ln = keras_model.mem_enc_fuser_lns[i]
+        pw1 = keras_model.mem_enc_fuser_pw1s[i]
+        pw2 = keras_model.mem_enc_fuser_pw2s[i]
         keras_model.mem_enc_fuser_scales[i].assign(hf_sd[f"{hf_pfx}.scale"])
         dw_w = hf_sd[f"{hf_pfx}.depthwise_conv.weight"]
         dw_w = np.transpose(dw_w, (2, 3, 0, 1))

@@ -105,16 +105,23 @@ def sam2_video_cx_block_call(x, dw_conv, ln, pw1, pw2, scale, padding):
 
 
 def sam2_video_memory_fuser(num_blocks, embed_dim, intermediate_dim, kernel_size, name):
-    blocks = []
+    dw_convs = []
+    lns = []
+    pw1s = []
+    pw2s = []
     for i in range(num_blocks):
-        blocks.append(
-            sam2_video_cx_block(embed_dim, intermediate_dim, kernel_size, f"{name}_{i}")
+        dw, ln, pw1, pw2 = sam2_video_cx_block(
+            embed_dim, intermediate_dim, kernel_size, f"{name}_{i}"
         )
-    return blocks
+        dw_convs.append(dw)
+        lns.append(ln)
+        pw1s.append(pw1)
+        pw2s.append(pw2)
+    return dw_convs, lns, pw1s, pw2s
 
 
-def sam2_video_memory_fuser_call(x, blocks, scales, padding):
-    for (dw_conv, ln, pw1, pw2), scale in zip(blocks, scales):
+def sam2_video_memory_fuser_call(x, dw_convs, lns, pw1s, pw2s, scales, padding):
+    for dw_conv, ln, pw1, pw2, scale in zip(dw_convs, lns, pw1s, pw2s, scales):
         x = sam2_video_cx_block_call(x, dw_conv, ln, pw1, pw2, scale, padding)
     return x
 
@@ -163,7 +170,9 @@ def sam2_video_memory_encoder(hidden_size, output_channels, name):
         data_format="channels_first",
         name=f"{name}_feature_proj",
     )
-    fuser_blocks = sam2_video_memory_fuser(2, hidden_size, 1024, 7, f"{name}_fuser")
+    fuser_dw_convs, fuser_lns, fuser_pw1s, fuser_pw2s = sam2_video_memory_fuser(
+        2, hidden_size, 1024, 7, f"{name}_fuser"
+    )
     projection = layers.Conv2D(
         output_channels,
         1,
@@ -171,7 +180,17 @@ def sam2_video_memory_encoder(hidden_size, output_channels, name):
         data_format="channels_first",
         name=f"{name}_projection",
     )
-    return ds_convs, ds_lns, ds_final_conv, feature_proj, fuser_blocks, projection
+    return (
+        ds_convs,
+        ds_lns,
+        ds_final_conv,
+        feature_proj,
+        fuser_dw_convs,
+        fuser_lns,
+        fuser_pw1s,
+        fuser_pw2s,
+        projection,
+    )
 
 
 def sam2_video_memory_encoder_call(
@@ -181,7 +200,10 @@ def sam2_video_memory_encoder_call(
     ds_lns,
     ds_final_conv,
     feature_proj,
-    fuser_blocks,
+    fuser_dw_convs,
+    fuser_lns,
+    fuser_pw1s,
+    fuser_pw2s,
     fuser_scales,
     projection,
     num_pos_feats,
@@ -190,7 +212,13 @@ def sam2_video_memory_encoder_call(
     vision_features = feature_proj(vision_features)
     vision_features = vision_features + masks
     vision_features = sam2_video_memory_fuser_call(
-        vision_features, fuser_blocks, fuser_scales, padding=3
+        vision_features,
+        fuser_dw_convs,
+        fuser_lns,
+        fuser_pw1s,
+        fuser_pw2s,
+        fuser_scales,
+        padding=3,
     )
     vision_features = projection(vision_features)
     pos_enc = sam2_video_sine_position_embedding(vision_features, num_pos_feats)
@@ -490,7 +518,10 @@ class Sam2Video(keras.Model):
             self.mem_enc_ds_lns,
             self.mem_enc_ds_final_conv,
             self.mem_enc_feature_proj,
-            self.mem_enc_fuser_blocks,
+            self.mem_enc_fuser_dw_convs,
+            self.mem_enc_fuser_lns,
+            self.mem_enc_fuser_pw1s,
+            self.mem_enc_fuser_pw2s,
             self.mem_enc_projection,
         ) = sam2_video_memory_encoder(self.FPN_HIDDEN_SIZE, self.MEM_DIM, "mem_enc")
         self.obj_ptr_proj_in, self.obj_ptr_proj_hidden_layers, self.obj_ptr_proj_out = (
@@ -573,7 +604,10 @@ class Sam2Video(keras.Model):
             self.mem_enc_ds_lns,
             self.mem_enc_ds_final_conv,
             self.mem_enc_feature_proj,
-            self.mem_enc_fuser_blocks,
+            self.mem_enc_fuser_dw_convs,
+            self.mem_enc_fuser_lns,
+            self.mem_enc_fuser_pw1s,
+            self.mem_enc_fuser_pw2s,
             self.mem_enc_fuser_scales,
             self.mem_enc_projection,
             self.MEM_DIM // 2,

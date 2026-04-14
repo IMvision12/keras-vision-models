@@ -14,21 +14,32 @@ from .config import DEPTH_ANYTHING_V1_MODEL_CONFIG, DEPTH_ANYTHING_V1_WEIGHTS_CO
 
 
 def depth_anything_v1_aligned_bilinear_resize(x, target_h, target_w, data_format):
-    """Pure-Keras aligned-corners bilinear resize.
+    """bilinear resize matching ``align_corners=True``.
 
-    Matches ``torch.nn.functional.interpolate(..., mode='bilinear',
-    align_corners=True)`` via explicit gather + lerp. ``keras.ops.image.resize``
-    only supports half-pixel alignment, so we implement the align-corners
-    coordinate mapping manually: the ``target_h`` output rows are sampled
-    at evenly spaced source coordinates ``i * (H - 1) / (target_h - 1)``
-    (and analogously for width).
+    ``keras.ops.image.resize`` only supports half-pixel alignment, but
+    the reference Depth Anything upsamples (inside each fusion block
+    and inside the head) use ``torch.nn.functional.interpolate`` with
+    ``align_corners=True``. This helper implements the align-corners
+    coordinate mapping manually via explicit gather + lerp so the
+    Keras graph produces the same outputs on every backend.
+
+    For ``target_h > 1`` the output rows are sampled at source
+    coordinates ``i * (H - 1) / (target_h - 1)`` for ``i = 0..target_h - 1``
+    (and symmetrically for width). The four surrounding source pixels
+    are gathered with ``ops.take`` and blended with the fractional
+    offsets ``dy`` / ``dx``.
 
     Args:
-        x: Input tensor. ``(B, H, W, C)`` for ``channels_last``,
-            ``(B, C, H, W)`` for ``channels_first``.
-        target_h: Target output height.
-        target_w: Target output width.
+        x: Input tensor. ``(batch, H, W, C)`` when ``data_format`` is
+            ``"channels_last"``, ``(batch, C, H, W)`` when
+            ``"channels_first"``.
+        target_h: Integer, target output height.
+        target_w: Integer, target output width.
         data_format: Either ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Tensor with the same layout as ``x`` and spatial dims
+        ``(target_h, target_w)``.
     """
     shape = ops.shape(x)
     if data_format == "channels_first":
@@ -87,6 +98,26 @@ def depth_anything_v1_aligned_bilinear_resize(x, target_h, target_w, data_format
 
 
 def depth_anything_v1_pre_act_residual(x, channels, name, data_format):
+    """Pre-activation residual unit used inside DPT fusion blocks.
+
+    Follows the ResNet pre-activation layout: ``ReLU -> 3x3 Conv ->
+    ReLU -> 3x3 Conv`` and adds the original input back at the end.
+    Both convolutions preserve the spatial dimensions and produce
+    ``channels`` output channels.
+
+    Args:
+        x: Input feature tensor, shaped according to ``data_format``.
+        channels: Integer, number of output channels for both
+            convolutions. Must match the input channel count so the
+            residual add is well-defined.
+        name: String prefix for the layer names. The internal layers
+            are named ``{name}_act1``, ``{name}_conv1``, ``{name}_act2``,
+            ``{name}_conv2``, and ``{name}_add``.
+        data_format: Either ``"channels_last"`` or ``"channels_first"``.
+
+    Returns:
+        Output tensor with the same shape as ``x``.
+    """
     residual = x
     x = layers.Activation("relu", name=f"{name}_act1")(x)
     x = layers.Conv2D(
@@ -108,6 +139,35 @@ def depth_anything_v1_fusion_block(
     data_format,
     name,
 ):
+    """One stage of the DPT bottom-up feature-fusion pyramid.
+
+    Each fusion stage optionally merges a higher-resolution skip
+    connection (``residual``) into the running ``hidden_state`` via a
+    pre-activation residual unit, passes the merged tensor through a
+    second pre-activation residual unit, upsamples it to the next
+    pyramid level with aligned-corners bilinear interpolation, and
+    finally projects it through a 1x1 convolution. The first stage of
+    the pyramid receives ``residual=None`` and just refines and
+    upsamples its input.
+
+    Args:
+        hidden_state: Running fused tensor from the previous fusion
+            stage (or the coarsest projected feature map on the first
+            stage).
+        residual: Optional higher-resolution skip connection from the
+            neck projection layer. Pass ``None`` on the first stage.
+        target_h: Integer, output height after the upsample.
+        target_w: Integer, output width after the upsample.
+        fusion_hidden_size: Integer, channel count used by both
+            pre-activation residual units and the final 1x1 projection.
+        data_format: Either ``"channels_last"`` or ``"channels_first"``.
+        name: String prefix for the layer names of this fusion stage.
+
+    Returns:
+        Output tensor with spatial size ``(target_h, target_w)`` and
+        ``fusion_hidden_size`` channels, passed into the next fusion
+        stage or into the depth-estimation head.
+    """
     if residual is not None:
         hidden_state = layers.Add(name=f"{name}_add_residual")(
             [
@@ -153,12 +213,46 @@ def depth_anything_v1_dino_backbone(
     data_format,
     name="backbone",
 ):
-    """Functional DINOv2 ViT backbone that returns intermediate features.
+    """Functional DINOv2 ViT backbone used by Depth Anything V1.
 
-    Runs the standard DINOv2 stack (patch embed → CLS token → pos embed →
-    transformer blocks → final LayerNorm), extracts the outputs of the
-    blocks listed in ``out_indices``, strips the CLS token, and returns
-    each feature as a spatial tensor in the requested ``data_format``.
+    Runs the standard DINOv2 stack — patch embedding, class token,
+    learnable position embeddings, ``backbone_depth`` pre-norm
+    transformer blocks with ``LayerScale`` on both branches, and a
+    final shared ``LayerNorm`` — and returns the intermediate token
+    sequences listed in ``out_indices`` as spatial feature maps.
+
+    The final ``LayerNorm`` is applied once per selected block, the
+    class token is stripped from the head, and the remaining patch
+    tokens are reshaped to ``(patch_h, patch_w, backbone_dim)``. When
+    ``data_format`` is ``"channels_first"`` the spatial tensor is
+    transposed back to ``(backbone_dim, patch_h, patch_w)`` via a
+    ``Permute`` so it can feed the channels-first neck directly.
+
+    Args:
+        pixel_values: Input image tensor from the model's ``Input``
+            layer, shaped according to ``data_format``.
+        backbone_dim: Integer, embedding dimension of the DINOv2 ViT.
+        backbone_depth: Integer, number of transformer blocks.
+        backbone_num_heads: Integer, number of attention heads per
+            block.
+        out_indices: Iterable of 1-indexed block numbers whose outputs
+            are returned. Depth Anything V1 uses the last four blocks
+            of each backbone variant.
+        patch_size: Integer, spatial size of the patch-embedding
+            convolution (``14`` for DINOv2).
+        patch_h: Integer, patch-grid height, equal to
+            ``image_height // patch_size``.
+        patch_w: Integer, patch-grid width, equal to
+            ``image_width // patch_size``.
+        mlp_ratio: Float, expansion ratio of the MLP hidden layer
+            inside each block. Depth Anything uses ``4.0``.
+        data_format: Either ``"channels_last"`` or ``"channels_first"``.
+        name: String prefix used to name every layer created by this
+            backbone. Defaults to ``"backbone"``.
+
+    Returns:
+        List of spatial feature tensors, one per entry in
+        ``out_indices``, in the order those entries appear.
     """
     x = layers.Conv2D(
         backbone_dim,
@@ -238,11 +332,44 @@ def depth_anything_v1_neck(
 ):
     """Functional DPT-style neck: reassemble + project + bottom-up fusion.
 
-    Turns the 4 intermediate DINOv2 feature maps into a single fused
-    tensor at 2x the coarsest reassembled resolution. Reassemble uses a
-    1x1 projection followed by per-factor up/down sampling, projection
-    applies a 3x3 conv to ``fusion_hidden_size``, and fusion walks the
-    feature pyramid bottom-up through ``depth_anything_v1_fusion_block``.
+    Applies the DPT neck to the 4 intermediate DINOv2 feature maps and
+    returns a single fused tensor. The neck is split into three stages:
+
+    1. **Reassemble.** Each feature map is projected to its
+       stage-specific channel count with a 1x1 conv and then up- or
+       down-sampled by ``reassemble_factors[i]``. Factors greater than
+       one use a ``Conv2DTranspose`` with ``kernel_size == factor``;
+       factors less than one use a strided 3x3 conv; factor ``1`` is a
+       no-op.
+    2. **Project.** A 3x3 conv (no bias) brings every reassembled
+       feature to the common ``fusion_hidden_size`` channel count.
+    3. **Fusion.** The projected features are walked bottom-up through
+       four ``depth_anything_v1_fusion_block`` stages. Each stage
+       upsamples to the next coarser pyramid level except for the
+       final stage, which upsamples to ``2x`` the coarsest level so
+       the head can recover the original image resolution with a
+       single additional upsample.
+
+    Args:
+        backbone_features: List of 4 spatial feature maps returned by
+            ``depth_anything_v1_dino_backbone`` in the same order as
+            ``out_indices``.
+        reassemble_factors: List of 4 up/down-sampling factors used by
+            the reassemble stage. Depth Anything V1 uses
+            ``[4, 2, 1, 0.5]``.
+        neck_hidden_sizes: List of 4 per-stage channel counts used by
+            the reassemble 1x1 projections.
+        fusion_hidden_size: Integer, shared channel count used after
+            the project stage and throughout fusion.
+        patch_h: Integer, patch-grid height from the backbone.
+        patch_w: Integer, patch-grid width from the backbone.
+        data_format: Either ``"channels_last"`` or ``"channels_first"``.
+        name: String prefix used to name every layer created by this
+            neck. Defaults to ``"neck"``.
+
+    Returns:
+        The fused tensor returned by the final fusion stage, ready to
+        feed ``depth_anything_v1_head``.
     """
     reassembled = []
     for i, (feat, factor, out_ch) in enumerate(
@@ -331,12 +458,43 @@ def depth_anything_v1_head(
     data_format,
     name="head",
 ):
-    """Functional depth-estimation head.
+    """Functional depth-estimation head used by Depth Anything V1.
 
-    Three convolutions with an aligned-corners bilinear upsample to the
-    input resolution between the first and second conv. ``relative``
-    models end in a ReLU; ``metric`` models end in a sigmoid scaled by
-    ``max_depth``.
+    Consumes the fused tensor from ``depth_anything_v1_neck`` and
+    produces the final single-channel depth map at the original image
+    resolution. The head is three convolutions with an aligned-corners
+    bilinear upsample between the first and second conv:
+
+    ``3x3 conv (fusion_hidden_size // 2) -> upsample to (height, width)
+    -> 3x3 conv (head_hidden_size) -> ReLU -> 1x1 conv (1) -> output``
+
+    The final activation depends on the estimation type:
+
+    - ``"relative"``: a final ``ReLU``, so outputs are non-negative
+      disparity-style depth values.
+    - ``"metric"``: a final ``sigmoid`` scaled by ``max_depth``, so
+      outputs are bounded metric depth values in
+      ``[0, max_depth]`` meters.
+
+    Args:
+        fused: Fused tensor returned by ``depth_anything_v1_neck``.
+        height: Integer, target output height (input image height).
+        width: Integer, target output width (input image width).
+        fusion_hidden_size: Integer, channel count of the fused tensor.
+            The first conv projects to ``fusion_hidden_size // 2``.
+        head_hidden_size: Integer, channel count used by the second
+            conv. Depth Anything V1 uses ``32``.
+        depth_estimation_type: Either ``"relative"`` or ``"metric"``.
+        max_depth: Float, metric-depth scale factor applied only when
+            ``depth_estimation_type == "metric"``.
+        data_format: Either ``"channels_last"`` or ``"channels_first"``.
+        name: String prefix used to name every layer created by this
+            head. Defaults to ``"head"``.
+
+    Returns:
+        Predicted depth tensor shaped ``(batch, height, width, 1)`` for
+        ``channels_last`` or ``(batch, 1, height, width)`` for
+        ``channels_first``.
     """
     x = layers.Conv2D(
         fusion_hidden_size // 2,
@@ -373,6 +531,81 @@ def depth_anything_v1_head(
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class DepthAnythingV1(keras.Model):
+    """Instantiates the Depth Anything V1 architecture for monocular depth estimation.
+
+    Depth Anything V1 combines a DINOv2 ViT backbone with the DPT
+    (Dense Prediction Transformer) neck and head, trained on a mix of
+    labeled and large-scale pseudo-labeled images to produce strong
+    relative-depth predictions. The same class also hosts the metric
+    variants, where a ``sigmoid`` + scale replaces the final ReLU.
+
+    The model is built functionally from three composable components:
+    ``depth_anything_v1_dino_backbone`` (patch embed + ViT blocks +
+    shared LayerNorm), ``depth_anything_v1_neck`` (DPT reassemble +
+    project + bottom-up fusion), and ``depth_anything_v1_head`` (three
+    convs with an aligned-corners bilinear upsample to the input
+    resolution).
+
+    References:
+    - [Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data](https://arxiv.org/abs/2401.10891)
+
+    Args:
+        backbone_dim: Integer, embedding dimension of the DINOv2
+            backbone. Defaults to ``384`` (Small variant).
+        backbone_depth: Integer, number of transformer blocks in the
+            backbone. Defaults to ``12``.
+        backbone_num_heads: Integer, number of attention heads per
+            block. Defaults to ``6``.
+        out_indices: Optional list of 1-indexed block numbers whose
+            outputs feed the neck. When ``None`` defaults to
+            ``[9, 10, 11, 12]`` (the last four blocks of the Small /
+            Base variants).
+        neck_hidden_sizes: Optional list of 4 per-stage channel counts
+            used by the neck reassemble projections. When ``None``
+            defaults to ``[48, 96, 192, 384]`` (Small variant).
+        fusion_hidden_size: Integer, shared channel count used after
+            the project stage and throughout fusion and the head.
+            Defaults to ``64``.
+        reassemble_factors: Optional list of 4 up/down-sampling factors
+            used by the neck reassemble stage. When ``None`` defaults
+            to ``[4, 2, 1, 0.5]``.
+        depth_estimation_type: Either ``"relative"`` (final ReLU,
+            non-negative disparity-style depth) or ``"metric"``
+            (final ``sigmoid * max_depth``, bounded metric depth).
+            Defaults to ``"relative"``.
+        max_depth: Float, metric-depth scale factor applied only when
+            ``depth_estimation_type == "metric"``. Defaults to ``1.0``.
+        input_shape: Optional tuple specifying the shape of the input
+            image. When ``None``, defaults to ``(518, 518, 3)`` for
+            ``channels_last`` or ``(3, 518, 518)`` for
+            ``channels_first``. Both dims must be multiples of
+            ``PATCH_SIZE`` (``14``).
+        input_tensor: Optional Keras tensor (i.e. output of
+            ``layers.Input``) to use as model input.
+        name: String, the name of the model. Defaults to
+            ``"DepthAnythingV1"``.
+
+    Returns:
+        A Keras ``Model`` instance that maps a preprocessed image
+        tensor to a predicted depth tensor.
+
+    Example:
+        ```python
+        from kmodels.models.depth_anything_v1 import (
+            DepthAnythingV1Small,
+            DepthAnythingV1ImageProcessor,
+            DepthAnythingV1PostProcessDepth,
+        )
+
+        model = DepthAnythingV1Small(weights="da_v1")
+        inputs = DepthAnythingV1ImageProcessor("photo.jpg")
+        depth = model(inputs["pixel_values"])
+        depth_full = DepthAnythingV1PostProcessDepth(
+            depth, original_size=inputs["original_size"]
+        )
+        ```
+    """
+
     PATCH_SIZE = 14
     IMAGE_SIZE = 518
     MLP_RATIO = 4.0
@@ -506,7 +739,33 @@ class DepthAnythingV1(keras.Model):
         return cls(**config)
 
 
-def _create_depth_anything_v1(variant, input_shape, input_tensor, weights, **kwargs):
+def create_depth_anything_v1(variant, input_shape, input_tensor, weights, **kwargs):
+    """Factory helper that wires a named variant into ``DepthAnythingV1``.
+
+    Looks up the variant entry in ``DEPTH_ANYTHING_V1_MODEL_CONFIG``,
+    builds a ``DepthAnythingV1`` instance with those hyperparameters,
+    and optionally loads pretrained weights via the keras-models
+    weights config (when ``weights`` matches a registered preset) or
+    from a local path (anything else).
+
+    Args:
+        variant: String, variant name matching a key in
+            ``DEPTH_ANYTHING_V1_MODEL_CONFIG`` (e.g.
+            ``"DepthAnythingV1Small"``).
+        input_shape: Optional input shape forwarded to
+            ``DepthAnythingV1``. When ``None``, defaults to the
+            1024-equivalent ``(518, 518, 3)`` / ``(3, 518, 518)``.
+        input_tensor: Optional Keras tensor to use as model input.
+        weights: Either ``None`` (random init), a registered preset
+            name from ``DEPTH_ANYTHING_V1_WEIGHTS_CONFIG``, or a path
+            to a local ``.weights.h5`` file.
+        **kwargs: Additional keyword arguments forwarded to
+            ``DepthAnythingV1``.
+
+    Returns:
+        A built ``DepthAnythingV1`` model with weights loaded when
+        requested.
+    """
     config = DEPTH_ANYTHING_V1_MODEL_CONFIG[variant]
 
     if input_shape is None:
@@ -550,20 +809,20 @@ def _create_depth_anything_v1(variant, input_shape, input_tensor, weights, **kwa
 
 @register_model
 def DepthAnythingV1Small(input_shape=None, input_tensor=None, weights=None, **kwargs):
-    return _create_depth_anything_v1(
+    return create_depth_anything_v1(
         "DepthAnythingV1Small", input_shape, input_tensor, weights, **kwargs
     )
 
 
 @register_model
 def DepthAnythingV1Base(input_shape=None, input_tensor=None, weights=None, **kwargs):
-    return _create_depth_anything_v1(
+    return create_depth_anything_v1(
         "DepthAnythingV1Base", input_shape, input_tensor, weights, **kwargs
     )
 
 
 @register_model
 def DepthAnythingV1Large(input_shape=None, input_tensor=None, weights=None, **kwargs):
-    return _create_depth_anything_v1(
+    return create_depth_anything_v1(
         "DepthAnythingV1Large", input_shape, input_tensor, weights, **kwargs
     )

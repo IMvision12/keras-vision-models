@@ -578,6 +578,39 @@ MODEL_TEST_CONFIGS = {
             "pred_boxes": (2, 10, 4),
         },
     },
+    "DepthAnythingV1Small": {
+        "module": "kmodels.models.depth_anything_v1",
+        "model_cls": "DepthAnythingV1Small",
+        "model_type": "depth_estimation",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (42, 42, 3),
+        },
+        "input_shape": (2, 42, 42, 3),
+        "expected_output_shape": (2, 42, 42, 1),
+    },
+    "DepthAnythingV2Small": {
+        "module": "kmodels.models.depth_anything_v2",
+        "model_cls": "DepthAnythingV2Small",
+        "model_type": "depth_estimation",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (42, 42, 3),
+        },
+        "input_shape": (2, 42, 42, 3),
+        "expected_output_shape": (2, 42, 42, 1),
+    },
+    "DepthAnythingV2MetricIndoorSmall": {
+        "module": "kmodels.models.depth_anything_v2",
+        "model_cls": "DepthAnythingV2MetricIndoorSmall",
+        "model_type": "depth_estimation",
+        "init_kwargs": {
+            "weights": None,
+            "input_shape": (42, 42, 3),
+        },
+        "input_shape": (2, 42, 42, 3),
+        "expected_output_shape": (2, 42, 42, 1),
+    },
     "DeepLabV3ResNet50": {
         "module": "kmodels.models.deeplabv3",
         "model_cls": "DeepLabV3ResNet50",

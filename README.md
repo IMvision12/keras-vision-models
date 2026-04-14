@@ -6,7 +6,7 @@
 
 ## 📖 Introduction
 
-Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
+Keras Models (kmodels) is a collection of models with pretrained weights, built entirely with Keras 3. It supports a range of tasks, including classification, object detection (DETR, RT-DETR, RT-DETRv2, RF-DETR, D-FINE), segmentation (SAM, SAM2, SAM3, SegFormer, DeepLabV3, EoMT), monocular depth estimation (Depth Anything V1, Depth Anything V2), feature extraction (DINO, DINOv2, DINOv3), vision-language modeling (CLIP, SigLIP, SigLIP2), and more. It includes hybrid architectures like MaxViT alongside traditional CNNs and pure transformers. kmodels includes custom layers and backbone support, providing flexibility and efficiency across various applications. For backbones, there are various weight variants like `in1k`, `in21k`, `fb_dist_in1k`, `ms_in22k`, `fb_in22k_ft_in1k`, `ns_jft_in1k`, `aa_in1k`, `cvnets_in1k`, `augreg_in21k_ft_in1k`, `augreg_in21k`, and many more.
 
 ## ⚡ Installation
 
@@ -57,6 +57,13 @@ pip install -U git+https://github.com/IMvision12/keras-models
 | [DINO](docs/dino_v1_v2.md) | Self-supervised ViT-S/B and ResNet-50 backbones trained with self-distillation |
 | [DINOv2](docs/dino_v1_v2.md) | Improved self-supervised ViT-S/B/L backbones with LayerScale, trained on LVD-142M |
 | [DINOv3](docs/dinov3.md) | Self-supervised ViT-S/B/L and ConvNeXt-T/S/B/L backbones with 2D RoPE and register tokens, trained on LVD-1689M. Weights require [Meta DINOv3 License](https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m) acceptance on HuggingFace |
+
+**Depth Estimation**
+
+| Model | Description |
+|-------|-------------|
+| [Depth Anything V1](docs/depth_anything_v1_v2.md) | Monocular depth estimation with a DINOv2 backbone and a DPT head, trained on labeled + large-scale pseudo-labeled images (Small / Base / Large) |
+| [Depth Anything V2](docs/depth_anything_v1_v2.md) | Same DINOv2 + DPT architecture as V1, retrained on synthetic data with a larger-capacity teacher; includes metric indoor and outdoor variants in addition to relative depth (Small / Base / Large) |
 
 **Vision-Language Models**
 
@@ -143,6 +150,15 @@ pip install -U git+https://github.com/IMvision12/keras-models
     | DINO | [Emerging Properties in Self-Supervised Vision Transformers](https://arxiv.org/abs/2104.14294) | `torch.hub` |
     | DINOv2 | [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193) | `transformers` |
     | DINOv3 | [DINOv3: Self-Supervised Visual Representation Learning at Scale](https://arxiv.org/abs/2508.10104) | `transformers` (gated) |
+
+<br>
+
+- Depth Estimation
+
+    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+    |---------------|-------------------|---------------------|
+    | Depth Anything V1 | [Depth Anything: Unleashing the Power of Large-Scale Unlabeled Data](https://arxiv.org/abs/2401.10891) | `transformers` |
+    | Depth Anything V2 | [Depth Anything V2](https://arxiv.org/abs/2406.09414) | `transformers` |
 
 <br>
 

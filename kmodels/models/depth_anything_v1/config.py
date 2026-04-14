@@ -45,9 +45,3 @@ DEPTH_ANYTHING_V1_WEIGHTS_CONFIG = {
         },
     },
 }
-
-DEPTH_ANYTHING_V1_HF_MODEL_IDS = {
-    "DepthAnythingV1Small": "LiheYoung/depth-anything-small-hf",
-    "DepthAnythingV1Base": "LiheYoung/depth-anything-base-hf",
-    "DepthAnythingV1Large": "LiheYoung/depth-anything-large-hf",
-}

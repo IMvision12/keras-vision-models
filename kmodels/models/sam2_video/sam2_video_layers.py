@@ -4,6 +4,28 @@ from keras import layers, ops
 
 
 def build_rope_2d_axial_cache(end_x, end_y, dim, theta=10000.0):
+    """Precompute 2D axial rotary position embedding cosine/sine tables.
+
+    Splits the embedding dimension in half and applies independent 1D
+    rotary frequencies along the ``x`` and ``y`` axes. Each pair of
+    consecutive dimensions shares the same frequency, and the resulting
+    angles are repeat-interleaved by 2 so they align with the pairwise
+    rotation used in :func:`_apply_rope_2d`.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+
+    Args:
+        end_x: Integer, width of the spatial grid.
+        end_y: Integer, height of the spatial grid.
+        dim: Integer, total embedding dimension. Must be divisible by 4.
+        theta: Float, base frequency for the rotary encoding.
+            Defaults to ``10000.0``.
+
+    Returns:
+        Tuple ``(cos, sin)`` of NumPy arrays each shaped
+        ``(end_x * end_y, dim)`` and cast to ``float32``.
+    """
     i = np.arange(0, dim, 4, dtype=np.float32)[: dim // 4]
     freqs = 1.0 / (theta ** (i / dim))
 
@@ -21,6 +43,18 @@ def build_rope_2d_axial_cache(end_x, end_y, dim, theta=10000.0):
 
 
 def _rotate_pairwise(x):
+    """Pairwise 90-degree rotation used by rotary position embeddings.
+
+    Reshapes the last dimension into pairs and maps ``(a, b)`` to
+    ``(-b, a)``, which corresponds to multiplying the complex pair
+    ``a + b * i`` by ``i``.
+
+    Args:
+        x: Tensor whose last dimension is even.
+
+    Returns:
+        Tensor of the same shape as ``x`` with pairs rotated.
+    """
     shape = ops.shape(x)
     x = ops.reshape(x, [*shape[:-1], -1, 2])
     x1 = x[..., 0]
@@ -30,6 +64,30 @@ def _rotate_pairwise(x):
 
 
 def _apply_rope_2d(q, k, cos, sin, num_k_exclude_rope=0, rope_k_repeat=False):
+    """Apply 2D axial rotary position embedding to query and key tensors.
+
+    Rotates query and key along the precomputed ``cos``/``sin`` tables.
+    The trailing ``num_k_exclude_rope`` key tokens bypass the rotation so
+    object pointer tokens concatenated after spatial memory tokens are
+    left untouched. When ``rope_k_repeat`` is True and the key sequence is
+    longer than the query sequence (multi-frame memory attention), the
+    ``cos``/``sin`` tables are tiled so each memory frame gets its own
+    0..L-1 RoPE cycle.
+
+    Args:
+        q: Query tensor of shape ``(B, H, N_q, D)``.
+        k: Key tensor of shape ``(B, H, N_k, D)``.
+        cos: Cosine table broadcastable to ``(1, 1, N_q, D)``.
+        sin: Sine table broadcastable to ``(1, 1, N_q, D)``.
+        num_k_exclude_rope: Integer, number of trailing key tokens to
+            exclude from the rotation. Defaults to ``0``.
+        rope_k_repeat: Boolean, whether to tile the ``cos``/``sin`` tables
+            when the key sequence is longer than the query sequence.
+            Defaults to ``False``.
+
+    Returns:
+        Tuple ``(q_embed, k_embed)`` of rotary-embedded tensors.
+    """
     if num_k_exclude_rope > 0:
         k_rot = k[..., : ops.shape(k)[-2] - num_k_exclude_rope, :]
         k_pass = k[..., ops.shape(k)[-2] - num_k_exclude_rope :, :]
@@ -57,6 +115,33 @@ def _apply_rope_2d(q, k, cos, sin, num_k_exclude_rope=0, rope_k_repeat=False):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2VideoRoPEAttention(layers.Layer):
+    """Multi-head attention with 2D axial rotary position embedding.
+
+    Used as the self-attention and cross-attention block inside the
+    memory attention stack. Separate Q/K/V projections are supported so
+    that cross-attention can consume lower-dimensional memory features
+    (``kv_in_dim != hidden_size``). When running under the Keras torch
+    backend, the attention matmul is delegated to
+    :func:`torch.nn.functional.scaled_dot_product_attention` for memory
+    efficiency on long memory sequences.
+
+    Args:
+        hidden_size (int): Query/output dimension. Defaults to ``256``.
+        kv_in_dim (int): Key/value input dimension. When ``None`` the
+            same value as ``hidden_size`` is used. Defaults to ``None``.
+        num_heads (int): Number of attention heads. Defaults to ``1``.
+        rope_k_repeat (bool): Whether to tile the RoPE tables across
+            multiple memory frames in cross-attention. Defaults to
+            ``False``.
+        dropout_p (float): Attention dropout probability used by the
+            non-torch fallback path. Defaults to ``0.1``.
+        **kwargs: Additional keyword arguments passed to the base
+            ``Layer`` class.
+
+    References:
+        - SAM 2: https://arxiv.org/abs/2408.00714
+    """
+
     def __init__(
         self,
         hidden_size=256,
@@ -143,6 +228,33 @@ class Sam2VideoRoPEAttention(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2VideoMemoryAttentionLayer(layers.Layer):
+    """Single memory-attention block with self, cross and feed-forward sub-layers.
+
+    Pre-norm architecture mirroring the original SAM 2 memory attention
+    implementation. The current-frame features first self-attend with
+    RoPE, then cross-attend to the concatenated spatial memory and
+    object-pointer tokens (also with RoPE on the spatial part only), and
+    finally pass through a ReLU feed-forward MLP. Residual connections
+    are applied around every sub-layer.
+
+    Args:
+        hidden_size (int): Query/output dimension. Defaults to ``256``.
+        kv_in_dim (int): Memory key/value input dimension. Defaults to
+            ``64``.
+        num_heads (int): Number of attention heads. Defaults to ``1``.
+        ffn_hidden_size (int): Hidden dimension of the feed-forward
+            sub-layer. Defaults to ``2048``.
+        dropout (float): Dropout probability applied after each sub-layer
+            and inside the feed-forward block. Defaults to ``0.1``.
+        rope_dropout (float): Dropout probability passed to the internal
+            :class:`Sam2VideoRoPEAttention` blocks. Defaults to ``0.1``.
+        **kwargs: Additional keyword arguments passed to the base
+            ``Layer`` class.
+
+    References:
+        - SAM 2: https://arxiv.org/abs/2408.00714
+    """
+
     def __init__(
         self,
         hidden_size=256,
@@ -243,6 +355,38 @@ class Sam2VideoMemoryAttentionLayer(layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2VideoMemoryAttention(layers.Layer):
+    """Stack of memory attention blocks used for video feature conditioning.
+
+    Wraps ``num_layers`` :class:`Sam2VideoMemoryAttentionLayer` blocks and
+    applies a final layer normalization. The 2D axial RoPE tables are
+    precomputed once in :meth:`__init__` from ``rope_feat_sizes`` and
+    reused for every forward call. A 0.1-scaled positional encoding is
+    added to the current-frame features before the first block, matching
+    the original SAM 2 implementation.
+
+    Args:
+        hidden_size (int): Query/output dimension. Defaults to ``256``.
+        kv_in_dim (int): Memory key/value dimension. Defaults to ``64``.
+        num_layers (int): Number of stacked memory attention blocks.
+            Defaults to ``4``.
+        num_heads (int): Number of attention heads per block. Defaults to
+            ``1``.
+        ffn_hidden_size (int): Hidden dimension of each block's
+            feed-forward sub-layer. Defaults to ``2048``.
+        dropout (float): Dropout probability used by all sub-layers.
+            Defaults to ``0.1``.
+        rope_theta (float): Base frequency for the 2D axial rotary
+            embedding tables. Defaults to ``10000.0``.
+        rope_feat_sizes (list[int]): Two-element list ``[H, W]`` giving
+            the spatial grid used to build the RoPE cache. Defaults to
+            ``[64, 64]``.
+        **kwargs: Additional keyword arguments passed to the base
+            ``Layer`` class.
+
+    References:
+        - SAM 2: https://arxiv.org/abs/2408.00714
+    """
+
     def __init__(
         self,
         hidden_size=256,

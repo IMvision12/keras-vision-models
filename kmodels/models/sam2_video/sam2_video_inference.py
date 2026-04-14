@@ -165,23 +165,31 @@ def _prepare_memory_conditioned_features(
     session,
     obj_idx,
     frame_idx,
-    current_vision_feats_channels_first,
+    current_vision_feats,
     current_vision_pos_embeds,
 ):
-    mem_frames = _gather_memory_frames(session, obj_idx, frame_idx)
+    data_format = keras.config.image_data_format()
 
+    mem_frames = _gather_memory_frames(session, obj_idx, frame_idx)
     obj_ptrs = _gather_object_pointers(session, obj_idx, frame_idx)
 
     if len(mem_frames) == 0 and len(obj_ptrs) == 0:
-        return ops.transpose(current_vision_feats_channels_first, [0, 2, 3, 1])
+        return current_vision_feats
 
-    B, C, H, W = ops.shape(current_vision_feats_channels_first)
-    current_feats_bhwc = ops.transpose(
-        current_vision_feats_channels_first, [0, 2, 3, 1]
-    )
+    if data_format == "channels_first":
+        H = ops.shape(current_vision_feats)[2]
+        W = ops.shape(current_vision_feats)[3]
+        C = ops.shape(current_vision_feats)[1]
+        current_feats_bhwc = ops.transpose(current_vision_feats, [0, 2, 3, 1])
+        pos_bhwc = ops.transpose(current_vision_pos_embeds, [0, 2, 3, 1])
+    else:
+        H = ops.shape(current_vision_feats)[1]
+        W = ops.shape(current_vision_feats)[2]
+        C = ops.shape(current_vision_feats)[3]
+        current_feats_bhwc = current_vision_feats
+        pos_bhwc = current_vision_pos_embeds
+
     current_feats_flat = ops.reshape(current_feats_bhwc, (1, H * W, C))
-
-    pos_bhwc = ops.transpose(current_vision_pos_embeds, [0, 2, 3, 1])
     pos_flat = ops.reshape(pos_bhwc, (1, H * W, C))
 
     memory_feats_list = []
@@ -195,8 +203,9 @@ def _prepare_memory_conditioned_features(
 
         mm = ops.convert_to_tensor(maskmem)
         mm_pos = ops.convert_to_tensor(maskmem_pos)
-        mm = ops.transpose(mm, [0, 2, 3, 1])
-        mm_pos = ops.transpose(mm_pos, [0, 2, 3, 1])
+        if data_format == "channels_first":
+            mm = ops.transpose(mm, [0, 2, 3, 1])
+            mm_pos = ops.transpose(mm_pos, [0, 2, 3, 1])
 
         h_m = ops.shape(mm)[1]
         w_m = ops.shape(mm)[2]
@@ -244,33 +253,31 @@ def _prepare_memory_conditioned_features(
         training=False,
     )
 
-    output_bhwc = ops.reshape(output, (1, H, W, 256))
-    return output_bhwc
+    if data_format == "channels_first":
+        output_bchw_seq = ops.reshape(output, (1, H, W, 256))
+        return ops.transpose(output_bchw_seq, [0, 3, 1, 2])
+    return ops.reshape(output, (1, H, W, 256))
 
 
 def _encode_memory(
     sam2_video_model,
-    vision_features_bhwc,
-    high_res_mask_bhwc,
+    vision_features,
+    high_res_mask,
     is_mask_from_pts=False,
 ):
+    data_format = keras.config.image_data_format()
     if is_mask_from_pts:
-        mask_for_mem_bhwc = ops.cast(high_res_mask_bhwc > 0, "float32")
+        mask_for_mem = ops.cast(high_res_mask > 0, "float32")
     else:
-        mask_for_mem_bhwc = ops.sigmoid(high_res_mask_bhwc)
-    mask_for_mem_bhwc = (
-        mask_for_mem_bhwc * SIGMOID_SCALE_FOR_MEM_ENC + SIGMOID_BIAS_FOR_MEM_ENC
+        mask_for_mem = ops.sigmoid(high_res_mask)
+    mask_for_mem = mask_for_mem * SIGMOID_SCALE_FOR_MEM_ENC + SIGMOID_BIAS_FOR_MEM_ENC
+    maskmem_features = sam2_video_model.memory_encoder_submodel(
+        [vision_features, mask_for_mem]
     )
-    vf_bchw = ops.transpose(vision_features_bhwc, [0, 3, 1, 2])
-    mask_bchw = ops.transpose(mask_for_mem_bhwc, [0, 3, 1, 2])
-
-    maskmem_features_bchw = sam2_video_model.memory_encoder_submodel(
-        [vf_bchw, mask_bchw]
+    maskmem_pos_enc = sam2_video_sine_position_embedding(
+        maskmem_features, num_pos_feats=MEM_DIM // 2, data_format=data_format
     )
-    maskmem_pos_enc_bchw = sam2_video_sine_position_embedding(
-        maskmem_features_bchw, num_pos_feats=MEM_DIM // 2
-    )
-    return maskmem_features_bchw, maskmem_pos_enc_bchw
+    return maskmem_features, maskmem_pos_enc
 
 
 def _compute_object_pointer(
@@ -337,6 +344,8 @@ class Sam2VideoPredictor:
         frame_idx,
         is_init_cond_frame=False,
     ):
+        data_format = keras.config.image_data_format()
+
         frame = session.processed_frames[frame_idx]
         enc = self._encode_frame(ops.convert_to_tensor(frame))
 
@@ -345,9 +354,8 @@ class Sam2VideoPredictor:
         high_res_feat_s0 = enc["high_res_feat_s0"]
         high_res_feat_s1 = enc["high_res_feat_s1"]
 
-        image_emb_raw_bchw = ops.transpose(image_embeddings_raw, [0, 3, 1, 2])
-        sine_pe_bchw = sam2_video_sine_position_embedding(
-            image_emb_raw_bchw, num_pos_feats=128
+        sine_pe = sam2_video_sine_position_embedding(
+            image_embeddings_raw, num_pos_feats=128, data_format=data_format
         )
 
         results = {}
@@ -363,15 +371,14 @@ class Sam2VideoPredictor:
             if is_cond and not has_cond:
                 image_embeddings = self.no_mem_embed_layer(image_embeddings_raw)
             else:
-                conditioned_bhwc = _prepare_memory_conditioned_features(
+                image_embeddings = _prepare_memory_conditioned_features(
                     self.model,
                     session,
                     obj_idx,
                     frame_idx,
-                    image_emb_raw_bchw,
-                    sine_pe_bchw,
+                    image_embeddings_raw,
+                    sine_pe,
                 )
-                image_embeddings = conditioned_bhwc
 
             if has_prompt:
                 pt_data = session.point_inputs_per_obj[obj_idx][frame_idx]
@@ -427,26 +434,29 @@ class Sam2VideoPredictor:
                 align_corners=False,
                 antialias=True,
             )
-            high_res_mask_bhwc = ops.transpose(pm_bchw_up, [0, 2, 3, 1])
+            if data_format == "channels_first":
+                high_res_mask = pm_bchw_up
+            else:
+                high_res_mask = ops.transpose(pm_bchw_up, [0, 2, 3, 1])
 
             obj_ptr = _compute_object_pointer(
                 self.model, mask_tokens_out_all, iou_scores_all, use_best_mask=True
             )
 
-            maskmem_features_bchw, maskmem_pos_enc_bchw = _encode_memory(
+            maskmem_features, maskmem_pos_enc = _encode_memory(
                 self.model,
                 image_embeddings_raw,
-                high_res_mask_bhwc,
+                high_res_mask,
                 is_mask_from_pts=has_prompt,
             )
 
             frame_output = {
                 "pred_masks": ops.convert_to_numpy(pred_masks_best),
-                "high_res_masks": ops.convert_to_numpy(high_res_mask_bhwc),
+                "high_res_masks": ops.convert_to_numpy(high_res_mask),
                 "object_pointer": ops.convert_to_numpy(obj_ptr),
                 "object_score_logits": ops.convert_to_numpy(object_score_logits),
-                "maskmem_features": ops.convert_to_numpy(maskmem_features_bchw),
-                "maskmem_pos_enc": ops.convert_to_numpy(maskmem_pos_enc_bchw),
+                "maskmem_features": ops.convert_to_numpy(maskmem_features),
+                "maskmem_pos_enc": ops.convert_to_numpy(maskmem_pos_enc),
             }
             session.store_output(
                 obj_idx, frame_idx, frame_output, is_conditioning=is_cond

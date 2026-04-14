@@ -1,3 +1,7 @@
+import os
+
+os.environ["KERAS_BACKEND"] = "torch"
+
 import gc
 
 import keras
@@ -100,7 +104,10 @@ def _transfer_backbone(keras_model, hf_sd):
 
 def _transfer_no_memory_embedding(keras_model, hf_sd):
     no_mem = keras_model.get_layer("no_memory_embedding")
-    no_mem.embedding.assign(hf_sd["no_memory_embedding"].reshape(1, 1, 1, -1))
+    if keras.config.image_data_format() == "channels_first":
+        no_mem.embedding.assign(hf_sd["no_memory_embedding"].reshape(1, -1, 1, 1))
+    else:
+        no_mem.embedding.assign(hf_sd["no_memory_embedding"].reshape(1, 1, 1, -1))
 
 
 def _transfer_prompt_encoder(keras_model, hf_sd):

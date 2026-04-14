@@ -6,8 +6,6 @@ from keras import ops
 
 from kmodels.models.sam2_video.sam2_video_model import (
     Sam2Video,
-    sam2_video_feed_forward_call,
-    sam2_video_memory_encoder_call,
     sam2_video_sine_position_embedding,
 )
 
@@ -266,20 +264,11 @@ def _encode_memory(
     vf_bchw = ops.transpose(vision_features_bhwc, [0, 3, 1, 2])
     mask_bchw = ops.transpose(mask_for_mem_bhwc, [0, 3, 1, 2])
 
-    maskmem_features_bchw, maskmem_pos_enc_bchw = sam2_video_memory_encoder_call(
-        vision_features=vf_bchw,
-        masks=mask_bchw,
-        ds_convs=sam2_video_model.mem_enc_ds_convs,
-        ds_lns=sam2_video_model.mem_enc_ds_lns,
-        ds_final_conv=sam2_video_model.mem_enc_ds_final_conv,
-        feature_proj=sam2_video_model.mem_enc_feature_proj,
-        fuser_dw_convs=sam2_video_model.mem_enc_fuser_dw_convs,
-        fuser_lns=sam2_video_model.mem_enc_fuser_lns,
-        fuser_pw1s=sam2_video_model.mem_enc_fuser_pw1s,
-        fuser_pw2s=sam2_video_model.mem_enc_fuser_pw2s,
-        fuser_scales=sam2_video_model.mem_enc_fuser_scales,
-        projection=sam2_video_model.mem_enc_projection,
-        num_pos_feats=MEM_DIM // 2,
+    maskmem_features_bchw = sam2_video_model.memory_encoder_submodel(
+        [vf_bchw, mask_bchw]
+    )
+    maskmem_pos_enc_bchw = sam2_video_sine_position_embedding(
+        maskmem_features_bchw, num_pos_feats=MEM_DIM // 2
     )
     return maskmem_features_bchw, maskmem_pos_enc_bchw
 
@@ -298,12 +287,7 @@ def _compute_object_pointer(
         best_token = mask_tokens_out_all[:, :, 0, :]
 
     best_token_flat = ops.reshape(best_token, (1, 256))
-    object_pointer = sam2_video_feed_forward_call(
-        best_token_flat,
-        sam2_video_model.obj_ptr_proj_in,
-        sam2_video_model.obj_ptr_proj_hidden_layers,
-        sam2_video_model.obj_ptr_proj_out,
-    )
+    object_pointer = sam2_video_model.obj_ptr_proj_submodel(best_token_flat)
     return ops.reshape(object_pointer, (1, 1, 256))
 
 

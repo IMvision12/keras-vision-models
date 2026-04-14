@@ -257,42 +257,41 @@ def _transfer_memory_attention(keras_model, hf_sd):
 
 
 def _transfer_memory_encoder(keras_model, hf_sd):
+    sub = keras_model.memory_encoder_submodel
+
     for i in range(4):
         hf_pfx = f"memory_encoder.mask_downsampler.layers.{i}"
-        transfer_weights(
-            "conv_kernel",
-            keras_model.mem_enc_ds_convs[i].kernel,
-            hf_sd[f"{hf_pfx}.conv.weight"],
-        )
-        keras_model.mem_enc_ds_convs[i].bias.assign(hf_sd[f"{hf_pfx}.conv.bias"])
-        keras_model.mem_enc_ds_lns[i].gamma.assign(hf_sd[f"{hf_pfx}.layer_norm.weight"])
-        keras_model.mem_enc_ds_lns[i].beta.assign(hf_sd[f"{hf_pfx}.layer_norm.bias"])
+        conv = sub.get_layer(f"mem_enc_mask_ds_conv_{i}")
+        ln = sub.get_layer(f"mem_enc_mask_ds_ln_{i}")
+        transfer_weights("conv_kernel", conv.kernel, hf_sd[f"{hf_pfx}.conv.weight"])
+        conv.bias.assign(hf_sd[f"{hf_pfx}.conv.bias"])
+        ln.gamma.assign(hf_sd[f"{hf_pfx}.layer_norm.weight"])
+        ln.beta.assign(hf_sd[f"{hf_pfx}.layer_norm.bias"])
 
+    final_conv = sub.get_layer("mem_enc_mask_ds_final_conv")
     transfer_weights(
         "conv_kernel",
-        keras_model.mem_enc_ds_final_conv.kernel,
+        final_conv.kernel,
         hf_sd["memory_encoder.mask_downsampler.final_conv.weight"],
     )
-    keras_model.mem_enc_ds_final_conv.bias.assign(
-        hf_sd["memory_encoder.mask_downsampler.final_conv.bias"]
-    )
+    final_conv.bias.assign(hf_sd["memory_encoder.mask_downsampler.final_conv.bias"])
 
+    feat_proj = sub.get_layer("mem_enc_feature_proj")
     transfer_weights(
         "conv_kernel",
-        keras_model.mem_enc_feature_proj.kernel,
+        feat_proj.kernel,
         hf_sd["memory_encoder.feature_projection.weight"],
     )
-    keras_model.mem_enc_feature_proj.bias.assign(
-        hf_sd["memory_encoder.feature_projection.bias"]
-    )
+    feat_proj.bias.assign(hf_sd["memory_encoder.feature_projection.bias"])
 
     for i in range(2):
         hf_pfx = f"memory_encoder.memory_fuser.layers.{i}"
-        dw_conv = keras_model.mem_enc_fuser_dw_convs[i]
-        ln = keras_model.mem_enc_fuser_lns[i]
-        pw1 = keras_model.mem_enc_fuser_pw1s[i]
-        pw2 = keras_model.mem_enc_fuser_pw2s[i]
-        keras_model.mem_enc_fuser_scales[i].assign(hf_sd[f"{hf_pfx}.scale"])
+        dw_conv = sub.get_layer(f"mem_enc_fuser_{i}_dw_conv")
+        ln = sub.get_layer(f"mem_enc_fuser_{i}_ln")
+        pw1 = sub.get_layer(f"mem_enc_fuser_{i}_pw1")
+        pw2 = sub.get_layer(f"mem_enc_fuser_{i}_pw2")
+        scale_layer = sub.get_layer(f"mem_enc_fuser_{i}_scale")
+        scale_layer.scale.assign(hf_sd[f"{hf_pfx}.scale"])
         dw_w = hf_sd[f"{hf_pfx}.depthwise_conv.weight"]
         dw_w = np.transpose(dw_w, (2, 3, 0, 1))
         dw_conv.kernel.assign(dw_w)
@@ -308,12 +307,13 @@ def _transfer_memory_encoder(keras_model, hf_sd):
         )
         pw2.bias.assign(hf_sd[f"{hf_pfx}.pointwise_conv2.bias"])
 
+    projection = sub.get_layer("mem_enc_projection")
     transfer_weights(
         "conv_kernel",
-        keras_model.mem_enc_projection.kernel,
+        projection.kernel,
         hf_sd["memory_encoder.projection.weight"],
     )
-    keras_model.mem_enc_projection.bias.assign(hf_sd["memory_encoder.projection.bias"])
+    projection.bias.assign(hf_sd["memory_encoder.projection.bias"])
 
 
 def _transfer_video_params(keras_model, hf_sd):
@@ -329,26 +329,23 @@ def _transfer_video_params(keras_model, hf_sd):
             hf_sd["occlusion_spatial_embedding_parameter"]
         )
 
+    ptr_sub = keras_model.obj_ptr_proj_submodel
+    proj_in = ptr_sub.get_layer("obj_ptr_proj_proj_in")
+    layer_0 = ptr_sub.get_layer("obj_ptr_proj_layers_0")
+    proj_out = ptr_sub.get_layer("obj_ptr_proj_proj_out")
+
     transfer_weights(
-        "kernel",
-        keras_model.obj_ptr_proj_in.kernel,
-        hf_sd["object_pointer_proj.proj_in.weight"],
+        "kernel", proj_in.kernel, hf_sd["object_pointer_proj.proj_in.weight"]
     )
-    keras_model.obj_ptr_proj_in.bias.assign(hf_sd["object_pointer_proj.proj_in.bias"])
+    proj_in.bias.assign(hf_sd["object_pointer_proj.proj_in.bias"])
     transfer_weights(
-        "kernel",
-        keras_model.obj_ptr_proj_hidden_layers[0].kernel,
-        hf_sd["object_pointer_proj.layers.0.weight"],
+        "kernel", layer_0.kernel, hf_sd["object_pointer_proj.layers.0.weight"]
     )
-    keras_model.obj_ptr_proj_hidden_layers[0].bias.assign(
-        hf_sd["object_pointer_proj.layers.0.bias"]
-    )
+    layer_0.bias.assign(hf_sd["object_pointer_proj.layers.0.bias"])
     transfer_weights(
-        "kernel",
-        keras_model.obj_ptr_proj_out.kernel,
-        hf_sd["object_pointer_proj.proj_out.weight"],
+        "kernel", proj_out.kernel, hf_sd["object_pointer_proj.proj_out.weight"]
     )
-    keras_model.obj_ptr_proj_out.bias.assign(hf_sd["object_pointer_proj.proj_out.bias"])
+    proj_out.bias.assign(hf_sd["object_pointer_proj.proj_out.bias"])
 
     transfer_weights(
         "conv_kernel",

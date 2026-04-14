@@ -20,109 +20,350 @@ from .config import SAM2_VIDEO_MODEL_CONFIG, SAM2_VIDEO_WEIGHTS_CONFIG
 from .sam2_video_layers import Sam2VideoMemoryAttention
 
 
-def sam2_video_feed_forward(input_dim, hidden_dim, output_dim, num_layers, name):
-    proj_in = layers.Dense(hidden_dim, name=f"{name}_proj_in")
-    hidden_layers = [
-        layers.Dense(hidden_dim, name=f"{name}_hidden_{i}")
-        for i in range(num_layers - 2)
-    ]
-    proj_out = layers.Dense(output_dim, name=f"{name}_proj_out")
-    return proj_in, hidden_layers, proj_out
+@keras.saving.register_keras_serializable(package="kmodels")
+class Sam2VideoLayerScale(layers.Layer):
+    """Learnable per-channel scale used inside memory-fuser CX blocks.
 
+    Holds a single ``(dim,)`` weight initialized to ``init_value`` and
+    multiplies the last axis of the input tensor. This reproduces the
+    ConvNeXt layer-scale trick used by the memory encoder's memory
+    fuser.
 
-def sam2_video_feed_forward_call(x, proj_in, hidden_layers, proj_out):
-    x = ops.relu(proj_in(x))
-    for layer in hidden_layers:
-        x = ops.relu(layer(x))
-    return proj_out(x)
+    Args:
+        dim (int): Number of channels; shape of the learned scale
+            vector.
+        init_value (float): Initial value for every element of the
+            scale. Defaults to ``0.0``.
+        **kwargs: Additional keyword arguments passed to the base
+            ``Layer`` class.
 
+    References:
+        - SAM 2: https://arxiv.org/abs/2408.00714
+    """
 
-def sam2_video_mask_downsampler(embed_dim, name):
-    num_stages = 4
-    ds_convs = []
-    ds_lns = []
-    in_ch = 1
-    for i in range(num_stages):
-        out_ch = in_ch * 4
-        ds_convs.append(
-            layers.Conv2D(
-                out_ch,
-                3,
-                strides=2,
-                padding="valid",
-                data_format="channels_first",
-                name=f"{name}_conv_{i}",
-            )
+    def __init__(self, dim, init_value=0.0, **kwargs):
+        super().__init__(**kwargs)
+        self.dim = dim
+        self.init_value = init_value
+
+    def build(self, input_shape):
+        self.scale = self.add_weight(
+            name="scale",
+            shape=(self.dim,),
+            initializer=keras.initializers.Constant(self.init_value),
         )
-        ds_lns.append(layers.LayerNormalization(epsilon=1e-6, name=f"{name}_ln_{i}"))
-        in_ch = out_ch
-    final_conv = layers.Conv2D(
-        embed_dim,
-        1,
-        padding="valid",
-        data_format="channels_first",
-        name=f"{name}_final_conv",
-    )
-    return ds_convs, ds_lns, final_conv
+
+    def call(self, x):
+        return self.scale * x
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"dim": self.dim, "init_value": self.init_value})
+        return config
 
 
-def sam2_video_mask_downsampler_call(x, ds_convs, ds_lns, final_conv):
-    for conv, ln in zip(ds_convs, ds_lns):
-        x = ops.pad(x, [[0, 0], [0, 0], [1, 1], [1, 1]])
-        x = conv(x)
-        x = ops.transpose(x, [0, 2, 3, 1])
-        x = ln(x)
-        x = ops.transpose(x, [0, 3, 1, 2])
-        x = ops.nn.gelu(x, approximate=False)
-    return final_conv(x)
+def sam2_video_ffn(inputs, hidden_dim, output_dim, num_layers, name=""):
+    """Multi-layer perceptron used by the object-pointer projection.
 
+    Builds a feed-forward network of ``num_layers`` Dense layers with
+    ReLU activations between hidden layers. Used to project the best
+    mask token into the shared object-pointer space consumed by the
+    memory attention cross-attention.
 
-def sam2_video_cx_block(embed_dim, intermediate_dim, kernel_size, name):
-    dw_conv = layers.DepthwiseConv2D(
-        kernel_size,
-        padding="valid",
-        data_format="channels_first",
-        name=f"{name}_dw_conv",
-    )
-    ln = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_ln")
-    pw1 = layers.Dense(intermediate_dim, name=f"{name}_pw1")
-    pw2 = layers.Dense(embed_dim, name=f"{name}_pw2")
-    return dw_conv, ln, pw1, pw2
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
 
+    Args:
+        inputs: Input tensor of shape ``(..., input_dim)``.
+        hidden_dim: Integer, hidden dimensionality for all intermediate
+            linear layers.
+        output_dim: Integer, output dimensionality of the final linear
+            layer.
+        num_layers: Integer, total number of linear layers including the
+            input and output projections.
+        name: String, name prefix for the sub-layers. Defaults to ``""``.
 
-def sam2_video_cx_block_call(x, dw_conv, ln, pw1, pw2, scale, padding):
-    residual = x
-    x = ops.pad(x, [[0, 0], [0, 0], [padding, padding], [padding, padding]])
-    x = dw_conv(x)
-    x = ops.transpose(x, [0, 2, 3, 1])
-    x = ln(x)
-    x = pw1(x)
-    x = ops.nn.gelu(x, approximate=False)
-    x = pw2(x)
-    x = scale * x
-    x = ops.transpose(x, [0, 3, 1, 2])
-    return residual + x
-
-
-def sam2_video_memory_fuser(num_blocks, embed_dim, intermediate_dim, kernel_size, name):
-    blocks = []
-    for i in range(num_blocks):
-        blocks.append(
-            sam2_video_cx_block(embed_dim, intermediate_dim, kernel_size, f"{name}_{i}")
-        )
-    return blocks
-
-
-def sam2_video_memory_fuser_call(x, blocks, scales, padding):
-    for (dw_conv, ln, pw1, pw2), scale in zip(blocks, scales):
-        x = sam2_video_cx_block_call(x, dw_conv, ln, pw1, pw2, scale, padding)
+    Returns:
+        Output tensor of shape ``(..., output_dim)``.
+    """
+    x = layers.Dense(hidden_dim, name=f"{name}_proj_in")(inputs)
+    x = layers.Activation("relu", name=f"{name}_relu_0")(x)
+    for i in range(num_layers - 2):
+        x = layers.Dense(hidden_dim, name=f"{name}_layers_{i}")(x)
+        x = layers.Activation("relu", name=f"{name}_relu_{i + 1}")(x)
+    x = layers.Dense(output_dim, name=f"{name}_proj_out")(x)
     return x
 
 
-def sam2_video_sine_position_embedding(x, num_pos_feats, temperature=10000):
+def sam2_video_mask_downsampler(
+    inputs, embed_dim, data_format="channels_last", name=""
+):
+    """Downsample a predicted mask for the memory encoder.
+
+    Progressively reduces a ``(1, 1024, 1024)`` mask to
+    ``(embed_dim, 64, 64)`` through four stride-2 3x3 convolutions
+    interleaved with layer normalization and GELU activations, then a
+    final 1x1 projection to ``embed_dim`` channels.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+
+    Args:
+        inputs: Input mask tensor. Layout matches ``data_format``.
+        embed_dim: Integer, number of output channels after the final
+            1x1 projection.
+        data_format: String, one of ``"channels_first"`` or
+            ``"channels_last"``. Defaults to ``"channels_last"``.
+        name: String, name prefix for the sub-layers. Defaults to
+            ``""``.
+
+    Returns:
+        Downsampled tensor in the same data format as the input.
+    """
+    x = inputs
+    in_ch = 1
+    for i in range(4):
+        out_ch = in_ch * 4
+        x = layers.ZeroPadding2D(
+            padding=1, data_format=data_format, name=f"{name}_pad_{i}"
+        )(x)
+        x = layers.Conv2D(
+            out_ch,
+            3,
+            strides=2,
+            padding="valid",
+            data_format=data_format,
+            name=f"{name}_conv_{i}",
+        )(x)
+        if data_format == "channels_first":
+            x = layers.Permute((2, 3, 1), name=f"{name}_permute_a_{i}")(x)
+        x = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_ln_{i}")(x)
+        if data_format == "channels_first":
+            x = layers.Permute((3, 1, 2), name=f"{name}_permute_b_{i}")(x)
+        x = layers.Activation("gelu", name=f"{name}_gelu_{i}")(x)
+        in_ch = out_ch
+    x = layers.Conv2D(
+        embed_dim,
+        1,
+        padding="valid",
+        data_format=data_format,
+        name=f"{name}_final_conv",
+    )(x)
+    return x
+
+
+def sam2_video_cx_block(
+    inputs,
+    embed_dim,
+    intermediate_dim,
+    kernel_size,
+    padding,
+    data_format="channels_last",
+    name="",
+):
+    """ConvNeXt block used inside the memory-encoder fuser.
+
+    Applies a depthwise spatial convolution followed by a two-layer
+    pointwise MLP (with layer normalization and GELU activation),
+    scales the residual path by a learned :class:`Sam2VideoLayerScale`,
+    and adds the skip connection back onto the original input. When
+    ``data_format`` is ``"channels_first"`` the tensor is permuted to
+    channels-last for the LayerNorm/Dense/scale chain and permuted back.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+
+    Args:
+        inputs: Input tensor. Layout matches ``data_format``.
+        embed_dim: Integer, channel dimension of the input and output.
+        intermediate_dim: Integer, hidden dimension of the two-layer
+            pointwise MLP.
+        kernel_size: Integer, spatial kernel size of the depthwise
+            convolution.
+        padding: Integer, symmetric zero padding applied before the
+            depthwise convolution.
+        data_format: String, one of ``"channels_first"`` or
+            ``"channels_last"``. Defaults to ``"channels_last"``.
+        name: String, name prefix for the sub-layers. Defaults to
+            ``""``.
+
+    Returns:
+        Tensor of the same shape as ``inputs``.
+    """
+    residual = inputs
+    x = layers.ZeroPadding2D(
+        padding=padding, data_format=data_format, name=f"{name}_pad"
+    )(inputs)
+    x = layers.DepthwiseConv2D(
+        kernel_size,
+        padding="valid",
+        data_format=data_format,
+        name=f"{name}_dw_conv",
+    )(x)
+    if data_format == "channels_first":
+        x = layers.Permute((2, 3, 1), name=f"{name}_permute_a")(x)
+    x = layers.LayerNormalization(epsilon=1e-6, name=f"{name}_ln")(x)
+    x = layers.Dense(intermediate_dim, name=f"{name}_pw1")(x)
+    x = layers.Activation("gelu", name=f"{name}_gelu")(x)
+    x = layers.Dense(embed_dim, name=f"{name}_pw2")(x)
+    x = Sam2VideoLayerScale(embed_dim, init_value=0.0, name=f"{name}_scale")(x)
+    if data_format == "channels_first":
+        x = layers.Permute((3, 1, 2), name=f"{name}_permute_b")(x)
+    x = layers.Add(name=f"{name}_add")([residual, x])
+    return x
+
+
+def sam2_video_memory_fuser(
+    inputs,
+    num_blocks,
+    embed_dim,
+    intermediate_dim,
+    kernel_size,
+    padding,
+    data_format="channels_last",
+    name="",
+):
+    """Sequential stack of CX blocks inside the memory encoder.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+
+    Args:
+        inputs: Input tensor. Layout matches ``data_format``.
+        num_blocks: Integer, number of :func:`sam2_video_cx_block`
+            blocks to stack.
+        embed_dim: Integer, channel dimension of the input and output.
+        intermediate_dim: Integer, hidden dimension passed through to
+            each CX block's pointwise MLP.
+        kernel_size: Integer, spatial kernel size of each block's
+            depthwise convolution.
+        padding: Integer, symmetric zero padding applied before each
+            depthwise convolution.
+        data_format: String, one of ``"channels_first"`` or
+            ``"channels_last"``. Defaults to ``"channels_last"``.
+        name: String, name prefix for the sub-blocks. Defaults to
+            ``""``.
+
+    Returns:
+        Tensor of the same shape as ``inputs``.
+    """
+    x = inputs
+    for i in range(num_blocks):
+        x = sam2_video_cx_block(
+            x,
+            embed_dim,
+            intermediate_dim,
+            kernel_size,
+            padding,
+            data_format=data_format,
+            name=f"{name}_{i}",
+        )
+    return x
+
+
+def sam2_video_memory_encoder(
+    vision_features,
+    masks,
+    hidden_size,
+    output_channels,
+    data_format="channels_last",
+    name="",
+):
+    """Fuse backbone features with a predicted mask into memory features.
+
+    Downsamples the high-resolution mask to the backbone feature
+    resolution via :func:`sam2_video_mask_downsampler`, projects the
+    backbone features with a 1x1 convolution, adds the two streams,
+    refines the result with :func:`sam2_video_memory_fuser`, and finally
+    projects to ``output_channels`` dimensions. The resulting tensor is
+    stored in the per-object memory bank.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+
+    Args:
+        vision_features: Backbone features. Layout matches
+            ``data_format``.
+        masks: Predicted mask tensor. Layout matches ``data_format``.
+        hidden_size: Integer, internal channel dimension.
+        output_channels: Integer, channel dimension of the returned
+            memory features.
+        data_format: String, one of ``"channels_first"`` or
+            ``"channels_last"``. Defaults to ``"channels_last"``.
+        name: String, name prefix for all sub-layers. Defaults to
+            ``""``.
+
+    Returns:
+        Memory feature tensor in the same data format as the inputs.
+    """
+    mask_ds = sam2_video_mask_downsampler(
+        masks, hidden_size, data_format=data_format, name=f"{name}_mask_ds"
+    )
+    vf = layers.Conv2D(
+        hidden_size,
+        1,
+        padding="valid",
+        data_format=data_format,
+        name=f"{name}_feature_proj",
+    )(vision_features)
+    fused = layers.Add(name=f"{name}_fuse")([vf, mask_ds])
+    fused = sam2_video_memory_fuser(
+        fused,
+        num_blocks=2,
+        embed_dim=hidden_size,
+        intermediate_dim=1024,
+        kernel_size=7,
+        padding=3,
+        data_format=data_format,
+        name=f"{name}_fuser",
+    )
+    output = layers.Conv2D(
+        output_channels,
+        1,
+        padding="valid",
+        data_format=data_format,
+        name=f"{name}_projection",
+    )(fused)
+    return output
+
+
+def sam2_video_sine_position_embedding(
+    x, num_pos_feats, temperature=10000, data_format="channels_last"
+):
+    """Compute 2D sine-cosine positional embeddings for memory features.
+
+    Produces the positional encoding paired with the memory features
+    returned by :func:`sam2_video_memory_encoder`. Frequencies come in
+    pairs following the original Transformer 1D sine encoding and are
+    stacked across the ``y`` and ``x`` axes, giving a ``2 *
+    num_pos_feats`` channel output.
+
+    Reference:
+        - `SAM 2 <https://arxiv.org/abs/2408.00714>`_
+
+    Args:
+        x: Reference tensor used to read the spatial dimensions.
+            Layout must match ``data_format``.
+        num_pos_feats: Integer, number of sine/cosine features per
+            axis. The output channel dimension is ``2 * num_pos_feats``.
+        temperature: Float, base for the inverse-frequency schedule.
+            Defaults to ``10000``.
+        data_format: String, one of ``"channels_first"`` or
+            ``"channels_last"``. Determines both how the spatial dims
+            are read from ``x`` and the layout of the returned tensor.
+            Defaults to ``"channels_last"``.
+
+    Returns:
+        Positional embedding tensor of shape
+        ``(1, 2 * num_pos_feats, H, W)`` when channels-first or
+        ``(1, H, W, 2 * num_pos_feats)`` when channels-last.
+    """
     scale = 2.0 * math.pi
     shape = ops.shape(x)
-    h, w = shape[2], shape[3]
+    if data_format == "channels_first":
+        h, w = shape[2], shape[3]
+    else:
+        h, w = shape[1], shape[2]
     y_embed = ops.cast(ops.expand_dims(ops.arange(1, h + 1), 1), dtype="float32")
     x_embed = ops.cast(ops.expand_dims(ops.arange(1, w + 1), 0), dtype="float32")
     y_embed = ops.broadcast_to(y_embed, [h, w])
@@ -148,89 +389,92 @@ def sam2_video_sine_position_embedding(x, num_pos_feats, temperature=10000):
     )
 
     pos = ops.concatenate([pos_y, pos_x], axis=-1)
-    pos = ops.transpose(pos, [2, 0, 1])
+    if data_format == "channels_first":
+        pos = ops.transpose(pos, [2, 0, 1])
     return ops.expand_dims(pos, 0)
-
-
-def sam2_video_memory_encoder(hidden_size, output_channels, name):
-    ds_convs, ds_lns, ds_final_conv = sam2_video_mask_downsampler(
-        hidden_size, f"{name}_mask_ds"
-    )
-    feature_proj = layers.Conv2D(
-        hidden_size,
-        1,
-        padding="valid",
-        data_format="channels_first",
-        name=f"{name}_feature_proj",
-    )
-    fuser_blocks = sam2_video_memory_fuser(2, hidden_size, 1024, 7, f"{name}_fuser")
-    projection = layers.Conv2D(
-        output_channels,
-        1,
-        padding="valid",
-        data_format="channels_first",
-        name=f"{name}_projection",
-    )
-    return ds_convs, ds_lns, ds_final_conv, feature_proj, fuser_blocks, projection
-
-
-def sam2_video_memory_encoder_call(
-    vision_features,
-    masks,
-    ds_convs,
-    ds_lns,
-    ds_final_conv,
-    feature_proj,
-    fuser_blocks,
-    fuser_scales,
-    projection,
-    num_pos_feats,
-):
-    masks = sam2_video_mask_downsampler_call(masks, ds_convs, ds_lns, ds_final_conv)
-    vision_features = feature_proj(vision_features)
-    vision_features = vision_features + masks
-    vision_features = sam2_video_memory_fuser_call(
-        vision_features, fuser_blocks, fuser_scales, padding=3
-    )
-    vision_features = projection(vision_features)
-    pos_enc = sam2_video_sine_position_embedding(vision_features, num_pos_feats)
-    return vision_features, pos_enc
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Sam2Video(keras.Model):
-    """Segment Anything Model 2 for video segmentation.
+    """Segment Anything Model 2 (Video) for promptable video segmentation.
 
-    Extends SAM2 with memory-conditioned attention for temporal tracking.
-    The architecture adds a memory attention module (4-layer RoPE transformer),
-    a memory encoder (ConvNeXt fuser), and object pointer tokens on top of the
-    standard Hiera backbone, prompt encoder, and mask decoder.
+    Extends the SAM 2 image model with the components required for
+    temporal tracking:
 
-    For initial frames (no prior memory), the model behaves identically to
-    SAM2 image segmentation. For subsequent frames, memory features from
-    previous predictions condition the current frame's features via
-    cross-attention.
+    1. **Hiera Backbone + FPN** – identical to the image model, produces
+       multi-scale image embeddings for the current frame.
+    2. **Prompt Encoder** – encodes sparse (points, boxes) and dense
+       (masks) prompts.
+    3. **Mask Decoder** – two-way transformer that predicts masks, IoU
+       scores, object-presence logits, and the mask tokens used later
+       to derive the object pointer.
+    4. **Memory Attention** – :class:`Sam2VideoMemoryAttention` stack
+       that conditions the current-frame features on a bank of past
+       frame memories and object pointers for non-cond frames.
+    5. **Memory Encoder Sub-Model** – built via
+       :func:`sam2_video_memory_encoder`, fuses backbone features with
+       the predicted mask into memory features stored in the memory
+       bank.
+    6. **Object Pointer Projection Sub-Model** – built via
+       :func:`sam2_video_ffn`, projects the selected mask token into a
+       compact pointer consumed by the memory attention's
+       cross-attention.
+
+    The main functional graph exposes the single-frame outputs
+    (``pred_masks``, ``iou_scores``, ``object_score_logits``) along
+    with intermediate tensors the dynamic inference loop needs
+    (``image_embeddings_raw``, ``high_res_feat_s0``, ``image_pe``, …).
 
     Reference:
-    - [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714)
+        - `SAM 2: Segment Anything in Images and Videos
+          <https://arxiv.org/abs/2408.00714>`_
 
     Args:
-        hidden_size: Integer, initial Hiera hidden dimension.
-        blocks_per_stage: List of integers, blocks per backbone stage.
-        embed_dim_per_stage: List of integers, embedding dims per stage.
-        num_attention_heads_per_stage: List of integers, heads per stage.
-        window_size_per_stage: List of integers, window sizes per stage.
-        global_attention_blocks: List of integers, global attention block indices.
-        backbone_channel_list: List of integers, FPN channel dimensions.
-        window_pos_embed_bg_size: Tuple of integers, positional embedding
-            background size. Defaults to ``(7, 7)``.
-        input_shape: Optional tuple for input shape.
-        input_tensor: Optional Keras tensor as input.
-        name: String, model name. Defaults to ``"Sam2Video"``.
+        hidden_size: Integer, initial hidden dimension of the Hiera
+            backbone.
+        blocks_per_stage: List of integers, number of transformer
+            blocks per backbone stage.
+        embed_dim_per_stage: List of integers, embedding dimension per
+            backbone stage.
+        num_attention_heads_per_stage: List of integers, number of
+            attention heads per backbone stage.
+        window_size_per_stage: List of integers, attention window size
+            per backbone stage.
+        global_attention_blocks: List of integers, absolute indices of
+            blocks that use global attention.
+        backbone_channel_list: List of integers, channel dimensions for
+            the FPN lateral connections (high-to-low resolution).
+        window_pos_embed_bg_size: Tuple of integers ``(H, W)``,
+            background size for the windowed positional embeddings.
+            Defaults to ``(7, 7)``.
+        input_shape: Optional tuple specifying the input image shape.
+            Defaults to ``(1024, 1024, 3)`` (channels-last) or
+            ``(3, 1024, 1024)`` (channels-first).
+        input_tensor: Optional Keras tensor to use as the model input.
+        name: String, the name of the model. Defaults to
+            ``"Sam2Video"``.
+        **kwargs: Additional keyword arguments passed to the
+            ``keras.Model`` class.
 
     Returns:
-        A Keras ``Model`` instance with dict outputs:
-        ``pred_masks``, ``iou_scores``, ``object_score_logits``.
+        A ``keras.Model`` instance with dict outputs:
+
+        - ``"pred_masks"``: ``(batch, num_prompts, 3, 256, 256)``
+        - ``"iou_scores"``: ``(batch, num_prompts, 3)``
+        - ``"object_score_logits"``: ``(batch, num_prompts, 1)``
+        - ``"image_embeddings_raw"``, ``"image_embeddings"``,
+          ``"high_res_feat_s0"``, ``"high_res_feat_s1"``,
+          ``"image_pe"``, ``"sparse_embeddings"``,
+          ``"dense_embeddings"``, ``"mask_tokens_out_all"``,
+          ``"pred_masks_all"``, ``"iou_scores_all"`` — intermediate
+          tensors consumed by the video inference loop.
+
+    Example:
+        ```python
+        model = kmodels.models.sam2_video.Sam2VideoSmall(
+            input_shape=(1024, 1024, 3),
+        )
+        ```
     """
 
     IMAGE_SIZE = 1024
@@ -258,6 +502,7 @@ class Sam2Video(keras.Model):
     NUM_MULTIMASK_OUTPUTS = 3
     MEM_DIM = 64
     NUM_MASKMEM = 7
+    MEM_FEATURE_SIZE = 64
 
     def __init__(
         self,
@@ -416,6 +661,7 @@ class Sam2Video(keras.Model):
         ]
         image_embeddings = fpn_hidden_states_list[-1]
 
+        image_embeddings_raw = image_embeddings
         no_mem_embed_layer = SAM2NoMemoryEmbedding(
             hidden_size=self.FPN_HIDDEN_SIZE,
             data_format=data_format,
@@ -475,8 +721,11 @@ class Sam2Video(keras.Model):
             ]
         )
 
-        pred_masks = decoder_output["pred_masks"][:, :, 1:, :, :]
-        iou_scores = decoder_output["iou_scores"][:, :, 1:]
+        pred_masks_all = decoder_output["pred_masks"]
+        iou_scores_all = decoder_output["iou_scores"]
+        mask_tokens_out_all = decoder_output["mask_tokens_out"]
+        pred_masks = pred_masks_all[:, :, 1:, :, :]
+        iou_scores = iou_scores_all[:, :, 1:]
         object_score_logits = decoder_output["object_score_logits"]
 
         super().__init__(
@@ -489,6 +738,16 @@ class Sam2Video(keras.Model):
                 "pred_masks": pred_masks,
                 "iou_scores": iou_scores,
                 "object_score_logits": object_score_logits,
+                "image_embeddings_raw": image_embeddings_raw,
+                "image_embeddings": image_embeddings,
+                "high_res_feat_s0": high_res_feat_s0,
+                "high_res_feat_s1": high_res_feat_s1,
+                "image_pe": image_pe,
+                "sparse_embeddings": sparse_embeddings,
+                "dense_embeddings": dense_embeddings,
+                "mask_tokens_out_all": mask_tokens_out_all,
+                "pred_masks_all": pred_masks_all,
+                "iou_scores_all": iou_scores_all,
             },
             name=name,
             **kwargs,
@@ -505,29 +764,55 @@ class Sam2Video(keras.Model):
             rope_feat_sizes=[64, 64],
             name="memory_attention",
         )
-        (
-            self.mem_enc_ds_convs,
-            self.mem_enc_ds_lns,
-            self.mem_enc_ds_final_conv,
-            self.mem_enc_feature_proj,
-            self.mem_enc_fuser_blocks,
-            self.mem_enc_projection,
-        ) = sam2_video_memory_encoder(self.FPN_HIDDEN_SIZE, self.MEM_DIM, "mem_enc")
-        self.obj_ptr_proj_in, self.obj_ptr_proj_hidden_layers, self.obj_ptr_proj_out = (
-            sam2_video_feed_forward(
+
+        if data_format == "channels_first":
+            mem_vf_shape = (
                 self.FPN_HIDDEN_SIZE,
-                self.FPN_HIDDEN_SIZE,
-                self.FPN_HIDDEN_SIZE,
-                num_layers=3,
-                name="obj_ptr_proj",
+                self.MEM_FEATURE_SIZE,
+                self.MEM_FEATURE_SIZE,
             )
+            mem_mask_shape = (1, self.IMAGE_SIZE, self.IMAGE_SIZE)
+        else:
+            mem_vf_shape = (
+                self.MEM_FEATURE_SIZE,
+                self.MEM_FEATURE_SIZE,
+                self.FPN_HIDDEN_SIZE,
+            )
+            mem_mask_shape = (self.IMAGE_SIZE, self.IMAGE_SIZE, 1)
+        mem_vf_in = layers.Input(shape=mem_vf_shape, name="mem_enc_vf_in")
+        mem_mask_in = layers.Input(shape=mem_mask_shape, name="mem_enc_mask_in")
+        mem_output = sam2_video_memory_encoder(
+            mem_vf_in,
+            mem_mask_in,
+            hidden_size=self.FPN_HIDDEN_SIZE,
+            output_channels=self.MEM_DIM,
+            data_format=data_format,
+            name="mem_enc",
         )
+        self.memory_encoder_submodel = keras.Model(
+            inputs=[mem_vf_in, mem_mask_in],
+            outputs=mem_output,
+            name="memory_encoder",
+        )
+
+        ptr_in = layers.Input(shape=(self.FPN_HIDDEN_SIZE,), name="obj_ptr_in")
+        ptr_output = sam2_video_ffn(
+            ptr_in,
+            hidden_dim=self.FPN_HIDDEN_SIZE,
+            output_dim=self.FPN_HIDDEN_SIZE,
+            num_layers=3,
+            name="obj_ptr_proj",
+        )
+        self.obj_ptr_proj_submodel = keras.Model(
+            inputs=ptr_in, outputs=ptr_output, name="obj_ptr_proj"
+        )
+
         self.mask_downsample_layer = layers.Conv2D(
             1,
             kernel_size=4,
             strides=4,
             padding="valid",
-            data_format="channels_first",
+            data_format=data_format,
             name="mask_downsample",
         )
         self.temporal_pos_enc_proj = layers.Dense(
@@ -574,40 +859,10 @@ class Sam2Video(keras.Model):
         dummy_q = ops.zeros((1, 4096, self.FPN_HIDDEN_SIZE))
         self.memory_attention(dummy_q, dummy_mem, training=False)
 
-        self.mem_enc_fuser_scales = []
-        for i in range(2):
-            self.mem_enc_fuser_scales.append(
-                self.add_weight(
-                    name=f"mem_enc_fuser_{i}_scale",
-                    shape=(self.FPN_HIDDEN_SIZE,),
-                    initializer="zeros",
-                )
-            )
-
-        dummy_feat = ops.zeros((1, self.FPN_HIDDEN_SIZE, 4, 4))
-        dummy_mask = ops.zeros((1, 1, 64, 64))
-        sam2_video_memory_encoder_call(
-            dummy_feat,
-            dummy_mask,
-            self.mem_enc_ds_convs,
-            self.mem_enc_ds_lns,
-            self.mem_enc_ds_final_conv,
-            self.mem_enc_feature_proj,
-            self.mem_enc_fuser_blocks,
-            self.mem_enc_fuser_scales,
-            self.mem_enc_projection,
-            self.MEM_DIM // 2,
-        )
-
-        dummy_tok = ops.zeros((1, self.FPN_HIDDEN_SIZE))
-        sam2_video_feed_forward_call(
-            dummy_tok,
-            self.obj_ptr_proj_in,
-            self.obj_ptr_proj_hidden_layers,
-            self.obj_ptr_proj_out,
-        )
-
-        dummy_ds_mask = ops.zeros((1, 1, 16, 16))
+        if keras.config.image_data_format() == "channels_first":
+            dummy_ds_mask = ops.zeros((1, 1, 16, 16))
+        else:
+            dummy_ds_mask = ops.zeros((1, 16, 16, 1))
         self.mask_downsample_layer(dummy_ds_mask)
 
         dummy_pe = ops.zeros((1, self.FPN_HIDDEN_SIZE))
@@ -642,6 +897,28 @@ def _create_sam2_video_model(
     weights=None,
     **kwargs,
 ):
+    """Factory function for creating Sam2Video model variants.
+
+    Looks up the architecture configuration for the given variant
+    name, instantiates a :class:`Sam2Video` model, and optionally
+    loads pretrained weights from the configured URL or a local
+    file path.
+
+    Args:
+        variant: String, model variant name (e.g., ``"Sam2VideoSmall"``).
+        input_shape: Optional tuple specifying the input image shape.
+            Defaults to ``(1024, 1024, 3)`` (channels-last) or
+            ``(3, 1024, 1024)`` (channels-first).
+        input_tensor: Optional Keras tensor to use as the model input.
+        weights: One of ``None`` (random initialization), a weight
+            identifier from ``SAM2_VIDEO_WEIGHTS_CONFIG`` (e.g.,
+            ``"sav"``), or a path to a weights file.
+        **kwargs: Additional keyword arguments passed to the
+            :class:`Sam2Video` constructor.
+
+    Returns:
+        A configured :class:`Sam2Video` instance.
+    """
     config = SAM2_VIDEO_MODEL_CONFIG[variant]
 
     valid_model_weights = []
@@ -701,6 +978,7 @@ def Sam2VideoTiny(
     weights=None,
     **kwargs,
 ):
+    """SAM 2 Video Tiny variant (Hiera tiny backbone)."""
     return _create_sam2_video_model(
         "Sam2VideoTiny", input_shape, input_tensor, weights, **kwargs
     )
@@ -713,6 +991,7 @@ def Sam2VideoSmall(
     weights=None,
     **kwargs,
 ):
+    """SAM 2 Video Small variant (Hiera small backbone)."""
     return _create_sam2_video_model(
         "Sam2VideoSmall", input_shape, input_tensor, weights, **kwargs
     )
@@ -725,6 +1004,7 @@ def Sam2VideoBasePlus(
     weights=None,
     **kwargs,
 ):
+    """SAM 2 Video Base-Plus variant (Hiera base-plus backbone)."""
     return _create_sam2_video_model(
         "Sam2VideoBasePlus", input_shape, input_tensor, weights, **kwargs
     )
@@ -737,6 +1017,7 @@ def Sam2VideoLarge(
     weights=None,
     **kwargs,
 ):
+    """SAM 2 Video Large variant (Hiera large backbone)."""
     return _create_sam2_video_model(
         "Sam2VideoLarge", input_shape, input_tensor, weights, **kwargs
     )

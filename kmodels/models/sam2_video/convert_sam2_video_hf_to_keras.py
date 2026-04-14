@@ -1,9 +1,58 @@
-import numpy as np
+import os
 
+os.environ["KERAS_BACKEND"] = "torch"
+
+import gc
+
+import keras
+import numpy as np
+import torch
+from transformers import Sam2Model, Sam2VideoModel
+
+from kmodels.models.sam2_video.sam2_video_model import (
+    Sam2VideoBasePlus,
+    Sam2VideoLarge,
+    Sam2VideoSmall,
+    Sam2VideoTiny,
+)
 from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
+
+SAM2_VIDEO_HF_MODEL_IDS = {
+    "Sam2VideoTiny": "facebook/sam2-hiera-tiny",
+    "Sam2VideoSmall": "facebook/sam2-hiera-small",
+    "Sam2VideoBasePlus": "facebook/sam2-hiera-base-plus",
+    "Sam2VideoLarge": "facebook/sam2-hiera-large",
+}
+
+VARIANTS = [
+    (
+        "Sam2VideoTiny",
+        Sam2VideoTiny,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoTiny"],
+        "sam2_video_hiera_tiny",
+    ),
+    (
+        "Sam2VideoSmall",
+        Sam2VideoSmall,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoSmall"],
+        "sam2_video_hiera_small",
+    ),
+    (
+        "Sam2VideoBasePlus",
+        Sam2VideoBasePlus,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoBasePlus"],
+        "sam2_video_hiera_base_plus",
+    ),
+    (
+        "Sam2VideoLarge",
+        Sam2VideoLarge,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoLarge"],
+        "sam2_video_hiera_large",
+    ),
+]
 
 BACKBONE_NAME_MAPPING = {
     "mlp_proj_in": "mlp.proj_in",
@@ -55,7 +104,10 @@ def _transfer_backbone(keras_model, hf_sd):
 
 def _transfer_no_memory_embedding(keras_model, hf_sd):
     no_mem = keras_model.get_layer("no_memory_embedding")
-    no_mem.embedding.assign(hf_sd["no_memory_embedding"].reshape(1, 1, 1, -1))
+    if keras.config.image_data_format() == "channels_first":
+        no_mem.embedding.assign(hf_sd["no_memory_embedding"].reshape(1, -1, 1, 1))
+    else:
+        no_mem.embedding.assign(hf_sd["no_memory_embedding"].reshape(1, 1, 1, -1))
 
 
 def _transfer_prompt_encoder(keras_model, hf_sd):
@@ -257,39 +309,41 @@ def _transfer_memory_attention(keras_model, hf_sd):
 
 
 def _transfer_memory_encoder(keras_model, hf_sd):
+    sub = keras_model.memory_encoder_submodel
+
     for i in range(4):
         hf_pfx = f"memory_encoder.mask_downsampler.layers.{i}"
-        transfer_weights(
-            "conv_kernel",
-            keras_model.mem_enc_ds_convs[i].kernel,
-            hf_sd[f"{hf_pfx}.conv.weight"],
-        )
-        keras_model.mem_enc_ds_convs[i].bias.assign(hf_sd[f"{hf_pfx}.conv.bias"])
-        keras_model.mem_enc_ds_lns[i].gamma.assign(hf_sd[f"{hf_pfx}.layer_norm.weight"])
-        keras_model.mem_enc_ds_lns[i].beta.assign(hf_sd[f"{hf_pfx}.layer_norm.bias"])
+        conv = sub.get_layer(f"mem_enc_mask_ds_conv_{i}")
+        ln = sub.get_layer(f"mem_enc_mask_ds_ln_{i}")
+        transfer_weights("conv_kernel", conv.kernel, hf_sd[f"{hf_pfx}.conv.weight"])
+        conv.bias.assign(hf_sd[f"{hf_pfx}.conv.bias"])
+        ln.gamma.assign(hf_sd[f"{hf_pfx}.layer_norm.weight"])
+        ln.beta.assign(hf_sd[f"{hf_pfx}.layer_norm.bias"])
 
+    final_conv = sub.get_layer("mem_enc_mask_ds_final_conv")
     transfer_weights(
         "conv_kernel",
-        keras_model.mem_enc_ds_final_conv.kernel,
+        final_conv.kernel,
         hf_sd["memory_encoder.mask_downsampler.final_conv.weight"],
     )
-    keras_model.mem_enc_ds_final_conv.bias.assign(
-        hf_sd["memory_encoder.mask_downsampler.final_conv.bias"]
-    )
+    final_conv.bias.assign(hf_sd["memory_encoder.mask_downsampler.final_conv.bias"])
 
+    feat_proj = sub.get_layer("mem_enc_feature_proj")
     transfer_weights(
         "conv_kernel",
-        keras_model.mem_enc_feature_proj.kernel,
+        feat_proj.kernel,
         hf_sd["memory_encoder.feature_projection.weight"],
     )
-    keras_model.mem_enc_feature_proj.bias.assign(
-        hf_sd["memory_encoder.feature_projection.bias"]
-    )
+    feat_proj.bias.assign(hf_sd["memory_encoder.feature_projection.bias"])
 
     for i in range(2):
         hf_pfx = f"memory_encoder.memory_fuser.layers.{i}"
-        dw_conv, ln, pw1, pw2 = keras_model.mem_enc_fuser_blocks[i]
-        keras_model.mem_enc_fuser_scales[i].assign(hf_sd[f"{hf_pfx}.scale"])
+        dw_conv = sub.get_layer(f"mem_enc_fuser_{i}_dw_conv")
+        ln = sub.get_layer(f"mem_enc_fuser_{i}_ln")
+        pw1 = sub.get_layer(f"mem_enc_fuser_{i}_pw1")
+        pw2 = sub.get_layer(f"mem_enc_fuser_{i}_pw2")
+        scale_layer = sub.get_layer(f"mem_enc_fuser_{i}_scale")
+        scale_layer.scale.assign(hf_sd[f"{hf_pfx}.scale"])
         dw_w = hf_sd[f"{hf_pfx}.depthwise_conv.weight"]
         dw_w = np.transpose(dw_w, (2, 3, 0, 1))
         dw_conv.kernel.assign(dw_w)
@@ -305,12 +359,13 @@ def _transfer_memory_encoder(keras_model, hf_sd):
         )
         pw2.bias.assign(hf_sd[f"{hf_pfx}.pointwise_conv2.bias"])
 
+    projection = sub.get_layer("mem_enc_projection")
     transfer_weights(
         "conv_kernel",
-        keras_model.mem_enc_projection.kernel,
+        projection.kernel,
         hf_sd["memory_encoder.projection.weight"],
     )
-    keras_model.mem_enc_projection.bias.assign(hf_sd["memory_encoder.projection.bias"])
+    projection.bias.assign(hf_sd["memory_encoder.projection.bias"])
 
 
 def _transfer_video_params(keras_model, hf_sd):
@@ -321,30 +376,28 @@ def _transfer_video_params(keras_model, hf_sd):
         hf_sd["memory_temporal_positional_encoding"]
     )
     keras_model.no_object_pointer.assign(hf_sd["no_object_pointer"])
-    keras_model.occlusion_spatial_embedding_parameter.assign(
-        hf_sd["occlusion_spatial_embedding_parameter"]
-    )
+    if "occlusion_spatial_embedding_parameter" in hf_sd:
+        keras_model.occlusion_spatial_embedding_parameter.assign(
+            hf_sd["occlusion_spatial_embedding_parameter"]
+        )
+
+    ptr_sub = keras_model.obj_ptr_proj_submodel
+    proj_in = ptr_sub.get_layer("obj_ptr_proj_proj_in")
+    layer_0 = ptr_sub.get_layer("obj_ptr_proj_layers_0")
+    proj_out = ptr_sub.get_layer("obj_ptr_proj_proj_out")
 
     transfer_weights(
-        "kernel",
-        keras_model.obj_ptr_proj_in.kernel,
-        hf_sd["object_pointer_proj.proj_in.weight"],
+        "kernel", proj_in.kernel, hf_sd["object_pointer_proj.proj_in.weight"]
     )
-    keras_model.obj_ptr_proj_in.bias.assign(hf_sd["object_pointer_proj.proj_in.bias"])
+    proj_in.bias.assign(hf_sd["object_pointer_proj.proj_in.bias"])
     transfer_weights(
-        "kernel",
-        keras_model.obj_ptr_proj_hidden_layers[0].kernel,
-        hf_sd["object_pointer_proj.layers.0.weight"],
+        "kernel", layer_0.kernel, hf_sd["object_pointer_proj.layers.0.weight"]
     )
-    keras_model.obj_ptr_proj_hidden_layers[0].bias.assign(
-        hf_sd["object_pointer_proj.layers.0.bias"]
-    )
+    layer_0.bias.assign(hf_sd["object_pointer_proj.layers.0.bias"])
     transfer_weights(
-        "kernel",
-        keras_model.obj_ptr_proj_out.kernel,
-        hf_sd["object_pointer_proj.proj_out.weight"],
+        "kernel", proj_out.kernel, hf_sd["object_pointer_proj.proj_out.weight"]
     )
-    keras_model.obj_ptr_proj_out.bias.assign(hf_sd["object_pointer_proj.proj_out.bias"])
+    proj_out.bias.assign(hf_sd["object_pointer_proj.proj_out.bias"])
 
     transfer_weights(
         "conv_kernel",
@@ -353,14 +406,22 @@ def _transfer_video_params(keras_model, hf_sd):
     )
     keras_model.mask_downsample_layer.bias.assign(hf_sd["mask_downsample.bias"])
 
-    transfer_weights(
-        "kernel",
-        keras_model.temporal_pos_enc_proj.kernel,
-        hf_sd["temporal_positional_encoding_projection_layer.weight"],
-    )
-    keras_model.temporal_pos_enc_proj.bias.assign(
-        hf_sd["temporal_positional_encoding_projection_layer.bias"]
-    )
+    if "temporal_positional_encoding_projection_layer.weight" in hf_sd:
+        transfer_weights(
+            "kernel",
+            keras_model.temporal_pos_enc_proj.kernel,
+            hf_sd["temporal_positional_encoding_projection_layer.weight"],
+        )
+        keras_model.temporal_pos_enc_proj.bias.assign(
+            hf_sd["temporal_positional_encoding_projection_layer.bias"]
+        )
+    else:
+        keras_model.temporal_pos_enc_proj.kernel.assign(
+            np.zeros_like(keras_model.temporal_pos_enc_proj.kernel.numpy())
+        )
+        keras_model.temporal_pos_enc_proj.bias.assign(
+            np.zeros_like(keras_model.temporal_pos_enc_proj.bias.numpy())
+        )
 
 
 def transfer_sam2_video_weights(keras_model, hf_state_dict):
@@ -374,61 +435,18 @@ def transfer_sam2_video_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
-    import keras
-    import torch
-    from transformers import Sam2Model, Sam2VideoModel
-
-    from kmodels.models.sam2_video.sam2_video_model import (
-        Sam2VideoBasePlus,
-        Sam2VideoLarge,
-        Sam2VideoSmall,
-        Sam2VideoTiny,
-    )
-
-    HF_TOKEN = os.environ.get("HF_TOKEN")
-
-    VARIANTS = [
-        (
-            "Sam2VideoTiny",
-            Sam2VideoTiny,
-            "facebook/sam2.1-hiera-tiny",
-            "sam2_video_hiera_tiny",
-        ),
-        (
-            "Sam2VideoSmall",
-            Sam2VideoSmall,
-            "facebook/sam2.1-hiera-small",
-            "sam2_video_hiera_small",
-        ),
-        (
-            "Sam2VideoBasePlus",
-            Sam2VideoBasePlus,
-            "facebook/sam2.1-hiera-base-plus",
-            "sam2_video_hiera_base_plus",
-        ),
-        (
-            "Sam2VideoLarge",
-            Sam2VideoLarge,
-            "facebook/sam2.1-hiera-large",
-            "sam2_video_hiera_large",
-        ),
-    ]
-
     for name, ctor, hf_id, save_name in VARIANTS:
         print(f"\n{'=' * 60}")
         print(f"Converting: {name}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
         hf_video_model = Sam2VideoModel.from_pretrained(
-            hf_id, token=HF_TOKEN, attn_implementation="eager"
+            hf_id, attn_implementation="eager"
         ).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_video_model.state_dict().items()}
 
         hf_image_model = Sam2Model.from_pretrained(
-            hf_id, token=HF_TOKEN, attn_implementation="eager"
+            hf_id, attn_implementation="eager"
         ).eval()
 
         keras_model = ctor(input_shape=(1024, 1024, 3), weights=None)

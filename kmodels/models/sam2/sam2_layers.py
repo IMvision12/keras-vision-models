@@ -1471,6 +1471,7 @@ class SAM2MaskDecoderLayer(layers.Layer):
             "pred_masks": masks,
             "iou_scores": iou_pred,
             "object_score_logits": object_score_logits,
+            "mask_tokens_out": mask_tokens_out,
         }
 
     def get_config(self):

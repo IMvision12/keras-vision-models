@@ -12,7 +12,6 @@ if __name__ == "__main__":
     from transformers import DepthAnythingForDepthEstimation
 
     from kmodels.models.depth_anything_v2.config import (
-        DEPTH_ANYTHING_V2_HF_MODEL_IDS,
         DEPTH_ANYTHING_V2_MODEL_CONFIG,
     )
     from kmodels.models.depth_anything_v2.depth_anything_v2_model import (
@@ -26,6 +25,18 @@ if __name__ == "__main__":
         DepthAnythingV2MetricOutdoorSmall,
         DepthAnythingV2Small,
     )
+
+    DEPTH_ANYTHING_V2_HF_MODEL_IDS = {
+        "DepthAnythingV2Small": "depth-anything/Depth-Anything-V2-Small-hf",
+        "DepthAnythingV2Base": "depth-anything/Depth-Anything-V2-Base-hf",
+        "DepthAnythingV2Large": "depth-anything/Depth-Anything-V2-Large-hf",
+        "DepthAnythingV2MetricIndoorSmall": "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf",
+        "DepthAnythingV2MetricIndoorBase": "depth-anything/Depth-Anything-V2-Metric-Indoor-Base-hf",
+        "DepthAnythingV2MetricIndoorLarge": "depth-anything/Depth-Anything-V2-Metric-Indoor-Large-hf",
+        "DepthAnythingV2MetricOutdoorSmall": "depth-anything/Depth-Anything-V2-Metric-Outdoor-Small-hf",
+        "DepthAnythingV2MetricOutdoorBase": "depth-anything/Depth-Anything-V2-Metric-Outdoor-Base-hf",
+        "DepthAnythingV2MetricOutdoorLarge": "depth-anything/Depth-Anything-V2-Metric-Outdoor-Large-hf",
+    }
 
     VARIANTS = [
         ("DepthAnythingV2Small", DepthAnythingV2Small, "depth_anything_v2_small"),

@@ -175,7 +175,6 @@ if __name__ == "__main__":
     from transformers import DepthAnythingForDepthEstimation
 
     from kmodels.models.depth_anything_v1.config import (
-        DEPTH_ANYTHING_V1_HF_MODEL_IDS,
         DEPTH_ANYTHING_V1_MODEL_CONFIG,
     )
     from kmodels.models.depth_anything_v1.depth_anything_v1_model import (
@@ -183,6 +182,12 @@ if __name__ == "__main__":
         DepthAnythingV1Large,
         DepthAnythingV1Small,
     )
+
+    DEPTH_ANYTHING_V1_HF_MODEL_IDS = {
+        "DepthAnythingV1Small": "LiheYoung/depth-anything-small-hf",
+        "DepthAnythingV1Base": "LiheYoung/depth-anything-base-hf",
+        "DepthAnythingV1Large": "LiheYoung/depth-anything-large-hf",
+    }
 
     VARIANTS = [
         ("DepthAnythingV1Small", DepthAnythingV1Small, "depth_anything_v1_small"),

@@ -24,54 +24,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
 
 ## 📑 Documentation
 
-| Topic | Description |
-|-------|-------------|
-| [Backbone Models](docs/backbones.md) | Classification backbones (ViT, ResNet, Swin, ConvNeXt, EfficientNet, and more) with usage examples and model listing |
-
-**Segmentation**
-
-| Model | Description |
-|-------|-------------|
-| [SAM](docs/sam.md) | Segment Anything Model — promptable segmentation with points, boxes, or masks (ViT-B/L/H) |
-| [SAM2](docs/sam2.md) | Segment Anything Model 2 — next generation of promptable visual segmentation (Hiera Tiny/Small/Base+/Large) |
-| [SAM2 Video](docs/sam2_video.md) | SAM 2 Video — promptable video segmentation with memory attention, memory encoder, and object pointer tracking (Hiera Tiny/Small/Base+/Large) |
-| [SAM3](docs/sam3.md) | Segment Anything Model 3 — open-vocabulary detection + segmentation with CLIP text encoder (ViT-L/14). Weights require [Meta SAM License](https://github.com/facebookresearch/sam3/blob/main/LICENSE) acceptance on HuggingFace |
-| [SegFormer](docs/segformer.md) | Transformer-based semantic segmentation with MLP decoder, Cityscapes & ADE20K weights |
-| [DeepLabV3](docs/deeplabv3.md) | Atrous convolution-based semantic segmentation |
-| [EoMT](docs/eomt.md) | Encoder-only Mask Transformer for panoptic segmentation |
-
-**Object Detection**
-
-| Model | Description |
-|-------|-------------|
-| [DETR](docs/detr.md) | End-to-end object detection with Transformers (ResNet-50/101 backbones) |
-| [RT-DETR](docs/rt_detr.md) | Real-time DETR with ResNet-vd backbone and hybrid encoder (ResNet-18/34/50/101 variants) |
-| [RT-DETRv2](docs/rt_detr_v2.md) | RT-DETR v2 with selective multi-scale deformable attention and learnable per-level sampling scale (ResNet-18/34/50/101 variants) |
-| [RF-DETR](docs/rf_detr.md) | Real-time detection transformer (Nano, Small, Medium, Base, Large variants) |
-| [D-FINE](docs/dfine.md) | Fine-grained distribution refinement detector with HGNetV2 backbone (Nano/Small/Medium/Large/XLarge) |
-
-**Feature Extraction**
-
-| Model | Description |
-|-------|-------------|
-| [DINO](docs/dino_v1_v2.md) | Self-supervised ViT-S/B and ResNet-50 backbones trained with self-distillation |
-| [DINOv2](docs/dino_v1_v2.md) | Improved self-supervised ViT-S/B/L backbones with LayerScale, trained on LVD-142M |
-| [DINOv3](docs/dinov3.md) | Self-supervised ViT-S/B/L and ConvNeXt-T/S/B/L backbones with 2D RoPE and register tokens, trained on LVD-1689M. Weights require [Meta DINOv3 License](https://huggingface.co/facebook/dinov3-vits16-pretrain-lvd1689m) acceptance on HuggingFace |
-
-**Depth Estimation**
-
-| Model | Description |
-|-------|-------------|
-| [Depth Anything V1](docs/depth_anything_v1_v2.md) | Monocular depth estimation with a DINOv2 backbone and a DPT head, trained on labeled + large-scale pseudo-labeled images (Small / Base / Large) |
-| [Depth Anything V2](docs/depth_anything_v1_v2.md) | Same DINOv2 + DPT architecture as V1, retrained on synthetic data with a larger-capacity teacher; includes metric indoor and outdoor variants in addition to relative depth (Small / Base / Large) |
-
-**Vision-Language Models**
-
-| Model | Description |
-|-------|-------------|
-| [CLIP](docs/clip.md) | Contrastive Language-Image Pre-training for zero-shot classification |
-| [SigLIP](docs/siglip.md) | Sigmoid loss-based language-image pre-training with multilingual support |
-| [SigLIP2](docs/siglip2.md) | Next-gen SigLIP with improved semantic understanding and 256K vocabulary |
+Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for backbones, segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), and vision-language models (CLIP, SigLIP, SigLIP2).
 
 ## 📑 Models
 

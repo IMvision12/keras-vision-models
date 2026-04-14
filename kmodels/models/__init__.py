@@ -7,6 +7,8 @@ from kmodels.models import (
     deeplabv3,
     deit,
     densenet,
+    depth_anything_v1,
+    depth_anything_v2,
     detr,
     dfine,
     dino,

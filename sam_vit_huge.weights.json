@@ -1,0 +1,877 @@
+{
+    "metadata": {
+        "total_size": 2564344728.0
+    },
+    "weight_map": {
+        "/layers/conv2d/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_absolute_position_embedding/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_1/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_2/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_3/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_4/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_5/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_6/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_7/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_8/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_9/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_10/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_11/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_12/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_13/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_14/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_15/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_16/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_17/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_18/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/attn/qkv/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/layer_norm1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/layer_norm2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/mlp_lin1/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_19/mlp_lin2/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/attn/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/attn/proj/vars": [
+            "sam_vit_huge_00000.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_20/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_21/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_22/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_23/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_24/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_25/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_26/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_27/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_28/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_29/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_30/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/attn/proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/attn/qkv/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/layer_norm1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/layer_norm2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/mlp_lin1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_vision_layer_31/mlp_lin2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/conv2d_1/vars": "sam_vit_huge_00001.weights.h5",
+        "/layers/layer_normalization/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/conv2d_2/vars": "sam_vit_huge_00001.weights.h5",
+        "/layers/layer_normalization_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_image_positional_embeddings/shared_embedding/vars": "sam_vit_huge_00001.weights.h5",
+        "/layers/sam_prompt_encoder_layer/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/final_attn_token_to_image/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/final_attn_token_to_image/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/final_attn_token_to_image/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/final_attn_token_to_image/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/iou_head_hidden_layers/dense/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/iou_head_proj_in/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/iou_head_proj_out/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/layer_norm_final_attn/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_hidden_layers/dense/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_hidden_layers/dense_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_hidden_layers/dense_2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_hidden_layers/dense_3/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_ins/dense/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_ins/dense_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_ins/dense_2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_ins/dense_3/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_outs/dense/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_outs/dense_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_outs/dense_2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/output_hypernetworks_mlps_proj_outs/dense_3/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention_1/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention_1/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention_1/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_image_to_tokens/sam_two_way_attention_1/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention_1/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention_1/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention_1/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_cross_attn_token_to_images/sam_two_way_attention_1/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm1s/layer_normalization/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm1s/layer_normalization_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm2s/layer_normalization/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm2s/layer_normalization_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm3s/layer_normalization/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm3s/layer_normalization_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm4s/layer_normalization/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_layer_norm4s/layer_normalization_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_mlp_lin1s/dense/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_mlp_lin1s/dense_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_mlp_lin2s/dense/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_mlp_lin2s/dense_1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention_1/k_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention_1/out_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention_1/q_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/transformer_self_attns/sam_two_way_attention_1/v_proj/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/upscale_conv1/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/upscale_conv2/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ],
+        "/layers/sam_mask_decoder_layer/upscale_layer_norm/vars": [
+            "sam_vit_huge_00001.weights.h5"
+        ]
+    }
+}

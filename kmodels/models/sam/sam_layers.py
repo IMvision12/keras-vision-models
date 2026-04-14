@@ -104,11 +104,28 @@ class SAMAbsolutePositionEmbedding(layers.Layer):
 class SAMPromptEncoderLayer(layers.Layer):
     """Prompt encoder for sparse and dense prompts.
 
-    Encodes sparse prompts (points and boxes) into positional embeddings
-    and blends a pre-computed dense mask embedding with a learned
-    no-mask embedding via the ``has_mask_input`` flag. The mask
-    embedding convolutional stack lives in the model file and is
-    applied functionally before this layer is called.
+    Encodes sparse prompts (points and optionally boxes) into positional
+    embeddings and produces a dense embedding for the image. Points are
+    always padded with a learned ``not_a_point`` token to match the
+    original SAM checkpoint's inference behavior. Box support and mask
+    support are opt-in via the ``enable_boxes`` and ``enable_masks``
+    construction-time flags — these flags change the expected input
+    signature and the shape of ``sparse_embeddings`` so that the
+    default configuration matches HuggingFace / original SAM exactly.
+
+    Input signature (all passed as a dict):
+        - Always: ``input_points``, ``input_labels``.
+        - When ``enable_boxes=True``: ``input_boxes``, ``has_boxes_input``.
+        - When ``enable_masks=True``: ``input_mask_embedding``,
+          ``has_mask_input``.
+
+    Token counts:
+        - ``enable_boxes=False``: ``sparse_embeddings`` has ``N+1``
+          tokens (HF-parity points-only path).
+        - ``enable_boxes=True``: ``sparse_embeddings`` has ``N+3``
+          tokens (1 pad + N points + 2 box corners or ``not_a_point``
+          fallbacks). This is 1 token more than HF's points+boxes
+          path but lets a single model handle both prompt modes.
 
     Args:
         hidden_size (int): Dimensionality of the prompt embeddings.
@@ -121,6 +138,10 @@ class SAMPromptEncoderLayer(layers.Layer):
             (foreground, background, and two box corners). Defaults to 4.
         shared_embedding (Layer): Shared positional embedding layer used to
             encode normalized coordinates. Defaults to None.
+        enable_boxes (bool): Whether the layer accepts box prompts.
+            Defaults to ``False``.
+        enable_masks (bool): Whether the layer accepts mask prompts.
+            Defaults to ``False``.
         data_format (str): One of ``"channels_last"`` or ``"channels_first"``.
             Defaults to ``"channels_last"``.
         **kwargs: Additional keyword arguments passed to the `Layer` class.
@@ -136,6 +157,8 @@ class SAMPromptEncoderLayer(layers.Layer):
         image_size=1024,
         num_point_embeddings=4,
         shared_embedding=None,
+        enable_boxes=False,
+        enable_masks=False,
         data_format="channels_last",
         **kwargs,
     ):
@@ -145,6 +168,8 @@ class SAMPromptEncoderLayer(layers.Layer):
         self.image_size = image_size
         self.num_point_embeddings = num_point_embeddings
         self.shared_embedding = shared_embedding
+        self.enable_boxes = enable_boxes
+        self.enable_masks = enable_masks
         self.data_format = data_format
 
     def build(self, input_shape):
@@ -239,32 +264,33 @@ class SAMPromptEncoderLayer(layers.Layer):
         return ops.concatenate([corner_0, corner_1], axis=2)
 
     def call(self, inputs):
-        (
-            input_points,
-            input_labels,
-            input_boxes,
-            mask_dense,
-            has_boxes_input,
-            has_mask_input,
-        ) = inputs
+        input_points = inputs["input_points"]
+        input_labels = inputs["input_labels"]
 
         batch_size = ops.shape(input_points)[0]
 
         point_embeddings = self._embed_points(input_points, input_labels, pad=True)
-        box_embeddings = self._embed_boxes(input_boxes)
 
-        not_a_point = ops.broadcast_to(
-            ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_size)),
-            ops.shape(box_embeddings),
-        )
-        has_boxes_b = ops.reshape(
-            ops.cast(has_boxes_input, box_embeddings.dtype), (-1, 1, 1, 1)
-        )
-        box_embeddings = (
-            has_boxes_b * box_embeddings + (1.0 - has_boxes_b) * not_a_point
-        )
+        if self.enable_boxes:
+            input_boxes = inputs["input_boxes"]
+            has_boxes_input = inputs["has_boxes_input"]
 
-        sparse_embeddings = ops.concatenate([point_embeddings, box_embeddings], axis=2)
+            box_embeddings = self._embed_boxes(input_boxes)
+            not_a_point = ops.broadcast_to(
+                ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_size)),
+                ops.shape(box_embeddings),
+            )
+            has_boxes_b = ops.reshape(
+                ops.cast(has_boxes_input, box_embeddings.dtype), (-1, 1, 1, 1)
+            )
+            box_embeddings = (
+                has_boxes_b * box_embeddings + (1.0 - has_boxes_b) * not_a_point
+            )
+            sparse_embeddings = ops.concatenate(
+                [point_embeddings, box_embeddings], axis=2
+            )
+        else:
+            sparse_embeddings = point_embeddings
 
         cf = self.data_format == "channels_first"
         if cf:
@@ -278,9 +304,6 @@ class SAMPromptEncoderLayer(layers.Layer):
                     self.image_embedding_size,
                 ),
             )
-            has_mask_b = ops.reshape(
-                ops.cast(has_mask_input, mask_dense.dtype), (-1, 1, 1, 1)
-            )
         else:
             no_mask = ops.reshape(self.no_mask_embed, (1, 1, 1, -1))
             no_mask_dense = ops.broadcast_to(
@@ -292,11 +315,18 @@ class SAMPromptEncoderLayer(layers.Layer):
                     self.hidden_size,
                 ),
             )
+
+        if self.enable_masks:
+            mask_dense = inputs["input_mask_embedding"]
+            has_mask_input = inputs["has_mask_input"]
             has_mask_b = ops.reshape(
                 ops.cast(has_mask_input, mask_dense.dtype), (-1, 1, 1, 1)
             )
-
-        dense_embeddings = has_mask_b * mask_dense + (1.0 - has_mask_b) * no_mask_dense
+            dense_embeddings = (
+                has_mask_b * mask_dense + (1.0 - has_mask_b) * no_mask_dense
+            )
+        else:
+            dense_embeddings = no_mask_dense
 
         return {
             "sparse_embeddings": sparse_embeddings,
@@ -311,6 +341,8 @@ class SAMPromptEncoderLayer(layers.Layer):
                 "image_embedding_size": self.image_embedding_size,
                 "image_size": self.image_size,
                 "num_point_embeddings": self.num_point_embeddings,
+                "enable_boxes": self.enable_boxes,
+                "enable_masks": self.enable_masks,
                 "data_format": self.data_format,
             }
         )

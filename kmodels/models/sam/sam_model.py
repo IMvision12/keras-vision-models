@@ -292,6 +292,8 @@ class SAM(keras.Model):
         vision_global_attn_indexes=(2, 5, 8, 11),
         num_multimask_outputs=3,
         multimask_output=True,
+        enable_boxes=False,
+        enable_masks=False,
         input_shape=None,
         input_tensor=None,
         name="SAM",
@@ -340,16 +342,27 @@ class SAM(keras.Model):
         input_labels = layers.Input(
             shape=(None, None), name="input_labels", dtype="int32"
         )
-        input_boxes = layers.Input(shape=(None, 4), name="input_boxes", dtype="float32")
-        input_masks = layers.Input(
-            shape=mask_in_shape, name="input_masks", dtype="float32"
-        )
-        has_boxes_input = layers.Input(
-            shape=(1,), name="has_boxes_input", dtype="float32"
-        )
-        has_mask_input = layers.Input(
-            shape=(1,), name="has_mask_input", dtype="float32"
-        )
+
+        input_boxes = None
+        has_boxes_input = None
+        if enable_boxes:
+            input_boxes = layers.Input(
+                shape=(None, 4), name="input_boxes", dtype="float32"
+            )
+            has_boxes_input = layers.Input(
+                shape=(1,), name="has_boxes_input", dtype="float32"
+            )
+
+        input_masks = None
+        has_mask_input = None
+        input_mask_embedding = None
+        if enable_masks:
+            input_masks = layers.Input(
+                shape=mask_in_shape, name="input_masks", dtype="float32"
+            )
+            has_mask_input = layers.Input(
+                shape=(1,), name="has_mask_input", dtype="float32"
+            )
 
         hidden_states = layers.Conv2D(
             vision_hidden_size,
@@ -407,14 +420,15 @@ class SAM(keras.Model):
         )
         image_pe = image_pe_layer(image_embeddings)
 
-        input_mask_embedding = sam_mask_embedding(
-            input_masks,
-            hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
-            mask_input_channels=self.PROMPT_ENCODER_MASK_INPUT_CHANNELS,
-            layer_norm_eps=self.VISION_LAYER_NORM_EPS,
-            data_format=data_format,
-            name="prompt_encoder_mask_embed",
-        )
+        if enable_masks:
+            input_mask_embedding = sam_mask_embedding(
+                input_masks,
+                hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
+                mask_input_channels=self.PROMPT_ENCODER_MASK_INPUT_CHANNELS,
+                layer_norm_eps=self.VISION_LAYER_NORM_EPS,
+                data_format=data_format,
+                name="prompt_encoder_mask_embed",
+            )
 
         prompt_encoder_layer = SAMPromptEncoderLayer(
             hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
@@ -422,19 +436,23 @@ class SAM(keras.Model):
             image_size=self.VISION_IMAGE_SIZE,
             num_point_embeddings=self.PROMPT_ENCODER_NUM_POINT_EMBEDDINGS,
             shared_embedding=shared_image_embedding,
+            enable_boxes=enable_boxes,
+            enable_masks=enable_masks,
             data_format=data_format,
             name="prompt_encoder",
         )
-        prompt_results = prompt_encoder_layer(
-            [
-                input_points,
-                input_labels,
-                input_boxes,
-                input_mask_embedding,
-                has_boxes_input,
-                has_mask_input,
-            ]
-        )
+
+        def _prompt_inputs_dict():
+            d = {"input_points": input_points, "input_labels": input_labels}
+            if enable_boxes:
+                d["input_boxes"] = input_boxes
+                d["has_boxes_input"] = has_boxes_input
+            if enable_masks:
+                d["input_mask_embedding"] = input_mask_embedding
+                d["has_mask_input"] = has_mask_input
+            return d
+
+        prompt_results = prompt_encoder_layer(_prompt_inputs_dict())
 
         sparse_embeddings = prompt_results["sparse_embeddings"]
         dense_embeddings = prompt_results["dense_embeddings"]
@@ -463,16 +481,20 @@ class SAM(keras.Model):
         pred_masks = decoder_output["pred_masks"]
         iou_scores = decoder_output["iou_scores"]
 
+        main_inputs = {
+            "pixel_values": pixel_values,
+            "input_points": input_points,
+            "input_labels": input_labels,
+        }
+        if enable_boxes:
+            main_inputs["input_boxes"] = input_boxes
+            main_inputs["has_boxes_input"] = has_boxes_input
+        if enable_masks:
+            main_inputs["input_masks"] = input_masks
+            main_inputs["has_mask_input"] = has_mask_input
+
         super().__init__(
-            inputs={
-                "pixel_values": pixel_values,
-                "input_points": input_points,
-                "input_labels": input_labels,
-                "input_boxes": input_boxes,
-                "input_masks": input_masks,
-                "has_boxes_input": has_boxes_input,
-                "has_mask_input": has_mask_input,
-            },
+            inputs=main_inputs,
             outputs={"pred_masks": pred_masks, "iou_scores": iou_scores},
             name=name,
             **kwargs,
@@ -485,6 +507,8 @@ class SAM(keras.Model):
         self.vision_global_attn_indexes = list(vision_global_attn_indexes)
         self.num_multimask_outputs = num_multimask_outputs
         self.multimask_output = multimask_output
+        self.enable_boxes = enable_boxes
+        self.enable_masks = enable_masks
         self.image_embedding_size = image_embedding_size
         self.mask_input_size = mask_input_size
         self._input_shape_val = input_shape
@@ -500,16 +524,7 @@ class SAM(keras.Model):
             dtype=pixel_values.dtype,
         )
         decoder_side_image_pe = image_pe_layer(image_embeddings_input)
-        decoder_prompt_results = prompt_encoder_layer(
-            [
-                input_points,
-                input_labels,
-                input_boxes,
-                input_mask_embedding,
-                has_boxes_input,
-                has_mask_input,
-            ]
-        )
+        decoder_prompt_results = prompt_encoder_layer(_prompt_inputs_dict())
         decoder_side_outputs = mask_decoder_layer(
             [
                 image_embeddings_input,
@@ -518,16 +533,29 @@ class SAM(keras.Model):
                 decoder_prompt_results["dense_embeddings"],
             ]
         )
+
+        prompt_decoder_inputs = {
+            "image_embeddings": image_embeddings_input,
+            "input_points": input_points,
+            "input_labels": input_labels,
+        }
+        prompt_encoder_inputs = {
+            "input_points": input_points,
+            "input_labels": input_labels,
+        }
+        if enable_boxes:
+            prompt_decoder_inputs["input_boxes"] = input_boxes
+            prompt_decoder_inputs["has_boxes_input"] = has_boxes_input
+            prompt_encoder_inputs["input_boxes"] = input_boxes
+            prompt_encoder_inputs["has_boxes_input"] = has_boxes_input
+        if enable_masks:
+            prompt_decoder_inputs["input_masks"] = input_masks
+            prompt_decoder_inputs["has_mask_input"] = has_mask_input
+            prompt_encoder_inputs["input_masks"] = input_masks
+            prompt_encoder_inputs["has_mask_input"] = has_mask_input
+
         self.prompt_decoder_model = keras.Model(
-            inputs={
-                "image_embeddings": image_embeddings_input,
-                "input_points": input_points,
-                "input_labels": input_labels,
-                "input_boxes": input_boxes,
-                "input_masks": input_masks,
-                "has_boxes_input": has_boxes_input,
-                "has_mask_input": has_mask_input,
-            },
+            inputs=prompt_decoder_inputs,
             outputs={
                 "pred_masks": decoder_side_outputs["pred_masks"],
                 "iou_scores": decoder_side_outputs["iou_scores"],
@@ -542,14 +570,7 @@ class SAM(keras.Model):
         )
 
         self.prompt_encoder_model = keras.Model(
-            inputs={
-                "input_points": input_points,
-                "input_labels": input_labels,
-                "input_boxes": input_boxes,
-                "input_masks": input_masks,
-                "has_boxes_input": has_boxes_input,
-                "has_mask_input": has_mask_input,
-            },
+            inputs=prompt_encoder_inputs,
             outputs={
                 "sparse_embeddings": prompt_results["sparse_embeddings"],
                 "dense_embeddings": prompt_results["dense_embeddings"],
@@ -578,43 +599,31 @@ class SAM(keras.Model):
         self,
         input_points,
         input_labels,
-        input_boxes,
-        input_masks,
-        has_boxes_input,
-        has_mask_input,
+        input_boxes=None,
+        input_masks=None,
+        has_boxes_input=None,
+        has_mask_input=None,
     ):
         """Run only the prompt encoder.
 
         Mirrors HuggingFace ``SamModel.get_prompt_embeddings``. Returns
         the sparse and dense prompt embeddings without invoking the
-        mask decoder.
-
-        Args:
-            input_points: ``(batch, point_batch, num_points, 2)``.
-            input_labels: ``(batch, point_batch, num_points)``.
-            input_boxes: ``(batch, point_batch, 4)``. Dim-1 must
-                match ``point_batch``. Pass zeros when unused.
-            input_masks: ``(batch, 4*emb, 4*emb, 1)``. Pass zeros
-                if not used.
-            has_boxes_input: ``(batch, 1)`` flag, ``1.0`` when
-                ``input_boxes`` is meaningful.
-            has_mask_input: ``(batch, 1)`` flag, ``1.0`` when
-                ``input_masks`` is meaningful.
+        mask decoder. Only the arguments that match the model's
+        ``enable_boxes`` / ``enable_masks`` configuration are used;
+        the rest are ignored.
 
         Returns:
             Dict with keys ``"sparse_embeddings"`` and
             ``"dense_embeddings"``.
         """
-        return self.prompt_encoder_model(
-            {
-                "input_points": input_points,
-                "input_labels": input_labels,
-                "input_boxes": input_boxes,
-                "input_masks": input_masks,
-                "has_boxes_input": has_boxes_input,
-                "has_mask_input": has_mask_input,
-            }
-        )
+        inputs = {"input_points": input_points, "input_labels": input_labels}
+        if self.enable_boxes:
+            inputs["input_boxes"] = input_boxes
+            inputs["has_boxes_input"] = has_boxes_input
+        if self.enable_masks:
+            inputs["input_masks"] = input_masks
+            inputs["has_mask_input"] = has_mask_input
+        return self.prompt_encoder_model(inputs)
 
     def get_config(self):
         config = super().get_config()
@@ -627,6 +636,8 @@ class SAM(keras.Model):
                 "vision_global_attn_indexes": self.vision_global_attn_indexes,
                 "num_multimask_outputs": self.num_multimask_outputs,
                 "multimask_output": self.multimask_output,
+                "enable_boxes": self.enable_boxes,
+                "enable_masks": self.enable_masks,
                 "input_shape": self._input_shape_val,
             }
         )

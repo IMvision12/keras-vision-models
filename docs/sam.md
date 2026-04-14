@@ -29,53 +29,160 @@ import kmodels
 # List available SAM models
 print(kmodels.list_models("sam"))
 
-# Create a SAM model (default 1024x1024 input)
+# Build a SAM model (default 1024×1024 input, multi-mask output)
 model = kmodels.models.sam.SAM_ViT_Base(
     input_shape=(1024, 1024, 3),
     weights="sa1b",
 )
+
+# For single best-mask output instead of 3 ambiguity hypotheses:
+model_single = kmodels.models.sam.SAM_ViT_Base(
+    weights="sa1b",
+    multimask_output=False,
+)
 ```
+
+`multimask_output` is a **construction-time** flag in the Keras port (unlike the HuggingFace port where it's a runtime kwarg). The Keras functional graph needs to be built for one mode or the other.
+
+## Model Inputs
+
+The SAM model's functional graph has six inputs that must always be provided — for prompts you are not using, pass zero-valued placeholders and toggle the corresponding `has_*_input` flag to `0.0`:
+
+| Input | Shape | Description |
+|---|---|---|
+| `pixel_values` | `(batch, 1024, 1024, 3)` | Normalized image (ImageNet mean/std). |
+| `input_points` | `(batch, point_batch, num_points, 2)` | `(x, y)` pixel coords in the model input frame. |
+| `input_labels` | `(batch, point_batch, num_points)` | `1` foreground, `0` background, `-1` padding, `-10` ignore. |
+| `input_boxes` | `(batch, point_batch, 4)` | `(x1, y1, x2, y2)`. Dim‑1 must match `point_batch`. |
+| `input_masks` | `(batch, 256, 256, 1)` | Dense mask prompt at 4× downscale of the model input. |
+| `has_boxes_input` | `(batch, 1)` | `1.0` if `input_boxes` is meaningful, else `0.0`. |
+| `has_mask_input` | `(batch, 1)` | `1.0` if `input_masks` is meaningful, else `0.0`. |
 
 ## Inference with Point Prompts
 
 ```python
 import numpy as np
 import keras
-from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks
+from kmodels.models.sam import (
+    SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
+)
 
-# Load model
 model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
 
-# Segment multiple objects by running separate point prompts
-prompts = [
-    {"points": np.array([[[390, 280]]]), "labels": np.array([[1]])},  # blue bag
-    {"points": np.array([[[300, 260]]]), "labels": np.array([[1]])},  # left brown bag
-    {"points": np.array([[[520, 240]]]), "labels": np.array([[1]])},  # right brown bag
-]
+inputs = SAMImageProcessorWithPrompts(
+    "groceries.jpg",
+    input_points=np.array([[[390, 280]]]),  # (x, y) pixel coord on the subject
+    input_labels=np.array([[1]]),           # 1 = foreground
+)
 
-for prompt in prompts:
-    inputs = SAMImageProcessorWithPrompts(
-        "groceries.jpg",
-        input_points=prompt["points"],  # (x, y) pixel coordinates
-        input_labels=prompt["labels"],  # 1 = foreground
-    )
+# Fill in the placeholders for the prompt kinds we're not using
+inputs["input_boxes"]     = np.zeros((1, 1, 4), dtype="float32")
+inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
+inputs["has_boxes_input"] = np.zeros((1, 1), dtype="float32")
+inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
 
-    outputs = model({
-        "pixel_values": inputs["pixel_values"],
-        "input_points": inputs["input_points"],
-        "input_labels": inputs["input_labels"],
-    })
+outputs = model.predict(inputs, verbose=0)
 
-    masks = SAMPostProcessMasks(
-        outputs["pred_masks"],
-        original_size=inputs["original_size"],
-        reshaped_size=inputs["reshaped_size"],
-    )
+masks = SAMPostProcessMasks(
+    outputs["pred_masks"],
+    original_size=inputs["original_size"],
+    reshaped_size=inputs["reshaped_size"],
+)
 
-    iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
-    best_idx = np.argmax(iou_scores)
-    best_mask = keras.ops.convert_to_numpy(masks)[0, 0, best_idx] > 0.0
-    print(f"IoU: {iou_scores[best_idx]:.3f}, Mask shape: {best_mask.shape}")
+iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
+best_idx = int(np.argmax(iou_scores))
+best_mask = keras.ops.convert_to_numpy(masks)[0, 0, best_idx] > 0.0
+print(f"IoU: {iou_scores[best_idx]:.3f}, Mask shape: {best_mask.shape}")
+```
+
+## Inference with Box Prompts
+
+Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. The prompt encoder embeds the two corners via the same positional encoding path as points — you no longer need the old "corner label" workaround.
+
+```python
+import numpy as np
+from kmodels.models.sam import (
+    SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
+)
+
+model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
+
+inputs = SAMImageProcessorWithPrompts(
+    "photo.jpg",
+    input_points=np.zeros((1, 1, 1, 2), dtype="float32"),   # placeholder
+    input_labels=-10 * np.ones((1, 1, 1), dtype="int32"),   # ignore
+    input_boxes=np.array([[100, 200, 400, 500]]),           # (x1, y1, x2, y2)
+)
+inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
+inputs["has_boxes_input"] = np.ones((1, 1), dtype="float32")
+inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
+
+outputs = model.predict(inputs, verbose=0)
+masks = SAMPostProcessMasks(
+    outputs["pred_masks"],
+    original_size=inputs["original_size"],
+    reshaped_size=inputs["reshaped_size"],
+)
+```
+
+Note the shape constraint: `input_boxes` dim‑1 must equal `point_batch`. For a pure-box prompt, pass a matching zero-point placeholder with `label=-10` (ignore).
+
+## Mask Refinement
+
+Feed a coarse low-resolution mask back in to refine the output. Masks must be passed at the 256×256 prompt-encoder resolution:
+
+```python
+coarse = outputs["pred_masks"][0, 0, 0:1]                # (1, 256, 256)
+coarse = np.transpose(coarse, (1, 2, 0))[None, ...]      # (1, 256, 256, 1)
+
+inputs["input_masks"]    = coarse.astype("float32")
+inputs["has_mask_input"] = np.ones((1, 1), dtype="float32")
+refined = model.predict(inputs, verbose=0)
+```
+
+## Precomputed Image Embeddings (Multi-Prompt Inference)
+
+For interactive tools that try many prompts on the same image, run the ViT encoder **once** and reuse its output. The Keras port exposes two sub-models on every SAM instance:
+
+| Attribute | Inputs | Outputs |
+|---|---|---|
+| `model.vision_encoder_model` | `pixel_values` | `image_embeddings` `(1, 64, 64, 256)` |
+| `model.prompt_decoder_model` | `image_embeddings` + all six prompt inputs | `pred_masks`, `iou_scores` |
+| `model.prompt_encoder_model` | all six prompt inputs | `sparse_embeddings`, `dense_embeddings` |
+
+```python
+from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessor
+
+model = SAM_ViT_Base(weights="sa1b")
+pre = SAMImageProcessor("photo.jpg")
+
+# Run the vision encoder once
+image_embeddings = model.get_image_embeddings(pre["pixel_values"])
+
+# Try many prompts without re-running the ViT
+for (x, y) in [(450, 600), (200, 150), (700, 300)]:
+    out = model.prompt_decoder_model.predict({
+        "image_embeddings":  image_embeddings,
+        "input_points":      np.array([[[[x, y]]]], dtype="float32"),
+        "input_labels":      np.array([[[1]]], dtype="int32"),
+        "input_boxes":       np.zeros((1, 1, 4), dtype="float32"),
+        "input_masks":       np.zeros((1, 256, 256, 1), dtype="float32"),
+        "has_boxes_input":   np.zeros((1, 1), dtype="float32"),
+        "has_mask_input":    np.zeros((1, 1), dtype="float32"),
+    }, verbose=0)
+```
+
+For a 1024×1024 image the ViT is roughly 95% of the compute — the decoder itself runs in milliseconds.
+
+You can also extract prompt embeddings without invoking the mask decoder:
+
+```python
+pe = model.get_prompt_embeddings(
+    input_points, input_labels, input_boxes, input_masks,
+    has_boxes_input, has_mask_input,
+)
+# pe["sparse_embeddings"]: (batch, point_batch, N, 256)
+# pe["dense_embeddings"] : (batch, 64, 64, 256)
 ```
 
 ## Full Inference with Visualization
@@ -92,27 +199,32 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.sam import (
-    SAM_ViT_Base,
-    SAMImageProcessorWithPrompts,
-    SAMPostProcessMasks,
+    SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
 )
 
 COLORS = [
-    np.array([0, 180, 255, 128]) / 255.0,    # cyan
-    np.array([255, 100, 50, 128]) / 255.0,    # orange
-    np.array([50, 220, 100, 128]) / 255.0,    # green
+    np.array([0, 180, 255, 128]) / 255.0,
+    np.array([255, 100, 50, 128]) / 255.0,
+    np.array([50, 220, 100, 128]) / 255.0,
 ]
 
 
 def show_mask(mask, ax, color):
     h, w = mask.shape
-    mask_image = mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
-    ax.imshow(mask_image)
+    ax.imshow(mask.reshape(h, w, 1) * color.reshape(1, 1, -1))
 
 
 def show_points(coords, ax, color, marker_size=375):
     ax.scatter(coords[:, 0], coords[:, 1], color=color, marker="*",
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
+
+
+def fill_placeholders(inputs):
+    inputs["input_boxes"]     = np.zeros((1, 1, 4), dtype="float32")
+    inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
+    inputs["has_boxes_input"] = np.zeros((1, 1), dtype="float32")
+    inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
+    return inputs
 
 
 model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
@@ -129,30 +241,22 @@ ax.imshow(np.array(img))
 
 for i, prompt in enumerate(prompts):
     inputs = SAMImageProcessorWithPrompts(
-        img,
-        input_points=prompt["points"],
-        input_labels=prompt["labels"],
+        img, input_points=prompt["points"], input_labels=prompt["labels"],
     )
-
-    outputs = model({
-        "pixel_values": inputs["pixel_values"],
-        "input_points": inputs["input_points"],
-        "input_labels": inputs["input_labels"],
-    })
+    inputs = fill_placeholders(inputs)
+    outputs = model.predict(inputs, verbose=0)
 
     masks = SAMPostProcessMasks(
         outputs["pred_masks"],
         original_size=inputs["original_size"],
         reshaped_size=inputs["reshaped_size"],
     )
-
     masks_np = keras.ops.convert_to_numpy(masks)[0, 0]
     iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
-    best_idx = np.argmax(iou_scores)
-    best_mask = masks_np[best_idx] > 0.0
+    best_idx = int(np.argmax(iou_scores))
 
     color = COLORS[i]
-    show_mask(best_mask, ax, color)
+    show_mask(masks_np[best_idx] > 0.0, ax, color)
     show_points(prompt["points"][0], ax, color=color[:3])
     print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
 
@@ -165,36 +269,67 @@ plt.close(fig)
 
 ![SAM Multiple Point Prompts Output](../assets/sam_groceries_output.jpg)
 
-## Inference with Box Prompts
+## Automatic Mask Generation ("Segment Everything")
 
-Box prompts are encoded as two corner points with special labels (`2` = top-left, `3` = bottom-right):
+Without any prompts, SAM can sample a dense point grid over the image and return every mask it can find. The Keras port ships both the HuggingFace-parity helpers and a driver that ties them together.
+
+### What's where
+
+HuggingFace's `SamProcessor` exposes the **helpers** (`generate_crop_boxes`, `filter_masks`, `post_process_for_mask_generation`, plus internals like `_compute_stability_score`, `_mask_to_rle`) but leaves the crop loop, per-crop batching, and model orchestration to you. Meta's original `segment-anything` repo ships the end-to-end driver as `SamAutomaticMaskGenerator`.
+
+The kmodels port provides:
+
+| Function | What it corresponds to |
+|---|---|
+| `generate_crop_boxes` | `SamProcessor.generate_crop_boxes` |
+| `filter_masks` | `SamProcessor.filter_masks` |
+| `post_process_for_mask_generation` | `SamProcessor.post_process_for_mask_generation` |
+| `SAMGenerateMasks` | `SamAutomaticMaskGenerator` (Meta original) |
+
+All helpers run on `keras.ops` tensors and work on any backend.
+
+### One-call usage
 
 ```python
-import numpy as np
-from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks
+from kmodels.models.sam import SAM_ViT_Base, SAMGenerateMasks
 
-model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAM_ViT_Base(weights="sa1b")
 
-# Box [x1, y1, x2, y2] encoded as corner points
-box = [100, 200, 400, 500]
-inputs = SAMImageProcessorWithPrompts(
+result = SAMGenerateMasks(
+    model,
     "photo.jpg",
-    input_points=np.array([[[box[0], box[1]], [box[2], box[3]]]]),
-    input_labels=np.array([[2, 3]]),  # 2=top-left, 3=bottom-right
+    points_per_side=32,        # 32 × 32 = 1024 grid points
+    points_per_batch=64,       # decoder batch size (memory knob)
+    pred_iou_thresh=0.88,
+    stability_score_thresh=0.95,
+    crops_nms_thresh=0.7,
+    crop_n_layers=0,           # set 1 or 2 for multi-scale crops
 )
 
-outputs = model({
-    "pixel_values": inputs["pixel_values"],
-    "input_points": inputs["input_points"],
-    "input_labels": inputs["input_labels"],
-})
+# result["masks"]      : list of bool (orig_h, orig_w) keras tensors
+# result["iou_scores"] : (N,) float tensor
+# result["boxes"]      : (N, 4) xyxy in original-image coords
+# result["rle_masks"]  : list of uncompressed RLE dicts
+print(f"Found {len(result['masks'])} masks")
+```
 
-masks = SAMPostProcessMasks(
-    outputs["pred_masks"],
-    original_size=inputs["original_size"],
-    reshaped_size=inputs["reshaped_size"],
+Under the hood the driver:
+1. Calls `generate_crop_boxes` to build the point grid (and optional crop hierarchy).
+2. Runs `model.get_image_embeddings` once per crop, then calls `model.prompt_decoder_model` in batches of `points_per_batch`.
+3. Applies `filter_masks` per crop (IoU threshold, stability score, crop-edge filter, pad back to original image, encode as RLE).
+4. Applies `post_process_for_mask_generation` (single-class NMS on the predicted boxes) to deduplicate across crops.
+
+### Rolling your own driver
+
+If you want HuggingFace-parity behavior exactly, import the helpers directly and skip `SAMGenerateMasks`:
+
+```python
+from kmodels.models.sam import (
+    generate_crop_boxes, filter_masks, post_process_for_mask_generation,
 )
 ```
+
+These map 1:1 to the HF equivalents, so you can mirror any custom pipeline written against `transformers`' `SamProcessor`.
 
 ## Architecture
 
@@ -202,14 +337,28 @@ SAM consists of three main components:
 
 1. **Vision Encoder (Image Encoder):** A ViT backbone with windowed attention and relative positional embeddings. Processes the input image (1024×1024) into a dense feature map (64×64×256).
 
-2. **Prompt Encoder:** Encodes sparse prompts (points, boxes) via positional encoding + learned type embeddings, and dense prompts (masks) via a small CNN.
+2. **Prompt Encoder:** Encodes sparse prompts (points and box corners) via Fourier positional encoding + learned type embeddings, and dense prompts (masks) via a small CNN downsampling stack. A learned "no-mask" embedding is used when no mask prompt is supplied.
 
-3. **Mask Decoder:** A lightweight two-way transformer (2 layers) that attends between prompt tokens and image embeddings, then generates mask predictions and IoU confidence scores.
+3. **Mask Decoder:** A lightweight two-way transformer (2 layers) that attends between prompt tokens and image embeddings, then generates mask predictions and IoU confidence scores via hypernetwork MLPs.
 
 ## Model Outputs
 
 The model returns a dictionary with:
-- `pred_masks`: Low-resolution predicted masks of shape `(batch, point_batch, num_masks, 256, 256)`
-- `iou_scores`: Predicted IoU scores for each mask of shape `(batch, point_batch, num_masks)`
+- `pred_masks`: Low-resolution predicted masks of shape `(batch, point_batch, num_masks, 256, 256)`, where `num_masks=3` for `multimask_output=True` (the default) or `num_masks=1` for `multimask_output=False`.
+- `iou_scores`: Predicted IoU scores for each mask of shape `(batch, point_batch, num_masks)`.
 
-Use `SAMPostProcessMasks` to upscale masks to the original image resolution.
+Use `SAMPostProcessMasks` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
+
+## HuggingFace API Parity Notes
+
+The Keras port intentionally differs from the PyTorch/HuggingFace `SamModel` API in a few places due to the functional-graph constraint:
+
+| Aspect | HuggingFace | Keras port |
+|---|---|---|
+| Optional prompts | pass `None` in `forward` | pass zero placeholders + `has_*_input=0` |
+| `multimask_output` | runtime kwarg | construction-time flag |
+| Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
+| Post-processing | `processor.post_process_masks` (list per image) | `SAMPostProcessMasks` (one image per call) |
+| Automatic mask generation | helpers only; driver lives in Meta's original repo | helpers + built-in `SAMGenerateMasks` driver |
+
+All forward-pass weights are byte-equivalent to the HuggingFace checkpoints — the divergence is purely at the Python API surface.

@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from transformers import Sam2Model, Sam2VideoModel
 
-from kmodels.models.sam2_video.config import SAM2_VIDEO_HF_MODEL_IDS
 from kmodels.models.sam2_video.sam2_video_model import (
     Sam2VideoBasePlus,
     Sam2VideoLarge,
@@ -16,6 +15,13 @@ from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
+
+SAM2_VIDEO_HF_MODEL_IDS = {
+    "Sam2VideoTiny": "facebook/sam2-hiera-tiny",
+    "Sam2VideoSmall": "facebook/sam2-hiera-small",
+    "Sam2VideoBasePlus": "facebook/sam2-hiera-base-plus",
+    "Sam2VideoLarge": "facebook/sam2-hiera-large",
+}
 
 VARIANTS = [
     (

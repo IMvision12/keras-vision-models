@@ -60,10 +60,3 @@ SAM2_VIDEO_WEIGHTS_CONFIG = {
         },
     },
 }
-
-SAM2_VIDEO_HF_MODEL_IDS = {
-    "Sam2VideoTiny": "facebook/sam2-hiera-tiny",
-    "Sam2VideoSmall": "facebook/sam2-hiera-small",
-    "Sam2VideoBasePlus": "facebook/sam2-hiera-base-plus",
-    "Sam2VideoLarge": "facebook/sam2-hiera-large",
-}

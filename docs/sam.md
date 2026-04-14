@@ -189,7 +189,7 @@ pe = model.get_prompt_embeddings(
 
 ```python
 import os
-os.environ["KERAS_BACKEND"] = "torch"
+os.environ["KERAS_BACKEND"] = "tensorflow"
 
 import numpy as np
 import keras
@@ -199,13 +199,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.sam import (
-    SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
+    SAM_ViT_Large, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
 )
 
 COLORS = [
-    np.array([0, 180, 255, 128]) / 255.0,
-    np.array([255, 100, 50, 128]) / 255.0,
-    np.array([50, 220, 100, 128]) / 255.0,
+    np.array([0, 180, 255, 150]) / 255.0,
+    np.array([255, 90, 60, 150]) / 255.0,
 ]
 
 
@@ -214,37 +213,31 @@ def show_mask(mask, ax, color):
     ax.imshow(mask.reshape(h, w, 1) * color.reshape(1, 1, -1))
 
 
-def show_points(coords, ax, color, marker_size=375):
+def show_points(coords, ax, color, marker_size=340):
     ax.scatter(coords[:, 0], coords[:, 1], color=color, marker="*",
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
 
 
-def fill_placeholders(inputs):
-    inputs["input_boxes"]     = np.zeros((1, 1, 4), dtype="float32")
-    inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
-    inputs["has_boxes_input"] = np.zeros((1, 1), dtype="float32")
-    inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
-    return inputs
-
-
-model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
-img = Image.open("groceries.jpg").convert("RGB")
+model = SAM_ViT_Large(input_shape=(1024, 1024, 3), weights="sa1b")
+img = Image.open("assets/coco_cats.jpg").convert("RGB")   # COCO val2017/000000039769.jpg
 
 prompts = [
-    {"points": np.array([[[390, 280]]]), "labels": np.array([[1]]), "name": "blue bag"},
-    {"points": np.array([[[300, 260]]]), "labels": np.array([[1]]), "name": "left brown bag"},
-    {"points": np.array([[[520, 240]]]), "labels": np.array([[1]]), "name": "right brown bag"},
+    {"points": np.array([[[150, 200]]]), "labels": np.array([[1]]), "name": "left cat"},
+    {"points": np.array([[[440, 180]]]), "labels": np.array([[1]]), "name": "right cat"},
 ]
 
-fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+fig, ax = plt.subplots(1, 1, figsize=(8, 6))
 ax.imshow(np.array(img))
 
 for i, prompt in enumerate(prompts):
     inputs = SAMImageProcessorWithPrompts(
         img, input_points=prompt["points"], input_labels=prompt["labels"],
     )
-    inputs = fill_placeholders(inputs)
-    outputs = model.predict(inputs, verbose=0)
+    outputs = model.predict({
+        "pixel_values": inputs["pixel_values"],
+        "input_points": inputs["input_points"],
+        "input_labels": inputs["input_labels"],
+    }, verbose=0)
 
     masks = SAMPostProcessMasks(
         outputs["pred_masks"],
@@ -260,14 +253,16 @@ for i, prompt in enumerate(prompts):
     show_points(prompt["points"][0], ax, color=color[:3])
     print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
 
-ax.set_title("SAM — Multiple Point Prompts", fontsize=16)
+ax.set_title("SAM ViT-Large — Point Prompts (COCO cats)", fontsize=14)
 ax.axis("off")
 plt.tight_layout()
-fig.savefig("sam_output.jpg", bbox_inches="tight", dpi=120)
+fig.savefig("sam_train_output.jpg", bbox_inches="tight", dpi=130)
 plt.close(fig)
 ```
 
-![SAM Multiple Point Prompts Output](../assets/sam_groceries_output.jpg)
+![SAM Point Prompts Output](../assets/sam_train_output.jpg)
+
+Running this on the default HF-parity model (three inputs: `pixel_values`, `input_points`, `input_labels`) on the classic two-cats COCO image (``val2017/000000039769.jpg``, saved locally as ``assets/coco_cats.jpg``) segments each cat from a single point click with IoU scores > 0.99.
 
 ## Automatic Mask Generation ("Segment Everything")
 
@@ -291,17 +286,43 @@ All helpers run on `keras.ops` tensors and work on any backend.
 ### One-call usage
 
 ```python
-from kmodels.models.sam import SAM_ViT_Base, SAMGenerateMasks
+import os
+os.environ["KERAS_BACKEND"] = "tensorflow"
 
-model = SAM_ViT_Base(weights="sa1b")
+import numpy as np
+import keras
+from PIL import Image
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from kmodels.models.sam import SAM_ViT_Large, SAMGenerateMasks
+
+
+def overlay_masks(ax, masks_list):
+    rng = np.random.default_rng(7)
+    ordered = sorted(
+        [np.asarray(keras.ops.convert_to_numpy(m)).astype(bool) for m in masks_list],
+        key=lambda m: -int(m.sum()),
+    )
+    h, w = ordered[0].shape
+    overlay = np.zeros((h, w, 4), dtype=np.float32)
+    for mask in ordered:
+        color = np.concatenate([rng.random(3), [0.55]])
+        overlay[mask] = color
+    ax.imshow(overlay)
+
+
+model = SAM_ViT_Large(weights="sa1b")
+img = Image.open("assets/coco_cats.jpg").convert("RGB")
 
 result = SAMGenerateMasks(
     model,
-    "photo.jpg",
-    points_per_side=32,        # 32 × 32 = 1024 grid points
-    points_per_batch=64,       # decoder batch size (memory knob)
+    np.array(img, dtype="float32"),
+    points_per_side=16,        # 16 × 16 = 256 grid points
+    points_per_batch=32,
     pred_iou_thresh=0.88,
-    stability_score_thresh=0.95,
+    stability_score_thresh=0.92,
     crops_nms_thresh=0.7,
     crop_n_layers=0,           # set 1 or 2 for multi-scale crops
 )
@@ -311,7 +332,21 @@ result = SAMGenerateMasks(
 # result["boxes"]      : (N, 4) xyxy in original-image coords
 # result["rle_masks"]  : list of uncompressed RLE dicts
 print(f"Found {len(result['masks'])} masks")
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+axes[0].imshow(np.array(img)); axes[0].set_title("Input"); axes[0].axis("off")
+axes[1].imshow(np.array(img))
+overlay_masks(axes[1], result["masks"])
+axes[1].set_title(f"SAM ViT-Large — AMG ({len(result['masks'])} masks)")
+axes[1].axis("off")
+plt.tight_layout()
+fig.savefig("sam_coco_cats_amg_output.jpg", bbox_inches="tight", dpi=130)
+plt.close(fig)
 ```
+
+![SAM Automatic Mask Generation Output](../assets/sam_coco_cats_amg_output.jpg)
+
+Running on ``assets/coco_cats.jpg`` with a 16 × 16 point grid returns ~21 deduplicated masks — each cat as a whole, the two remote controls, the pink couch, and a handful of sub-parts (ears, paws, tail tips).
 
 Under the hood the driver:
 1. Calls `generate_crop_boxes` to build the point grid (and optional crop hierarchy).

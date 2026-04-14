@@ -968,6 +968,9 @@ def SAMGenerateMasks(
     )
     off_flag = keras.ops.zeros((1, 1), dtype="float32")
 
+    model_enable_boxes = bool(getattr(model, "enable_boxes", False))
+    model_enable_masks = bool(getattr(model, "enable_masks", False))
+
     num_crops = int(keras.ops.shape(crop_boxes)[0])
     crop_boxes_np = keras.ops.convert_to_numpy(crop_boxes)
 
@@ -1002,11 +1005,13 @@ def SAMGenerateMasks(
                 "image_embeddings": image_embeddings,
                 "input_points": batch_points,
                 "input_labels": batch_labels,
-                "input_boxes": batch_boxes_zero,
-                "input_masks": empty_masks,
-                "has_boxes_input": off_flag,
-                "has_mask_input": off_flag,
             }
+            if model_enable_boxes:
+                decoder_inputs["input_boxes"] = batch_boxes_zero
+                decoder_inputs["has_boxes_input"] = off_flag
+            if model_enable_masks:
+                decoder_inputs["input_masks"] = empty_masks
+                decoder_inputs["has_mask_input"] = off_flag
             out = model.prompt_decoder_model(decoder_inputs)
             pred_masks = out["pred_masks"]  # (1, pb, num_masks, H', W')
             iou_scores = out["iou_scores"]  # (1, pb, num_masks)

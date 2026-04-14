@@ -6,14 +6,16 @@ SAM2 (Segment Anything Model 2) is the next generation of the Segment Anything M
 
 **Reference:** [SAM 2: Segment Anything in Images and Videos](https://arxiv.org/abs/2408.00714) (Ravi et al., 2024)
 
+For temporal video tracking with memory attention, see [SAM2 Video](sam2_video.md).
+
 ## Available Models
 
-| Model | Parameters | Backbone | Description | Weights |
-|-------|-----------|----------|-------------|---------|
-| `Sam2Tiny` | ~38M | Hiera-Tiny | Smallest and fastest variant | `sav` |
-| `Sam2Small` | ~46M | Hiera-Small | Balanced speed and accuracy | `sav` |
-| `Sam2BasePlus` | ~80M | Hiera-Base+ | Enhanced base model | `sav` |
-| `Sam2Large` | ~224M | Hiera-Large | Largest and most accurate | `sav` |
+| Model         | Parameters | Backbone     | Description                       | Weights |
+|---------------|-----------|--------------|-----------------------------------|---------|
+| `Sam2Tiny`    | ~38M      | Hiera-Tiny   | Smallest and fastest variant      | `sav`   |
+| `Sam2Small`   | ~46M      | Hiera-Small  | Balanced speed and accuracy       | `sav`   |
+| `Sam2BasePlus`| ~80M      | Hiera-Base+  | Enhanced base model               | `sav`   |
+| `Sam2Large`   | ~224M     | Hiera-Large  | Largest and most accurate         | `sav`   |
 
 All models use a 1024×1024 input resolution and are trained on the SA-V dataset (Segment Anything in Videos).
 
@@ -32,74 +34,100 @@ model = kmodels.models.sam2.Sam2Tiny(
 )
 ```
 
+## Image Processor
+
+`kmodels.models.sam2` ships a pure-Keras image processor that mirrors HuggingFace `Sam2ImageProcessor`: resize a frame to 1024×1024 with antialiased bilinear, rescale to `[0, 1]`, normalize with ImageNet mean/std, and prepare prompt tensors. Three helpers are exported:
+
+- `Sam2ImageProcessor(image)` — preprocess one image and return default empty prompt placeholders.
+- `Sam2ImageProcessorWithPrompts(image, input_points, input_labels)` — same as above plus encoded point prompts (per-axis stretched into 1024-space).
+- `Sam2PostProcessMasks(pred_masks, original_size)` — bilinear-resize predicted masks back to the original image resolution.
+
+```python
+import numpy as np
+from kmodels.models.sam2 import (
+    Sam2Tiny,
+    Sam2ImageProcessor,
+    Sam2ImageProcessorWithPrompts,
+    Sam2PostProcessMasks,
+)
+
+model = Sam2Tiny(input_shape=(1024, 1024, 3), weights="sav")
+
+# Single foreground point prompt at the center of the original image
+inputs = Sam2ImageProcessorWithPrompts(
+    "photo.jpg",
+    input_points=np.array([[[450, 600]]], dtype=np.float32),
+    input_labels=np.array([[1]], dtype=np.int32),
+)
+
+# The model only consumes pixel_values + input_points + input_labels;
+# original_size and reshaped_size are kept for post-processing.
+model_inputs = {
+    "pixel_values": inputs["pixel_values"],
+    "input_points": inputs["input_points"],
+    "input_labels": inputs["input_labels"],
+}
+outputs = model(model_inputs)
+
+masks = Sam2PostProcessMasks(
+    outputs["pred_masks"], original_size=inputs["original_size"]
+)
+print(masks.shape)  # (batch, num_prompts, num_multimask_outputs, orig_h, orig_w)
+```
+
+The processor accepts file paths, PIL images, and NumPy `(H, W, 3)` arrays.
+
 ## Inference with Point Prompts
 
 ```python
 import numpy as np
 import keras
+from kmodels.models.sam2 import Sam2Large, Sam2ImageProcessorWithPrompts
 
-# Load model
-model = kmodels.models.sam2.Sam2Large(
-    input_shape=(1024, 1024, 3),
-    weights="sav",
+model = Sam2Large(input_shape=(1024, 1024, 3), weights="sav")
+
+# Foreground point in original image pixel coordinates
+inputs = Sam2ImageProcessorWithPrompts(
+    "photo.jpg",
+    input_points=np.array([[[450, 600]]], dtype=np.float32),
+    input_labels=np.array([[1]], dtype=np.int32),
 )
 
-# Prepare inputs
-# Note: Image should be preprocessed to 1024x1024
-pixel_values = keras.ops.convert_to_tensor(image)  # Shape: (1, 1024, 1024, 3)
-
-# Point prompts: (batch, num_prompts, num_points, 2)
-# Coordinates should be in the resized image space (0-1023)
-input_points = np.array([[[[450, 600]]]])  # (x, y) pixel coordinates
-
-# Labels: 1 = foreground, 0 = background, -1 = padding
-input_labels = np.array([[[1]]])
-
-# Run inference
 outputs = model({
-    "pixel_values": pixel_values,
-    "input_points": input_points,
-    "input_labels": input_labels,
+    "pixel_values": inputs["pixel_values"],
+    "input_points": inputs["input_points"],
+    "input_labels": inputs["input_labels"],
 })
 
-# Extract outputs
-masks = outputs["pred_masks"]  # Shape: (1, 1, 3, 256, 256)
-iou_scores = outputs["iou_scores"]  # Shape: (1, 1, 3)
-object_scores = outputs["object_score_logits"]  # Shape: (1, 1, 1)
-
-print(f"Masks shape: {masks.shape}")
-print(f"IoU scores: {iou_scores}")
-print(f"Object score logits: {object_scores}")
+masks = outputs["pred_masks"]                   # (1, 1, 3, 256, 256)
+iou_scores = outputs["iou_scores"]              # (1, 1, 3)
+object_score_logits = outputs["object_score_logits"]  # (1, 1, 1)
 ```
 
 ## Inference with Box Prompts
 
 ```python
 import numpy as np
+from kmodels.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
 
-model = kmodels.models.sam2.Sam2Small(
-    input_shape=(1024, 1024, 3),
-    weights="sav",
+model = Sam2Small(input_shape=(1024, 1024, 3), weights="sav")
+
+# A box is encoded as two corner points: top-left + bottom-right.
+# Coordinates are in original image pixel space.
+box_corners = np.array([[[100, 200], [400, 500]]], dtype=np.float32)
+# Labels: 2 = top-left corner, 3 = bottom-right corner
+box_labels = np.array([[2, 3]], dtype=np.int32)
+
+inputs = Sam2ImageProcessorWithPrompts(
+    "photo.jpg",
+    input_points=box_corners,
+    input_labels=box_labels,
 )
 
-# Box prompts are encoded as two corner points
-# Box format: [x1, y1, x2, y2] -> converted to points
-box = np.array([100, 200, 400, 500])
-
-# Convert box to point format: top-left and bottom-right corners
-input_points = np.array([[
-    [box[0], box[1]],  # top-left
-    [box[2], box[3]],  # bottom-right
-]])
-input_points = np.expand_dims(input_points, axis=0)  # Add batch dim
-
-# Labels: 2 = top-left corner, 3 = bottom-right corner
-input_labels = np.array([[[2, 3]]])
-
 outputs = model({
-    "pixel_values": pixel_values,
-    "input_points": input_points,
-    "input_labels": input_labels,
+    "pixel_values": inputs["pixel_values"],
+    "input_points": inputs["input_points"],
+    "input_labels": inputs["input_labels"],
 })
 ```
 
@@ -107,46 +135,22 @@ outputs = model({
 
 ```python
 import numpy as np
+from kmodels.models.sam2 import Sam2Small, Sam2ImageProcessorWithPrompts
 
-# Multiple points for a single object
-input_points = np.array([[
-    [[450, 600], [500, 650], [400, 550]]  # 3 points
-]])
+model = Sam2Small(input_shape=(1024, 1024, 3), weights="sav")
 
-# 1 = foreground, 0 = background
-input_labels = np.array([[[1, 1, 0]]])  # 2 foreground, 1 background
-
-outputs = model({
-    "pixel_values": pixel_values,
-    "input_points": input_points,
-    "input_labels": input_labels,
-})
-```
-
-## Batch Processing Multiple Prompts
-
-```python
-import numpy as np
-
-# Process multiple prompts in parallel
-# Shape: (batch=1, num_prompts=3, num_points=1, 2)
-input_points = np.array([[
-    [[100, 200]],  # First prompt
-    [[300, 400]],  # Second prompt
-    [[500, 600]],  # Third prompt
-]])
-
-input_labels = np.array([[[1], [1], [1]]])
+# Three points for a single object: 2 foreground, 1 background
+inputs = Sam2ImageProcessorWithPrompts(
+    "photo.jpg",
+    input_points=np.array([[[450, 600], [500, 650], [400, 550]]], dtype=np.float32),
+    input_labels=np.array([[1, 1, 0]], dtype=np.int32),
+)
 
 outputs = model({
-    "pixel_values": pixel_values,
-    "input_points": input_points,
-    "input_labels": input_labels,
+    "pixel_values": inputs["pixel_values"],
+    "input_points": inputs["input_points"],
+    "input_labels": inputs["input_labels"],
 })
-
-# Output shapes:
-# masks: (1, 3, 3, 256, 256) - 3 prompts, 3 masks each
-# iou_scores: (1, 3, 3) - 3 prompts, 3 scores each
 ```
 
 ## Architecture
@@ -186,7 +190,7 @@ The model returns a dictionary with:
 2. **Multi-scale Features:** FPN provides features at multiple resolutions with skip connections
 3. **Object Score Prediction:** Additional head to predict object presence
 4. **Improved Mask Quality:** High-resolution skip connections enhance fine details
-5. **Video Support:** Architecture designed for temporal consistency (video mode not yet implemented in this release)
+5. **Video Support:** A separate `Sam2Video` family extends this architecture with memory attention, a memory encoder, and an object pointer projection for promptable video segmentation. See [SAM2 Video](sam2_video.md).
 
 ## Prompt Label Convention
 
@@ -222,56 +226,45 @@ import numpy as np
 import keras
 from PIL import Image
 
-# Load and preprocess image
-image = Image.open("photo.jpg").convert("RGB")
-original_size = image.size  # (width, height)
-
-# Resize to 1024x1024, rescale, and apply ImageNet normalization
-resized = image.resize((1024, 1024))
-pixel_values = np.array(resized).astype(np.float32) / 255.0
-mean = np.array([0.485, 0.456, 0.406])
-std = np.array([0.229, 0.224, 0.225])
-pixel_values = (pixel_values - mean) / std
-pixel_values = keras.ops.convert_to_tensor(
-    np.expand_dims(pixel_values, axis=0), dtype="float32"
+from kmodels.models.sam2 import (
+    Sam2Tiny,
+    Sam2ImageProcessorWithPrompts,
+    Sam2PostProcessMasks,
 )
 
-# Load model
-model = kmodels.models.sam2.Sam2Tiny(
-    input_shape=(1024, 1024, 3),
-    weights="sav",
-)
+# Build the model
+model = Sam2Tiny(input_shape=(1024, 1024, 3), weights="sav")
 
-# Define prompts (single foreground point in 1024x1024 space)
-input_points = keras.ops.convert_to_tensor(
-    np.array([[[[512, 512]]]], dtype=np.float32)
-)
-input_labels = keras.ops.convert_to_tensor(
-    np.array([[[1]]], dtype=np.int32)
+# Preprocess the image and a single foreground point in original pixel space
+inputs = Sam2ImageProcessorWithPrompts(
+    "photo.jpg",
+    input_points=np.array([[[450, 600]]], dtype=np.float32),
+    input_labels=np.array([[1]], dtype=np.int32),
 )
 
 # Run inference
 outputs = model({
-    "pixel_values": pixel_values,
-    "input_points": input_points,
-    "input_labels": input_labels,
+    "pixel_values": inputs["pixel_values"],
+    "input_points": inputs["input_points"],
+    "input_labels": inputs["input_labels"],
 })
 
-# Select best mask based on IoU score
-masks = keras.ops.convert_to_numpy(outputs["pred_masks"])[0, 0]  # Shape: (3, 256, 256)
-iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]  # Shape: (3,)
-best_mask_idx = np.argmax(iou_scores)
-best_mask = masks[best_mask_idx]
+# Select the best mask using IoU scores, in low resolution (256x256)
+masks_low = keras.ops.convert_to_numpy(outputs["pred_masks"])[0, 0]  # (3, 256, 256)
+iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
+best_idx = int(np.argmax(iou_scores))
 
-# Resize mask to original image size
-best_mask_resized = np.array(
-    Image.fromarray((best_mask > 0).astype(np.uint8) * 255).resize(
-        original_size, Image.BILINEAR
+# Resize all 3 mask logits back to original image resolution
+masks_full = keras.ops.convert_to_numpy(
+    Sam2PostProcessMasks(
+        outputs["pred_masks"], original_size=inputs["original_size"]
     )
-) > 128
+)[0, 0]  # (3, orig_h, orig_w)
+best_mask = masks_full[best_idx] > 0
 
-print(f"Best mask IoU score: {iou_scores[best_mask_idx]:.3f}")
+print(f"Best mask IoU: {iou_scores[best_idx]:.3f}")
 print(f"Object score: {keras.ops.sigmoid(outputs['object_score_logits'][0, 0, 0]):.3f}")
+print(f"Mask shape: {best_mask.shape} (orig_h, orig_w)")
 ```
 
 ## Full Inference with Visualization
@@ -287,7 +280,11 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam2 import Sam2Tiny
+from kmodels.models.sam2 import (
+    Sam2Tiny,
+    Sam2ImageProcessorWithPrompts,
+    Sam2PostProcessMasks,
+)
 
 COLORS = [
     np.array([0, 180, 255, 128]) / 255.0,    # cyan
@@ -303,60 +300,52 @@ def show_mask(mask, ax, color):
 
 
 def show_points(coords, ax, color, marker_size=375):
-    ax.scatter(coords[0], coords[1], color=color, marker="*",
-               s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
+    ax.scatter(
+        coords[0], coords[1], color=color, marker="*",
+        s=marker_size, edgecolors="white", linewidths=1.25, zorder=5,
+    )
 
 
 model = Sam2Tiny(input_shape=(1024, 1024, 3), weights="sav")
 img = Image.open("cyclist.jpg").convert("RGB")
-original_size = img.size  # (W, H)
+img_np = np.array(img)
+original_size_wh = img.size  # (W, H)
 
-# Preprocess: resize to 1024x1024, rescale, ImageNet normalize
-resized = img.resize((1024, 1024))
-pixel_values = np.array(resized).astype(np.float32) / 255.0
-mean = np.array([0.485, 0.456, 0.406])
-std = np.array([0.229, 0.224, 0.225])
-pixel_values = (pixel_values - mean) / std
-pixel_values = keras.ops.convert_to_tensor(
-    np.expand_dims(pixel_values, axis=0), dtype="float32"
-)
-
-# Point prompts for 3 objects (coordinates in 1024x1024 space)
+# One foreground point per object, in original pixel space
 prompts = [
-    {"points": np.array([[[[426, 560]]]], dtype=np.float32), "labels": np.array([[[1]]], dtype=np.int32), "name": "cyclist"},
-    {"points": np.array([[[[832, 736]]]], dtype=np.float32), "labels": np.array([[[1]]], dtype=np.int32), "name": "dog"},
-    {"points": np.array([[[[387, 928]]]], dtype=np.float32), "labels": np.array([[[1]]], dtype=np.int32), "name": "bench"},
+    {"point": (430, 540), "name": "cyclist"},
+    {"point": (840, 720), "name": "dog"},
+    {"point": (390, 900), "name": "bench"},
 ]
 
 fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-ax.imshow(np.array(img))
+ax.imshow(img_np)
 
 for i, prompt in enumerate(prompts):
-    input_points = keras.ops.convert_to_tensor(prompt["points"], dtype="float32")
-    input_labels = keras.ops.convert_to_tensor(prompt["labels"], dtype="int32")
-
+    px, py = prompt["point"]
+    inputs = Sam2ImageProcessorWithPrompts(
+        img_np,
+        input_points=np.array([[[px, py]]], dtype=np.float32),
+        input_labels=np.array([[1]], dtype=np.int32),
+    )
     outputs = model({
-        "pixel_values": pixel_values,
-        "input_points": input_points,
-        "input_labels": input_labels,
+        "pixel_values": inputs["pixel_values"],
+        "input_points": inputs["input_points"],
+        "input_labels": inputs["input_labels"],
     })
 
-    masks = keras.ops.convert_to_numpy(outputs["pred_masks"])[0, 0]
     iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
-    best_idx = np.argmax(iou_scores)
-    best_mask = masks[best_idx]
+    best_idx = int(np.argmax(iou_scores))
 
-    mask_pil = Image.fromarray((best_mask > 0).astype(np.uint8) * 255).resize(
-        original_size, Image.BILINEAR
-    )
-    best_mask_full = np.array(mask_pil) > 128
+    masks_full = keras.ops.convert_to_numpy(
+        Sam2PostProcessMasks(
+            outputs["pred_masks"], original_size=inputs["original_size"]
+        )
+    )[0, 0]
+    best_mask = masks_full[best_idx] > 0
 
-    color = COLORS[i]
-    show_mask(best_mask_full, ax, color)
-
-    pt = prompt["points"][0, 0, 0]
-    pt_orig = (pt[0] * original_size[0] / 1024, pt[1] * original_size[1] / 1024)
-    show_points(pt_orig, ax, color=color[:3])
+    show_mask(best_mask, ax, COLORS[i])
+    show_points((px, py), ax, color=COLORS[i][:3])
     print(f"  {prompt['name']}: IoU={iou_scores[best_idx]:.3f}")
 
 ax.set_title("SAM2 — Multiple Point Prompts", fontsize=16)

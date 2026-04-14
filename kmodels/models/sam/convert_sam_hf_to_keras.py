@@ -124,6 +124,46 @@ for model_config in model_configs:
         hf_state_dict["prompt_encoder.no_mask_embed.weight"]
     )
 
+    mask_embed_conv1 = keras_model.get_layer("prompt_encoder_mask_embed_conv1")
+    transfer_weights(
+        "conv_kernel",
+        mask_embed_conv1.kernel,
+        hf_state_dict["prompt_encoder.mask_embed.conv1.weight"],
+    )
+    mask_embed_conv1.bias.assign(hf_state_dict["prompt_encoder.mask_embed.conv1.bias"])
+
+    mask_embed_ln1 = keras_model.get_layer("prompt_encoder_mask_embed_layer_norm1")
+    mask_embed_ln1.gamma.assign(
+        hf_state_dict["prompt_encoder.mask_embed.layer_norm1.weight"]
+    )
+    mask_embed_ln1.beta.assign(
+        hf_state_dict["prompt_encoder.mask_embed.layer_norm1.bias"]
+    )
+
+    mask_embed_conv2 = keras_model.get_layer("prompt_encoder_mask_embed_conv2")
+    transfer_weights(
+        "conv_kernel",
+        mask_embed_conv2.kernel,
+        hf_state_dict["prompt_encoder.mask_embed.conv2.weight"],
+    )
+    mask_embed_conv2.bias.assign(hf_state_dict["prompt_encoder.mask_embed.conv2.bias"])
+
+    mask_embed_ln2 = keras_model.get_layer("prompt_encoder_mask_embed_layer_norm2")
+    mask_embed_ln2.gamma.assign(
+        hf_state_dict["prompt_encoder.mask_embed.layer_norm2.weight"]
+    )
+    mask_embed_ln2.beta.assign(
+        hf_state_dict["prompt_encoder.mask_embed.layer_norm2.bias"]
+    )
+
+    mask_embed_conv3 = keras_model.get_layer("prompt_encoder_mask_embed_conv3")
+    transfer_weights(
+        "conv_kernel",
+        mask_embed_conv3.kernel,
+        hf_state_dict["prompt_encoder.mask_embed.conv3.weight"],
+    )
+    mask_embed_conv3.bias.assign(hf_state_dict["prompt_encoder.mask_embed.conv3.bias"])
+
     print("Transferring mask decoder...")
     mask_dec = keras_model.get_layer("mask_decoder")
 
@@ -274,17 +314,25 @@ for model_config in model_configs:
     test_image = np.random.rand(1, 1024, 1024, 3).astype(np.float32)
     test_points = np.array([[[[500.0, 500.0]]]], dtype=np.float32)
     test_labels = np.array([[[1]]], dtype=np.int32)
+    test_boxes = np.zeros((1, 1, 4), dtype=np.float32)
+    test_masks = np.zeros((1, 256, 256, 1), dtype=np.float32)
+    test_has_boxes = np.zeros((1, 1), dtype=np.float32)
+    test_has_mask = np.zeros((1, 1), dtype=np.float32)
 
     keras_output = keras_model.predict(
         {
             "pixel_values": test_image,
             "input_points": test_points,
             "input_labels": test_labels,
+            "input_boxes": test_boxes,
+            "input_masks": test_masks,
+            "has_boxes_input": test_has_boxes,
+            "has_mask_input": test_has_mask,
         },
         verbose=0,
     )
-    keras_masks = keras_output["pred_masks"][:, :, 1:]
-    keras_iou = keras_output["iou_scores"][:, :, 1:]
+    keras_masks = keras_output["pred_masks"]
+    keras_iou = keras_output["iou_scores"]
 
     with torch.no_grad():
         hf_input = {

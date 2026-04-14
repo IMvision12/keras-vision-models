@@ -1,9 +1,48 @@
-import numpy as np
+import gc
 
+import keras
+import numpy as np
+import torch
+from transformers import Sam2Model, Sam2VideoModel
+
+from kmodels.models.sam2_video.config import SAM2_VIDEO_HF_MODEL_IDS
+from kmodels.models.sam2_video.sam2_video_model import (
+    Sam2VideoBasePlus,
+    Sam2VideoLarge,
+    Sam2VideoSmall,
+    Sam2VideoTiny,
+)
 from kmodels.utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )
+
+VARIANTS = [
+    (
+        "Sam2VideoTiny",
+        Sam2VideoTiny,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoTiny"],
+        "sam2_video_hiera_tiny",
+    ),
+    (
+        "Sam2VideoSmall",
+        Sam2VideoSmall,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoSmall"],
+        "sam2_video_hiera_small",
+    ),
+    (
+        "Sam2VideoBasePlus",
+        Sam2VideoBasePlus,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoBasePlus"],
+        "sam2_video_hiera_base_plus",
+    ),
+    (
+        "Sam2VideoLarge",
+        Sam2VideoLarge,
+        SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoLarge"],
+        "sam2_video_hiera_large",
+    ),
+]
 
 BACKBONE_NAME_MAPPING = {
     "mlp_proj_in": "mlp.proj_in",
@@ -383,63 +422,18 @@ def transfer_sam2_video_weights(keras_model, hf_state_dict):
 
 
 if __name__ == "__main__":
-    import gc
-    import os
-
-    import keras
-    import torch
-    from transformers import Sam2Model, Sam2VideoModel
-
-    from kmodels.models.sam2_video.sam2_video_model import (
-        Sam2VideoBasePlus,
-        Sam2VideoLarge,
-        Sam2VideoSmall,
-        Sam2VideoTiny,
-    )
-
-    HF_TOKEN = os.environ.get("HF_TOKEN")
-
-    from kmodels.models.sam2_video.config import SAM2_VIDEO_HF_MODEL_IDS
-
-    VARIANTS = [
-        (
-            "Sam2VideoTiny",
-            Sam2VideoTiny,
-            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoTiny"],
-            "sam2_video_hiera_tiny",
-        ),
-        (
-            "Sam2VideoSmall",
-            Sam2VideoSmall,
-            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoSmall"],
-            "sam2_video_hiera_small",
-        ),
-        (
-            "Sam2VideoBasePlus",
-            Sam2VideoBasePlus,
-            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoBasePlus"],
-            "sam2_video_hiera_base_plus",
-        ),
-        (
-            "Sam2VideoLarge",
-            Sam2VideoLarge,
-            SAM2_VIDEO_HF_MODEL_IDS["Sam2VideoLarge"],
-            "sam2_video_hiera_large",
-        ),
-    ]
-
     for name, ctor, hf_id, save_name in VARIANTS:
         print(f"\n{'=' * 60}")
         print(f"Converting: {name}  <-  {hf_id}")
         print(f"{'=' * 60}")
 
         hf_video_model = Sam2VideoModel.from_pretrained(
-            hf_id, token=HF_TOKEN, attn_implementation="eager"
+            hf_id, attn_implementation="eager"
         ).eval()
         hf_sd = {k: v.cpu().numpy() for k, v in hf_video_model.state_dict().items()}
 
         hf_image_model = Sam2Model.from_pretrained(
-            hf_id, token=HF_TOKEN, attn_implementation="eager"
+            hf_id, attn_implementation="eager"
         ).eval()
 
         keras_model = ctor(input_shape=(1024, 1024, 3), weights=None)

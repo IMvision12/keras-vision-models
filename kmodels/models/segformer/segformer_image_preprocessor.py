@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.utils.image import preprocess_image
+
 ADE20K_CLASSES = [
     "wall",
     "building",
@@ -225,36 +227,23 @@ def SegFormerImageProcessor(
     if rescale_factor < 0:
         raise ValueError("Rescale factor must be non-negative")
 
-    if isinstance(image, str):
-        try:
-            image = Image.open(image).convert("RGB")
-            image = np.array(image)
-        except Exception as e:
-            raise ValueError(f"Error loading image from path: {e}")
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"))
-    elif isinstance(image, np.ndarray):
-        if image.dtype != np.uint8:
-            if np.max(image) <= 1.0:
-                image = (image * 255).astype(np.uint8)
-            else:
-                raise ValueError("NumPy array must be uint8 or float32 in [0,1] range")
-        if len(image.shape) == 4:
-            image = image[0]
-        if len(image.shape) != 3:
-            raise ValueError("Input array must have shape (H, W, C)")
-    elif hasattr(image, "shape") and hasattr(image, "dtype"):
+    # Keras-tensor input keeps its original bespoke path (range validation +
+    # eager scaling). Every other input type routes through the shared
+    # `preprocess_image` helper.
+    is_keras_tensor = (
+        not isinstance(image, (str, np.ndarray, Image.Image))
+        and hasattr(image, "shape")
+        and hasattr(image, "dtype")
+    )
+    if is_keras_tensor:
         if len(image.shape) == 4:
             image = image[0]
         if len(image.shape) != 3:
             raise ValueError("Input tensor must have shape (H, W, C)")
 
         image_float = keras.ops.cast(image, dtype="float32")
-        max_val = keras.ops.max(image_float)
-        min_val = keras.ops.min(image_float)
-
-        max_val_py = keras.ops.convert_to_numpy(max_val).item()
-        min_val_py = keras.ops.convert_to_numpy(min_val).item()
+        max_val_py = keras.ops.convert_to_numpy(keras.ops.max(image_float)).item()
+        min_val_py = keras.ops.convert_to_numpy(keras.ops.min(image_float)).item()
 
         if max_val_py <= 1.0 and min_val_py >= 0.0:
             image = image_float * 255.0
@@ -262,33 +251,36 @@ def SegFormerImageProcessor(
             raise ValueError("Tensor values must be in [0,1] or [0,255] range")
         else:
             image = image_float
-    else:
-        raise TypeError(
-            "Input must be a file path, numpy array, PIL Image, or Keras tensor"
-        )
 
-    image = keras.ops.convert_to_tensor(image, dtype="float32")
-    if len(image.shape) == 3:
         image = keras.ops.expand_dims(image, axis=0)
-
-    if do_resize:
-        target_size = (size["height"], size["width"])
-        if image.shape[1:3] != target_size:
-            image = keras.ops.image.resize(
-                image, size=target_size, interpolation=resample
+        if do_resize:
+            target_size = (size["height"], size["width"])
+            if image.shape[1:3] != target_size:
+                image = keras.ops.image.resize(
+                    image, size=target_size, interpolation=resample
+                )
+        if do_rescale:
+            image = image * rescale_factor
+        if do_normalize:
+            mean = keras.ops.reshape(
+                keras.ops.convert_to_tensor(image_mean, dtype="float32"), (1, 1, 1, 3)
             )
-
-    if do_rescale:
-        image = image * rescale_factor
-
-    if do_normalize:
-        mean = keras.ops.convert_to_tensor(image_mean, dtype="float32")
-        std = keras.ops.convert_to_tensor(image_std, dtype="float32")
-
-        mean = keras.ops.reshape(mean, (1, 1, 1, 3))
-        std = keras.ops.reshape(std, (1, 1, 1, 3))
-
-        image = (image - mean) / std
+            std = keras.ops.reshape(
+                keras.ops.convert_to_tensor(image_std, dtype="float32"), (1, 1, 1, 3)
+            )
+            image = (image - mean) / std
+    else:
+        image, _, _, _ = preprocess_image(
+            image,
+            target_size=(size["height"], size["width"]),
+            image_mean=image_mean if do_normalize else None,
+            image_std=image_std if do_normalize else None,
+            rescale=do_rescale,
+            interpolation=resample,
+            antialias=False,
+        )
+        if do_rescale and rescale_factor != 1 / 255:
+            image = image * (rescale_factor * 255)
 
     if not return_tensor:
         image = keras.ops.convert_to_numpy(image)

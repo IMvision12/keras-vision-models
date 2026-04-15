@@ -3,6 +3,8 @@ from typing import Any, List, Union
 import keras
 from keras import ops
 
+from kmodels.utils.image import load_image
+
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SigLIPImageProcessor(keras.layers.Layer):
@@ -181,8 +183,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
         return cropped_image
 
     def process_path(self, image_path: str) -> Any:
-        image = keras.utils.load_img(image_path)
-        image = keras.utils.img_to_array(image)
+        image = load_image(image_path)
         return self.preprocess(image)
 
     def call(

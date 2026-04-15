@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.utils.image import preprocess_image
+
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -74,49 +76,20 @@ def DepthAnythingV2ImageProcessor(
     if image_std is None:
         image_std = IMAGENET_STD
 
-    if isinstance(image, str):
-        image = Image.open(image).convert("RGB")
-        image = np.array(image, dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32)
-        if image.ndim == 4:
-            image = image[0]
-    else:
-        raise TypeError("Input must be a file path (str), numpy array, or PIL Image.")
-
-    if image.ndim != 3 or image.shape[-1] != 3:
-        raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
-
-    orig_h, orig_w = image.shape[:2]
-
-    image = keras.ops.convert_to_tensor(image, dtype="float32")
-    image = keras.ops.expand_dims(image, axis=0)
-    image = keras.ops.image.resize(
+    pixel_values, original_sizes, reshaped_hw, _ = preprocess_image(
         image,
-        (target_h, target_w),
+        target_size=(target_h, target_w),
+        image_mean=image_mean,
+        image_std=image_std,
+        rescale=True,
         interpolation="bicubic",
         antialias=True,
     )
 
-    image = image / 255.0
-
-    mean = keras.ops.reshape(
-        keras.ops.convert_to_tensor(image_mean, dtype="float32"), (1, 1, 1, 3)
-    )
-    std = keras.ops.reshape(
-        keras.ops.convert_to_tensor(image_std, dtype="float32"), (1, 1, 1, 3)
-    )
-    image = (image - mean) / std
-
-    if keras.config.image_data_format() == "channels_first":
-        image = keras.ops.transpose(image, (0, 3, 1, 2))
-
     return {
-        "pixel_values": image,
-        "original_size": (orig_h, orig_w),
-        "reshaped_size": (target_h, target_w),
+        "pixel_values": pixel_values,
+        "original_size": original_sizes[0],
+        "reshaped_size": reshaped_hw,
     }
 
 

@@ -714,23 +714,25 @@ class SAM2PromptEncoderLayer(layers.Layer):
         self.data_format = data_format
 
     def build(self, input_shape):
+        embed_init = keras.initializers.RandomNormal(mean=0.0, stddev=1.0)
+
         self.point_embeddings = []
         for i in range(self.num_point_embeddings):
             w = self.add_weight(
                 name=f"point_embed_{i}",
                 shape=(1, self.hidden_size),
-                initializer="zeros",
+                initializer=embed_init,
             )
             self.point_embeddings.append(w)
         self.not_a_point_embed = self.add_weight(
             name="not_a_point_embed",
             shape=(1, self.hidden_size),
-            initializer="zeros",
+            initializer=embed_init,
         )
         self.no_mask_embed = self.add_weight(
             name="no_mask_embed",
             shape=(1, self.hidden_size),
-            initializer="zeros",
+            initializer=embed_init,
         )
         self.built = True
 
@@ -765,6 +767,28 @@ class SAM2PromptEncoderLayer(layers.Layer):
         return point_embedding
 
     def _embed_boxes(self, boxes):
+        """Encode box prompts as three-token (top-left, bottom-right, pad).
+
+        Mirrors HF's ``Sam2PromptEncoder._embed_boxes`` exactly:
+
+        - Input shape ``(batch_size, num_boxes, 4)`` with corner
+          layout ``(x1, y1, x2, y2)``.
+        - Shift by +0.5 to pixel centers, reshape to
+          ``(batch, num_boxes, 2, 2)``, then pad with an all-zero
+          third "not-a-point" row so the final layout is
+          ``(batch, num_boxes, 3, 2)``.
+        - Run the shared Fourier positional encoding once on the
+          padded coord grid, which produces
+          ``(batch, num_boxes, 3, hidden)``.
+        - Add the top-left type embedding (``point_embeddings[2]``)
+          to slot 0, the bottom-right type embedding
+          (``point_embeddings[3]``) to slot 1, and **replace** slot 2
+          with ``not_a_point_embed`` broadcast to full shape.
+
+        The returned shape ``(batch, num_boxes, 3, hidden)`` slots
+        into the sparse-embedding concat where ``num_boxes`` plays
+        the role of ``point_batch_size``.
+        """
         boxes = boxes + 0.5
         batch_size = ops.shape(boxes)[0]
         num_boxes = ops.shape(boxes)[1]
@@ -773,55 +797,67 @@ class SAM2PromptEncoderLayer(layers.Layer):
         corner_embedding = self.shared_embedding(
             coords / ops.cast(self.image_size, dtype=coords.dtype)
         )
-        corner_embedding_0 = corner_embedding[:, :, 0:1, :] + ops.broadcast_to(
-            self.point_embeddings[2],
-            ops.shape(corner_embedding[:, :, 0:1, :]),
+
+        tl_type = ops.reshape(self.point_embeddings[2], (1, 1, 1, self.hidden_size))
+        br_type = ops.reshape(self.point_embeddings[3], (1, 1, 1, self.hidden_size))
+        pad_type = ops.broadcast_to(
+            ops.reshape(self.not_a_point_embed, (1, 1, 1, self.hidden_size)),
+            (batch_size, num_boxes, 1, self.hidden_size),
         )
-        corner_embedding_1 = corner_embedding[:, :, 1:2, :] + ops.broadcast_to(
-            self.point_embeddings[3],
-            ops.shape(corner_embedding[:, :, 1:2, :]),
-        )
-        corner_embedding_2 = ops.broadcast_to(
-            self.not_a_point_embed,
-            ops.shape(corner_embedding[:, :, 2:3, :]),
-        )
-        corner_embedding = ops.concatenate(
-            [corner_embedding_0, corner_embedding_1, corner_embedding_2],
-            axis=2,
-        )
+
+        tl = corner_embedding[:, :, 0:1, :] + tl_type
+        br = corner_embedding[:, :, 1:2, :] + br_type
+        corner_embedding = ops.concatenate([tl, br, pad_type], axis=2)
         return corner_embedding
 
-    def call(self, inputs):
+    def _no_mask_dense(self, batch_size):
         cf = self.data_format == "channels_first"
-        input_points, input_labels = inputs[0], inputs[1]
-        sparse_embeddings = self._embed_points(input_points, input_labels)
-
         if cf:
-            dense_embeddings = ops.broadcast_to(
-                ops.reshape(
-                    self.no_mask_embed,
-                    (1, self.hidden_size, 1, 1),
-                ),
+            return ops.broadcast_to(
+                ops.reshape(self.no_mask_embed, (1, self.hidden_size, 1, 1)),
                 (
-                    ops.shape(input_points)[0],
+                    batch_size,
                     self.hidden_size,
                     self.image_embedding_size,
                     self.image_embedding_size,
                 ),
             )
+        return ops.broadcast_to(
+            ops.reshape(self.no_mask_embed, (1, 1, 1, self.hidden_size)),
+            (
+                batch_size,
+                self.image_embedding_size,
+                self.image_embedding_size,
+                self.hidden_size,
+            ),
+        )
+
+    def call(self, inputs):
+        input_points = inputs[0]
+        input_labels = inputs[1]
+        input_boxes = inputs[2] if len(inputs) >= 3 else None
+        mask_dense = inputs[3] if len(inputs) >= 5 else None
+        has_mask = inputs[4] if len(inputs) >= 5 else None
+
+        pad_points = input_boxes is None
+        sparse_embeddings = self._embed_points(
+            input_points, input_labels, pad=pad_points
+        )
+
+        if input_boxes is not None:
+            box_embeddings = self._embed_boxes(input_boxes)
+            sparse_embeddings = ops.concatenate(
+                [sparse_embeddings, box_embeddings], axis=2
+            )
+
+        batch_size = ops.shape(input_points)[0]
+        no_mask_dense = self._no_mask_dense(batch_size)
+
+        if mask_dense is not None and has_mask is not None:
+            gate = ops.reshape(ops.cast(has_mask, no_mask_dense.dtype), (-1, 1, 1, 1))
+            dense_embeddings = gate * mask_dense + (1.0 - gate) * no_mask_dense
         else:
-            dense_embeddings = ops.broadcast_to(
-                ops.reshape(
-                    self.no_mask_embed,
-                    (1, 1, 1, self.hidden_size),
-                ),
-                (
-                    ops.shape(input_points)[0],
-                    self.image_embedding_size,
-                    self.image_embedding_size,
-                    self.hidden_size,
-                ),
-            )
+            dense_embeddings = no_mask_dense
 
         return {
             "sparse_embeddings": sparse_embeddings,
@@ -1010,20 +1046,22 @@ class SAM2MaskDecoderLayer(layers.Layer):
         nm = self.num_mask_tokens
         ds = self.attention_downsample_rate
 
+        embed_init = keras.initializers.RandomNormal(mean=0.0, stddev=1.0)
+
         self.obj_score_token = self.add_weight(
             name="obj_score_token",
             shape=(1, hs),
-            initializer="zeros",
+            initializer=embed_init,
         )
         self.iou_token = self.add_weight(
             name="iou_token",
             shape=(1, hs),
-            initializer="zeros",
+            initializer=embed_init,
         )
         self.mask_tokens = self.add_weight(
             name="mask_tokens",
             shape=(nm, hs),
-            initializer="zeros",
+            initializer=embed_init,
         )
 
         self.transformer_self_attns = []

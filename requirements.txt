@@ -5,6 +5,7 @@ torch>=2.5.0
 torchvision>=0.20.0
 sentencepiece
 matplotlib>=3.8.0
+Pillow>=10.0.0
 
 jax[cpu]
 

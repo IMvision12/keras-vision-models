@@ -4,7 +4,7 @@ from tqdm import tqdm
 from transformers import Sam3Model
 
 from kmodels.models.sam3.sam3_model import SAM3
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )

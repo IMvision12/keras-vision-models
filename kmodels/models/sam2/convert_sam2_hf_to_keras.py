@@ -13,7 +13,7 @@ from kmodels.models.sam2.sam2_model import (
     Sam2Small,
     Sam2Tiny,
 )
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )

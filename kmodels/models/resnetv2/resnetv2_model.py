@@ -6,7 +6,7 @@ from keras.src.applications import imagenet_utils
 from kmodels.layers import ImageNormalizationLayer, StochasticDepth
 from kmodels.model_registry import register_model
 from kmodels.models.resnetv2.resnetv2_layers import StdConv2D
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import RESNETV2_MODEL_CONFIG, RESNETV2_WEIGHTS_CONFIG
 

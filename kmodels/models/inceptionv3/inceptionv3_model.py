@@ -5,7 +5,7 @@ from keras.src.utils.argument_validation import standardize_tuple
 
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.model_registry import register_model
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import INCEPTIONV3_WEIGHTS_CONFIG
 

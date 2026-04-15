@@ -9,7 +9,7 @@ from kmodels.models.vit.vit_layers import (
     ClassDistToken,
     MultiHeadSelfAttention,
 )
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import VIT_MODEL_CONFIG, VIT_WEIGHTS_CONFIG
 

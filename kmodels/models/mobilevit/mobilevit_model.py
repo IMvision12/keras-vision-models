@@ -9,7 +9,7 @@ from kmodels.models.mobilevit.mobilevit_layers import (
     MultiHeadSelfAttention,
     PatchesToImageLayer,
 )
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import MOBILEVIT_MODEL_CONFIG, MOBILEVIT_WEIGHTS_CONFIG
 

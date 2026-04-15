@@ -12,7 +12,7 @@ from kmodels.models.swinv2.swinv2_layers import (
     SwinV2Roll,
     SwinV2WindowPartition,
 )
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import SWINV2_MODEL_CONFIG, SWINV2_WEIGHTS_CONFIG
 

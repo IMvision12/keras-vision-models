@@ -7,7 +7,7 @@ from tqdm import tqdm
 from transformers import EomtForUniversalSegmentation
 
 from kmodels.models.eomt.eomt_model import EoMT_Base, EoMT_Large, EoMT_Small
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )

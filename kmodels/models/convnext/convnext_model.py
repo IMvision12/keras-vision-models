@@ -6,7 +6,7 @@ from keras.src.applications import imagenet_utils
 from kmodels.layers import ImageNormalizationLayer, LayerScale, StochasticDepth
 from kmodels.model_registry import register_model
 from kmodels.models.convnext.convnext_layers import GlobalResponseNorm
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import CONVNEXT_MODEL_CONFIG, CONVNEXT_WEIGHTS_CONFIG
 

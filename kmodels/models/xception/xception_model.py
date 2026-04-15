@@ -4,7 +4,7 @@ from keras.src.applications import imagenet_utils
 
 from kmodels.layers import ImageNormalizationLayer
 from kmodels.model_registry import register_model
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import XCEPTION_WEIGHTS_CONFIG
 

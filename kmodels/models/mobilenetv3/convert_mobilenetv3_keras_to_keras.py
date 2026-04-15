@@ -1,7 +1,7 @@
 import keras
 
 from kmodels.models import mobilenetv3
-from kmodels.utils.model_equivalence_tester import verify_cls_model_equivalence
+from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
 
 model_config = {
     "input_shape": (224, 224, 3),

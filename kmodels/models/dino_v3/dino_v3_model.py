@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 from kmodels.layers import ImageNormalizationLayer, LayerScale
 from kmodels.model_registry import register_model
 from kmodels.models.convnext.convnext_model import ConvNeXt
-from kmodels.utils.hf_gated_weight_download import load_gated_weights_from_hf
+from kmodels.weight_utils.hf_gated_weight_download import load_gated_weights_from_hf
 
 from .config import (
     DINOV3_CONVNEXT_MODEL_CONFIG,

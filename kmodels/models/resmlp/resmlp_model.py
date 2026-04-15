@@ -5,7 +5,7 @@ from keras.src.applications import imagenet_utils
 from kmodels.layers import ImageNormalizationLayer, LayerScale
 from kmodels.model_registry import register_model
 from kmodels.models.resmlp.resmlp_layers import Affine
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import RESMLP_MODEL_CONFIG, RESMLP_WEIGHTS_CONFIG
 

@@ -1,6 +1,6 @@
 import json
 
-from kmodels.utils import download_file
+from kmodels.weight_utils import download_file
 
 
 def load_weights_from_config(

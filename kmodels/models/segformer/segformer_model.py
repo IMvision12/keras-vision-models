@@ -3,7 +3,7 @@ from keras import layers, utils
 
 from kmodels.model_registry import register_model
 from kmodels.models import mit
-from kmodels.utils import load_weights_from_config
+from kmodels.weight_utils import load_weights_from_config
 
 from .config import SEGFORMER_MODEL_CONFIG, SEGFORMER_WEIGHTS_CONFIG
 

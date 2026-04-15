@@ -8,8 +8,11 @@ from tqdm import tqdm
 from transformers import DetrForObjectDetection
 
 from kmodels.models import detr
-from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.custom_exception import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_weights,
 )

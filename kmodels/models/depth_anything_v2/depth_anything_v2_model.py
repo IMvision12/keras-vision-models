@@ -2,7 +2,7 @@ import keras
 
 from kmodels.model_registry import register_model
 from kmodels.models.depth_anything_v1.depth_anything_v1_model import DepthAnythingV1
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import DEPTH_ANYTHING_V2_MODEL_CONFIG, DEPTH_ANYTHING_V2_WEIGHTS_CONFIG
 

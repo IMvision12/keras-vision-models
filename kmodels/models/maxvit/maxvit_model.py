@@ -3,7 +3,7 @@ from keras import layers, utils
 from keras.src.applications import imagenet_utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import MAXVIT_MODEL_CONFIG, MAXVIT_WEIGHTS_CONFIG
 from .maxvit_layers import (

@@ -4,7 +4,7 @@ import keras
 
 from kmodels.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
 from kmodels.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
-from kmodels.utils import download_file
+from kmodels.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

@@ -12,8 +12,11 @@ from tqdm import tqdm
 
 from kmodels.models.rf_detr.config import RF_DETR_MODEL_CONFIG
 from kmodels.models.rf_detr.rf_detr_model import RFDETR
-from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.custom_exception import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
     transfer_weights,

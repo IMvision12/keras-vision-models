@@ -9,7 +9,7 @@ from kmodels.layers import (
 )
 from kmodels.model_registry import register_model
 from kmodels.models.mit.mit_layers import EfficientMultiheadSelfAttention
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import MIT_MODEL_CONFIG, MIT_WEIGHTS_CONFIG
 

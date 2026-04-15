@@ -12,7 +12,7 @@ from kmodels.models.rt_detr_v2.rt_detr_v2_model import (
     RTDETRV2ResNet50,
     RTDETRV2ResNet101,
 )
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
     transfer_weights,

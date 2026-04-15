@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils.hf_gated_weight_download import load_gated_weights_from_hf
+from kmodels.weight_utils.hf_gated_weight_download import load_gated_weights_from_hf
 
 from .config import SAM3_HF_MODEL_ID, SAM3_MODEL_CONFIG
 from .sam3_clip_tokenizer import SAM3_VOCAB_SIZE

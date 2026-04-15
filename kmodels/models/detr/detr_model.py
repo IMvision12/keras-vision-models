@@ -9,7 +9,7 @@ from kmodels.models.detr.detr_layers import (
     DETRMultiHeadAttention,
     DETRPositionEmbeddingSine,
 )
-from kmodels.utils import load_weights_from_config
+from kmodels.weight_utils import load_weights_from_config
 
 from .config import DETR_MODEL_CONFIG, DETR_WEIGHTS_CONFIG
 

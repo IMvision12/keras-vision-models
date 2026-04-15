@@ -2,7 +2,7 @@ import keras
 
 from kmodels.models.clip.clip_image_processor import CLIPImageProcessor
 from kmodels.models.clip.clip_tokenizer import CLIPTokenizer
-from kmodels.utils import download_file
+from kmodels.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kmodels")

@@ -12,7 +12,7 @@ from kmodels.models.swin.swin_layers import (
     WindowAttention,
     WindowPartition,
 )
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import SWIN_MODEL_CONFIG, SWIN_WEIGHTS_CONFIG
 

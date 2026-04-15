@@ -6,9 +6,12 @@ from tqdm import tqdm
 from transformers import AutoModel
 
 from kmodels.models import clip
-from kmodels.utils.custom_exception import WeightMappingError, WeightShapeMismatchError
-from kmodels.utils.weight_split_torch_and_keras import split_model_weights
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.custom_exception import (
+    WeightMappingError,
+    WeightShapeMismatchError,
+)
+from kmodels.weight_utils.weight_split_torch_and_keras import split_model_weights
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_attention_weights,
     transfer_weights,

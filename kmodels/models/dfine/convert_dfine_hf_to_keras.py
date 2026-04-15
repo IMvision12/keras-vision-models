@@ -18,8 +18,8 @@ from kmodels.models.dfine.dfine_model import (
     DFineSmall,
     DFineXLarge,
 )
-from kmodels.utils.custom_exception import WeightShapeMismatchError
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.custom_exception import WeightShapeMismatchError
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     compare_keras_torch_names,
     transfer_nested_layer_weights,
     transfer_weights,

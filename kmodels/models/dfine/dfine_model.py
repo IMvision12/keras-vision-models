@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import DFINE_MODEL_CONFIG, DFINE_WEIGHTS_CONFIG
 from .dfine_layers import (

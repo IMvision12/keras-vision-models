@@ -1,7 +1,7 @@
 from kmodels.model_registry import register_model
 from kmodels.models.resnet.resnet_model import ResNet
 from kmodels.models.resnext.resnext_model import resnext_block
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import SENET_MODEL_CONFIG, SENET_WEIGHTS_CONFIG
 

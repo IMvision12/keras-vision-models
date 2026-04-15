@@ -8,7 +8,7 @@ from kmodels.models.resnet.resnet_model import (
     conv_block,
     squeeze_excitation_block,
 )
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import RESNEXT_MODEL_CONFIG, RESNEXT_WEIGHTS_CONFIG
 

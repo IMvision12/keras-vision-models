@@ -15,7 +15,7 @@ from kmodels.models.sam2_video.sam2_video_model import (
     Sam2VideoSmall,
     Sam2VideoTiny,
 )
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )

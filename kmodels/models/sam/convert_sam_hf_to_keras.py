@@ -4,7 +4,7 @@ from tqdm import tqdm
 from transformers import SamModel
 
 from kmodels.models.sam.sam_model import SAM_ViT_Base, SAM_ViT_Huge, SAM_ViT_Large
-from kmodels.utils.weight_transfer_torch_to_keras import (
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
 )

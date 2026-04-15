@@ -13,8 +13,8 @@ from kmodels.models.depth_anything_v1.depth_anything_v1_model import (
     DepthAnythingV1Large,
     DepthAnythingV1Small,
 )
-from kmodels.utils.custom_exception import WeightMappingError
-from kmodels.utils.weight_transfer_torch_to_keras import transfer_weights
+from kmodels.weight_utils.custom_exception import WeightMappingError
+from kmodels.weight_utils.weight_transfer_torch_to_keras import transfer_weights
 
 
 def _transfer_attention(path: str, keras_weight, hf_sd: Dict[str, np.ndarray]) -> None:

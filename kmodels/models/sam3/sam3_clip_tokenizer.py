@@ -3,7 +3,7 @@ import re
 
 import numpy as np
 
-from kmodels.utils import download_file
+from kmodels.weight_utils import download_file
 
 VOCAB_URL = (
     "https://github.com/IMvision12/keras-models/releases/download/clip/vocab.json"

@@ -8,7 +8,7 @@ from kmodels.models.mobilevit.mobilevit_model import (
     ImageToPatchesLayer,
     PatchesToImageLayer,
 )
-from kmodels.utils import get_all_weight_names, load_weights_from_config
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import MOBILEVITV2_MODEL_CONFIG, MOBILEVITV2_WEIGHTS_CONFIG
 

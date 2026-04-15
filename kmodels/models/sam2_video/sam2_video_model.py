@@ -14,7 +14,7 @@ from kmodels.models.sam2.sam2_layers import (
     SAM2PositionalEmbedding,
     SAM2PromptEncoderLayer,
 )
-from kmodels.utils import load_weights_from_config
+from kmodels.weight_utils import load_weights_from_config
 
 from .config import SAM2_VIDEO_MODEL_CONFIG, SAM2_VIDEO_WEIGHTS_CONFIG
 from .sam2_video_layers import Sam2VideoMemoryAttention

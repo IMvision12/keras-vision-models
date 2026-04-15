@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import load_weights_from_config
+from kmodels.weight_utils import load_weights_from_config
 
 from .config import RT_DETR_MODEL_CONFIG, RT_DETR_WEIGHTS_CONFIG
 from .rt_detr_layers import (

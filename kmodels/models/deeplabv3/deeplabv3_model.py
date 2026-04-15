@@ -2,7 +2,7 @@ import keras
 from keras import layers, ops, utils
 
 from kmodels.model_registry import register_model
-from kmodels.utils import load_weights_from_config
+from kmodels.weight_utils import load_weights_from_config
 
 from .config import DEEPLABV3_MODEL_CONFIG, DEEPLABV3_WEIGHTS_CONFIG
 

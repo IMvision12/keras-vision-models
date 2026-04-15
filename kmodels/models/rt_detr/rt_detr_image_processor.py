@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.utils.image import preprocess_image
+
 COCO_CLASSES = [
     "person",
     "bicycle",
@@ -129,33 +131,17 @@ def RTDETRImageProcessor(
     if size is None:
         size = {"height": 640, "width": 640}
 
-    if isinstance(image, str):
-        image = Image.open(image).convert("RGB")
-        image = np.array(image, dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32)
-        if image.ndim == 4:
-            image = image[0]
-    else:
-        raise TypeError("Input must be a file path (str), numpy array, or PIL Image.")
-
-    if image.ndim != 3 or image.shape[-1] != 3:
-        raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
-
-    image = keras.ops.convert_to_tensor(image, dtype="float32")
-    image = keras.ops.expand_dims(image, axis=0)
-
-    target_size = (size["height"], size["width"])
-    image = keras.ops.image.resize(
+    image, _, _, _ = preprocess_image(
         image,
-        size=target_size,
+        target_size=(size["height"], size["width"]),
+        image_mean=None,
+        image_std=None,
+        rescale=do_rescale,
         interpolation=resample,
+        antialias=False,
     )
-
-    if do_rescale:
-        image = image * rescale_factor
+    if do_rescale and rescale_factor != 1 / 255:
+        image = image * (rescale_factor * 255)
 
     if not return_tensor:
         image = keras.ops.convert_to_numpy(image)

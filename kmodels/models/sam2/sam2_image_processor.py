@@ -10,6 +10,7 @@ from kmodels.models.sam.sam_image_processor import (
     filter_masks,
     post_process_for_mask_generation,
 )
+from kmodels.utils.image import load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -61,20 +62,9 @@ def Sam2ImageProcessor(
     if image_std is None:
         image_std = IMAGENET_STD
 
-    if isinstance(image, str):
-        image = Image.open(image).convert("RGB")
-        image = np.array(image, dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32)
-        if image.ndim == 4:
-            image = image[0]
-    else:
-        raise TypeError("Input must be a file path (str), numpy array, or PIL Image.")
-
-    if image.ndim != 3 or image.shape[-1] != 3:
-        raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
+    if isinstance(image, np.ndarray) and image.ndim == 4:
+        image = image[0]
+    image = load_image(image).astype(np.float32)
 
     orig_h, orig_w = image.shape[:2]
 
@@ -250,25 +240,15 @@ def Sam2PostProcessMasks(
 
 
 def _load_image_to_numpy(image: Union[str, np.ndarray, "Image.Image"]) -> np.ndarray:
-    """Decode various image inputs into a NumPy ``(H, W, 3)`` array.
+    """Decode various image inputs into a NumPy ``(H, W, 3)`` float32 array.
 
-    Images come in as file paths, PIL objects, or NumPy arrays (with
-    an optional leading batch axis). The return value is a float32
-    array ready to be sliced into crops.
+    Thin wrapper around :func:`kmodels.utils.image.load_image` that strips an
+    optional leading batch axis and casts to float32, matching the dtype the
+    rest of the Sam2 pipeline expects.
     """
-    if isinstance(image, str):
-        image = np.array(Image.open(image).convert("RGB"), dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32, copy=False)
-        if image.ndim == 4:
-            image = image[0]
-    else:
-        raise TypeError("image must be a file path (str), numpy array, or PIL Image.")
-    if image.ndim != 3 or image.shape[-1] != 3:
-        raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
-    return image
+    if isinstance(image, np.ndarray) and image.ndim == 4:
+        image = image[0]
+    return load_image(image).astype(np.float32, copy=False)
 
 
 def _stretch_preprocess_crop(

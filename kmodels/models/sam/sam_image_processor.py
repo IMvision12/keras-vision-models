@@ -6,6 +6,8 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.utils.image import load_image
+
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -63,20 +65,9 @@ def SAMImageProcessor(
     if image_std is None:
         image_std = IMAGENET_STD
 
-    if isinstance(image, str):
-        image = Image.open(image).convert("RGB")
-        image = np.array(image, dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32)
-        if image.ndim == 4:
-            image = image[0]
-    else:
-        raise TypeError("Input must be a file path (str), numpy array, or PIL Image.")
-
-    if image.ndim != 3 or image.shape[-1] != 3:
-        raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
+    if isinstance(image, np.ndarray) and image.ndim == 4:
+        image = image[0]
+    image = load_image(image).astype(np.float32)
 
     orig_h, orig_w = image.shape[:2]
     new_h, new_w = _get_preprocess_shape(orig_h, orig_w, target_length)
@@ -416,14 +407,9 @@ def generate_crop_boxes(
               (all ones — foreground).
             - ``"original_size"``: ``(orig_h, orig_w)``.
     """
-    if isinstance(image, str):
-        image = np.array(Image.open(image).convert("RGB"), dtype=np.float32)
-    elif isinstance(image, Image.Image):
-        image = np.array(image.convert("RGB"), dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32, copy=False)
-        if image.ndim == 4:
-            image = image[0]
+    if isinstance(image, np.ndarray) and image.ndim == 4:
+        image = image[0]
+    image = load_image(image).astype(np.float32, copy=False)
     image = keras.ops.convert_to_tensor(image, dtype="float32")
 
     if keras.ops.ndim(image) != 3 or int(keras.ops.shape(image)[-1]) != 3:

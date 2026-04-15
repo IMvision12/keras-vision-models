@@ -7,6 +7,8 @@ import numpy as np
 from keras import ops
 from PIL import Image
 
+from kmodels.utils.image import load_image
+
 COCO_CLASSES = [
     "person",
     "bicycle",
@@ -114,26 +116,16 @@ def DFineImageProcessor(
         A Keras tensor of shape ``(1, height, width, 3)`` with float32
         values in ``[0, 1]``.
     """
-    if isinstance(image, str):
-        image = Image.open(image).convert("RGB")
-
-    if isinstance(image, Image.Image):
-        pil_img = image.convert("RGB")
+    # D-FINE keeps a PIL-based resize path on purpose — it matches the exact
+    # interpolation that HF's DFineImageProcessor uses. Only the load step is
+    # consolidated through `load_image`; the resize stays on PIL.
+    if isinstance(image, np.ndarray) and image.ndim == 4:
+        image = image[0]
+    arr = load_image(image)
+    pil_img = Image.fromarray(arr)
+    if pil_img.size != (target_size[1], target_size[0]):
         pil_img = pil_img.resize((target_size[1], target_size[0]), Image.BILINEAR)
-        image = np.array(pil_img, dtype=np.float32)
-    elif isinstance(image, np.ndarray):
-        image = image.astype(np.float32)
-        if image.ndim == 4:
-            image = image[0]
-        if image.shape[:2] != target_size:
-            pil_tmp = Image.fromarray(image.astype(np.uint8))
-            pil_tmp = pil_tmp.resize((target_size[1], target_size[0]), Image.BILINEAR)
-            image = np.array(pil_tmp, dtype=np.float32)
-    else:
-        raise TypeError("image must be a file path (str), numpy array, or PIL Image.")
-
-    if image.ndim != 3 or image.shape[-1] != 3:
-        raise ValueError(f"Expected image shape (H, W, 3), got {image.shape}")
+    image = np.array(pil_img, dtype=np.float32)
 
     image = ops.convert_to_tensor(image, dtype="float32")
     image = ops.expand_dims(image, axis=0)

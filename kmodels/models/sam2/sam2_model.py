@@ -619,15 +619,6 @@ class SAM2(keras.Model):
         dense_embeddings,
         name,
     ):
-        """Attach ``vision_encoder_model`` and ``prompt_decoder_model``.
-
-        Both sub-models share weights with the main functional model
-        because they reuse the same layer instances (``_image_pe_layer``,
-        ``_prompt_encoder_layer``, ``_mask_decoder_layer``). Callers
-        can run the encoder once per image crop and then invoke the
-        decoder for each batch of point prompts, which is the path
-        :func:`Sam2GenerateMasks` uses for efficient AMG.
-        """
         self.vision_encoder_model = keras.Model(
             inputs=pixel_values,
             outputs={
@@ -716,16 +707,6 @@ class SAM2(keras.Model):
         )
 
     def get_image_embeddings(self, pixel_values):
-        """Run the vision encoder and return the cached embeddings.
-
-        Useful for AMG-style workflows where the same image is
-        prompted with many different point batches: call this once,
-        then call :attr:`prompt_decoder_model` for each batch.
-
-        Returns:
-            Dict with ``image_embeddings`` (post no-memory-embedding
-            add), ``high_res_feat_s0``, and ``high_res_feat_s1``.
-        """
         return self.vision_encoder_model(pixel_values)
 
     def get_config(self):
@@ -754,7 +735,7 @@ class SAM2(keras.Model):
         return cls(**config)
 
 
-def _create_sam2_model(
+def create_sam2_model(
     variant,
     input_shape=None,
     input_tensor=None,
@@ -843,7 +824,7 @@ def Sam2Tiny(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2Tiny",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -859,7 +840,7 @@ def Sam2Small(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2Small",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -875,7 +856,7 @@ def Sam2BasePlus(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2BasePlus",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -891,7 +872,7 @@ def Sam2Large(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2Large",
         input_shape=input_shape,
         input_tensor=input_tensor,

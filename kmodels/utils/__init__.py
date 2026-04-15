@@ -1,4 +1,5 @@
 from kmodels.utils.image import (
+    BatchImageInput,
     ImageInput,
     get_data_format,
     load_image,

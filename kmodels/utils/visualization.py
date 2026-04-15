@@ -2,16 +2,30 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
+import keras
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
 import numpy as np
 
 
 def _get_axes(ax, figsize=(8, 8)):
     if ax is not None:
         return ax
-    import matplotlib.pyplot as plt
-
     _, ax = plt.subplots(figsize=figsize)
     return ax
+
+
+def _to_numpy(x):
+    """Convert any backend tensor or array-like input to a numpy array.
+
+    Lets callers pass torch / tf / jax tensors from model outputs directly
+    into the viz helpers without manually moving them to CPU first.
+    """
+    if x is None:
+        return None
+    if isinstance(x, np.ndarray):
+        return x
+    return keras.ops.convert_to_numpy(x)
 
 
 def plot_image(image, ax=None, title: Optional[str] = None, figsize=(8, 8)):
@@ -25,7 +39,7 @@ def plot_image(image, ax=None, title: Optional[str] = None, figsize=(8, 8)):
         figsize: Used only when a new figure is created.
     """
     ax = _get_axes(ax, figsize=figsize)
-    ax.imshow(np.asarray(image))
+    ax.imshow(_to_numpy(image))
     if title:
         ax.set_title(title)
     ax.axis("off")
@@ -52,10 +66,10 @@ def plot_boxes(
         linewidth: Rectangle edge width.
         fontsize: Font size for label text.
     """
-    import matplotlib.patches as patches
-
     ax = _get_axes(ax)
-    boxes = np.asarray(boxes).reshape(-1, 4)
+    boxes = _to_numpy(boxes).reshape(-1, 4)
+    if scores is not None:
+        scores = _to_numpy(scores).reshape(-1)
 
     for i, (x0, y0, x1, y1) in enumerate(boxes):
         rect = patches.Rectangle(
@@ -102,10 +116,8 @@ def plot_masks(
             ``tab20`` colormap cycled across masks.
         alpha: Fill transparency for non-background pixels.
     """
-    import matplotlib.pyplot as plt
-
     ax = _get_axes(ax)
-    masks = np.asarray(masks)
+    masks = _to_numpy(masks)
     if masks.ndim == 2:
         masks = masks[None, ...]
     if masks.ndim != 3:
@@ -150,10 +162,11 @@ def plot_points(
         marker_size: Scatter marker size.
     """
     ax = _get_axes(ax)
-    points = np.asarray(points).reshape(-1, 2)
+    points = _to_numpy(points).reshape(-1, 2)
     if labels is None:
         labels = np.ones(len(points), dtype=int)
-    labels = np.asarray(labels).reshape(-1)
+    else:
+        labels = _to_numpy(labels).reshape(-1)
 
     pos = points[labels == 1]
     neg = points[labels == 0]
@@ -198,7 +211,7 @@ def overlay_depth(
         figsize: Used only when a new figure is created.
     """
     ax = _get_axes(ax, figsize=figsize)
-    depth = np.asarray(depth, dtype=np.float32)
+    depth = _to_numpy(depth).astype(np.float32)
     dmin, dmax = float(depth.min()), float(depth.max())
     if dmax > dmin:
         depth = (depth - dmin) / (dmax - dmin)

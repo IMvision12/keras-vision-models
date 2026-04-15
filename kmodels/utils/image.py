@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import io
 import os
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import keras
 import numpy as np
-
-if TYPE_CHECKING:
-    import PIL.Image
+import PIL.Image
+from keras import ops
+from PIL import Image
 
 ImageInput = Union[str, bytes, bytearray, np.ndarray, "PIL.Image.Image"]
+BatchImageInput = Union[ImageInput, Sequence[ImageInput]]
 SizeLike = Union[int, Tuple[int, int]]
 
 
@@ -43,8 +44,6 @@ def load_image(image: ImageInput) -> np.ndarray:
           are broadcast across 3 channels; 4-channel arrays are truncated to
           RGB; float arrays in [0, 1] are scaled to uint8.
     """
-    from PIL import Image  # local import so PIL is only required when used
-
     if isinstance(image, np.ndarray):
         arr = image
         if arr.ndim == 2:
@@ -92,8 +91,6 @@ def normalize_image(
     Works for rank-3 (unbatched) and rank-4 (batched) tensors.
     """
     data_format = get_data_format(data_format)
-    ops = keras.ops
-
     mean = ops.convert_to_tensor(mean, dtype="float32")
     std = ops.convert_to_tensor(std, dtype="float32")
 
@@ -108,8 +105,23 @@ def normalize_image(
     return (x - mean) / std
 
 
+def _as_image_list(images: BatchImageInput) -> List:
+    """Normalize the ``images`` argument of :func:`preprocess_image` to a list.
+
+    * ``list`` / ``tuple`` -> returned as a list unchanged.
+    * ``np.ndarray`` with 4 dims -> iterated along axis 0.
+    * Anything else (single path / bytes / PIL / 2-D or 3-D ndarray) -> wrapped
+      in a one-element list.
+    """
+    if isinstance(images, (list, tuple)):
+        return list(images)
+    if isinstance(images, np.ndarray) and images.ndim == 4:
+        return [images[i] for i in range(images.shape[0])]
+    return [images]
+
+
 def preprocess_image(
-    image: ImageInput,
+    images: BatchImageInput,
     target_size: SizeLike,
     image_mean: Optional[Sequence[float]] = None,
     image_std: Optional[Sequence[float]] = None,
@@ -118,14 +130,23 @@ def preprocess_image(
     antialias: bool = True,
     data_format: Optional[str] = None,
 ):
-    """One-shot preprocessing pipeline for a single image.
+    """One-shot batched preprocessing pipeline.
 
     Runs: load -> resize -> (optional) rescale to [0, 1] -> (optional)
     normalize by mean/std -> transpose to the requested data format.
 
+    Accepts either a single image (any type :func:`load_image` understands)
+    or a list / tuple / 4-D ndarray batch of images. The return shape is
+    consistent across both forms: the tensor is always rank-4 with an
+    ``N`` leading dim, and ``original_sizes`` is always a list of
+    ``(h, w)`` tuples with ``len == N``. Single-image callers still get
+    ``N == 1``.
+
     Args:
-        image: See :func:`load_image`.
+        images: One image or a sequence of images. See :func:`load_image`
+            for accepted element types.
         target_size: Either an ``int`` (square) or a ``(H, W)`` tuple.
+            All images are resized to this size before stacking.
         image_mean: Per-channel mean. If ``None``, skips normalization.
         image_std: Per-channel std. Required when ``image_mean`` is given.
         rescale: Divide pixel values by 255 before normalization.
@@ -134,32 +155,45 @@ def preprocess_image(
         data_format: Output data format. ``None`` uses the global setting.
 
     Returns:
-        Tuple ``(tensor, original_hw, target_hw, data_format)`` where
-        ``tensor`` is a 4-D batched tensor ready to feed into a model.
+        Tuple ``(tensor, original_sizes, target_hw, data_format)``:
+
+        * ``tensor`` — rank-4 batched tensor shaped ``(N, H, W, C)`` or
+          ``(N, C, H, W)`` depending on ``data_format``.
+        * ``original_sizes`` — ``[(h, w), ...]`` of length ``N``, in input
+          order. Useful for mapping model outputs back to source resolution.
+        * ``target_hw`` — ``(target_h, target_w)`` tuple.
+        * ``data_format`` — the resolved data format string.
     """
     data_format = get_data_format(data_format)
 
-    img = load_image(image)
-    orig_h, orig_w = img.shape[:2]
+    items = _as_image_list(images)
+    if not items:
+        raise ValueError("`images` must contain at least one image.")
+
+    loaded = [load_image(img) for img in items]
+    original_sizes: List[Tuple[int, int]] = [
+        (int(arr.shape[0]), int(arr.shape[1])) for arr in loaded
+    ]
 
     if isinstance(target_size, int):
         target_h = target_w = target_size
     else:
         target_h, target_w = target_size
 
-    ops = keras.ops
-    x = ops.convert_to_tensor(img, dtype="float32")
-    x = ops.expand_dims(x, axis=0)
+    per_image = []
+    for arr in loaded:
+        t = ops.convert_to_tensor(arr, dtype="float32")
+        t = ops.expand_dims(t, axis=0)
+        t = ops.image.resize(
+            t,
+            size=(target_h, target_w),
+            interpolation=interpolation,
+            antialias=antialias,
+            data_format="channels_last",
+        )
+        per_image.append(t)
 
-    # Resize is always done in channels_last for simplicity; the final
-    # transpose below moves it to the requested format.
-    x = ops.image.resize(
-        x,
-        size=(target_h, target_w),
-        interpolation=interpolation,
-        antialias=antialias,
-        data_format="channels_last",
-    )
+    x = ops.concatenate(per_image, axis=0)
 
     if rescale:
         x = x / 255.0
@@ -172,4 +206,4 @@ def preprocess_image(
     if data_format == "channels_first":
         x = ops.transpose(x, (0, 3, 1, 2))
 
-    return x, (orig_h, orig_w), (target_h, target_w), data_format
+    return x, original_sizes, (target_h, target_w), data_format

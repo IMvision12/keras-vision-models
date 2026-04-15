@@ -108,7 +108,7 @@ for model_config in model_configs:
     print("Transferring no-memory embedding...")
     no_mem_layer = keras_model.get_layer("no_memory_embedding")
     hf_no_mem = hf_state_dict["no_memory_embedding"]
-    no_mem_layer.embedding.assign(hf_no_mem.reshape(1, 1, 1, -1))
+    no_mem_layer.embedding.assign(hf_no_mem.reshape(-1))
 
     print("Transferring prompt encoder...")
     prompt_enc = keras_model.get_layer("prompt_encoder")

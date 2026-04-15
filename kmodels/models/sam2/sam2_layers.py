@@ -30,19 +30,19 @@ class SAM2NoMemoryEmbedding(layers.Layer):
         self.data_format = data_format
 
     def build(self, input_shape):
-        if self.data_format == "channels_first":
-            shape = (1, self.hidden_size, 1, 1)
-        else:
-            shape = (1, 1, 1, self.hidden_size)
         self.embedding = self.add_weight(
             name="embedding",
-            shape=shape,
+            shape=(self.hidden_size,),
             initializer="zeros",
         )
         self.built = True
 
     def call(self, image_embeddings):
-        return image_embeddings + self.embedding
+        if self.data_format == "channels_first":
+            bias = ops.reshape(self.embedding, (1, self.hidden_size, 1, 1))
+        else:
+            bias = ops.reshape(self.embedding, (1, 1, 1, self.hidden_size))
+        return image_embeddings + bias
 
     def get_config(self):
         config = super().get_config()

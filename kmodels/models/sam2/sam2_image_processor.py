@@ -85,6 +85,7 @@ def Sam2ImageProcessor(
         (target_length, target_length),
         interpolation="bilinear",
         antialias=True,
+        data_format="channels_last",
     )
 
     image = image / 255.0
@@ -238,6 +239,7 @@ def Sam2PostProcessMasks(
         (orig_h, orig_w),
         interpolation="bilinear",
         antialias=True,
+        data_format="channels_last",
     )
 
     masks_final = keras.ops.reshape(

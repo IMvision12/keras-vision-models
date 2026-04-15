@@ -17,6 +17,96 @@ from .sam2_layers import (
 )
 
 
+def _dynamic_multimask_via_stability(
+    all_mask_logits,
+    all_iou_scores,
+    stability_delta,
+    stability_thresh,
+):
+    """Pick between the single-mask and best multi-mask outputs.
+
+    Mirrors HF's ``Sam2MaskDecoder._dynamic_multimask_via_stability``
+    (``transformers/models/sam2/modeling_sam2.py``):
+
+    1. Compute the stability score of the single-mask output
+       (decoder token 0) as ``|mask > +delta| / |mask > -delta|``
+       over the spatial dims.
+    2. If the stability score meets or exceeds ``stability_thresh``
+       (default ``0.98``), keep the single-mask output.
+    3. Otherwise fall back to the argmax-IoU multi-mask output
+       across decoder tokens 1..N.
+
+    Used only when ``multimask_output=False`` at model-build time.
+    Returns ``(pred_masks, iou_scores)`` both shaped
+    ``(batch, point_batch, 1, H, W)`` / ``(batch, point_batch, 1)``.
+    """
+    ops_ = keras.ops
+    multimask_logits = all_mask_logits[:, :, 1:, :, :]
+    multimask_iou = all_iou_scores[:, :, 1:]
+    best_idx = ops_.argmax(multimask_iou, axis=-1)
+    num_multimask = ops_.shape(multimask_iou)[-1]
+    best_one_hot = ops_.one_hot(best_idx, num_multimask, dtype=multimask_iou.dtype)
+    best_multimask_iou = ops_.sum(multimask_iou * best_one_hot, axis=-1, keepdims=True)
+    best_gather = ops_.reshape(
+        best_one_hot,
+        (
+            ops_.shape(best_one_hot)[0],
+            ops_.shape(best_one_hot)[1],
+            num_multimask,
+            1,
+            1,
+        ),
+    )
+    best_multimask_logits = ops_.sum(
+        multimask_logits * best_gather, axis=2, keepdims=True
+    )
+
+    singlemask_logits = all_mask_logits[:, :, 0:1, :, :]
+    singlemask_iou = all_iou_scores[:, :, 0:1]
+
+    flat_single = ops_.reshape(
+        singlemask_logits,
+        (
+            ops_.shape(singlemask_logits)[0],
+            ops_.shape(singlemask_logits)[1],
+            ops_.shape(singlemask_logits)[2],
+            -1,
+        ),
+    )
+    area_i = ops_.sum(
+        ops_.cast(flat_single > stability_delta, dtype="float32"), axis=-1
+    )
+    area_u = ops_.sum(
+        ops_.cast(flat_single > -stability_delta, dtype="float32"), axis=-1
+    )
+    stability_scores = ops_.where(area_u > 0, area_i / ops_.maximum(area_u, 1.0), 1.0)
+    is_stable = stability_scores >= stability_thresh
+
+    is_stable_mask = ops_.cast(
+        ops_.reshape(
+            is_stable,
+            (ops_.shape(is_stable)[0], ops_.shape(is_stable)[1], 1, 1, 1),
+        ),
+        dtype=singlemask_logits.dtype,
+    )
+    mask_out = (
+        is_stable_mask * singlemask_logits
+        + (1.0 - is_stable_mask) * best_multimask_logits
+    )
+
+    is_stable_iou = ops_.cast(
+        ops_.reshape(
+            is_stable,
+            (ops_.shape(is_stable)[0], ops_.shape(is_stable)[1], 1),
+        ),
+        dtype=singlemask_iou.dtype,
+    )
+    iou_out = (
+        is_stable_iou * singlemask_iou + (1.0 - is_stable_iou) * best_multimask_iou
+    )
+    return mask_out, iou_out
+
+
 def sam2_mask_embedding(
     inputs, hidden_size=256, mask_input_channels=16, layer_norm_eps=1e-6, name=""
 ):
@@ -157,6 +247,9 @@ class SAM2(keras.Model):
     PROMPT_ENCODER_NUM_POINT_EMBEDDINGS = 4
     PROMPT_ENCODER_PATCH_SIZE = 16
 
+    DYNAMIC_MULTIMASK_STABILITY_DELTA = 0.05
+    DYNAMIC_MULTIMASK_STABILITY_THRESH = 0.98
+
     def __init__(
         self,
         hidden_size=96,
@@ -168,6 +261,9 @@ class SAM2(keras.Model):
         backbone_channel_list=(768, 384, 192, 96),
         window_pos_embed_bg_size=None,
         num_multimask_outputs=3,
+        include_box_input=False,
+        include_mask_input=False,
+        multimask_output=True,
         input_shape=None,
         input_tensor=None,
         name="SAM2",
@@ -200,6 +296,33 @@ class SAM2(keras.Model):
         input_labels = layers.Input(
             shape=(None, None), name="input_labels", dtype="int32"
         )
+        input_boxes = None
+        if include_box_input:
+            input_boxes = layers.Input(
+                shape=(None, 4), name="input_boxes", dtype="float32"
+            )
+        input_masks = None
+        has_input_masks = None
+        if data_format == "channels_first":
+            mask_input_size = input_shape[1] // 4
+        else:
+            mask_input_size = input_shape[0] // 4
+        if include_mask_input:
+            if data_format == "channels_first":
+                input_masks = layers.Input(
+                    shape=(1, mask_input_size, mask_input_size),
+                    name="input_masks",
+                    dtype="float32",
+                )
+            else:
+                input_masks = layers.Input(
+                    shape=(mask_input_size, mask_input_size, 1),
+                    name="input_masks",
+                    dtype="float32",
+                )
+            has_input_masks = layers.Input(
+                shape=(), name="has_input_masks", dtype="float32"
+            )
 
         padded = layers.ZeroPadding2D(
             padding=self.PATCH_PADDING,
@@ -333,13 +456,37 @@ class SAM2(keras.Model):
             name="shared_image_embedding",
         )
 
-        image_pe = SAM2ImagePositionalEmbeddings(
+        image_pe_layer = SAM2ImagePositionalEmbeddings(
             image_embedding_size,
             shared_image_embedding,
             name="image_positional_embeddings",
-        )(image_embeddings)
+        )
+        image_pe = image_pe_layer(image_embeddings)
 
-        prompt_results = SAM2PromptEncoderLayer(
+        prompt_inputs = [input_points, input_labels]
+        if include_box_input:
+            prompt_inputs.append(input_boxes)
+        if include_mask_input:
+            if not include_box_input:
+                empty_boxes = layers.Lambda(
+                    lambda p: keras.ops.zeros(
+                        (keras.ops.shape(p)[0], keras.ops.shape(p)[1], 0, 4),
+                        dtype="float32",
+                    ),
+                    name="empty_box_placeholder",
+                )(input_points)
+                prompt_inputs.append(empty_boxes)
+            mask_dense = sam2_mask_embedding(
+                input_masks,
+                hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
+                mask_input_channels=self.PROMPT_ENCODER_MASK_INPUT_CHANNELS,
+                layer_norm_eps=self.LAYER_NORM_EPS,
+                name="prompt_encoder_mask_embed",
+            )
+            prompt_inputs.append(mask_dense)
+            prompt_inputs.append(has_input_masks)
+
+        prompt_encoder_layer = SAM2PromptEncoderLayer(
             hidden_size=self.PROMPT_ENCODER_HIDDEN_SIZE,
             image_embedding_size=image_embedding_size,
             image_size=self.IMAGE_SIZE,
@@ -347,12 +494,13 @@ class SAM2(keras.Model):
             shared_embedding=shared_image_embedding,
             data_format=data_format,
             name="prompt_encoder",
-        )([input_points, input_labels])
+        )
+        prompt_results = prompt_encoder_layer(prompt_inputs)
 
         sparse_embeddings = prompt_results["sparse_embeddings"]
         dense_embeddings = prompt_results["dense_embeddings"]
 
-        decoder_output = SAM2MaskDecoderLayer(
+        mask_decoder_layer = SAM2MaskDecoderLayer(
             hidden_size=self.MASK_DECODER_HIDDEN_SIZE,
             num_hidden_layers=self.MASK_DECODER_NUM_HIDDEN_LAYERS,
             num_attention_heads=self.MASK_DECODER_NUM_ATTENTION_HEADS,
@@ -363,7 +511,8 @@ class SAM2(keras.Model):
             attention_downsample_rate=self.MASK_DECODER_ATTENTION_DOWNSAMPLE_RATE,
             data_format=data_format,
             name="mask_decoder",
-        )(
+        )
+        decoder_output = mask_decoder_layer(
             [
                 image_embeddings,
                 image_pe,
@@ -374,16 +523,42 @@ class SAM2(keras.Model):
             ]
         )
 
-        pred_masks = decoder_output["pred_masks"][:, :, 1:, :, :]
-        iou_scores = decoder_output["iou_scores"][:, :, 1:]
+        all_masks = decoder_output["pred_masks"]
+        all_iou = decoder_output["iou_scores"]
         object_score_logits = decoder_output["object_score_logits"]
 
+        if multimask_output:
+            pred_masks = all_masks[:, :, 1:, :, :]
+            iou_scores = all_iou[:, :, 1:]
+        else:
+
+            def _select_best_mask(tensors):
+                masks, iou = tensors
+                return _dynamic_multimask_via_stability(
+                    masks,
+                    iou,
+                    self.DYNAMIC_MULTIMASK_STABILITY_DELTA,
+                    self.DYNAMIC_MULTIMASK_STABILITY_THRESH,
+                )
+
+            pred_masks, iou_scores = layers.Lambda(
+                _select_best_mask,
+                name="dynamic_multimask_via_stability",
+            )([all_masks, all_iou])
+
+        model_inputs = {
+            "pixel_values": pixel_values,
+            "input_points": input_points,
+            "input_labels": input_labels,
+        }
+        if include_box_input:
+            model_inputs["input_boxes"] = input_boxes
+        if include_mask_input:
+            model_inputs["input_masks"] = input_masks
+            model_inputs["has_input_masks"] = has_input_masks
+
         super().__init__(
-            inputs={
-                "pixel_values": pixel_values,
-                "input_points": input_points,
-                "input_labels": input_labels,
-            },
+            inputs=model_inputs,
             outputs={
                 "pred_masks": pred_masks,
                 "iou_scores": iou_scores,
@@ -402,8 +577,137 @@ class SAM2(keras.Model):
         self.backbone_channel_list = list(backbone_channel_list)
         self.window_pos_embed_bg_size = tuple(window_pos_embed_bg_size)
         self.num_multimask_outputs = num_multimask_outputs
+        self.include_box_input = include_box_input
+        self.include_mask_input = include_mask_input
+        self.multimask_output = multimask_output
+        self.image_embedding_size = image_embedding_size
+        self.mask_input_size = mask_input_size
         self._input_shape_val = input_shape
         self.input_tensor = input_tensor
+
+        self._image_pe_layer = image_pe_layer
+        self._prompt_encoder_layer = prompt_encoder_layer
+        self._mask_decoder_layer = mask_decoder_layer
+
+        self._build_submodels(
+            pixel_values=pixel_values,
+            image_embeddings=image_embeddings,
+            high_res_feat_s0=high_res_feat_s0,
+            high_res_feat_s1=high_res_feat_s1,
+            input_points=input_points,
+            input_labels=input_labels,
+            input_boxes=input_boxes,
+            input_masks=input_masks,
+            has_input_masks=has_input_masks,
+            sparse_embeddings=sparse_embeddings,
+            dense_embeddings=dense_embeddings,
+            name=name,
+        )
+
+    def _build_submodels(
+        self,
+        pixel_values,
+        image_embeddings,
+        high_res_feat_s0,
+        high_res_feat_s1,
+        input_points,
+        input_labels,
+        input_boxes,
+        input_masks,
+        has_input_masks,
+        sparse_embeddings,
+        dense_embeddings,
+        name,
+    ):
+        self.vision_encoder_model = keras.Model(
+            inputs=pixel_values,
+            outputs={
+                "image_embeddings": image_embeddings,
+                "high_res_feat_s0": high_res_feat_s0,
+                "high_res_feat_s1": high_res_feat_s1,
+            },
+            name=f"{name}_vision_encoder",
+        )
+
+        def _drop_batch(shape):
+            return tuple(shape[1:])
+
+        img_emb_in = layers.Input(
+            shape=_drop_batch(image_embeddings.shape),
+            dtype=image_embeddings.dtype,
+            name="image_embeddings",
+        )
+        hr_s0_in = layers.Input(
+            shape=_drop_batch(high_res_feat_s0.shape),
+            dtype=high_res_feat_s0.dtype,
+            name="high_res_feat_s0",
+        )
+        hr_s1_in = layers.Input(
+            shape=_drop_batch(high_res_feat_s1.shape),
+            dtype=high_res_feat_s1.dtype,
+            name="high_res_feat_s1",
+        )
+
+        decoder_image_pe = self._image_pe_layer(img_emb_in)
+
+        decoder_output_sub = self._mask_decoder_layer(
+            [
+                img_emb_in,
+                decoder_image_pe,
+                sparse_embeddings,
+                dense_embeddings,
+                hr_s0_in,
+                hr_s1_in,
+            ]
+        )
+
+        all_masks_sub = decoder_output_sub["pred_masks"]
+        all_iou_sub = decoder_output_sub["iou_scores"]
+        obj_logits_sub = decoder_output_sub["object_score_logits"]
+
+        if self.multimask_output:
+            sub_pred_masks = all_masks_sub[:, :, 1:, :, :]
+            sub_iou = all_iou_sub[:, :, 1:]
+        else:
+            stab_delta = self.DYNAMIC_MULTIMASK_STABILITY_DELTA
+            stab_thresh = self.DYNAMIC_MULTIMASK_STABILITY_THRESH
+
+            def _select_best_mask_sub(tensors):
+                masks, iou = tensors
+                return _dynamic_multimask_via_stability(
+                    masks, iou, stab_delta, stab_thresh
+                )
+
+            sub_pred_masks, sub_iou = layers.Lambda(
+                _select_best_mask_sub,
+                name="dynamic_multimask_via_stability_sub",
+            )([all_masks_sub, all_iou_sub])
+
+        sub_inputs = {
+            "image_embeddings": img_emb_in,
+            "high_res_feat_s0": hr_s0_in,
+            "high_res_feat_s1": hr_s1_in,
+            "input_points": input_points,
+            "input_labels": input_labels,
+        }
+        if self.include_box_input:
+            sub_inputs["input_boxes"] = input_boxes
+        if self.include_mask_input:
+            sub_inputs["input_masks"] = input_masks
+            sub_inputs["has_input_masks"] = has_input_masks
+
+        self.prompt_decoder_model = keras.Model(
+            inputs=sub_inputs,
+            outputs={
+                "pred_masks": sub_pred_masks,
+                "iou_scores": sub_iou,
+                "object_score_logits": obj_logits_sub,
+            },
+            name=f"{name}_prompt_decoder",
+        )
+
+    def get_image_embeddings(self, pixel_values):
+        return self.vision_encoder_model(pixel_values)
 
     def get_config(self):
         config = super().get_config()
@@ -418,6 +722,9 @@ class SAM2(keras.Model):
                 "backbone_channel_list": self.backbone_channel_list,
                 "window_pos_embed_bg_size": self.window_pos_embed_bg_size,
                 "num_multimask_outputs": self.num_multimask_outputs,
+                "include_box_input": self.include_box_input,
+                "include_mask_input": self.include_mask_input,
+                "multimask_output": self.multimask_output,
                 "input_shape": self._input_shape_val,
             }
         )
@@ -428,7 +735,7 @@ class SAM2(keras.Model):
         return cls(**config)
 
 
-def _create_sam2_model(
+def create_sam2_model(
     variant,
     input_shape=None,
     input_tensor=None,
@@ -517,7 +824,7 @@ def Sam2Tiny(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2Tiny",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -533,7 +840,7 @@ def Sam2Small(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2Small",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -549,7 +856,7 @@ def Sam2BasePlus(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2BasePlus",
         input_shape=input_shape,
         input_tensor=input_tensor,
@@ -565,7 +872,7 @@ def Sam2Large(
     weights=None,
     **kwargs,
 ):
-    return _create_sam2_model(
+    return create_sam2_model(
         "Sam2Large",
         input_shape=input_shape,
         input_tensor=input_tensor,

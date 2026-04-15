@@ -108,7 +108,7 @@ for model_config in model_configs:
     print("Transferring no-memory embedding...")
     no_mem_layer = keras_model.get_layer("no_memory_embedding")
     hf_no_mem = hf_state_dict["no_memory_embedding"]
-    no_mem_layer.embedding.assign(hf_no_mem.reshape(1, 1, 1, -1))
+    no_mem_layer.embedding.assign(hf_no_mem.reshape(-1))
 
     print("Transferring prompt encoder...")
     prompt_enc = keras_model.get_layer("prompt_encoder")
@@ -344,6 +344,7 @@ for model_config in model_configs:
     )
     keras_masks = keras_output["pred_masks"]
     keras_iou = keras_output["iou_scores"]
+    keras_obj = keras_output["object_score_logits"]
 
     with torch.no_grad():
         hf_input = {
@@ -355,14 +356,18 @@ for model_config in model_configs:
         hf_output = hf_model(**hf_input)
         hf_masks = hf_output.pred_masks.cpu().numpy()
         hf_iou = hf_output.iou_scores.cpu().numpy()
+        hf_obj = hf_output.object_score_logits.cpu().numpy()
 
     mask_diff = np.max(np.abs(keras_masks - hf_masks))
     iou_diff = np.max(np.abs(keras_iou - hf_iou))
-    print(f"Max mask diff: {mask_diff:.6f}")
-    print(f"Max IoU diff:  {iou_diff:.6f}")
+    obj_diff = np.max(np.abs(keras_obj - hf_obj))
+    print(f"Max mask diff:          {mask_diff:.6f}")
+    print(f"Max IoU diff:           {iou_diff:.6f}")
+    print(f"Max object-logit diff:  {obj_diff:.6f}")
 
     assert mask_diff < 0.5, f"Mask diff too large: {mask_diff}"
     assert iou_diff < 0.05, f"IoU diff too large: {iou_diff}"
+    assert obj_diff < 0.05, f"Object-score logit diff too large: {obj_diff}"
     print("Model equivalence verified!")
 
     model_base = model_config["hf_model_name"].split("/")[-1].replace("-", "_")

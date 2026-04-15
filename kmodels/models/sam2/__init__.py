@@ -1,9 +1,11 @@
 from kmodels.models.sam2.sam2_image_processor import (
+    Sam2GenerateMasks,
     Sam2ImageProcessor,
     Sam2ImageProcessorWithPrompts,
     Sam2PostProcessMasks,
 )
 from kmodels.models.sam2.sam2_model import (
+    SAM2,
     Sam2BasePlus,
     Sam2Large,
     Sam2Small,

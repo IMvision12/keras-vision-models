@@ -67,47 +67,47 @@ DEPTH_ANYTHING_V2_MODEL_CONFIG = {
 DEPTH_ANYTHING_V2_WEIGHTS_CONFIG = {
     "DepthAnythingV2Small": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_small.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_small.weights.h5",
         },
     },
     "DepthAnythingV2Base": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_base.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_base.weights.h5",
         },
     },
     "DepthAnythingV2Large": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_large.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_large.weights.h5",
         },
     },
     "DepthAnythingV2MetricIndoorSmall": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_metric_indoor_small.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_indoor_small.weights.h5",
         },
     },
     "DepthAnythingV2MetricIndoorBase": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_metric_indoor_base.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_indoor_base.weights.h5",
         },
     },
     "DepthAnythingV2MetricIndoorLarge": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_metric_indoor_large.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_indoor_large.weights.h5",
         },
     },
     "DepthAnythingV2MetricOutdoorSmall": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_metric_outdoor_small.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_outdoor_small.weights.h5",
         },
     },
     "DepthAnythingV2MetricOutdoorBase": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_metric_outdoor_base.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_outdoor_base.weights.h5",
         },
     },
     "DepthAnythingV2MetricOutdoorLarge": {
         "da_v2": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v2/depth_anything_v2_metric_outdoor_large.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v2_metric_outdoor_large.weights.h5",
         },
     },
 }

@@ -31,17 +31,17 @@ DEPTH_ANYTHING_V1_MODEL_CONFIG = {
 DEPTH_ANYTHING_V1_WEIGHTS_CONFIG = {
     "DepthAnythingV1Small": {
         "da_v1": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v1/depth_anything_v1_small.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v1_small.weights.h5",
         },
     },
     "DepthAnythingV1Base": {
         "da_v1": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v1/depth_anything_v1_base.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v1_base.weights.h5",
         },
     },
     "DepthAnythingV1Large": {
         "da_v1": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything_v1/depth_anything_v1_large.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/depth_anything/depth_anything_v1_large.weights.h5",
         },
     },
 }

@@ -2,6 +2,7 @@ import re
 from typing import Dict
 
 import numpy as np
+from tqdm import tqdm
 
 from kmodels.weight_utils.custom_exception import (
     WeightMappingError,
@@ -70,8 +71,14 @@ def _resolve_vit_layer_scale(keras_weight_path: str):
 
 def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
     trainable, non_trainable = split_model_weights(keras_model)
+    all_weights = trainable + non_trainable
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        all_weights,
+        total=len(all_weights),
+        desc="Converting DinoV3",
+        unit="weight",
+    ):
         path = keras_weight.path
 
         if "cls_token" in path and "cls_token" in path.split("/")[-1]:
@@ -153,8 +160,14 @@ def _keras_to_hf_convnext(keras_name: str):
 
 def transfer_dinov3_convnext_weights(keras_model, hf_state_dict):
     trainable, non_trainable = split_model_weights(keras_model)
+    all_weights = trainable + non_trainable
 
-    for keras_weight, keras_weight_name in trainable + non_trainable:
+    for keras_weight, keras_weight_name in tqdm(
+        all_weights,
+        total=len(all_weights),
+        desc="Converting DinoV3",
+        unit="weight",
+    ):
         hf_key = _keras_to_hf_convnext(keras_weight_name)
         if hf_key is None or hf_key not in hf_state_dict:
             raise WeightMappingError(keras_weight_name, str(hf_key))

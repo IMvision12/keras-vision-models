@@ -43,6 +43,7 @@ def DeepLabV3ImageProcessor(
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
     return_tensor: bool = True,
+    data_format: Optional[str] = None,
 ) -> Union["keras.KerasTensor", np.ndarray]:
     """Preprocess an image for DeepLabV3 inference.
 
@@ -91,6 +92,7 @@ def DeepLabV3ImageProcessor(
         rescale=do_rescale,
         interpolation=resample,
         antialias=False,
+        data_format=data_format,
     )
     if do_rescale and rescale_factor != 1 / 255:
         image = image * (rescale_factor * 255)

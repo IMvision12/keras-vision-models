@@ -10,7 +10,7 @@ from kmodels.models.sam.sam_image_processor import (
     filter_masks,
     post_process_for_mask_generation,
 )
-from kmodels.utils.image import load_image
+from kmodels.utils.image import get_data_format, load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -21,6 +21,7 @@ def Sam2ImageProcessor(
     target_length: int = 1024,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, "keras.KerasTensor"]:
     """Preprocess a single image for Sam2 inference.
 
@@ -88,6 +89,9 @@ def Sam2ImageProcessor(
     )
     image = (image - mean) / std
 
+    if get_data_format(data_format) == "channels_first":
+        image = keras.ops.transpose(image, (0, 3, 1, 2))
+
     empty_points = keras.ops.zeros((1, 1, 0, 2), dtype="float32")
     empty_labels = keras.ops.zeros((1, 1, 0), dtype="int32")
 
@@ -107,6 +111,7 @@ def Sam2ImageProcessorWithPrompts(
     target_length: int = 1024,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, "keras.KerasTensor"]:
     """Preprocess a single image and point prompts for Sam2 inference.
 
@@ -149,7 +154,9 @@ def Sam2ImageProcessorWithPrompts(
         outputs = model(inputs)
         ```
     """
-    result = Sam2ImageProcessor(image, target_length, image_mean, image_std)
+    result = Sam2ImageProcessor(
+        image, target_length, image_mean, image_std, data_format=data_format
+    )
 
     orig_h, orig_w = result["original_size"]
     scale_x = target_length / float(orig_w)
@@ -256,6 +263,7 @@ def _stretch_preprocess_crop(
     target_length: int,
     image_mean: Tuple[float, ...],
     image_std: Tuple[float, ...],
+    data_format: Optional[str] = None,
 ) -> "keras.KerasTensor":
     """Stretch-resize a crop to ``(target_length, target_length)`` and normalize.
 
@@ -279,7 +287,10 @@ def _stretch_preprocess_crop(
     std = keras.ops.reshape(
         keras.ops.convert_to_tensor(image_std, dtype="float32"), (1, 1, 1, 3)
     )
-    return (tensor - mean) / std
+    normalized = (tensor - mean) / std
+    if get_data_format(data_format) == "channels_first":
+        normalized = keras.ops.transpose(normalized, (0, 3, 1, 2))
+    return normalized
 
 
 def Sam2GenerateMasks(
@@ -298,6 +309,7 @@ def Sam2GenerateMasks(
     target_length: int = 1024,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Prompt-free "segment everything" AMG pipeline for SAM2.
 
@@ -410,7 +422,11 @@ def Sam2GenerateMasks(
         cropped_image = image_np[top:bottom, left:right, :]
 
         pixel_values = _stretch_preprocess_crop(
-            cropped_image, target_length, image_mean, image_std
+            cropped_image,
+            target_length,
+            image_mean,
+            image_std,
+            data_format=data_format,
         )
         encoder_outputs = model.vision_encoder_model(pixel_values)
         norm_grid = points_grid[layer_idxs[crop_idx]]

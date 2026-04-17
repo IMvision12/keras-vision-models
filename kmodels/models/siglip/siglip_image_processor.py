@@ -1,9 +1,9 @@
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 import keras
 from keras import ops
 
-from kmodels.utils.image import load_image
+from kmodels.utils.image import get_data_format, load_image
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
@@ -105,6 +105,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,
+        data_format: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -114,6 +115,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
         self.do_center_crop = do_center_crop
         self.do_normalize = do_normalize
         self.do_resize = do_resize
+        self.data_format = get_data_format(data_format)
 
     def preprocess(self, image: Any) -> Any:
         shape = ops.shape(image)
@@ -197,7 +199,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
 
             if isinstance(image_paths, str):
                 processed_image = self.process_path(image_paths)
-                return ops.expand_dims(processed_image, axis=0)
+                images = ops.expand_dims(processed_image, axis=0)
             else:
                 if len(image_paths) == 0:
                     raise ValueError("image_paths list cannot be empty")
@@ -205,24 +207,27 @@ class SigLIPImageProcessor(keras.layers.Layer):
                 processed_images = []
                 for path in image_paths:
                     processed_images.append(self.process_path(path))
-                return ops.stack(processed_images)
+                images = ops.stack(processed_images)
+            if self.data_format == "channels_first":
+                images = ops.transpose(images, (0, 3, 1, 2))
+            return images
 
         if inputs is None:
             raise ValueError("Must provide either 'inputs' or 'image_paths'")
 
         if len(ops.shape(inputs)) == 3:
             processed_image = self.preprocess(inputs)
-            return ops.expand_dims(processed_image, axis=0)
-
+            images = ops.expand_dims(processed_image, axis=0)
         elif len(ops.shape(inputs)) == 4:
-            processed_images = ops.vectorized_map(self.preprocess, inputs)
-            return processed_images
-
+            images = ops.vectorized_map(self.preprocess, inputs)
         else:
             raise ValueError(
                 f"Input images must have 3 dimensions (H, W, C) or 4 dimensions (B, H, W, C), "
                 f"got shape: {ops.shape(inputs)}"
             )
+        if self.data_format == "channels_first":
+            images = ops.transpose(images, (0, 3, 1, 2))
+        return images
 
     def get_config(self):
         config = super().get_config()
@@ -236,6 +241,7 @@ class SigLIPImageProcessor(keras.layers.Layer):
                 "do_center_crop": self.do_center_crop,
                 "do_normalize": self.do_normalize,
                 "do_resize": self.do_resize,
+                "data_format": self.data_format,
             }
         )
         return config

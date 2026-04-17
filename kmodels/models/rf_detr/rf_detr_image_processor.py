@@ -111,6 +111,7 @@ def RFDETRImageProcessor(
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
     return_tensor: bool = True,
+    data_format: Optional[str] = None,
 ) -> Union[keras.KerasTensor, np.ndarray]:
     """Preprocess an image for RF-DETR inference.
 
@@ -161,6 +162,7 @@ def RFDETRImageProcessor(
         rescale=do_rescale,
         interpolation=resample,
         antialias=True,
+        data_format=data_format,
     )
     if do_rescale and rescale_factor != 1 / 255:
         image = image * (rescale_factor * 255)

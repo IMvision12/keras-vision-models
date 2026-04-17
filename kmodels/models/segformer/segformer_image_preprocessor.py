@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
-from kmodels.utils.image import preprocess_image
+from kmodels.utils.image import get_data_format, preprocess_image
 
 ADE20K_CLASSES = [
     "wall",
@@ -193,6 +193,7 @@ def SegFormerImageProcessor(
     image_mean: Optional[Union[float, tuple]] = None,
     image_std: Optional[Union[float, tuple]] = None,
     return_tensor: bool = True,
+    data_format: Optional[str] = None,
 ) -> Union[keras.KerasTensor, np.ndarray]:
     """
     Comprehensive image preprocessing function for SegFormer model input using Keras ops.
@@ -278,9 +279,13 @@ def SegFormerImageProcessor(
             rescale=do_rescale,
             interpolation=resample,
             antialias=False,
+            data_format=data_format,
         )
         if do_rescale and rescale_factor != 1 / 255:
             image = image * (rescale_factor * 255)
+
+    if is_keras_tensor and get_data_format(data_format) == "channels_first":
+        image = keras.ops.transpose(image, (0, 3, 1, 2))
 
     if not return_tensor:
         image = keras.ops.convert_to_numpy(image)

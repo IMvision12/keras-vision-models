@@ -15,6 +15,7 @@ def DepthAnythingV2ImageProcessor(
     target_size: Union[int, Tuple[int, int]] = 518,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, "keras.KerasTensor"]:
     """Preprocess a single image for DepthAnythingV2 inference.
 
@@ -84,6 +85,7 @@ def DepthAnythingV2ImageProcessor(
         rescale=True,
         interpolation="bicubic",
         antialias=True,
+        data_format=data_format,
     )
 
     return {

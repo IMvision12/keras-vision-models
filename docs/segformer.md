@@ -73,6 +73,20 @@ print(f"Detected classes: {result['class_names']}")
 #   'person', 'car', 'streetlight']
 ```
 
+### Data format
+
+Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
+
+```python
+# follow the global config (the default)
+inputs = SegFormerImageProcessor("photo.jpg")
+
+# force channels_first for this call only
+inputs = SegFormerImageProcessor("photo.jpg", data_format="channels_first")
+```
+
+Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
+
 ## Full Inference with Visualization
 
 ```python

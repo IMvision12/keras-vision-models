@@ -7,7 +7,7 @@ import numpy as np
 from keras import ops
 from PIL import Image
 
-from kmodels.utils.image import load_image
+from kmodels.utils.image import get_data_format, load_image
 
 COCO_CLASSES = [
     "person",
@@ -97,6 +97,7 @@ def DFineImageProcessor(
     image: Union[str, np.ndarray, "Image.Image"],
     target_size: Tuple[int, int] = (640, 640),
     rescale_factor: float = 1.0 / 255.0,
+    data_format: Optional[str] = None,
 ):
     """Preprocess an image for D-FINE inference.
 
@@ -130,6 +131,8 @@ def DFineImageProcessor(
     image = ops.convert_to_tensor(image, dtype="float32")
     image = ops.expand_dims(image, axis=0)
     image = image * rescale_factor
+    if get_data_format(data_format) == "channels_first":
+        image = ops.transpose(image, (0, 3, 1, 2))
     return image
 
 

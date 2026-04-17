@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
-from kmodels.utils.image import load_image
+from kmodels.utils.image import get_data_format, load_image
 
 COCO_PANOPTIC_CLASSES = [
     "things: person",
@@ -160,6 +160,7 @@ def EoMTImageProcessor(
     target_size: int = 640,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> keras.KerasTensor:
     """Preprocess an image for EoMT inference.
 
@@ -215,6 +216,9 @@ def EoMTImageProcessor(
         keras.ops.convert_to_tensor(image_std, dtype="float32"), (1, 1, 1, 3)
     )
     padded = (padded - mean) / std
+
+    if get_data_format(data_format) == "channels_first":
+        padded = keras.ops.transpose(padded, (0, 3, 1, 2))
 
     return padded
 

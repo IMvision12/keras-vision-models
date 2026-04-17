@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
-from kmodels.utils.image import preprocess_image
+from kmodels.utils.image import get_data_format, preprocess_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -15,6 +15,7 @@ def DepthAnythingV2ImageProcessor(
     target_size: Union[int, Tuple[int, int]] = 518,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, "keras.KerasTensor"]:
     """Preprocess a single image for DepthAnythingV2 inference.
 
@@ -84,6 +85,7 @@ def DepthAnythingV2ImageProcessor(
         rescale=True,
         interpolation="bicubic",
         antialias=True,
+        data_format=data_format,
     )
 
     return {
@@ -96,6 +98,7 @@ def DepthAnythingV2ImageProcessor(
 def DepthAnythingV2PostProcessDepth(
     predicted_depth: "keras.KerasTensor",
     original_size: Tuple[int, int],
+    data_format: Optional[str] = None,
 ) -> "keras.KerasTensor":
     """Resize predicted DepthAnythingV2 depth back to original image resolution.
 
@@ -109,6 +112,10 @@ def DepthAnythingV2PostProcessDepth(
         predicted_depth: Depth tensor shaped ``(B, H, W)``,
             ``(B, H, W, 1)``, or ``(B, 1, H, W)``.
         original_size: Original image ``(height, width)``.
+        data_format: Layout of ``predicted_depth`` when rank-4. ``None``
+            resolves to the global setting from
+            ``keras.config.image_data_format()``. Ignored for rank-3
+            inputs.
 
     Returns:
         Keras tensor of shape ``(B, orig_h, orig_w)`` — the depth map
@@ -129,7 +136,7 @@ def DepthAnythingV2PostProcessDepth(
         pd = keras.ops.expand_dims(pd, axis=-1)
     elif ndim == 4:
         shape = keras.ops.shape(pd)
-        if keras.config.image_data_format() == "channels_first" or shape[1] == 1:
+        if get_data_format(data_format) == "channels_first" or shape[1] == 1:
             pd = keras.ops.transpose(pd, (0, 2, 3, 1))
     else:
         raise ValueError(f"Expected predicted_depth with 3 or 4 dims, got ndim={ndim}")

@@ -97,6 +97,7 @@ def RTDETRImageProcessor(
     do_rescale: bool = True,
     rescale_factor: float = 1 / 255,
     return_tensor: bool = True,
+    data_format: Optional[str] = None,
 ) -> Union[keras.KerasTensor, np.ndarray]:
     """Preprocess an image for RT-DETR inference.
 
@@ -139,6 +140,7 @@ def RTDETRImageProcessor(
         rescale=do_rescale,
         interpolation=resample,
         antialias=False,
+        data_format=data_format,
     )
     if do_rescale and rescale_factor != 1 / 255:
         image = image * (rescale_factor * 255)

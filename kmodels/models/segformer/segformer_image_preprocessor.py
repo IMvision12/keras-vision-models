@@ -4,7 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
-from kmodels.utils.image import preprocess_image
+from kmodels.utils.image import get_data_format, preprocess_image
 
 ADE20K_CLASSES = [
     "wall",
@@ -193,6 +193,7 @@ def SegFormerImageProcessor(
     image_mean: Optional[Union[float, tuple]] = None,
     image_std: Optional[Union[float, tuple]] = None,
     return_tensor: bool = True,
+    data_format: Optional[str] = None,
 ) -> Union[keras.KerasTensor, np.ndarray]:
     """
     Comprehensive image preprocessing function for SegFormer model input using Keras ops.
@@ -278,9 +279,13 @@ def SegFormerImageProcessor(
             rescale=do_rescale,
             interpolation=resample,
             antialias=False,
+            data_format=data_format,
         )
         if do_rescale and rescale_factor != 1 / 255:
             image = image * (rescale_factor * 255)
+
+    if is_keras_tensor and get_data_format(data_format) == "channels_first":
+        image = keras.ops.transpose(image, (0, 3, 1, 2))
 
     if not return_tensor:
         image = keras.ops.convert_to_numpy(image)
@@ -292,6 +297,7 @@ def SegFormerPostProcessor(
     outputs: "keras.KerasTensor",
     target_size: Optional[Tuple[int, int]] = None,
     label_names: Optional[List[str]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict:
     """Post-process raw SegFormer outputs into semantic segmentation results.
 
@@ -300,7 +306,9 @@ def SegFormerPostProcessor(
     to human-readable names.
 
     Args:
-        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``.
+        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``
+            when ``data_format="channels_last"`` or
+            ``(1, num_classes, H, W)`` when ``data_format="channels_first"``.
         target_size: Original image ``(height, width)`` for resizing the
             prediction mask. If ``None``, the mask is returned at model
             output resolution.
@@ -309,6 +317,9 @@ def SegFormerPostProcessor(
             classes). Provide this when using a model fine-tuned on a
             custom dataset (e.g. Cityscapes names via
             ``CITYSCAPES_CLASSES``).
+        data_format: Layout of the channel axis in ``outputs``. ``None``
+            resolves to the global setting from
+            ``keras.config.image_data_format()``.
 
     Returns:
         Dict with:
@@ -334,7 +345,8 @@ def SegFormerPostProcessor(
     _names = label_names if label_names is not None else ADE20K_CLASSES
 
     logits = keras.ops.convert_to_numpy(outputs)
-    pred_mask = np.argmax(logits[0], axis=-1)  # (H, W)
+    channel_axis = 0 if get_data_format(data_format) == "channels_first" else -1
+    pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
 
     if target_size is not None:
         pred_mask = np.array(

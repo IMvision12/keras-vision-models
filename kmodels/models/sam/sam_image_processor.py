@@ -6,7 +6,7 @@ import keras
 import numpy as np
 from PIL import Image
 
-from kmodels.utils.image import load_image
+from kmodels.utils.image import get_data_format, load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -27,6 +27,7 @@ def SAMImageProcessor(
     target_length: int = 1024,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, "keras.KerasTensor"]:
     """Preprocess an image for SAM inference.
 
@@ -89,6 +90,9 @@ def SAMImageProcessor(
     padded = keras.ops.zeros((1, target_length, target_length, 3), dtype="float32")
     padded = keras.ops.slice_update(padded, (0, 0, 0, 0), image)
 
+    if get_data_format(data_format) == "channels_first":
+        padded = keras.ops.transpose(padded, (0, 3, 1, 2))
+
     empty_points = keras.ops.zeros((1, 1, 0, 2), dtype="float32")
     empty_labels = keras.ops.zeros((1, 1, 0), dtype="int32")
     empty_boxes = keras.ops.zeros((1, 0, 4), dtype="float32")
@@ -111,6 +115,7 @@ def SAMImageProcessorWithPrompts(
     target_length: int = 1024,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, "keras.KerasTensor"]:
     """Preprocess an image and prompts for SAM inference.
 
@@ -147,7 +152,9 @@ def SAMImageProcessorWithPrompts(
         outputs = model(inputs)
         ```
     """
-    result = SAMImageProcessor(image, target_length, image_mean, image_std)
+    result = SAMImageProcessor(
+        image, target_length, image_mean, image_std, data_format=data_format
+    )
 
     # Compute scale factor to transform points from original to resized coords
     orig_h, orig_w = result["original_size"]
@@ -822,6 +829,7 @@ def _preprocess_image_for_sam(
     target_length: int,
     image_mean: Tuple[float, ...],
     image_std: Tuple[float, ...],
+    data_format: Optional[str] = None,
 ):
     """Resize (longest side → ``target_length``), normalize, pad to square.
 
@@ -846,6 +854,8 @@ def _preprocess_image_for_sam(
 
     padded = keras.ops.zeros((1, target_length, target_length, 3), dtype="float32")
     padded = keras.ops.slice_update(padded, (0, 0, 0, 0), normalized)
+    if get_data_format(data_format) == "channels_first":
+        padded = keras.ops.transpose(padded, (0, 3, 1, 2))
     return padded, (orig_h, orig_w), (new_h, new_w)
 
 
@@ -865,6 +875,7 @@ def SAMGenerateMasks(
     target_length: int = 1024,
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run SAM's prompt-free "segment everything" pipeline.
 
@@ -966,7 +977,11 @@ def SAMGenerateMasks(
 
         cropped_image = cropped_images[crop_idx]
         padded, _orig_size, _reshaped_size = _preprocess_image_for_sam(
-            cropped_image, target_length, image_mean, image_std
+            cropped_image,
+            target_length,
+            image_mean,
+            image_std,
+            data_format=data_format,
         )
 
         image_embeddings = model.vision_encoder_model(padded)

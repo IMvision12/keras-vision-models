@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import keras
 
@@ -64,6 +64,7 @@ class SigLIP2ImageProcessor(SigLIPImageProcessor):
         do_center_crop: bool = True,
         do_normalize: bool = True,
         do_resize: bool = True,
+        data_format: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(
@@ -73,5 +74,6 @@ class SigLIP2ImageProcessor(SigLIPImageProcessor):
             do_center_crop=do_center_crop,
             do_normalize=do_normalize,
             do_resize=do_resize,
+            data_format=data_format,
             **kwargs,
         )

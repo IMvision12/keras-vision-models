@@ -113,6 +113,7 @@ def DETRImageProcessor(
     image_mean: Optional[Tuple[float, ...]] = None,
     image_std: Optional[Tuple[float, ...]] = None,
     return_tensor: bool = True,
+    data_format: Optional[str] = None,
 ) -> Union[keras.KerasTensor, np.ndarray]:
     """Preprocess an image for DETR inference.
 
@@ -165,6 +166,7 @@ def DETRImageProcessor(
         rescale=do_rescale,
         interpolation=resample,
         antialias=False,
+        data_format=data_format,
     )
     if do_rescale and rescale_factor != 1 / 255:
         # preprocess_image always divides by 255; re-apply any custom ratio.

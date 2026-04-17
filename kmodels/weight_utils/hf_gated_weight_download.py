@@ -31,33 +31,35 @@ def _get_cache_dir(model_name):
     return os.path.join(os.path.expanduser("~"), ".cache", "kmodels", model_name)
 
 
-def load_gated_weights_from_hf(
+def load_and_convert_from_hf(
     model,
     model_name,
     hf_model_id,
     transfer_fn,
     hf_model_cls=None,
     hf_kwargs=None,
+    is_gated=False,
 ):
     """Download, convert, and cache HuggingFace weights for a Keras model.
 
-    Weights are cached at ``~/.cache/kmodels/<model_name>/``. Models
-    larger than 5 GB are automatically sharded (5 GB per shard).
+    Generic helper used for models whose Keras weights cannot be
+    redistributed directly — either due to **license gating** (SAM3,
+    DINOv3) or because the converted weights **exceed distribution host
+    limits** (MetaCLIP 2 Huge/Giant variants at 3-4 GB single tensors,
+    larger than GitHub's 2 GB release asset cap).
+
+    Weights are cached at ``~/.cache/kmodels/<model_name>/``. Sharded at
+    5 GB per shard for local cache.
 
     Args:
         model: The Keras model instance to load weights into.
-        model_name: String used as the cache subdirectory name
-            (e.g. ``"sam3"``, ``"dinov3_vitb16"``).
-        hf_model_id: HuggingFace model identifier
-            (e.g. ``"facebook/sam3"``).
-        transfer_fn: Callable ``(keras_model, hf_state_dict) -> None``
-            that transfers weights from the HF state dict into the
-            Keras model in-place.
-        hf_model_cls: Optional string name of the HF model class to
-            import from ``transformers`` (e.g. ``"Sam3Model"``).
-            If ``None``, uses ``AutoModel``.
-        hf_kwargs: Optional dict of extra keyword arguments passed to
-            ``from_pretrained`` (e.g. ``{"attn_implementation": "eager"}``).
+        model_name: String used as the cache subdirectory name.
+        hf_model_id: HuggingFace model identifier.
+        transfer_fn: Callable ``(keras_model, hf_state_dict) -> None``.
+        hf_model_cls: Optional HF model class name (``AutoModel`` by default).
+        hf_kwargs: Optional kwargs passed to ``from_pretrained``.
+        is_gated: When True, emits the license-acceptance error message
+            on 401/403. When False (default), lets the HF error propagate.
     """
     cache_dir = _get_cache_dir(model_name)
     cached_weights = os.path.join(cache_dir, f"{model_name}.weights.h5")
@@ -76,13 +78,11 @@ def load_gated_weights_from_hf(
             "Install them with: pip install torch transformers"
         ) from e
 
-    print(
-        f"Downloading {model_name} from HuggingFace "
-        f"(requires accepted license + HF token)..."
-    )
+    gated_note = " (requires accepted license + HF token)" if is_gated else ""
+    print(f"Downloading {model_name} from HuggingFace{gated_note}...")
 
     hf_token = os.environ.get("HF_TOKEN")
-    kwargs = {"token": hf_token}
+    kwargs = {"token": hf_token} if hf_token else {}
     if hf_kwargs:
         kwargs.update(hf_kwargs)
 
@@ -95,7 +95,9 @@ def load_gated_weights_from_hf(
         hf_model = cls.from_pretrained(hf_model_id, **kwargs).eval()
     except OSError as e:
         error_msg = str(e)
-        if "gated" in error_msg.lower() or "401" in error_msg or "403" in error_msg:
+        if is_gated and (
+            "gated" in error_msg.lower() or "401" in error_msg or "403" in error_msg
+        ):
             raise OSError(
                 f"\n{'=' * 60}\n"
                 f"Access denied for '{hf_model_id}'.\n\n"
@@ -126,3 +128,31 @@ def load_gated_weights_from_hf(
 
     model.save_weights(cached_weights, **save_kwargs)
     print(f"Cached {model_name} weights to {cached_weights} ({size_gb:.1f} GB)")
+
+
+def load_gated_weights_from_hf(
+    model,
+    model_name,
+    hf_model_id,
+    transfer_fn,
+    hf_model_cls=None,
+    hf_kwargs=None,
+):
+    """Gated-repo variant of :func:`load_and_convert_from_hf`.
+
+    Use for models whose licenses do not allow weight redistribution
+    (SAM3, DINOv3). On 401/403 from HuggingFace, emits a user-friendly
+    license-acceptance error with setup instructions.
+
+    For non-gated public repos (e.g. MetaCLIP 2) use
+    :func:`load_and_convert_from_hf` directly.
+    """
+    return load_and_convert_from_hf(
+        model=model,
+        model_name=model_name,
+        hf_model_id=hf_model_id,
+        transfer_fn=transfer_fn,
+        hf_model_cls=hf_model_cls,
+        hf_kwargs=hf_kwargs,
+        is_gated=True,
+    )

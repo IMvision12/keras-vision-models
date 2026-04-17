@@ -10,7 +10,12 @@ from kmodels.models.clip.clip_layers import (
 )
 from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
-from .config import METACLIP2_MODEL_CONFIG, METACLIP2_WEIGHTS_CONFIG
+from .config import (
+    METACLIP2_HF_CONVERT_DEFAULT_ALIAS,
+    METACLIP2_HF_CONVERT_VARIANTS,
+    METACLIP2_MODEL_CONFIG,
+    METACLIP2_WEIGHTS_CONFIG,
+)
 from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
 
 
@@ -422,7 +427,24 @@ def _create_metaclip2(
         name=name,
     )
 
-    if weights in get_all_weight_names(METACLIP2_WEIGHTS_CONFIG):
+    if (
+        variant in METACLIP2_HF_CONVERT_VARIANTS
+        and weights == METACLIP2_HF_CONVERT_DEFAULT_ALIAS.get(variant)
+    ):
+        from kmodels.models.metaclip2.convert_metaclip2_hf_to_keras import (
+            transfer_metaclip2_weights,
+        )
+        from kmodels.weight_utils.hf_gated_weight_download import (
+            load_and_convert_from_hf,
+        )
+
+        load_and_convert_from_hf(
+            model=model,
+            model_name=variant.lower(),
+            hf_model_id=METACLIP2_HF_CONVERT_VARIANTS[variant],
+            transfer_fn=transfer_metaclip2_weights,
+        )
+    elif weights in get_all_weight_names(METACLIP2_WEIGHTS_CONFIG):
         load_weights_from_config(variant, weights, model, METACLIP2_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)

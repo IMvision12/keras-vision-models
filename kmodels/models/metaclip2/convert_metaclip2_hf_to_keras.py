@@ -74,6 +74,70 @@ HF_REPO = {
 }
 
 
+def transfer_metaclip2_weights(keras_model, hf_state_dict):
+    """Transfer HF MetaCLIP 2 state dict into a Keras MetaClip2Model.
+
+    Used both by the offline ``convert(variant)`` CLI path and by the
+    on-the-fly HF loader (for Tier 3 variants too big for GitHub releases).
+
+    Args:
+        keras_model: Built `MetaClip2Model` instance.
+        hf_state_dict: Dict of ``{torch_name: np.ndarray}`` from
+            ``hf_model.state_dict()`` with tensors converted via
+            ``.cpu().numpy()``.
+    """
+    trainable_k, non_trainable_k = split_model_weights(keras_model)
+
+    for keras_weight, keras_weight_name in tqdm(
+        trainable_k + non_trainable_k,
+        total=len(trainable_k + non_trainable_k),
+        desc="Transferring MetaClip2 weights",
+    ):
+        torch_weight_name = keras_weight_name
+        for a, b in weight_name_mapping.items():
+            torch_weight_name = torch_weight_name.replace(a, b)
+
+        if "attention" in torch_weight_name:
+            transfer_attention_weights(
+                keras_weight_name, keras_weight, hf_state_dict, attn_name_replace
+            )
+            continue
+
+        if keras_weight_name == "text_model_embedding_embeddings":
+            if "token_embedding" in keras_weight.path:
+                keras_weight.assign(
+                    hf_state_dict["text_model.embeddings.token_embedding.weight"]
+                )
+                continue
+            if "positional_embedding" in keras_weight.path:
+                keras_weight.assign(
+                    hf_state_dict["text_model.embeddings.position_embedding.weight"]
+                )
+                continue
+
+        if keras_weight_name == "logit_scale_logit_scale":
+            keras_weight.assign(hf_state_dict["logit_scale"])
+            continue
+
+        if keras_weight_name == "vision_model_embeddings_pos_embed":
+            import numpy as np
+
+            pos = hf_state_dict["vision_model.embeddings.position_embedding.weight"]
+            keras_weight.assign(np.expand_dims(pos, 0))
+            continue
+
+        if torch_weight_name not in hf_state_dict:
+            raise WeightMappingError(keras_weight_name, torch_weight_name)
+        tw = hf_state_dict[torch_weight_name]
+        if not compare_keras_torch_names(
+            keras_weight_name, keras_weight, torch_weight_name, tw
+        ):
+            raise WeightShapeMismatchError(
+                keras_weight_name, keras_weight.shape, torch_weight_name, tw.shape
+            )
+        transfer_weights(keras_weight_name, keras_weight, tw)
+
+
 def convert(variant: str):
     cfg = metaclip2.config.METACLIP2_MODEL_CONFIG[variant]
     image_size = cfg["image_resolution"]

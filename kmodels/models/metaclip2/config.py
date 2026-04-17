@@ -307,26 +307,6 @@ METACLIP2_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidel14_worldwide_224.weights.h5",
         },
     },
-    "MetaClip2WorldwideHugeQuickgelu": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidehugequickgelu_worldwide_224.weights.json",
-        },
-    },
-    "MetaClip2WorldwideHuge378": {
-        "worldwide_378": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidehuge378_worldwide_378.weights.json",
-        },
-    },
-    "MetaClip2WorldwideGiant": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidegiant_worldwide_224.weights.json",
-        },
-    },
-    "MetaClip2WorldwideGiant378": {
-        "worldwide_378": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidegiant378_worldwide_378.weights.json",
-        },
-    },
     "MetaClip2Mt5WorldwideS16": {
         "mt5_worldwide_224": {
             "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
@@ -342,4 +322,20 @@ METACLIP2_WEIGHTS_CONFIG = {
             "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwideb32_mt5_worldwide_224.weights.h5",
         },
     },
+}
+
+
+METACLIP2_HF_CONVERT_VARIANTS = {
+    "MetaClip2WorldwideHugeQuickgelu": "facebook/metaclip-2-worldwide-huge-quickgelu",
+    "MetaClip2WorldwideHuge378": "facebook/metaclip-2-worldwide-huge-378",
+    "MetaClip2WorldwideGiant": "facebook/metaclip-2-worldwide-giant",
+    "MetaClip2WorldwideGiant378": "facebook/metaclip-2-worldwide-giant-378",
+}
+
+
+METACLIP2_HF_CONVERT_DEFAULT_ALIAS = {
+    "MetaClip2WorldwideHugeQuickgelu": "worldwide_224",
+    "MetaClip2WorldwideHuge378": "worldwide_378",
+    "MetaClip2WorldwideGiant": "worldwide_224",
+    "MetaClip2WorldwideGiant378": "worldwide_378",
 }

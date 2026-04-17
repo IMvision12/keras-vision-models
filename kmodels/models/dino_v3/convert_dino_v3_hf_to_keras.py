@@ -26,7 +26,7 @@ DINOV3_HF_MODEL_IDS = {
 DINOV3_VIT_NAME_MAPPING: Dict[str, str] = {
     "_": ".",
     "patch.embed": "embeddings.patch_embeddings",
-    "blocks.": "model.layer.",
+    "blocks.": "layer.",
     "dense.1": "mlp.up_proj",
     "dense.2": "mlp.down_proj",
     "layernorm.1": "norm1",
@@ -47,13 +47,13 @@ def _resolve_vit_attention(keras_weight_path: str):
     if m:
         idx = int(m.group(1))
         suffix = "weight" if "kernel" in var_name else "bias"
-        return f"model.layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
+        return f"layer.{idx}.attention.{m.group(2)}_proj.{suffix}"
 
     m = re.match(r"blocks_(\d+)_attn_proj$", layer_name)
     if m:
         idx = int(m.group(1))
         suffix = "weight" if "kernel" in var_name else "bias"
-        return f"model.layer.{idx}.attention.o_proj.{suffix}"
+        return f"layer.{idx}.attention.o_proj.{suffix}"
 
     return None
 
@@ -65,7 +65,7 @@ def _resolve_vit_layer_scale(keras_weight_path: str):
         return None
     idx = int(m.group(1))
     which = m.group(2)
-    return f"model.layer.{idx}.layer_scale{which}.lambda1"
+    return f"layer.{idx}.layer_scale{which}.lambda1"
 
 
 def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
@@ -126,15 +126,15 @@ def transfer_dinov3_vit_weights(keras_model, hf_state_dict):
 _VAR_MAP = {"kernel": "weight", "gamma": "weight", "bias": "bias", "beta": "bias"}
 
 DINOV3_CONVNEXT_WEIGHT_MAPPING = {
-    r"stem_conv_(kernel|bias)": "model.stages.0.downsample_layers.0.{v}",
-    r"stem_layernorm_(gamma|beta)": "model.stages.0.downsample_layers.1.{v}",
-    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "model.stages.{0}.downsample_layers.0.{v}",
-    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "model.stages.{0}.downsample_layers.1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "model.stages.{0}.layers.{1}.gamma",
-    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "model.stages.{0}.layers.{1}.depthwise_conv.{v}",
-    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "model.stages.{0}.layers.{1}.layer_norm.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv1.{v}",
-    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "model.stages.{0}.layers.{1}.pointwise_conv2.{v}",
+    r"stem_conv_(kernel|bias)": "stages.0.downsample_layers.0.{v}",
+    r"stem_layernorm_(gamma|beta)": "stages.0.downsample_layers.1.{v}",
+    r"stages_(\d+)_downsampling_layernorm_(gamma|beta)": "stages.{0}.downsample_layers.0.{v}",
+    r"stages_(\d+)_downsampling_conv_(kernel|bias)": "stages.{0}.downsample_layers.1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layer_scale_variable": "stages.{0}.layers.{1}.gamma",
+    r"stages_(\d+)_blocks_(\d+)_depthwise_conv_(kernel|bias)": "stages.{0}.layers.{1}.depthwise_conv.{v}",
+    r"stages_(\d+)_blocks_(\d+)_layernorm_(gamma|beta)": "stages.{0}.layers.{1}.layer_norm.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_1_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv1.{v}",
+    r"stages_(\d+)_blocks_(\d+)_conv_2_(kernel|bias)": "stages.{0}.layers.{1}.pointwise_conv2.{v}",
     r"final_layernorm_(gamma|beta)": "layer_norm.{v}",
 }
 

@@ -120,39 +120,94 @@ print(depth_full.shape)  # (1, orig_h, orig_w)
 
 ### Relative Depth with V1
 
+End-to-end example that loads an image, runs `DepthAnythingV1Small`, and
+saves a side-by-side RGB + depth visualization:
+
 ```python
+import keras
 import numpy as np
+from PIL import Image
+import matplotlib.cm as cm
+
 from kmodels.models.depth_anything_v1 import (
     DepthAnythingV1Small,
     DepthAnythingV1ImageProcessor,
     DepthAnythingV1PostProcessDepth,
 )
 
+# 1) build model + load pretrained weights
 model = DepthAnythingV1Small(weights="da_v1")
-inputs = DepthAnythingV1ImageProcessor("photo.jpg")
-depth = model(inputs["pixel_values"])
-depth_full = DepthAnythingV1PostProcessDepth(
-    depth, original_size=inputs["original_size"]
+
+# 2) preprocess the image (stretches to 518x518, ImageNet-normalized)
+inputs = DepthAnythingV1ImageProcessor("assets/coco_horse_dog.jpg")
+orig_h, orig_w = inputs["original_size"]
+
+# 3) forward pass — raw depth at model resolution
+raw_depth = model(inputs["pixel_values"], training=False)
+
+# 4) resample depth back to the original image size
+depth = DepthAnythingV1PostProcessDepth(
+    raw_depth, original_size=(orig_h, orig_w)
 )
+depth = keras.ops.convert_to_numpy(depth)[0]   # (orig_h, orig_w) float32
+
+# 5) visualize: normalize + apply inferno colormap, save side-by-side
+dn = (depth - depth.min()) / max(depth.max() - depth.min(), 1e-8)
+depth_color = (cm.inferno(dn)[..., :3] * 255).astype(np.uint8)
+rgb = np.array(Image.open("assets/coco_horse_dog.jpg").convert("RGB").resize((orig_w, orig_h)))
+side = np.concatenate([rgb, depth_color], axis=1)
+Image.fromarray(side).save("depth_output.png")
 ```
+
+Output (horse + dog in snow — closer objects are brighter):
+
+![DepthAnythingV1 output](../assets/depth_anything_v1_output.jpg)
 
 ### Relative Depth with V2
 
+Same API as V1 — swap the module and the factory name. V2 uses the same
+processor / post-processor contract, just with sharper and more robust
+depth thanks to its synthetic-data training set.
+
 ```python
+import keras
 import numpy as np
+from PIL import Image
+import matplotlib.cm as cm
+
 from kmodels.models.depth_anything_v2 import (
     DepthAnythingV2Base,
     DepthAnythingV2ImageProcessor,
     DepthAnythingV2PostProcessDepth,
 )
 
+# 1) build model + load pretrained weights
 model = DepthAnythingV2Base(weights="da_v2")
-inputs = DepthAnythingV2ImageProcessor("photo.jpg")
-depth = model(inputs["pixel_values"])
-depth_full = DepthAnythingV2PostProcessDepth(
-    depth, original_size=inputs["original_size"]
+
+# 2) preprocess the image
+inputs = DepthAnythingV2ImageProcessor("assets/valley.png")
+orig_h, orig_w = inputs["original_size"]
+
+# 3) forward pass — raw depth at model resolution
+raw_depth = model(inputs["pixel_values"], training=False)
+
+# 4) resample depth back to the original image size
+depth = DepthAnythingV2PostProcessDepth(
+    raw_depth, original_size=(orig_h, orig_w)
 )
+depth = keras.ops.convert_to_numpy(depth)[0]
+
+# 5) visualize: normalize + apply inferno colormap, save side-by-side
+dn = (depth - depth.min()) / max(depth.max() - depth.min(), 1e-8)
+depth_color = (cm.inferno(dn)[..., :3] * 255).astype(np.uint8)
+rgb = np.array(Image.open("assets/valley.png").convert("RGB").resize((orig_w, orig_h)))
+side = np.concatenate([rgb, depth_color], axis=1)
+Image.fromarray(side).save("depth_output.png")
 ```
+
+Output (mountain valley — crisp ridges and foreground detail):
+
+![DepthAnythingV2 output](../assets/depth_anything_v2_output.jpg)
 
 ### Metric Indoor Depth (V2)
 

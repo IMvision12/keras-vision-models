@@ -24,7 +24,7 @@ pip install -U git+https://github.com/IMvision12/keras-models
 
 ## 📑 Documentation
 
-Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for backbones, segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), and vision-language models (CLIP, SigLIP, SigLIP2). Shared utilities (image loading, video loading, visualization) are documented in [`docs/utils.md`](docs/utils.md).
+Per-model guides with architecture notes, usage examples, and available pretrained weights live in the [`docs/`](docs/) folder. You'll find dedicated pages for backbones, segmentation (SAM family, SegFormer, DeepLabV3, EoMT), object detection (DETR variants, D-FINE), feature extraction (DINO v1/v2/v3), depth estimation (Depth Anything v1/v2), and vision-language models (CLIP, SigLIP, SigLIP2).
 
 ## 📑 Models
 

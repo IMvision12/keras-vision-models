@@ -52,6 +52,7 @@ jobs:
           pip install -U keras>=3.11.0 pytest pytest-cov
           pip install torch>=2.5.0 jax[cpu] tensorflow-cpu>=2.19.0
           pip install sentencepiece matplotlib>=3.8.0 pillow
+          pip install "transformers>=5.0.0"
           pip install -e .
       - name: Run all tests
         run: |
@@ -59,6 +60,7 @@ jobs:
                  tests/integration/test_serialization.py \
                  tests/integration/test_model_saving.py \
                  tests/integration/test_data_formats.py \
+                 tests/processors/test_keras_processors_vs_hf.py \
                  -v --durations=20 --cov=kmodels --cov-append \
                  -m "not slow and not gpu"
       - name: Generate coverage

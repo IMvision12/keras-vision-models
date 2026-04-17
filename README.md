@@ -115,11 +115,12 @@ Per-model guides with architecture notes, usage examples, and available pretrain
 
 <br>
 
-- Vision-Language-Models (VLMs)
+- Multimodal Models
 
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | CLIP | [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020) | `transformers`|
+    | MetaCLIP 2 | [MetaCLIP 2: A Worldwide Scaling Recipe](https://arxiv.org/abs/2507.22062) | `transformers`|
     | SigLIP | [Sigmoid Loss for Language Image Pre-Training](https://arxiv.org/abs/2303.15343) | `transformers`|
     | SigLIP2 | [SigLIP 2: Multilingual Vision-Language Encoders with Improved Semantic Understanding, Localization, and Dense Features](https://arxiv.org/abs/2502.14786) | `transformers`|
 

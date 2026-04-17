@@ -10,11 +10,8 @@ from kmodels.models.clip.clip_layers import (
 )
 from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
-from .config import (
-    METACLIP2_EOS_TOKEN_ID,
-    METACLIP2_MODEL_CONFIG,
-    METACLIP2_WEIGHTS_CONFIG,
-)
+from .config import METACLIP2_MODEL_CONFIG, METACLIP2_WEIGHTS_CONFIG
+from .metaclip2_tokenizer import METACLIP2_EOS_TOKEN_ID
 
 
 def quick_gelu(x):
@@ -177,8 +174,8 @@ def metaclip2_text_encoder(
         name="text_model_embedding",
     )(inputs)
 
-    causal_attention_mask = ops.cast(
-        ops.triu(ops.ones((context_length, context_length))), "float32"
+    causal_attention_mask = ops.triu(
+        ops.ones((context_length, context_length)) * (-1e8), k=1
     )
 
     attention_mask_float = ops.cast(attention_mask, dtype="float32")
@@ -219,10 +216,10 @@ def metaclip2_text_encoder(
 
 def metaclip2_head(image_embeddings, text_embeddings):
     normalize_image_features = ops.sqrt(
-        ops.sum(ops.power(image_embeddings, 2), keepdims=True)
+        ops.sum(ops.power(image_embeddings, 2), axis=-1, keepdims=True)
     )
     normalize_text_features = ops.sqrt(
-        ops.sum(ops.power(text_embeddings, 2), keepdims=True)
+        ops.sum(ops.power(text_embeddings, 2), axis=-1, keepdims=True)
     )
     image_embeddings = image_embeddings / normalize_image_features
     text_embeddings = text_embeddings / normalize_text_features

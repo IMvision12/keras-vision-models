@@ -19,6 +19,7 @@ from kmodels.models.metaclip2.metaclip2_model import (
     MetaClip2WorldwideS16,
     MetaClip2WorldwideS16_384,
 )
+from kmodels.models.metaclip2.metaclip2_mt5_tokenizer import MetaClip2Mt5Tokenizer
 from kmodels.models.metaclip2.metaclip2_processor import MetaClip2Processor
 from kmodels.models.metaclip2.metaclip2_tokenizer import MetaClip2Tokenizer
 
@@ -28,6 +29,7 @@ __all__ = [
     "MetaClip2ImageProcessor",
     "MetaClip2Processor",
     "MetaClip2Tokenizer",
+    "MetaClip2Mt5Tokenizer",
     "MetaClip2WorldwideS16",
     "MetaClip2WorldwideS16_384",
     "MetaClip2WorldwideM16",

@@ -161,8 +161,12 @@ def convert(variant: str):
         f"{list(metaclip2.config.METACLIP2_WEIGHTS_CONFIG[keras_model.name].keys())[0]}"
         f".weights.h5"
     )
-    keras_model.save_weights(weight_name, max_shard_size=2)
-    print(f"Saved {weight_name}")
+    total_gb = keras_model.count_params() * 4 / (1024**3)
+    if total_gb > 2.0:
+        keras_model.save_weights(weight_name, max_shard_size=2)
+    else:
+        keras_model.save_weights(weight_name)
+    print(f"Saved {weight_name} ({total_gb:.2f} GB)")
 
 
 if __name__ == "__main__":

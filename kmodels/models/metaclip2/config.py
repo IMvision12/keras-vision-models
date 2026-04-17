@@ -264,88 +264,82 @@ METACLIP2_MODEL_CONFIG = {
 METACLIP2_WEIGHTS_CONFIG = {
     "MetaClip2WorldwideS16": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwides16_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_worldwide_224.weights.h5",
         },
     },
     "MetaClip2WorldwideS16_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwides16_384_worldwide_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwides16_384_worldwide_384.weights.h5",
         },
     },
     "MetaClip2WorldwideM16": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidem16_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_worldwide_224.weights.h5",
         },
     },
     "MetaClip2WorldwideM16_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidem16_384_worldwide_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_384_worldwide_384.weights.h5",
         },
     },
     "MetaClip2WorldwideB16": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwideb16_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_worldwide_224.weights.h5",
         },
     },
     "MetaClip2WorldwideB16_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwideb16_384_worldwide_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_384_worldwide_384.weights.h5",
         },
     },
     "MetaClip2WorldwideB32": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwideb32_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_worldwide_224.weights.h5",
         },
     },
     "MetaClip2WorldwideB32_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwideb32_384_worldwide_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.h5",
         },
     },
     "MetaClip2WorldwideL14": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidel14_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidel14_worldwide_224.weights.h5",
         },
     },
     "MetaClip2WorldwideHugeQuickgelu": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidehugequickgelu_worldwide_224.weights.json",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidehugequickgelu_worldwide_224.weights.json",
         },
     },
     "MetaClip2WorldwideHuge378": {
         "worldwide_378": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidehuge378_worldwide_378.weights.json",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidehuge378_worldwide_378.weights.json",
         },
     },
     "MetaClip2WorldwideGiant": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidegiant_worldwide_224.weights.json",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidegiant_worldwide_224.weights.json",
         },
     },
     "MetaClip2WorldwideGiant378": {
         "worldwide_378": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2worldwidegiant378_worldwide_378.weights.json",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidegiant378_worldwide_378.weights.json",
         },
     },
     "MetaClip2Mt5WorldwideS16": {
         "mt5_worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwides16_mt5_worldwide_224.weights.h5",
         },
     },
     "MetaClip2Mt5WorldwideM16": {
         "mt5_worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2mt5worldwidem16_mt5_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwidem16_mt5_worldwide_224.weights.h5",
         },
     },
     "MetaClip2Mt5WorldwideB32": {
         "mt5_worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip2/metaclip2mt5worldwideb32_mt5_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2mt5worldwideb32_mt5_worldwide_224.weights.h5",
         },
     },
 }
-
-METACLIP2_EOS_TOKEN_ID = 2
-METACLIP2_BOS_TOKEN_ID = 0
-METACLIP2_PAD_TOKEN_ID = 1
-METACLIP2_UNK_TOKEN_ID = 3
-METACLIP2_MASK_TOKEN_ID = 901628

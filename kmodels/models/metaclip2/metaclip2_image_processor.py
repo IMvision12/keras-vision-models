@@ -51,8 +51,8 @@ class MetaClip2ImageProcessor(CLIPImageProcessor):
                 (self.image_resolution, self.image_resolution), Image.BICUBIC
             )
             arr = np.array(pil)
-        image = ops.cast(arr, "float32")
-        image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
+        image = arr.astype(np.float32) * np.float32(1.0 / 255.0)
+        image = ops.convert_to_tensor(image, dtype="float32")
         if self.do_normalize:
             image = (image - self.mean) / self.std
         return image

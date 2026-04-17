@@ -1,10 +1,13 @@
 import os
+import string
 from typing import List, Union
 
 import keras
 import numpy as np
 
 from kmodels.weight_utils import download_file
+
+_PUNCT_TABLE = str.maketrans("", "", string.punctuation)
 
 METACLIP2_MT5_EOS_TOKEN_ID = 1
 METACLIP2_MT5_PAD_TOKEN_ID = 1
@@ -64,7 +67,8 @@ class MetaClip2Mt5Tokenizer(keras.Layer):
         self._sp.Load(sentencepiece_model_file)
 
     def _encode_one(self, text: str):
-        ids = self._sp.encode(text.lower(), out_type=int)
+        text = text.lower().translate(_PUNCT_TABLE)
+        ids = self._sp.encode(text, out_type=int)
         ids = ids + [self.eos_token_id]
         if len(ids) > self.context_length:
             ids = ids[: self.context_length - 1] + [self.eos_token_id]

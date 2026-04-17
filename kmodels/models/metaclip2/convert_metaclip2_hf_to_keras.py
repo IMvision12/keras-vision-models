@@ -57,6 +57,8 @@ attn_name_replace = {
 HF_REPO = {
     "MetaClip2WorldwideS16": "facebook/metaclip-2-worldwide-s16",
     "MetaClip2WorldwideS16_384": "facebook/metaclip-2-worldwide-s16-384",
+    "MetaClip2WorldwideM16": "facebook/metaclip-2-worldwide-m16",
+    "MetaClip2WorldwideM16_384": "facebook/metaclip-2-worldwide-m16-384",
     "MetaClip2WorldwideB16": "facebook/metaclip-2-worldwide-b16",
     "MetaClip2WorldwideB16_384": "facebook/metaclip-2-worldwide-b16-384",
     "MetaClip2WorldwideB32": "facebook/metaclip-2-worldwide-b32",
@@ -66,6 +68,9 @@ HF_REPO = {
     "MetaClip2WorldwideHuge378": "facebook/metaclip-2-worldwide-huge-378",
     "MetaClip2WorldwideGiant": "facebook/metaclip-2-worldwide-giant",
     "MetaClip2WorldwideGiant378": "facebook/metaclip-2-worldwide-giant-378",
+    "MetaClip2Mt5WorldwideS16": "facebook/metaclip-2-mt5-worldwide-s16",
+    "MetaClip2Mt5WorldwideM16": "facebook/metaclip-2-mt5-worldwide-m16",
+    "MetaClip2Mt5WorldwideB32": "facebook/metaclip-2-mt5-worldwide-b32",
 }
 
 

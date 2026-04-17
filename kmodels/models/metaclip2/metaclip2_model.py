@@ -408,67 +408,314 @@ class MetaClip2Model(keras.Model):
         return cls(**config)
 
 
-def _build_factory(variant_name, default_weights):
-    def factory(
-        weights=default_weights,
-        input_tensor=None,
-        input_shape=None,
-        name=variant_name,
+def _create_metaclip2(
+    variant,
+    weights,
+    input_tensor,
+    input_shape,
+    name,
+    **kwargs,
+):
+    cfg = {**METACLIP2_MODEL_CONFIG[variant], **kwargs}
+    model = MetaClip2Model(
+        **cfg,
+        input_shape=input_shape,
+        input_tensor=input_tensor,
+        weights=weights,
+        name=name,
+    )
+
+    if weights in get_all_weight_names(METACLIP2_WEIGHTS_CONFIG):
+        load_weights_from_config(variant, weights, model, METACLIP2_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+
+    return model
+
+
+@register_model
+def MetaClip2WorldwideS16(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideS16",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideS16",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
         **kwargs,
-    ):
-        model = MetaClip2Model(
-            **METACLIP2_MODEL_CONFIG[variant_name],
-            input_shape=input_shape,
-            input_tensor=input_tensor,
-            name=name,
-            weights=weights,
-            **kwargs,
-        )
-        if weights in get_all_weight_names(METACLIP2_WEIGHTS_CONFIG):
-            load_weights_from_config(
-                variant_name, weights, model, METACLIP2_WEIGHTS_CONFIG
-            )
-        elif weights is not None:
-            model.load_weights(weights)
-        else:
-            print("No weights loaded.")
-        return model
-
-    factory.__name__ = variant_name
-    factory.__qualname__ = variant_name
-    return factory
+    )
 
 
-MetaClip2WorldwideS16 = register_model(
-    _build_factory("MetaClip2WorldwideS16", "worldwide_224")
-)
-MetaClip2WorldwideS16_384 = register_model(
-    _build_factory("MetaClip2WorldwideS16_384", "worldwide_384")
-)
-MetaClip2WorldwideB16 = register_model(
-    _build_factory("MetaClip2WorldwideB16", "worldwide_224")
-)
-MetaClip2WorldwideB16_384 = register_model(
-    _build_factory("MetaClip2WorldwideB16_384", "worldwide_384")
-)
-MetaClip2WorldwideB32 = register_model(
-    _build_factory("MetaClip2WorldwideB32", "worldwide_224")
-)
-MetaClip2WorldwideB32_384 = register_model(
-    _build_factory("MetaClip2WorldwideB32_384", "worldwide_384")
-)
-MetaClip2WorldwideL14 = register_model(
-    _build_factory("MetaClip2WorldwideL14", "worldwide_224")
-)
-MetaClip2WorldwideHugeQuickgelu = register_model(
-    _build_factory("MetaClip2WorldwideHugeQuickgelu", "worldwide_224")
-)
-MetaClip2WorldwideHuge378 = register_model(
-    _build_factory("MetaClip2WorldwideHuge378", "worldwide_378")
-)
-MetaClip2WorldwideGiant = register_model(
-    _build_factory("MetaClip2WorldwideGiant", "worldwide_224")
-)
-MetaClip2WorldwideGiant378 = register_model(
-    _build_factory("MetaClip2WorldwideGiant378", "worldwide_378")
-)
+@register_model
+def MetaClip2WorldwideS16_384(
+    weights="worldwide_384",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideS16_384",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideS16_384",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideM16(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideM16",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideM16",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideM16_384(
+    weights="worldwide_384",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideM16_384",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideM16_384",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideB16(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideB16",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideB16",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideB16_384(
+    weights="worldwide_384",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideB16_384",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideB16_384",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideB32(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideB32",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideB32",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideB32_384(
+    weights="worldwide_384",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideB32_384",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideB32_384",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideL14(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideL14",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideL14",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideHugeQuickgelu(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideHugeQuickgelu",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideHugeQuickgelu",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideHuge378(
+    weights="worldwide_378",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideHuge378",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideHuge378",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideGiant(
+    weights="worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideGiant",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideGiant",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2WorldwideGiant378(
+    weights="worldwide_378",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2WorldwideGiant378",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2WorldwideGiant378",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2Mt5WorldwideS16(
+    weights="mt5_worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2Mt5WorldwideS16",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2Mt5WorldwideS16",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2Mt5WorldwideM16(
+    weights="mt5_worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2Mt5WorldwideM16",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2Mt5WorldwideM16",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )
+
+
+@register_model
+def MetaClip2Mt5WorldwideB32(
+    weights="mt5_worldwide_224",
+    input_tensor=None,
+    input_shape=None,
+    name="MetaClip2Mt5WorldwideB32",
+    **kwargs,
+):
+    return _create_metaclip2(
+        "MetaClip2Mt5WorldwideB32",
+        weights,
+        input_tensor,
+        input_shape,
+        name,
+        **kwargs,
+    )

@@ -21,10 +21,14 @@ layers directly; only the model wiring and tokenizer are MetaCLIP 2-specific.
 
 ## Available Models
 
+### Worldwide (XLM-R tokenizer, vocab 901 629)
+
 | Variant | Image | Patch | Vision hidden / L | Text hidden / L | Proj | Activation |
 |---|---|---|---|---|---|---|
 | `MetaClip2WorldwideS16` | 224 | 16 | 384 / 12 | 384 / 12 | 384 | gelu |
 | `MetaClip2WorldwideS16_384` | 384 | 16 | 384 / 12 | 384 / 12 | 384 | gelu |
+| `MetaClip2WorldwideM16` | 224 | 16 | 512 / 12 | 512 / 12 | 512 | gelu |
+| `MetaClip2WorldwideM16_384` | 384 | 16 | 512 / 12 | 512 / 12 | 512 | gelu |
 | `MetaClip2WorldwideB16` | 224 | 16 | 768 / 12 | 512 / 12 | 512 | gelu |
 | `MetaClip2WorldwideB16_384` | 384 | 16 | 768 / 12 | 512 / 12 | 512 | gelu |
 | `MetaClip2WorldwideB32` | 224 | 32 | 768 / 12 | 512 / 12 | 512 | gelu |
@@ -34,6 +38,18 @@ layers directly; only the model wiring and tokenizer are MetaCLIP 2-specific.
 | `MetaClip2WorldwideHuge378` | 378 | 14 | 1280 / 32 | 1024 / 24 | 1024 | gelu |
 | `MetaClip2WorldwideGiant` | 224 | 14 | 1664 / 48 | 1280 / 32 | 1280 | gelu |
 | `MetaClip2WorldwideGiant378` | 378 | 14 | 1664 / 48 | 1280 / 32 | 1280 | gelu |
+
+### mT5 (mT5 tokenizer, vocab 250 000, eos_token_id = 1)
+
+Same CLIP-style transformer architecture as the Worldwide variants; the
+only differences are the smaller multilingual vocabulary and a different
+EOS id.
+
+| Variant | Image | Patch | Vision hidden / L | Text hidden / L | Proj | Activation |
+|---|---|---|---|---|---|---|
+| `MetaClip2Mt5WorldwideS16` | 224 | 16 | 384 / 12 | 384 / 12 | 384 | gelu |
+| `MetaClip2Mt5WorldwideM16` | 224 | 16 | 512 / 12 | 512 / 12 | 512 | gelu |
+| `MetaClip2Mt5WorldwideB32` | 224 | 32 | 768 / 12 | 512 / 12 | 512 | gelu |
 
 ## Basic Usage
 

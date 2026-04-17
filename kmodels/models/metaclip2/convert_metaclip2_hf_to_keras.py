@@ -163,7 +163,7 @@ def convert(variant: str):
     )
     total_gb = keras_model.count_params() * 4 / (1024**3)
     if total_gb > 2.0:
-        keras_model.save_weights(weight_name, max_shard_size=2)
+        keras_model.save_weights(weight_name, max_shard_size=1.5)
     else:
         keras_model.save_weights(weight_name)
     print(f"Saved {weight_name} ({total_gb:.2f} GB)")

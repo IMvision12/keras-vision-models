@@ -22,7 +22,17 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
     p = f"{prefix}." if prefix else ""
     det = sam3_model
 
-    print("  ViT backbone...")
+    num_clip_layers = 24
+    num_geom_layers = len(sam3_model.geometry_encoder.transformer_layers)
+    total_layers = (
+        det.vit_num_hidden_layers
+        + det.detr_encoder_num_layers
+        + det.detr_decoder_num_layers
+        + num_clip_layers
+        + num_geom_layers
+    )
+    pbar = tqdm(total=total_layers, desc="Converting SAM3", unit="layer")
+
     patch_conv = det.get_layer("backbone_patch_embed")
     transfer_weights(
         "conv_kernel",
@@ -34,7 +44,7 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         hf[f"{p}vision_encoder.backbone.embeddings.position_embeddings"].squeeze(0)
     )
 
-    for i in tqdm(range(det.vit_num_hidden_layers), desc="  ViT layers"):
+    for i in range(det.vit_num_hidden_layers):
         layer = det.get_layer(f"backbone_layers_{i}")
         skipped = transfer_nested_layer_weights(
             layer,
@@ -44,13 +54,13 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         )
         if skipped:
             for w, path in skipped:
-                print(f"  WARNING: Skipped {path}")
+                pbar.write(f"  WARNING: Skipped {path}")
+        pbar.update(1)
 
     bb_ln = det.get_layer("backbone_layer_norm")
     bb_ln.gamma.assign(hf[f"{p}vision_encoder.backbone.layer_norm.weight"])
     bb_ln.beta.assign(hf[f"{p}vision_encoder.backbone.layer_norm.bias"])
 
-    print("  Detector FPN...")
     for idx, sf in enumerate(det.fpn_scale_factors):
         fp = f"{p}vision_encoder.neck.fpn_layers.{idx}"
         if sf == 4.0:
@@ -76,12 +86,11 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
                 transfer_weights("conv_kernel", conv.kernel, hf[f"{fp}.{pn}.weight"])
                 conv.bias.assign(hf[f"{fp}.{pn}.bias"])
 
-    print("  DETR encoder...")
     tp = det.get_layer("text_projection")
     transfer_weights("kernel", tp.kernel, hf[f"{p}text_projection.weight"])
     tp.bias.assign(hf[f"{p}text_projection.bias"])
 
-    for i in tqdm(range(det.detr_encoder_num_layers), desc="  Encoder layers"):
+    for i in range(det.detr_encoder_num_layers):
         ep = f"{p}detr_encoder.layers.{i}"
         kp = f"detr_encoder_layers_{i}"
         for an in ["self_attn", "cross_attn"]:
@@ -100,8 +109,8 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         fc2 = det.get_layer(f"{kp}_fc2")
         transfer_weights("kernel", fc2.kernel, hf[f"{ep}.mlp.fc2.weight"])
         fc2.bias.assign(hf[f"{ep}.mlp.fc2.bias"])
+        pbar.update(1)
 
-    print("  DETR decoder...")
     det.get_layer("detr_decoder_query_embed").embeddings.assign(
         hf[f"{p}detr_decoder.query_embed.weight"]
     )
@@ -125,7 +134,7 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         "layer_norm3": "vision_cross_attn_layer_norm",
         "layer_norm4": "mlp_layer_norm",
     }
-    for i in tqdm(range(det.detr_decoder_num_layers), desc="  Decoder layers"):
+    for i in range(det.detr_decoder_num_layers):
         dp = f"{p}detr_decoder.layers.{i}"
         kp = f"detr_decoder_layers_{i}"
         for an in ["self_attn", "text_cross_attn", "vision_cross_attn"]:
@@ -144,6 +153,7 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         fc2 = det.get_layer(f"{kp}_fc2")
         transfer_weights("kernel", fc2.kernel, hf[f"{dp}.mlp.fc2.weight"])
         fc2.bias.assign(hf[f"{dp}.mlp.fc2.bias"])
+        pbar.update(1)
 
     out_ln = det.get_layer("detr_decoder_output_layer_norm")
     out_ln.gamma.assign(hf[f"{p}detr_decoder.output_layer_norm.weight"])
@@ -163,7 +173,6 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
             )
             d.bias.assign(hf[f"{p}detr_decoder.box_rpb_embed_{ax}.layer{j + 1}.bias"])
 
-    print("  Scoring + mask decoder...")
     sp = f"{p}dot_product_scoring"
     for n, hn in [
         ("text_mlp_fc1", "text_mlp.layer1"),
@@ -228,7 +237,6 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
     pca_norm.gamma.assign(hf[f"{p}mask_decoder.prompt_cross_attn_norm.weight"])
     pca_norm.beta.assign(hf[f"{p}mask_decoder.prompt_cross_attn_norm.bias"])
 
-    print("  CLIP text encoder...")
     te = sam3_model.text_encoder
     te.get_layer("token_embedding").weights[0].assign(
         hf[f"{p}text_encoder.text_model.embeddings.token_embedding.weight"]
@@ -236,8 +244,7 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
     te.get_layer("add_position").position_embedding.weights[0].assign(
         hf[f"{p}text_encoder.text_model.embeddings.position_embedding.weight"]
     )
-    num_clip_layers = 24
-    for i in tqdm(range(num_clip_layers), desc="  CLIP layers"):
+    for i in range(num_clip_layers):
         hp = f"{p}text_encoder.text_model.encoder.layers.{i}"
         kp = f"layers_{i}"
         ln1 = te.get_layer(f"{kp}_layer_norm1")
@@ -263,12 +270,12 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         fc2 = te.get_layer(f"{kp}_fc2")
         transfer_weights("kernel", fc2.kernel, hf[f"{hp}.mlp.fc2.weight"])
         fc2.bias.assign(hf[f"{hp}.mlp.fc2.bias"])
+        pbar.update(1)
 
     fln = te.get_layer("final_layer_norm")
     fln.gamma.assign(hf[f"{p}text_encoder.text_model.final_layer_norm.weight"])
     fln.beta.assign(hf[f"{p}text_encoder.text_model.final_layer_norm.bias"])
 
-    print("  Geometry encoder...")
     geo = sam3_model.geometry_encoder
     transfer_weights(
         "kernel",
@@ -334,6 +341,9 @@ def transfer_sam3_weights(sam3_model, hf, prefix=""):
         layer.fc1.bias.assign(hf[f"{gp}.mlp.fc1.bias"])
         transfer_weights("kernel", layer.fc2.kernel, hf[f"{gp}.mlp.fc2.weight"])
         layer.fc2.bias.assign(hf[f"{gp}.mlp.fc2.bias"])
+        pbar.update(1)
+
+    pbar.close()
 
 
 if __name__ == "__main__":

@@ -91,7 +91,8 @@ def transfer_metaclip2_weights(keras_model, hf_state_dict):
     for keras_weight, keras_weight_name in tqdm(
         trainable_k + non_trainable_k,
         total=len(trainable_k + non_trainable_k),
-        desc="Transferring MetaClip2 weights",
+        desc="Converting MetaClip2",
+        unit="weight",
     ):
         torch_weight_name = keras_weight_name
         for a, b in weight_name_mapping.items():

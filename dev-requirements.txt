@@ -1,5 +1,6 @@
 keras>=3.10.0
 torch
+torchvision
 tensorflow-cpu>=2.18.0
 jax
 ruff

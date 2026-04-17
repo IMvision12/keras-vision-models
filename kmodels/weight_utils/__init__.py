@@ -3,7 +3,10 @@ from kmodels.weight_utils.custom_exception import (
     WeightShapeMismatchError,
 )
 from kmodels.weight_utils.file_downloader import download_file, validate_url
-from kmodels.weight_utils.hf_gated_weight_download import load_gated_weights_from_hf
+from kmodels.weight_utils.hf_gated_weight_download import (
+    load_and_convert_from_hf,
+    load_gated_weights_from_hf,
+)
 from kmodels.weight_utils.model_equivalence_tester import verify_cls_model_equivalence
 from kmodels.weight_utils.model_weights_util import (
     get_all_weight_names,

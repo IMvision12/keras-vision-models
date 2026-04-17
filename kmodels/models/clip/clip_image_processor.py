@@ -1,7 +1,9 @@
 from typing import Any, Dict, List, Optional, Union
 
 import keras
+import numpy as np
 from keras import ops
+from PIL import Image
 
 from kmodels.utils.image import get_data_format, load_image
 
@@ -206,8 +208,23 @@ class CLIPImageProcessor(keras.layers.Layer):
         return ops.where(can_crop, simple_cropped, padded_cropped)
 
     def process_path(self, image_path: str) -> Any:
-        image = load_image(image_path)
-        return self.preprocess(image)
+        arr = load_image(image_path)
+        if self.do_resize:
+            h, w = arr.shape[:2]
+            scale = float(self.image_resolution) / float(min(h, w))
+            new_h = int(h * scale)
+            new_w = int(w * scale)
+            if (new_h, new_w) != (h, w):
+                pil = Image.fromarray(arr.astype(np.uint8))
+                pil = pil.resize((new_w, new_h), Image.BICUBIC)
+                arr = np.array(pil)
+        image = ops.cast(arr, "float32")
+        image = ops.where(ops.greater(ops.max(image), 1.0), image / 255.0, image)
+        if self.do_center_crop:
+            image = self._center_crop(image)
+        if self.do_normalize:
+            image = (image - self.mean) / self.std
+        return image
 
     def call(
         self,

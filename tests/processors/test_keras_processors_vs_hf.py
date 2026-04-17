@@ -33,6 +33,7 @@ from kmodels.models.depth_anything_v2 import DepthAnythingV2ImageProcessor
 from kmodels.models.detr import DETRImageProcessor
 from kmodels.models.dfine.dfine_image_processor import DFineImageProcessor
 from kmodels.models.eomt.eomt_image_processor import EoMTImageProcessor
+from kmodels.models.metaclip2 import MetaClip2ImageProcessor
 from kmodels.models.rt_detr import RTDETRImageProcessor
 from kmodels.models.rt_detr_v2 import RTDETRV2ImageProcessor
 from kmodels.models.sam import SAMImageProcessor
@@ -212,6 +213,21 @@ def _run_siglip2(data_format):
     )
 
 
+def _run_metaclip2(data_format):
+    processor = MetaClip2ImageProcessor(data_format=data_format)
+    ours = _as_numpy(processor(image_paths=ASSET_PATH)["images"])
+    hf = HFCLIPImageProcessor(
+        do_resize=True,
+        size={"height": 224, "width": 224},
+        do_center_crop=False,
+        do_rescale=True,
+        do_normalize=True,
+        image_mean=(0.48145466, 0.4578275, 0.40821073),
+        image_std=(0.26862954, 0.26130258, 0.27577711),
+    )(images=_pil_image(), return_tensors="np")["pixel_values"]
+    return ours, hf
+
+
 def _run_depth_anything_v1(data_format):
     ours = _as_numpy(
         DepthAnythingV1ImageProcessor(ASSET_PATH, data_format=data_format)[
@@ -261,9 +277,10 @@ PROCESSORS = {
     "eomt": (_run_eomt, 1e-5),
     "sam": (_run_sam, 5e-2),
     "sam2": (_run_sam2, 5e-2),
-    "clip": (_run_clip, 2.0),
-    "siglip": (_run_siglip, 2e-1),
+    "clip": (_run_clip, 5e-2),
+    "siglip": (_run_siglip, 5e-2),
     "siglip2": (_run_siglip2, 0.0),
+    "metaclip2": (_run_metaclip2, 5e-2),
     "depth_anything_v1": (_run_depth_anything_v1, 5e-1),
     "depth_anything_v2": (_run_depth_anything_v2, 5e-1),
 }

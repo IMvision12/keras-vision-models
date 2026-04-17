@@ -297,6 +297,7 @@ def SegFormerPostProcessor(
     outputs: "keras.KerasTensor",
     target_size: Optional[Tuple[int, int]] = None,
     label_names: Optional[List[str]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict:
     """Post-process raw SegFormer outputs into semantic segmentation results.
 
@@ -305,7 +306,9 @@ def SegFormerPostProcessor(
     to human-readable names.
 
     Args:
-        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``.
+        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``
+            when ``data_format="channels_last"`` or
+            ``(1, num_classes, H, W)`` when ``data_format="channels_first"``.
         target_size: Original image ``(height, width)`` for resizing the
             prediction mask. If ``None``, the mask is returned at model
             output resolution.
@@ -314,6 +317,9 @@ def SegFormerPostProcessor(
             classes). Provide this when using a model fine-tuned on a
             custom dataset (e.g. Cityscapes names via
             ``CITYSCAPES_CLASSES``).
+        data_format: Layout of the channel axis in ``outputs``. ``None``
+            resolves to the global setting from
+            ``keras.config.image_data_format()``.
 
     Returns:
         Dict with:
@@ -339,7 +345,8 @@ def SegFormerPostProcessor(
     _names = label_names if label_names is not None else ADE20K_CLASSES
 
     logits = keras.ops.convert_to_numpy(outputs)
-    pred_mask = np.argmax(logits[0], axis=-1)  # (H, W)
+    channel_axis = 0 if get_data_format(data_format) == "channels_first" else -1
+    pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
 
     if target_size is not None:
         pred_mask = np.array(

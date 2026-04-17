@@ -96,6 +96,20 @@ best_mask = keras.ops.convert_to_numpy(masks)[0, 0, best_idx] > 0.0
 print(f"IoU: {iou_scores[best_idx]:.3f}, Mask shape: {best_mask.shape}")
 ```
 
+### Data format
+
+Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
+
+```python
+# follow the global config (the default)
+inputs = Sam2ImageProcessor("photo.jpg")
+
+# force channels_first for this call only
+inputs = Sam2ImageProcessor("photo.jpg", data_format="channels_first")
+```
+
+Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
+
 ## Inference with Box Prompts
 
 SAM2 supports two box-prompt paths:

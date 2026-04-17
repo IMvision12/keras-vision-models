@@ -76,6 +76,20 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
 # cat: 1.00 at [345, 24, 640, 371]
 ```
 
+### Data format
+
+Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
+
+```python
+# follow the global config (the default)
+inputs = DETRImageProcessor("photo.jpg")
+
+# force channels_first for this call only
+inputs = DETRImageProcessor("photo.jpg", data_format="channels_first")
+```
+
+Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
+
 ## Full Inference with Visualization
 
 ```python

@@ -6,7 +6,7 @@ import keras
 import numpy as np
 from PIL import Image
 
-from kmodels.utils.image import preprocess_image
+from kmodels.utils.image import get_data_format, preprocess_image
 
 VOC_CLASSES = [
     "background",
@@ -107,6 +107,7 @@ def DeepLabV3PostProcessor(
     outputs: "keras.KerasTensor",
     target_size: Optional[Tuple[int, int]] = None,
     label_names: Optional[List[str]] = None,
+    data_format: Optional[str] = None,
 ) -> Dict:
     """Post-process raw DeepLabV3 outputs into semantic segmentation results.
 
@@ -115,7 +116,9 @@ def DeepLabV3PostProcessor(
     to human-readable names.
 
     Args:
-        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``.
+        outputs: Raw model output tensor of shape ``(1, H, W, num_classes)``
+            when ``data_format="channels_last"`` or
+            ``(1, num_classes, H, W)`` when ``data_format="channels_first"``.
         target_size: Original image ``(height, width)`` for resizing the
             prediction mask. If ``None``, the mask is returned at model
             output resolution.
@@ -123,6 +126,9 @@ def DeepLabV3PostProcessor(
             names. If ``None``, defaults to Pascal VOC class names (21
             classes). Provide this when using a model fine-tuned on a
             custom dataset.
+        data_format: Layout of the channel axis in ``outputs``. ``None``
+            resolves to the global setting from
+            ``keras.config.image_data_format()``.
 
     Returns:
         Dict with:
@@ -148,7 +154,8 @@ def DeepLabV3PostProcessor(
     _names = label_names if label_names is not None else VOC_CLASSES
 
     logits = keras.ops.convert_to_numpy(outputs)
-    pred_mask = np.argmax(logits[0], axis=-1)  # (H, W)
+    channel_axis = 0 if get_data_format(data_format) == "channels_first" else -1
+    pred_mask = np.argmax(logits[0], axis=channel_axis)  # (H, W)
 
     if target_size is not None:
         pred_mask = np.array(

@@ -57,6 +57,20 @@ print(f"Detected: {[c for c in result['class_names'] if c != 'background']}")
 # Detected: ['person']
 ```
 
+### Data format
+
+Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
+
+```python
+# follow the global config (the default)
+inputs = DeepLabV3ImageProcessor("photo.jpg")
+
+# force channels_first for this call only
+inputs = DeepLabV3ImageProcessor("photo.jpg", data_format="channels_first")
+```
+
+Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
+
 ## Full Inference with Visualization
 
 ```python

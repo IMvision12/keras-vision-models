@@ -274,37 +274,32 @@ METACLIP2_WEIGHTS_CONFIG = {
     },
     "MetaClip2WorldwideM16": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_worldwide_224.weights.json",
         },
     },
     "MetaClip2WorldwideM16_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_384_worldwide_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidem16_384_worldwide_384.weights.json",
         },
     },
     "MetaClip2WorldwideB16": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_worldwide_224.weights.json",
         },
     },
     "MetaClip2WorldwideB16_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_384_worldwide_384.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb16_384_worldwide_384.weights.json",
         },
     },
     "MetaClip2WorldwideB32": {
         "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_worldwide_224.weights.json",
         },
     },
     "MetaClip2WorldwideB32_384": {
         "worldwide_384": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.h5",
-        },
-    },
-    "MetaClip2WorldwideL14": {
-        "worldwide_224": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwidel14_worldwide_224.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/metaclip-2/metaclip2worldwideb32_384_worldwide_384.weights.json",
         },
     },
     "MetaClip2Mt5WorldwideS16": {
@@ -326,6 +321,7 @@ METACLIP2_WEIGHTS_CONFIG = {
 
 
 METACLIP2_HF_CONVERT_VARIANTS = {
+    "MetaClip2WorldwideL14": "facebook/metaclip-2-worldwide-l14",
     "MetaClip2WorldwideHugeQuickgelu": "facebook/metaclip-2-worldwide-huge-quickgelu",
     "MetaClip2WorldwideHuge378": "facebook/metaclip-2-worldwide-huge-378",
     "MetaClip2WorldwideGiant": "facebook/metaclip-2-worldwide-giant",
@@ -334,6 +330,7 @@ METACLIP2_HF_CONVERT_VARIANTS = {
 
 
 METACLIP2_HF_CONVERT_DEFAULT_ALIAS = {
+    "MetaClip2WorldwideL14": "worldwide_224",
     "MetaClip2WorldwideHugeQuickgelu": "worldwide_224",
     "MetaClip2WorldwideHuge378": "worldwide_378",
     "MetaClip2WorldwideGiant": "worldwide_224",

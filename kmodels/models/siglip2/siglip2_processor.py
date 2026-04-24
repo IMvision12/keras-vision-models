@@ -117,7 +117,7 @@ class SigLIP2Processor(keras.layers.Layer):
         vocab_file: Optional[str] = None,
         context_length: int = 64,
         add_bos: bool = False,
-        add_eos: bool = False,
+        add_eos: bool = True,
         pad_token: str = "<pad>",
         bos_token: str = "<bos>",
         eos_token: str = "<eos>",

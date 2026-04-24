@@ -1,59 +1,32 @@
 import json
-import os
-import re
+from typing import Dict, List, Union
 
 import keras
+import numpy as np
+from tokenizers import AddedToken, Regex, Tokenizer
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
+from tokenizers.models import BPE
+from tokenizers.normalizers import NFC, Lowercase, Replace
+from tokenizers.normalizers import Sequence as NormSeq
+from tokenizers.pre_tokenizers import ByteLevel, Split
+from tokenizers.pre_tokenizers import Sequence as PreSeq
+from tokenizers.processors import RobertaProcessing
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class CLIPTokenizer(keras.Layer):
-    """
-    CLIP Tokenizer Implementation for Keras
+    """CLIP BPE tokenizer, built on HuggingFace `tokenizers` (Rust).
 
-    This module provides a Keras-based implementation of the CLIP tokenizer used in OpenAI's
-    CLIP (Contrastive Language-Image Pre-training) model. The tokenizer converts text into
-    token IDs that can be processed by the CLIP text encoder.
-
-    The tokenizer implements BPE (Byte-Pair Encoding) tokenization with special handling for
-    various text preprocessing steps including Unicode normalization, whitespace cleaning,
-    and special token handling.
+    Wraps a programmatically-assembled `tokenizers.Tokenizer` that matches
+    OpenAI/HF CLIP exactly: NFC + whitespace collapse + lowercase, CLIP's
+    regex split, byte-level BPE over ``vocab.json`` + ``merges.txt``, and
+    ``[BOS] ... [EOS]`` RoBERTa-style post-processing with EOS padding.
 
     Args:
-        vocab_file (str): Path to the vocabulary JSON file
-        merges_file (str): Path to the BPE merges file
-        context_length (int, optional): Maximum context length for padding/truncation. Defaults to 77.
-        errors (str, optional): Error handling strategy for decoding. Defaults to "replace".
-        unk_token (str, optional): Token for unknown words. Defaults to "<|endoftext|>".
-        bos_token (str, optional): Beginning of sequence token. Defaults to "<|startoftext|>".
-        eos_token (str, optional): End of sequence token. Defaults to "<|endoftext|>".
-        pad_token (str, optional): Padding token. Defaults to "<|endoftext|>".
-
-    Key features:
-    - Byte-level BPE tokenization
-    - Support for special tokens (BOS, EOS, PAD, UNK)
-    - Text preprocessing including Unicode normalization and whitespace cleaning
-    - Integration with Keras as a layer for seamless use in neural network pipelines
-
-    Example usage:
-
-        # Initialize the tokenizer with vocabulary and merges files
-        tokenizer = CLIPTokenizer(
-            vocab_file="path/to/vocab.json",
-            merges_file="path/to/merges.txt",
-            context_length=77
-        )
-
-        # Tokenize and encode a single text
-        text = "A photo of a cat"
-        encoded = tokenizer(text)
-
-        # Tokenize a batch of texts
-        texts = ["A photo of a cat", "A painting of a dog"]
-        batch_encoded = tokenizer(texts)
-
-        # Decode token IDs back to text
-        token_ids = encoded["input_ids"][0]
-        decoded_text = tokenizer.detokenize(token_ids)
+        vocab_file: Path to ``vocab.json``.
+        merges_file: Path to ``merges.txt``.
+        context_length: Max sequence length (default 77).
+        unk_token / bos_token / eos_token / pad_token: Special token strings.
     """
 
     def __init__(
@@ -69,251 +42,120 @@ class CLIPTokenizer(keras.Layer):
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.vocab_file = vocab_file
+        self.merges_file = merges_file
         self.context_length = context_length
         self.errors = errors
-
         self.unk_token = unk_token
         self.bos_token = bos_token
         self.eos_token = eos_token
         self.pad_token = pad_token
 
-        self.special_tokens = {
-            "<|startoftext|>": 49406,
-            "<|endoftext|>": 49407,
-        }
-
         with open(vocab_file, "r", encoding="utf-8") as f:
             self.encoder = json.load(f)
         self.decoder = {v: k for k, v in self.encoder.items()}
 
-        self.byte_encoder = self._bytes_to_unicode()
-        self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
+        self.bos_token_id = self.encoder.get(bos_token, 49406)
+        self.eos_token_id = self.encoder.get(eos_token, 49407)
+        self.pad_token_id = self.encoder.get(pad_token, 49407)
+        self.unk_token_id = self.encoder.get(unk_token, 49407)
 
-        if merges_file and os.path.exists(merges_file):
-            with open(merges_file, "r", encoding="utf-8") as f:
-                bpe_merges = f.read().strip().split("\n")
-                if bpe_merges[0].startswith("#version:"):
-                    bpe_merges = bpe_merges[1:]
-            self.bpe_ranks = dict(
-                zip(
-                    [tuple(merge.split()) for merge in bpe_merges],
-                    range(len(bpe_merges)),
-                )
+        tok = Tokenizer(
+            BPE(
+                vocab=vocab_file,
+                merges=merges_file,
+                unk_token=unk_token,
+                end_of_word_suffix="</w>",
+                fuse_unk=False,
             )
-        else:
-            self.bpe_ranks = {}
-
-        self.cache = {
-            "<|startoftext|>": "<|startoftext|>",
-            "<|endoftext|>": "<|endoftext|>",
-        }
-
-        self.pat = re.compile(
-            r"""<\|startoftext\|>|<\|endoftext\|>|'s|'t|'re|'ve|'m|'ll|'d|[^\s\w]|[\w]+|\s+""",
-            re.IGNORECASE,
         )
-
-        self.fix_text = None
-        self.use_ftfy = False
-
-        self.bos_token_id = self.special_tokens.get(self.bos_token, 0)
-        self.eos_token_id = self.special_tokens.get(self.eos_token, 0)
-        self.pad_token_id = self.special_tokens.get(self.pad_token, 0)
-
-    def _bytes_to_unicode(self):
-        bs = (
-            list(range(ord("!"), ord("~") + 1))
-            + list(range(ord("¡"), ord("¬") + 1))
-            + list(range(ord("®"), ord("ÿ") + 1))
+        tok.normalizer = NormSeq([NFC(), Replace(Regex(r"\s+"), " "), Lowercase()])
+        tok.pre_tokenizer = PreSeq(
+            [
+                Split(
+                    pattern=Regex(
+                        r"<\|startoftext\|>|<\|endoftext\|>"
+                        r"|'s|'t|'re|'ve|'m|'ll|'d"
+                        r"|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+"
+                    ),
+                    behavior="removed",
+                    invert=True,
+                ),
+                ByteLevel(add_prefix_space=False, trim_offsets=True, use_regex=False),
+            ]
         )
-        cs = bs[:]
-        n = 0
-        for b in range(2**8):
-            if b not in bs:
-                bs.append(b)
-                cs.append(2**8 + n)
-                n += 1
-        cs = [chr(n) for n in cs]
-        return dict(zip(bs, cs))
-
-    def _get_pairs(self, word):
-        pairs = set()
-        prev_char = word[0]
-        for char in word[1:]:
-            pairs.add((prev_char, char))
-            prev_char = char
-        return pairs
-
-    def _whitespace_clean(self, text):
-        text = re.sub(r"\s+", " ", text)
-        text = text.strip()
-        return text
+        tok.post_processor = RobertaProcessing(
+            sep=(eos_token, self.eos_token_id),
+            cls=(bos_token, self.bos_token_id),
+            trim_offsets=False,
+            add_prefix_space=False,
+        )
+        tok.decoder = ByteLevelDecoder()
+        tok.add_special_tokens(
+            [
+                AddedToken(bos_token, special=True, normalized=False),
+                AddedToken(eos_token, special=True, normalized=False),
+            ]
+        )
+        tok.enable_truncation(max_length=context_length)
+        tok.enable_padding(
+            pad_id=self.pad_token_id,
+            pad_token=pad_token,
+            length=context_length,
+        )
+        self._tok = tok
 
     @property
-    def vocab_size(self):
+    def vocab_size(self) -> int:
         return len(self.encoder)
 
-    def bpe(self, token):
-        if token in self.cache:
-            return self.cache[token]
+    def tokenize(
+        self, text: Union[str, List[str]]
+    ) -> Union[List[int], List[List[int]]]:
+        if isinstance(text, str):
+            enc = self._tok.encode(text, add_special_tokens=False)
+            return enc.ids
+        encs = self._tok.encode_batch(text, add_special_tokens=False)
+        return [e.ids for e in encs]
 
-        word = list(token[:-1]) + [token[-1] + "</w>"]
-        pairs = self._get_pairs(word)
-
-        if not pairs:
-            self.cache[token] = token + "</w>"
-            return token + "</w>"
-
-        while True:
-            bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float("inf")))
-
-            if bigram not in self.bpe_ranks:
-                break
-
-            first, second = bigram
-            new_word = []
-            i = 0
-
-            while i < len(word):
-                try:
-                    j = word.index(first, i)
-                    new_word.extend(word[i:j])
-                    i = j
-                except ValueError:
-                    new_word.extend(word[i:])
-                    break
-
-                if word[i] == first and i < len(word) - 1 and word[i + 1] == second:
-                    new_word.append(first + second)
-                    i += 2
-                else:
-                    new_word.append(word[i])
-                    i += 1
-
-            word = new_word
-            if len(word) == 1:
-                break
-            else:
-                pairs = self._get_pairs(word)
-
-        word = " ".join(word)
-        self.cache[token] = word
-        return word
-
-    def _tokenize_to_bpe_tokens(self, text):
-        text = self._whitespace_clean(text.strip())
-        if not text:
-            return []
-
-        bpe_tokens = []
-
-        tokens = re.findall(self.pat, text)
-
-        for token in tokens:
-            if not token.strip():
-                continue
-
-            token_bytes = token.encode("utf-8")
-            token_unicode = "".join(self.byte_encoder[b] for b in token_bytes)
-
-            bpe_result = self.bpe(token_unicode)
-
-            for bpe_token in bpe_result.split(" "):
-                if bpe_token:
-                    bpe_tokens.append(bpe_token)
-
-        return bpe_tokens
-
-    def tokenize(self, text):
-        if isinstance(text, list):
-            return [self._tokenize_single_text(t) for t in text]
-        else:
-            return self._tokenize_single_text(text)
-
-    def _tokenize_single_text(self, text):
-        if not isinstance(text, str):
-            text = str(text)
-
-        if not text or not text.strip():
-            return []
-
-        bpe_tokens = self._tokenize_to_bpe_tokens(text)
-        token_ids = []
-
-        for token in bpe_tokens:
-            if token in self.encoder:
-                token_ids.append(self.encoder[token])
-            else:
-                token_ids.append(self.encoder.get(self.unk_token, 0))
-
-        return token_ids
-
-    def detokenize(self, token_ids):
+    def detokenize(self, token_ids) -> str:
+        if hasattr(token_ids, "tolist"):
+            token_ids = token_ids.tolist()
         if isinstance(token_ids, int):
             token_ids = [token_ids]
+        skip = {self.bos_token_id, self.eos_token_id, self.pad_token_id}
+        keep = [int(i) for i in token_ids if int(i) not in skip]
+        text = self._tok.decode(keep, skip_special_tokens=False)
+        return text.replace("</w>", " ").strip()
 
-        tokens = []
-        for token_id in token_ids:
-            if token_id in self.decoder:
-                tokens.append(self.decoder[token_id])
+    def prepare_for_model(self, text: str) -> Dict[str, List[int]]:
+        enc = self._tok.encode(text)
+        return {"input_ids": enc.ids, "attention_mask": enc.attention_mask}
 
-        text = "".join(tokens)
-
-        try:
-            byte_array = bytearray([self.byte_decoder.get(c, ord(c)) for c in text])
-            text = byte_array.decode("utf-8", errors=self.errors)
-            text = text.replace("</w>", " ").strip()
-        except Exception:
-            text = ""
-
-        return text
-
-    def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
-        bos_token = [self.bos_token_id]
-        eos_token = [self.eos_token_id]
-        if token_ids_1 is None:
-            return bos_token + token_ids_0 + eos_token
-        return bos_token + token_ids_0 + eos_token + eos_token + token_ids_1 + eos_token
-
-    def create_attention_mask(self, token_ids):
-        mask = [True] * len(token_ids)
-        padding_length = self.context_length - len(mask)
-        if padding_length > 0:
-            mask = mask + [False] * padding_length
-        else:
-            mask = mask[: self.context_length]
-        return mask
-
-    def prepare_for_model(self, text):
-        if isinstance(text, str):
-            token_ids = self._tokenize_single_text(text)
-        else:
-            token_ids = text
-        token_ids = self.build_inputs_with_special_tokens(token_ids)
-        if len(token_ids) > self.context_length:
-            token_ids = token_ids[: self.context_length]
-        attention_mask = self.create_attention_mask(token_ids)
-        padding_length = self.context_length - len(token_ids)
-        if padding_length > 0:
-            token_ids = token_ids + [self.pad_token_id] * padding_length
-        return {"input_ids": token_ids, "attention_mask": attention_mask}
-
-    def call(self, inputs=None):
+    def call(self, inputs: Union[str, List[str]]):
         if inputs is None:
             raise ValueError("No text inputs provided to CLIPTokenizer")
-
-        if isinstance(inputs, str):
-            inputs = [inputs]
-
-        all_token_ids = []
-        all_masks = []
-
-        for text in inputs:
-            prepared_input = self.prepare_for_model(text)
-            all_token_ids.append(prepared_input["input_ids"])
-            all_masks.append(prepared_input["attention_mask"])
-
+        texts = [inputs] if isinstance(inputs, str) else list(inputs)
+        encs = self._tok.encode_batch(texts)
+        ids = np.array([e.ids for e in encs], dtype=np.int32)
+        mask = np.array([e.attention_mask for e in encs], dtype=np.bool_)
         return {
-            "input_ids": keras.ops.convert_to_tensor(all_token_ids, dtype="int32"),
-            "attention_mask": keras.ops.convert_to_tensor(all_masks, dtype="bool"),
+            "input_ids": keras.ops.convert_to_tensor(ids, dtype="int32"),
+            "attention_mask": keras.ops.convert_to_tensor(mask, dtype="bool"),
         }
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "vocab_file": self.vocab_file,
+                "merges_file": self.merges_file,
+                "context_length": self.context_length,
+                "errors": self.errors,
+                "unk_token": self.unk_token,
+                "bos_token": self.bos_token,
+                "eos_token": self.eos_token,
+                "pad_token": self.pad_token,
+            }
+        )
+        return config

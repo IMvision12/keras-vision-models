@@ -10,3 +10,10 @@ Pillow>=10.0.0
 jax[cpu]
 
 keras>=3.11.0
+
+# Used by on-the-fly HF → Keras weight conversion for LLM / VLM variants
+# (Qwen2-VL, MetaCLIP 2 large/huge, SAM3, DINOv3) and by the Rust-backed
+# tokenizers that ship with CLIP / SigLIP / SigLIP2 / Whisper / Qwen2-VL.
+transformers>=4.45.0
+tokenizers>=0.20.0
+huggingface_hub>=0.24.0

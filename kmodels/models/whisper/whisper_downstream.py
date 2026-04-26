@@ -2,19 +2,16 @@
 
 * :class:`WhisperGenerate` — one-call ASR / translation. Bundles a
   :class:`Whisper` + :class:`WhisperProcessor` and runs greedy
-  decoding through :func:`whisper_generate`.
-* :class:`WhisperClassify` — encoder + mean pool + linear head for
-  audio classification (language id, intent, keyword spotting,
-  emotion, ...). Mirrors HuggingFace's
-  ``WhisperForAudioClassification``.
+  decoding to text in one shot.
 """
 
 from typing import List, Optional, Union
 
-import keras
-from keras import layers
+import numpy as np
+from keras import ops
 
-from .whisper_model import Whisper, whisper_generate
+from .config import WHISPER_BEGIN_SUPPRESS_TOKENS, WHISPER_SUPPRESS_TOKENS
+from .whisper_model import Whisper
 from .whisper_processor import WhisperProcessor
 
 
@@ -22,7 +19,7 @@ class WhisperGenerate:
     """Convenience wrapper around a :class:`Whisper` + processor.
 
     Replaces the 6-line ``feature_extractor → get_decoder_prompt_ids →
-    whisper_generate → batch_decode`` chain with a single callable:
+    greedy decode → batch_decode`` chain with a single callable:
 
     >>> model = WhisperBase(weights="openai")
     >>> generator = WhisperGenerate(model, processor)
@@ -30,7 +27,8 @@ class WhisperGenerate:
     ['hello world']
 
     The wrapper holds no trainable state of its own — it just routes
-    arguments to the processor and the underlying greedy decoder.
+    arguments to the processor and runs the inlined greedy decoding
+    loop against ``model.encoder`` / ``model.decoder``.
 
     Args:
         model: A :class:`Whisper` instance (typically returned by
@@ -58,6 +56,16 @@ class WhisperGenerate:
     ) -> Union[List[str], List[List[int]]]:
         """Run audio through the full transcription / translation pipeline.
 
+        Mirrors the key logit processors used by HF Whisper generate:
+
+        * ``forced_decoder_ids`` (built by the processor): at decoded
+          position ``k``, force the output to a specific id — typically
+          ``[(1, lang_id), (2, task_id), (3, 50363)]`` for English
+          no-timestamps transcription.
+        * ``suppress_tokens``: permanently forbid this set of token ids.
+        * ``begin_suppress_tokens``: suppress these only at the very
+          first generated step (e.g. blank/silent tokens).
+
         Args:
             audio: 1-D waveform or list / batched array of waveforms at
                 ``sampling_rate`` Hz.
@@ -73,98 +81,63 @@ class WhisperGenerate:
                 (default ``16000``).
             return_ids: When ``True``, return the raw token-id lists
                 instead of decoded strings.
-            suppress_tokens / begin_suppress_tokens: Forwarded to
-                :func:`whisper_generate`. ``None`` keeps OpenAI's
-                defaults.
+            suppress_tokens / begin_suppress_tokens: Lists of token ids
+                to mask out. ``None`` keeps OpenAI's defaults.
         """
         inputs = self.processor(audio=audio, sampling_rate=sampling_rate)
-        forced = self.processor.get_decoder_prompt_ids(
-            language=language, task=task, no_timestamps=no_timestamps
+        forced = dict(
+            self.processor.get_decoder_prompt_ids(
+                language=language, task=task, no_timestamps=no_timestamps
+            )
         )
-        ids = whisper_generate(
-            self.encoder,
-            self.decoder,
-            inputs["input_features"],
-            forced_decoder_ids=forced,
-            decoder_start_token_id=self.processor.decoder_start_token_id,
-            eos_token_id=self.processor.tokenizer.eos_token_id,
-            max_new_tokens=max_new_tokens,
-            suppress_tokens=suppress_tokens,
-            begin_suppress_tokens=begin_suppress_tokens,
+        decoder_start_token_id = self.processor.decoder_start_token_id
+        eos_token_id = self.processor.tokenizer.eos_token_id
+
+        suppress_set = set(
+            suppress_tokens if suppress_tokens is not None else WHISPER_SUPPRESS_TOKENS
         )
+        begin_suppress_set = set(
+            begin_suppress_tokens
+            if begin_suppress_tokens is not None
+            else WHISPER_BEGIN_SUPPRESS_TOKENS
+        )
+
+        enc_out = self.encoder(inputs["input_features"])
+        enc_np = (
+            ops.convert_to_numpy(enc_out)
+            if not isinstance(enc_out, np.ndarray)
+            else enc_out
+        )
+        batch = enc_np.shape[0]
+
+        generated = np.full((batch, 1), decoder_start_token_id, dtype=np.int32)
+        done = np.zeros(batch, dtype=bool)
+
+        for step in range(max_new_tokens):
+            cur_pos = generated.shape[1]
+            if cur_pos in forced:
+                next_ids = np.full((batch,), forced[cur_pos], dtype=np.int32)
+            else:
+                logits = self.decoder(
+                    {
+                        "decoder_input_ids": generated,
+                        "encoder_hidden_states": enc_np,
+                    }
+                )
+                next_logits = ops.convert_to_numpy(logits)[:, -1, :].copy()
+                if suppress_set:
+                    next_logits[:, list(suppress_set)] = -1e9
+                if step == 0 and begin_suppress_set:
+                    next_logits[:, list(begin_suppress_set)] = -1e9
+                next_ids = np.argmax(next_logits, axis=-1).astype(np.int32)
+
+            next_ids = np.where(done, eos_token_id, next_ids)
+            generated = np.concatenate([generated, next_ids[:, None]], axis=1)
+            done = done | (next_ids == eos_token_id)
+            if done.all():
+                break
+
+        ids = [list(row) for row in generated]
         if return_ids:
             return ids
         return self.processor.batch_decode(ids, skip_special_tokens=True)
-
-
-def WhisperClassify(
-    model: Whisper,
-    num_classes: int,
-    projector_dim: Optional[int] = None,
-    pooling: str = "mean",
-    classifier_dropout: float = 0.0,
-    freeze_encoder: bool = False,
-    name: str = "whisper_classifier",
-) -> keras.Model:
-    """Whisper encoder + projector + temporal pool + linear classifier.
-
-    Drop-in replacement for HuggingFace's
-    ``WhisperForAudioClassification``. Use it for any task that maps a
-    fixed-length audio chunk to a class label — language id, intent,
-    keyword spotting, emotion, speaker id, etc. The decoder is
-    discarded; only the pretrained encoder is reused.
-
-    The architecture is:
-
-    1. ``encoder(input_features)``  →  ``(B, T, d_model)``
-    2. Optional ``Dense(projector_dim)`` projector
-    3. Pool over time (``mean`` / ``max`` / ``first``)
-    4. Optional dropout
-    5. ``Dense(num_classes)`` head → logits
-
-    Returned as a Functional :class:`keras.Model` — supports
-    ``compile`` / ``fit`` / ``save_weights`` / ``load_weights`` like
-    any other Keras model.
-
-    Args:
-        model: A :class:`Whisper` instance (typically returned by
-            ``Whisper{Tiny,Base,...}()``). Only the encoder is used;
-            the decoder is discarded.
-        num_classes: Output class count.
-        projector_dim: When set, insert a ``Dense(projector_dim)``
-            layer between the encoder and the pool. ``None`` (default)
-            keeps ``d_model`` straight through.
-        pooling: ``"mean"`` (default), ``"max"``, or ``"first"``.
-        classifier_dropout: Dropout applied to the pooled vector before
-            the classification head.
-        freeze_encoder: When ``True``, freeze the encoder weights —
-            useful for linear-probe baselines.
-        name: Model name.
-    """
-    if pooling not in ("mean", "max", "first"):
-        raise ValueError(f"pooling must be 'mean', 'max', or 'first'; got {pooling!r}")
-
-    encoder = model.encoder
-    if freeze_encoder:
-        encoder.trainable = False
-
-    inp = encoder.input
-    h = encoder.output  # (B, T, d_model)
-
-    if projector_dim is not None:
-        h = layers.Dense(projector_dim, name="projector")(h)
-
-    if pooling == "mean":
-        pooled = layers.GlobalAveragePooling1D(
-            data_format="channels_last", name="pool"
-        )(h)
-    elif pooling == "max":
-        pooled = layers.GlobalMaxPooling1D(data_format="channels_last", name="pool")(h)
-    else:
-        pooled = layers.Lambda(lambda x: x[:, 0, :], name="pool")(h)
-
-    if classifier_dropout > 0:
-        pooled = layers.Dropout(classifier_dropout, name="classifier_dropout")(pooled)
-
-    logits = layers.Dense(num_classes, name="classifier")(pooled)
-    return keras.Model(inputs=inp, outputs=logits, name=name)

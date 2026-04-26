@@ -20,7 +20,7 @@ class WhisperProcessor(keras.layers.Layer):
     * ``processor.get_decoder_prompt_ids(language, task, no_timestamps)``
       — turns ``("en", "transcribe")`` into the
       ``forced_decoder_ids`` list that
-      :func:`kmodels.models.whisper.whisper_generate` consumes.
+      :class:`kmodels.models.whisper.WhisperGenerate` consumes.
     * ``processor.decode`` / ``processor.batch_decode`` — proxy to the
       tokenizer.
 
@@ -100,7 +100,7 @@ class WhisperProcessor(keras.layers.Layer):
         task: str = "transcribe",
         no_timestamps: bool = True,
     ) -> List[tuple]:
-        """Build the ``forced_decoder_ids`` list for ``whisper_generate``.
+        """Build the ``forced_decoder_ids`` list for ``WhisperGenerate``.
 
         Mirrors HF ``WhisperProcessor.get_decoder_prompt_ids``. The
         returned list is keyed on the **decoded position** (1, 2, 3) —

@@ -1,16 +1,10 @@
 import keras
-import numpy as np
 from keras import layers, ops
 
 from kmodels.model_registry import register_model
 from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
-from .config import (
-    WHISPER_BEGIN_SUPPRESS_TOKENS,
-    WHISPER_MODEL_CONFIG,
-    WHISPER_SUPPRESS_TOKENS,
-    WHISPER_WEIGHTS_CONFIG,
-)
+from .config import WHISPER_MODEL_CONFIG, WHISPER_WEIGHTS_CONFIG
 from .whisper_layers import (
     LearnedPositionEmbedding,
     SinusoidalPositionEmbedding,
@@ -201,10 +195,9 @@ class Whisper(keras.Model):
     >>> out["logits"]                  # (B, L, vocab_size)
 
     This is the teacher-forced training path. For autoregressive
-    inference use :func:`whisper_generate` (or the high-level
-    :class:`WhisperGenerate` wrapper), which calls the encoder once and
-    the decoder per step via the ``model.encoder`` and ``model.decoder``
-    attributes.
+    inference use the :class:`WhisperGenerate` wrapper, which calls the
+    encoder once and the decoder per step via the ``model.encoder`` and
+    ``model.decoder`` attributes.
 
     Args:
         d_model: Hidden / embedding dimension. ``384`` (tiny) →
@@ -446,73 +439,3 @@ def WhisperLargeV3Turbo(weights="openai", name="WhisperLargeV3Turbo", **kwargs):
         print("No weights loaded.")
 
     return model
-
-
-def whisper_generate(
-    encoder_model,
-    decoder_model,
-    input_features,
-    forced_decoder_ids: list = None,
-    decoder_start_token_id: int = 50258,
-    eos_token_id: int = 50257,
-    max_new_tokens: int = 100,
-    suppress_tokens: list = None,
-    begin_suppress_tokens: list = None,
-):
-    """Greedy decoding matching HF's Whisper generate().
-
-    Mirrors the key logit processors used by HF:
-      * ``forced_decoder_ids``: at generation step ``k``, force the output to
-        the given id. Typically ``[(1, lang_id), (2, task_id), (3, 50363)]``
-        for English no-timestamps transcription.
-      * ``suppress_tokens``: permanently forbid this set of token ids.
-      * ``begin_suppress_tokens``: suppress these only at the very first
-        generated step (e.g. blank/silent tokens).
-    """
-    enc_out = encoder_model(input_features)
-    enc_np = (
-        ops.convert_to_numpy(enc_out)
-        if not isinstance(enc_out, np.ndarray)
-        else enc_out
-    )
-    batch = enc_np.shape[0]
-
-    forced = dict(forced_decoder_ids or [])
-    suppress_set = set(
-        suppress_tokens if suppress_tokens is not None else WHISPER_SUPPRESS_TOKENS
-    )
-    begin_suppress_set = set(
-        begin_suppress_tokens
-        if begin_suppress_tokens is not None
-        else WHISPER_BEGIN_SUPPRESS_TOKENS
-    )
-
-    generated = np.full((batch, 1), decoder_start_token_id, dtype=np.int32)
-    done = np.zeros(batch, dtype=bool)
-
-    for step in range(max_new_tokens):
-        cur_pos = generated.shape[1]
-        if cur_pos in forced:
-            forced_id = forced[cur_pos]
-            next_ids = np.full((batch,), forced_id, dtype=np.int32)
-        else:
-            logits = decoder_model(
-                {
-                    "decoder_input_ids": generated,
-                    "encoder_hidden_states": enc_np,
-                }
-            )
-            next_logits = ops.convert_to_numpy(logits)[:, -1, :].copy()
-            if suppress_set:
-                next_logits[:, list(suppress_set)] = -1e9
-            if step == 0 and begin_suppress_set:
-                next_logits[:, list(begin_suppress_set)] = -1e9
-            next_ids = np.argmax(next_logits, axis=-1).astype(np.int32)
-
-        next_ids = np.where(done, eos_token_id, next_ids)
-        generated = np.concatenate([generated, next_ids[:, None]], axis=1)
-        done = done | (next_ids == eos_token_id)
-        if done.all():
-            break
-
-    return [list(row) for row in generated]

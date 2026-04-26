@@ -1,4 +1,4 @@
-from .whisper_downstream import WhisperClassify, WhisperGenerate
+from .whisper_downstream import WhisperGenerate
 from .whisper_feature_extractor import WhisperFeatureExtractor
 from .whisper_model import (
     Whisper,
@@ -12,7 +12,6 @@ from .whisper_model import (
     WhisperTiny,
     build_decoder,
     build_encoder,
-    whisper_generate,
 )
 from .whisper_processor import WhisperProcessor
 from .whisper_tokenizer import WhisperTokenizer
@@ -31,8 +30,6 @@ __all__ = [
     "WhisperTokenizer",
     "WhisperProcessor",
     "WhisperGenerate",
-    "WhisperClassify",
     "build_encoder",
     "build_decoder",
-    "whisper_generate",
 ]

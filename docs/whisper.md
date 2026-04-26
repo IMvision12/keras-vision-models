@@ -100,9 +100,8 @@ model = Whisper(
   (adds Cantonese).
 - **Speech-to-text translation**: any supported language to English via
   the `<|translate|>` task token.
-- **High-level wrappers**: `WhisperGenerate` for one-call ASR /
-  translation, `WhisperClassify` for audio-classification heads
-  (drop-in replacement for HF's `WhisperForAudioClassification`).
+- **High-level wrapper**: `WhisperGenerate` for one-call ASR /
+  translation (audio in, text out).
 - **Single processor entry point**: `WhisperProcessor` bundles the
   feature extractor, tokenizer, and `forced_decoder_ids` builder —
   matches the HF API surface so port code is one-liner equivalent.
@@ -176,24 +175,19 @@ ids = generator(wave, language="en", return_ids=True)   # List[List[int]]
 
 ### Using the lower-level API directly
 
-`WhisperGenerate` is a thin wrapper around three building blocks. If
-you need custom decoding (beam search, prefix scoring, KV-cache, etc.),
-work with them directly:
+If you need custom decoding (beam search, prefix scoring, KV-cache,
+etc.), call ``model.encoder`` and ``model.decoder`` directly:
 
 ```python
-from kmodels.models.whisper import whisper_generate
-
 inputs = processor(audio=wave, sampling_rate=16000)
 forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
 
-ids = whisper_generate(
-    model.encoder, model.decoder, inputs["input_features"],
-    forced_decoder_ids=forced,
-    decoder_start_token_id=processor.decoder_start_token_id,
-    eos_token_id=processor.tokenizer.eos_token_id,
-    max_new_tokens=224,
-)
-print(processor.batch_decode(ids, skip_special_tokens=True))
+# Encode once.
+enc_out = model.encoder(inputs["input_features"])
+
+# Then drive decoding however you like — call model.decoder per step
+# with {"decoder_input_ids": ids, "encoder_hidden_states": enc_out}
+# and apply your own logits processors / search strategy.
 ```
 
 ### Large-v3 / large-v3-turbo
@@ -322,90 +316,36 @@ use.
 
 ## Generation
 
-`whisper_generate` is a small greedy decoding loop matching HF's
-default Whisper generate. It supports:
+The greedy decoding loop is bundled into :class:`WhisperGenerate`
+(matches HF's default Whisper generate). It supports the same logit
+processors:
 
-- `forced_decoder_ids`: at decoded position `k`, force a specific token.
-  This is how OpenAI / HF inject the language + task + no-timestamps
-  prefix at positions 1 / 2 / 3.
+- `forced_decoder_ids` (built by `processor.get_decoder_prompt_ids`):
+  at decoded position `k`, force a specific token. This is how OpenAI
+  / HF inject the language + task + no-timestamps prefix at positions
+  1 / 2 / 3.
 - `suppress_tokens`: permanently masked token ids. Defaults to OpenAI's
   hard-coded list of 88 ids (punctuation-only / non-speech).
 - `begin_suppress_tokens`: masked only at the first decoded step.
   Defaults to `[220, 50257]` (space + `<|endoftext|>`).
 
 ```python
-from kmodels.models.whisper import whisper_generate
 from kmodels.models.whisper.config import WHISPER_SUPPRESS_TOKENS
 
-forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
-ids = whisper_generate(
-    encoder, decoder, inputs["input_features"],
-    forced_decoder_ids=forced,
-    decoder_start_token_id=processor.decoder_start_token_id,
-    eos_token_id=processor.tokenizer.eos_token_id,
+generator = WhisperGenerate(model, processor)
+text = generator(
+    wave,
+    language="en", task="transcribe",
     max_new_tokens=224,
-    suppress_tokens=WHISPER_SUPPRESS_TOKENS,   # default
-    begin_suppress_tokens=[220, 50257],        # default
+    suppress_tokens=WHISPER_SUPPRESS_TOKENS,   # default when None
+    begin_suppress_tokens=[220, 50257],        # default when None
 )
 ```
 
-`encoder(mel)` and `decoder({"decoder_input_ids": ids,
+`model.encoder(mel)` and `model.decoder({"decoder_input_ids": ids,
 "encoder_hidden_states": enc_out})` are also exposed directly for
 custom decoding loops (beam search, prefix scoring, KV-cache
 implementations, etc.).
-
-## Audio Classification
-
-`WhisperClassify` reuses the pretrained encoder for any task that maps
-a fixed-length audio chunk to a class label — language id, intent
-detection, keyword spotting, emotion recognition, speaker id, etc. It
-mirrors HuggingFace's `WhisperForAudioClassification`.
-
-Architecture:
-
-1. ``encoder(input_features)``  →  ``(B, T, d_model)``
-2. Optional ``Dense(projector_dim)`` projector
-3. Pool over time (``mean`` / ``max`` / ``first``)
-4. Optional dropout
-5. ``Dense(num_classes)`` head → logits
-
-Returned as a Functional `keras.Model` — `load_weights` a fine-tuned
-checkpoint and call it on log-mel features:
-
-```python
-from kmodels.models.whisper import (
-    WhisperBase, WhisperProcessor, WhisperClassify,
-)
-
-model = WhisperBase(weights="openai")
-processor = WhisperProcessor(variant="v1")
-
-clf = WhisperClassify(
-    model,
-    num_classes=10,           # e.g. 10 keyword classes
-    pooling="mean",           # "mean" | "max" | "first"
-)
-clf.load_weights("path/to/finetuned_classifier.weights.h5")
-
-# raw_audio: 1-D float32 in [-1, 1] at 16 kHz (or batched / list of waves)
-input_features = processor(audio=raw_audio, sampling_rate=16000)["input_features"]
-logits = clf(input_features)         # (B, num_classes)
-pred = int(logits.numpy().argmax(-1)[0])
-```
-
-### Optional projector
-
-Insert a lower-rank `Dense` between the encoder and the pool — useful
-when `d_model` is large (1024 / 1280 in medium / large variants):
-
-```python
-clf = WhisperClassify(
-    model,
-    num_classes=8,
-    projector_dim=256,        # encoder d_model -> 256 -> num_classes
-    pooling="mean",
-)
-```
 
 ## Fine-tuning
 

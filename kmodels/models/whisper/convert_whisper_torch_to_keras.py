@@ -1,16 +1,3 @@
-"""Port HF Whisper PyTorch weights into the kmodels Keras Whisper.
-
-Usage (from repo root):
-
-    python -m kmodels.models.whisper.convert_whisper_torch_to_keras \\
-        --variant tiny --out-dir .
-
-Produces a single ``whisper{variant}_openai.weights.h5`` file holding
-both the encoder and decoder sub-graphs of a :class:`WhisperModel`. The
-file is loaded directly via ``WhisperTiny(weights="openai")`` (or
-``model.load_weights(path)``).
-"""
-
 import argparse
 import os
 import sys

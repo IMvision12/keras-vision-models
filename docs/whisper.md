@@ -56,14 +56,14 @@ release tag and downloaded on first use, then cached locally.
 ## Model
 
 Every variant factory (`WhisperTiny`, `WhisperBase`, ...) returns a
-`WhisperModel` — a `keras.Model` Functional subclass that wires the
+`Whisper` — a `keras.Model` Functional subclass that wires the
 encoder and decoder into a single graph. The encoder and decoder are
 exposed as attributes for inference / generation paths:
 
 ```python
 from kmodels.models.whisper import WhisperTiny
 
-model = WhisperTiny(weights="openai")        # WhisperModel instance
+model = WhisperTiny(weights="openai")        # Whisper instance
 
 model.encoder        # keras.Model: input_features -> (B, T, d_model)
 model.decoder        # keras.Model: {decoder_input_ids, encoder_hidden_states} -> logits
@@ -83,9 +83,9 @@ The class is also constructable directly with custom hyperparameters
 for from-scratch training:
 
 ```python
-from kmodels.models.whisper import WhisperModel
+from kmodels.models.whisper import Whisper
 
-model = WhisperModel(
+model = Whisper(
     d_model=384,
     encoder_layers=4, decoder_layers=4,
     encoder_attention_heads=6, decoder_attention_heads=6,

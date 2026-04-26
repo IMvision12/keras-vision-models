@@ -190,7 +190,7 @@ def build_decoder(cfg, name="decoder"):
     )
 
 
-class WhisperModel(keras.Model):
+class Whisper(keras.Model):
     """Whisper encoder-decoder transformer for ASR / translation.
 
     Wires :func:`build_encoder` and :func:`build_decoder` into a single
@@ -227,7 +227,7 @@ class WhisperModel(keras.Model):
             prompt prefix. Always ``448``.
         vocab_size: Token vocabulary size. ``51865`` for v1 variants,
             ``51866`` for v3 (adds Cantonese language id).
-        name: Model name. Defaults to ``"WhisperModel"``.
+        name: Model name. Defaults to ``"Whisper"``.
         **kwargs: Additional ``keras.Model`` keyword arguments.
     """
 
@@ -244,7 +244,7 @@ class WhisperModel(keras.Model):
         max_source_positions=1500,
         max_target_positions=448,
         vocab_size=51865,
-        name="WhisperModel",
+        name="Whisper",
         **kwargs,
     ):
         cfg = {
@@ -328,12 +328,12 @@ class WhisperModel(keras.Model):
         return cls(**config)
 
 
-def _build_variant(variant_key: str, weights=None, name=None, **kwargs):
-    cfg = WHISPER_MODEL_CONFIG[variant_key]
-    model = WhisperModel(**cfg, name=name or variant_key, **kwargs)
+@register_model
+def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperTiny"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
-        load_weights_from_config(variant_key, weights, model, WHISPER_WEIGHTS_CONFIG)
+        load_weights_from_config("WhisperTiny", weights, model, WHISPER_WEIGHTS_CONFIG)
     elif weights is not None:
         model.load_weights(weights)
     else:
@@ -343,43 +343,109 @@ def _build_variant(variant_key: str, weights=None, name=None, **kwargs):
 
 
 @register_model
-def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
-    return _build_variant("WhisperTiny", weights, name, **kwargs)
-
-
-@register_model
 def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
-    return _build_variant("WhisperBase", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperBase"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config("WhisperBase", weights, model, WHISPER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
 def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
-    return _build_variant("WhisperSmall", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperSmall"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config("WhisperSmall", weights, model, WHISPER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
 def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
-    return _build_variant("WhisperMedium", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperMedium"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "WhisperMedium", weights, model, WHISPER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
 def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
-    return _build_variant("WhisperLarge", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLarge"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config("WhisperLarge", weights, model, WHISPER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
 def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
-    return _build_variant("WhisperLargeV2", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV2"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "WhisperLargeV2", weights, model, WHISPER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
 def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
-    return _build_variant("WhisperLargeV3", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "WhisperLargeV3", weights, model, WHISPER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 @register_model
 def WhisperLargeV3Turbo(weights="openai", name="WhisperLargeV3Turbo", **kwargs):
-    return _build_variant("WhisperLargeV3Turbo", weights, name, **kwargs)
+    model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3Turbo"], name=name, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config(
+            "WhisperLargeV3Turbo", weights, model, WHISPER_WEIGHTS_CONFIG
+        )
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
 def whisper_generate(

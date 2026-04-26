@@ -1,7 +1,7 @@
 """Downstream task wrappers for Whisper.
 
 * :class:`WhisperGenerate` — one-call ASR / translation. Bundles a
-  :class:`WhisperModel` + :class:`WhisperProcessor` and runs greedy
+  :class:`Whisper` + :class:`WhisperProcessor` and runs greedy
   decoding through :func:`whisper_generate`.
 * :class:`WhisperClassify` — encoder + mean pool + linear head for
   audio classification (language id, intent, keyword spotting,
@@ -14,12 +14,12 @@ from typing import List, Optional, Union
 import keras
 from keras import layers
 
-from .whisper_model import WhisperModel, whisper_generate
+from .whisper_model import Whisper, whisper_generate
 from .whisper_processor import WhisperProcessor
 
 
 class WhisperGenerate:
-    """Convenience wrapper around a :class:`WhisperModel` + processor.
+    """Convenience wrapper around a :class:`Whisper` + processor.
 
     Replaces the 6-line ``feature_extractor → get_decoder_prompt_ids →
     whisper_generate → batch_decode`` chain with a single callable:
@@ -33,13 +33,13 @@ class WhisperGenerate:
     arguments to the processor and the underlying greedy decoder.
 
     Args:
-        model: A :class:`WhisperModel` instance (typically returned by
+        model: A :class:`Whisper` instance (typically returned by
             ``Whisper{Tiny,Base,...}()``).
         processor: A :class:`WhisperProcessor` matching the model's
             tokenizer variant + mel bin count.
     """
 
-    def __init__(self, model: WhisperModel, processor: WhisperProcessor):
+    def __init__(self, model: Whisper, processor: WhisperProcessor):
         self.encoder = model.encoder
         self.decoder = model.decoder
         self.processor = processor
@@ -98,7 +98,7 @@ class WhisperGenerate:
 
 
 def WhisperClassify(
-    model: WhisperModel,
+    model: Whisper,
     num_classes: int,
     projector_dim: Optional[int] = None,
     pooling: str = "mean",
@@ -127,7 +127,7 @@ def WhisperClassify(
     any other Keras model.
 
     Args:
-        model: A :class:`WhisperModel` instance (typically returned by
+        model: A :class:`Whisper` instance (typically returned by
             ``Whisper{Tiny,Base,...}()``). Only the encoder is used;
             the decoder is discarded.
         num_classes: Output class count.

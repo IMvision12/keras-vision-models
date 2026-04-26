@@ -58,6 +58,9 @@ release tag on first use, then cached locally.
   (adds Cantonese).
 - **Speech-to-text translation**: any supported language to English via
   the `<|translate|>` task token.
+- **High-level wrappers**: `WhisperGenerate` for one-call ASR /
+  translation, `WhisperClassify` for audio-classification heads
+  (drop-in replacement for HF's `WhisperForAudioClassification`).
 - **Single processor entry point**: `WhisperProcessor` bundles the
   feature extractor, tokenizer, and `forced_decoder_ids` builder —
   matches the HF API surface so port code is one-liner equivalent.
@@ -69,89 +72,86 @@ release tag on first use, then cached locally.
 
 ## Basic Usage
 
+The shortest path is `WhisperGenerate` — one callable that wraps
+encoder + decoder + processor + greedy decoding.
+
 ```python
 from kmodels.models.whisper import (
-    WhisperTiny,
-    WhisperProcessor,
-    whisper_generate,
+    WhisperTiny, WhisperProcessor, WhisperGenerate,
 )
 
 bundle = WhisperTiny(weights="openai")
-encoder, decoder = bundle["encoder"], bundle["decoder"]
+processor = WhisperProcessor(variant="v1")    # 51865 vocab, 80 mels
 
-# variant="v1" (51865 vocab, 80 mels) for tiny..large-v2
-processor = WhisperProcessor(variant="v1")
+generator = WhisperGenerate.from_bundle(bundle, processor)
 
 # raw_audio: 1-D float32 in [-1, 1] at 16 kHz
-inputs = processor(audio=raw_audio, sampling_rate=16000)
-forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
-
-ids = whisper_generate(
-    encoder, decoder, inputs["input_features"],
-    forced_decoder_ids=forced,
-    decoder_start_token_id=processor.decoder_start_token_id,
-    eos_token_id=processor.tokenizer.eos_token_id,
-    max_new_tokens=128,
-)
-print(processor.decode(ids[0], skip_special_tokens=True))
+text = generator(raw_audio, language="en", task="transcribe")
+print(text)        # ['hello world']
 ```
 
 ## End-to-End ASR Example
 
-Full pipeline on a real `.wav` file using `librosa` to load audio.
-Works on any Keras 3 backend.
+Full pipeline on a real `.wav` file. Works on any Keras 3 backend.
 
 ```python
 import librosa
 from kmodels.models.whisper import (
-    WhisperBase,
-    WhisperProcessor,
-    whisper_generate,
+    WhisperBase, WhisperProcessor, WhisperGenerate,
 )
 
-# 1) build model + processor
 bundle = WhisperBase(weights="openai")
 processor = WhisperProcessor(variant="v1")
+generator = WhisperGenerate.from_bundle(bundle, processor)
 
-# 2) load audio at 16 kHz mono
 wave, _ = librosa.load("speech.wav", sr=16000, mono=True)
-
-# 3) audio -> log-mel + decoder prompt ids
-inputs = processor(audio=wave, sampling_rate=16000)
-forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
-
-# 4) greedy decode
-ids = whisper_generate(
-    bundle["encoder"], bundle["decoder"], inputs["input_features"],
-    forced_decoder_ids=forced,
-    decoder_start_token_id=processor.decoder_start_token_id,
-    max_new_tokens=224,
-)
-print(processor.decode(ids[0], skip_special_tokens=True))
+print(generator(wave, language="en", task="transcribe", max_new_tokens=224))
 ```
 
 ### Translation to English
 
-Swap `task="transcribe"` for `task="translate"`. The processor looks
-up the right token ids — no magic numbers needed:
+Swap `task="transcribe"` for `task="translate"` — `WhisperGenerate`
+looks up the right token ids internally:
 
 ```python
-forced = processor.get_decoder_prompt_ids(language="fr", task="translate")
-ids = whisper_generate(
-    bundle["encoder"], bundle["decoder"], inputs["input_features"],
-    forced_decoder_ids=forced,
-    decoder_start_token_id=processor.decoder_start_token_id,
-    max_new_tokens=224,
-)
+text = generator(wave, language="fr", task="translate", max_new_tokens=224)
 ```
 
 ### Auto language detection
 
 Pass `language=None` to drop the language slot from the prompt — the
-decoder will pick the language from its own logits at position 1.
+decoder picks the language from its own logits at position 1.
 
 ```python
-forced = processor.get_decoder_prompt_ids(language=None, task="transcribe")
+text = generator(wave, language=None, task="transcribe")
+```
+
+### Returning token ids instead of text
+
+```python
+ids = generator(wave, language="en", return_ids=True)   # List[List[int]]
+```
+
+### Using the lower-level API directly
+
+`WhisperGenerate` is a thin wrapper around three building blocks. If
+you need custom decoding (beam search, prefix scoring, KV-cache, etc.),
+work with them directly:
+
+```python
+from kmodels.models.whisper import whisper_generate
+
+inputs = processor(audio=wave, sampling_rate=16000)
+forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
+
+ids = whisper_generate(
+    bundle["encoder"], bundle["decoder"], inputs["input_features"],
+    forced_decoder_ids=forced,
+    decoder_start_token_id=processor.decoder_start_token_id,
+    eos_token_id=processor.tokenizer.eos_token_id,
+    max_new_tokens=224,
+)
+print(processor.batch_decode(ids, skip_special_tokens=True))
 ```
 
 ### Large-v3 / large-v3-turbo
@@ -311,6 +311,81 @@ ids = whisper_generate(
 "encoder_hidden_states": enc_out})` are also exposed directly for
 custom decoding loops (beam search, prefix scoring, KV-cache
 implementations, etc.).
+
+## Audio Classification
+
+`WhisperClassify` reuses the pretrained encoder for any task that maps
+a fixed-length audio chunk to a class label — language id, intent
+detection, keyword spotting, emotion recognition, speaker id, etc. It
+mirrors HuggingFace's `WhisperForAudioClassification`.
+
+Architecture:
+
+1. ``encoder(input_features)``  →  ``(B, T, d_model)``
+2. Optional ``Dense(projector_dim)`` projector
+3. Pool over time (``mean`` / ``max`` / ``first``)
+4. Optional dropout
+5. ``Dense(num_classes)`` head → logits
+
+Returned as a Functional `keras.Model` — use `compile` / `fit` /
+`save_weights` / `load_weights` like any other Keras model.
+
+```python
+import keras
+from kmodels.models.whisper import (
+    WhisperBase, WhisperProcessor, WhisperClassify,
+)
+
+bundle = WhisperBase(weights="openai")
+processor = WhisperProcessor(variant="v1")
+
+clf = WhisperClassify(
+    bundle["encoder"],
+    num_classes=10,           # e.g. 10 keyword classes
+    pooling="mean",           # "mean" | "max" | "first"
+    classifier_dropout=0.1,
+    freeze_encoder=False,     # set True for linear-probe baselines
+)
+
+clf.compile(
+    optimizer=keras.optimizers.AdamW(1e-5),
+    loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+    metrics=["sparse_categorical_accuracy"],
+)
+
+# input_features: (B, n_mels, 3000) — `processor(audio=...)["input_features"]`
+# labels:         (B,)              int class ids
+clf.fit(input_features, labels, epochs=5, batch_size=8)
+```
+
+### Linear probe (frozen encoder)
+
+Set `freeze_encoder=True` to train just the classification head — fast,
+small data regime, useful as a representation-quality baseline:
+
+```python
+clf = WhisperClassify(
+    bundle["encoder"],
+    num_classes=99,           # e.g. 99-language id
+    freeze_encoder=True,
+)
+# Only the projector + classifier weights receive gradients.
+```
+
+### Optional projector
+
+Insert a lower-rank `Dense` between the encoder and the pool — useful
+when `d_model` is large (1024 / 1280 in medium / large variants) and
+the dataset is small:
+
+```python
+clf = WhisperClassify(
+    bundle["encoder"],
+    num_classes=8,
+    projector_dim=256,        # encoder d_model -> 256 -> num_classes
+    pooling="mean",
+)
+```
 
 ## Fine-tuning
 

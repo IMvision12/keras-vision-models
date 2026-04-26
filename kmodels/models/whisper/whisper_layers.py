@@ -126,6 +126,9 @@ class SinusoidalPositionEmbedding(keras.layers.Layer):
         pe = self.pos_embed[:seq_len]
         return inputs + pe
 
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
     def get_config(self):
         config = super().get_config()
         config.update(
@@ -164,6 +167,9 @@ class LearnedPositionEmbedding(keras.layers.Layer):
         start = past_key_values_length
         pe = self.pos_embed[start : start + seq_len]
         return inputs + pe
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
     def get_config(self):
         config = super().get_config()

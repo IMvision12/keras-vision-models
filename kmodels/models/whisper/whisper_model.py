@@ -16,7 +16,7 @@ def _gelu(x):
     return keras.activations.gelu(x, approximate=False)
 
 
-def encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
+def whisper_encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
     prefix = f"encoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -37,7 +37,7 @@ def encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
     return x
 
 
-def decoder_block(
+def whisper_decoder_block(
     x, encoder_hidden_states, causal_mask, d_model, num_heads, ffn_dim, layer_idx
 ):
     prefix = f"decoder_layers_{layer_idx}"
@@ -70,14 +70,12 @@ def decoder_block(
     return x
 
 
-def build_encoder(cfg, name="encoder"):
+def whisper_encoder(cfg, name="encoder"):
     d_model = cfg["d_model"]
     num_mel_bins = cfg["num_mel_bins"]
     max_src = cfg["max_source_positions"]
 
-    # Input: (batch, n_mels, time) matching HF's (B, 80, 3000) convention.
     mel = layers.Input(shape=(num_mel_bins, None), name="input_features")
-    # Move to channels-last for conv1d: (B, time, n_mels)
     x = layers.Permute((2, 1), name="encoder_permute_in")(mel)
 
     x = layers.ZeroPadding1D(padding=1, name="encoder_conv1_pad")(x)
@@ -106,7 +104,7 @@ def build_encoder(cfg, name="encoder"):
     )(x)
 
     for i in range(cfg["encoder_layers"]):
-        x = encoder_block(
+        x = whisper_encoder_block(
             x,
             d_model=d_model,
             num_heads=cfg["encoder_attention_heads"],
@@ -126,7 +124,7 @@ def _make_causal_mask_from_ids(decoder_input_ids):
     return mask[None, None, :, :]
 
 
-def build_decoder(cfg, name="decoder"):
+def whisper_decoder(cfg, name="decoder"):
     d_model = cfg["d_model"]
     max_tgt = cfg["max_target_positions"]
     vocab_size = cfg["vocab_size"]
@@ -155,7 +153,7 @@ def build_decoder(cfg, name="decoder"):
     )(decoder_input_ids)
 
     for i in range(cfg["decoder_layers"]):
-        x = decoder_block(
+        x = whisper_decoder_block(
             x,
             encoder_hidden_states=encoder_hidden_states,
             causal_mask=causal_mask,
@@ -167,7 +165,6 @@ def build_decoder(cfg, name="decoder"):
 
     x = layers.LayerNormalization(epsilon=1e-5, name="decoder_layer_norm")(x)
 
-    # Tied embedding: logits = x @ embed_tokens.T
     embed_weight = tok_embed.embeddings
     logits = layers.Lambda(
         lambda t, w=embed_weight: ops.matmul(t, ops.transpose(w, (1, 0))),
@@ -187,7 +184,7 @@ def build_decoder(cfg, name="decoder"):
 class Whisper(keras.Model):
     """Whisper encoder-decoder transformer for ASR / translation.
 
-    Wires :func:`build_encoder` and :func:`build_decoder` into a single
+    Wires :func:`whisper_encoder` and :func:`whisper_decoder` into a single
     Functional graph so the full model can be called with one dict:
 
     >>> out = model({"input_features": mel, "decoder_input_ids": ids})
@@ -254,8 +251,8 @@ class Whisper(keras.Model):
             "vocab_size": vocab_size,
         }
 
-        encoder = build_encoder(cfg, name=f"{name}_encoder")
-        decoder = build_decoder(cfg, name=f"{name}_decoder")
+        encoder = whisper_encoder(cfg, name=f"{name}_encoder")
+        decoder = whisper_decoder(cfg, name=f"{name}_decoder")
 
         input_features = layers.Input(shape=(num_mel_bins, None), name="input_features")
         decoder_input_ids = layers.Input(

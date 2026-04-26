@@ -5,20 +5,47 @@ from keras import ops
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class WhisperAttention(keras.layers.Layer):
-    """Multi-head attention for Whisper, shared between self-attn and cross-attn.
+    """Multi-head attention shared between Whisper self-attention and cross-attention.
 
-    Matches HF ``WhisperAttention`` exactly: Q/O have bias, K has no bias,
-    V has bias. When ``key_value_states`` is passed to ``call``, the layer
-    operates in cross-attention mode (K/V come from encoder states instead
-    of hidden_states).
+    Reproduces HF ``WhisperAttention`` bit-for-bit. Each instance owns
+    four ``Dense`` projections — Q, K, V, output — with biases on
+    Q / V / output and no bias on K. Scaling by ``1 / sqrt(head_dim)``
+    is applied to the Q output **before** the scaled dot-product
+    (``q *= scale`` then ``q @ k.T``), matching the reference
+    implementation.
 
-    Note: HF uses standard scaled dot-product attention with scale = 1/sqrt(head_dim)
-    applied to the Q projection output (i.e. ``q *= scale`` before matmul).
+    The same layer handles two attention modes via the optional
+    ``key_value_states`` argument to ``call``:
+
+    * **Self-attention** (default): ``key_value_states is None`` — keys
+      and values are projected from ``hidden_states``.
+    * **Cross-attention**: ``key_value_states`` is the encoder output —
+      queries come from ``hidden_states`` (the decoder input), keys and
+      values come from the encoder.
+
+    A causal / padding mask of any shape broadcastable to
+    ``(B, num_heads, T_q, T_kv)`` may be added to the pre-softmax
+    scores via ``attention_mask``.
 
     Args:
-        proj_dim: Total projection dimension (``d_model``).
+        proj_dim: Total projection dimension (``d_model``). Must be
+            divisible by ``num_heads``.
         num_heads: Number of attention heads.
-        name_prefix: Optional prefix used for sub-layer names (matches HF).
+        name_prefix: Optional string prepended to the inner ``Dense``
+            layer names. Whisper uses this to mirror the HF naming
+            convention (e.g. ``"encoder_layers_0_self_attn_q_proj"``).
+            When ``None``, the inner layers are named ``q_proj``,
+            ``k_proj``, ``v_proj``, ``out_proj``.
+        **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
+
+    Input Shape:
+        - ``hidden_states``: ``(B, T_q, proj_dim)``.
+        - ``key_value_states`` (optional): ``(B, T_kv, proj_dim)``.
+        - ``attention_mask`` (optional): broadcastable to
+          ``(B, num_heads, T_q, T_kv)``.
+
+    Output Shape:
+        ``(B, T_q, proj_dim)``.
     """
 
     def __init__(self, proj_dim, num_heads, name_prefix=None, **kwargs):
@@ -49,12 +76,30 @@ class WhisperAttention(keras.layers.Layer):
         self.built = True
 
     def _split_heads(self, x):
+        """Reshape ``(B, T, proj_dim)`` to ``(B, num_heads, T, head_dim)``."""
         b = ops.shape(x)[0]
         t = ops.shape(x)[1]
         x = ops.reshape(x, (b, t, self.num_heads, self.head_dim))
         return ops.transpose(x, (0, 2, 1, 3))
 
     def call(self, hidden_states, key_value_states=None, attention_mask=None):
+        """Run scaled dot-product attention.
+
+        Args:
+            hidden_states: Query tensor of shape
+                ``(B, T_q, proj_dim)``.
+            key_value_states: Optional ``(B, T_kv, proj_dim)`` tensor.
+                When supplied, switches the layer to cross-attention
+                mode (K and V are projected from this tensor instead of
+                from ``hidden_states``).
+            attention_mask: Optional additive mask broadcastable to
+                ``(B, num_heads, T_q, T_kv)``. Large negative entries
+                (typically ``-1e9``) zero out positions after softmax;
+                ``0`` entries pass through unchanged.
+
+        Returns:
+            Attention output of shape ``(B, T_q, proj_dim)``.
+        """
         batch_size = ops.shape(hidden_states)[0]
         kv = key_value_states if key_value_states is not None else hidden_states
 
@@ -91,12 +136,32 @@ class WhisperAttention(keras.layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class SinusoidalPositionEmbedding(keras.layers.Layer):
-    """Whisper's fixed sinusoidal position embedding for the encoder.
+    """Fixed sinusoidal position embedding for the Whisper encoder.
 
-    Produces a ``(max_source_positions, d_model)`` embedding table following
-    the original Whisper (and "Attention Is All You Need") formulation.
+    Builds a non-trainable ``(max_source_positions, d_model)`` embedding
+    table from the original "Attention Is All You Need" sinusoid
+    formulation: the first half of the channels carry sines, the second
+    half carry cosines, with timescales geometrically interpolated from
+    ``1`` to ``10000``. The first ``T`` rows are sliced and added to
+    the input, where ``T`` is the encoder sequence length (post
+    stride-2 conv stem, so ``T == 1500`` for a full 30-second chunk).
 
-    Used only by the encoder — the decoder uses a learned table.
+    Used only by :func:`whisper_encoder` — the decoder uses
+    :class:`LearnedPositionEmbedding` instead.
+
+    Args:
+        max_source_positions: Number of position rows to materialize.
+            Always ``1500`` for Whisper (= 30 s of 16 kHz audio with
+            320-sample stride after the conv stem).
+        d_model: Embedding dimension. Must be even (split into a sine
+            half and a cosine half).
+        **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
+
+    Input Shape:
+        ``(B, T, d_model)`` with ``T <= max_source_positions``.
+
+    Output Shape:
+        Same as input.
     """
 
     def __init__(self, max_source_positions, d_model, **kwargs):
@@ -142,10 +207,28 @@ class SinusoidalPositionEmbedding(keras.layers.Layer):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class LearnedPositionEmbedding(keras.layers.Layer):
-    """Whisper's learned position embedding table for the decoder.
+    """Trainable position embedding table for the Whisper decoder.
 
-    Matches ``nn.Embedding(max_target_positions, d_model)`` with a fixed
-    offset of 0 and is added to the token embeddings at position ``[:T]``.
+    Mirrors the HF ``nn.Embedding(max_target_positions, d_model)`` used
+    in the Whisper decoder: a ``(max_target_positions, d_model)`` weight
+    is initialized to zero and learned during training. At call time,
+    rows ``[start : start + T]`` are added to the token embeddings,
+    where ``start = past_key_values_length``. With the current
+    no-cache implementation ``start`` is always ``0``; the parameter is
+    kept in the signature for API symmetry with HF's KV-cache path.
+
+    Args:
+        max_target_positions: Number of position rows in the table.
+            Always ``448`` for Whisper, the maximum supported decoded
+            sequence length including the prompt prefix.
+        d_model: Embedding dimension.
+        **kwargs: Additional ``keras.layers.Layer`` keyword arguments.
+
+    Input Shape:
+        ``(B, T, d_model)``.
+
+    Output Shape:
+        Same as input.
     """
 
     def __init__(self, max_target_positions, d_model, **kwargs):
@@ -163,6 +246,19 @@ class LearnedPositionEmbedding(keras.layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs, past_key_values_length=0):
+        """Add the position embedding rows for the current decoder window.
+
+        Args:
+            inputs: Token-embedded decoder input of shape
+                ``(B, T, d_model)``.
+            past_key_values_length: Offset into the position table; the
+                slice ``[start : start + T]`` is added to ``inputs``.
+                When running without a KV cache this is always ``0``.
+
+        Returns:
+            ``(B, T, d_model)`` tensor with positional information
+            added in place.
+        """
         seq_len = ops.shape(inputs)[1]
         start = past_key_values_length
         pe = self.pos_embed[start : start + seq_len]

@@ -13,10 +13,41 @@ from .whisper_layers import (
 
 
 def _gelu(x):
+    """Exact GELU (``approximate=False``) — the activation Whisper uses.
+
+    HF and OpenAI's Whisper use the error-function form of GELU, not the
+    tanh approximation that many transformer codebases default to.
+    Wrapping it as a module-level function lets it be passed to
+    :class:`keras.layers.Lambda` and round-trip through serialization.
+    """
     return keras.activations.gelu(x, approximate=False)
 
 
 def whisper_encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
+    """One pre-LN encoder block: self-attention + MLP with residuals.
+
+    Layout matches the HF Whisper encoder layer:
+
+    1. ``LayerNorm`` → :class:`WhisperAttention` (self-attn) → residual.
+    2. ``LayerNorm`` → ``Dense(ffn_dim)`` → exact GELU →
+       ``Dense(d_model)`` → residual.
+
+    All sub-layer names follow the HF convention
+    (``encoder_layers_{i}_self_attn_layer_norm``, ``..._fc1``,
+    ``..._fc2``, ...) so converted PyTorch weights drop in cleanly.
+
+    Args:
+        x: Input tensor of shape ``(B, T, d_model)``.
+        d_model: Hidden / embedding dimension.
+        num_heads: Number of self-attention heads.
+        ffn_dim: MLP intermediate dimension (conventionally
+            ``4 * d_model``).
+        layer_idx: Index of the block within the encoder; used to name
+            sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, T, d_model)``.
+    """
     prefix = f"encoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -40,6 +71,39 @@ def whisper_encoder_block(x, d_model, num_heads, ffn_dim, layer_idx):
 def whisper_decoder_block(
     x, encoder_hidden_states, causal_mask, d_model, num_heads, ffn_dim, layer_idx
 ):
+    """One pre-LN decoder block: self-attn + cross-attn + MLP with residuals.
+
+    Layout matches the HF Whisper decoder layer:
+
+    1. ``LayerNorm`` → :class:`WhisperAttention` self-attn (with
+       ``causal_mask``) → residual.
+    2. ``LayerNorm`` → :class:`WhisperAttention` cross-attn over
+       ``encoder_hidden_states`` → residual.
+    3. ``LayerNorm`` → ``Dense(ffn_dim)`` → exact GELU →
+       ``Dense(d_model)`` → residual.
+
+    All sub-layer names follow the HF convention
+    (``decoder_layers_{i}_self_attn_layer_norm``,
+    ``..._encoder_attn_layer_norm``, ...) so converted PyTorch weights
+    drop in cleanly.
+
+    Args:
+        x: Decoder input tensor of shape ``(B, L, d_model)``.
+        encoder_hidden_states: Encoder output tensor of shape
+            ``(B, T, d_model)`` consumed by the cross-attention K / V
+            projections.
+        causal_mask: Additive mask of shape ``(1, 1, L, L)`` enforcing
+            left-to-right attention in the self-attention sub-layer.
+        d_model: Hidden / embedding dimension.
+        num_heads: Number of attention heads (shared between self-attn
+            and cross-attn).
+        ffn_dim: MLP intermediate dimension.
+        layer_idx: Index of the block within the decoder; used to name
+            sub-layers.
+
+    Returns:
+        Output tensor of shape ``(B, L, d_model)``.
+    """
     prefix = f"decoder_layers_{layer_idx}"
 
     ln_1 = layers.LayerNormalization(
@@ -79,6 +143,37 @@ def whisper_encoder(
     encoder_ffn_dim,
     name="encoder",
 ):
+    """Build the Whisper encoder as a Functional :class:`keras.Model`.
+
+    Architecture (matches HF / OpenAI exactly):
+
+    1. ``input_features`` of shape ``(B, num_mel_bins, T_audio)``
+       permuted to ``(B, T_audio, num_mel_bins)`` for ``Conv1D``.
+    2. Two ``Conv1D`` layers (kernel 3, stride 1 then stride 2) with
+       exact GELU activations and explicit ``ZeroPadding1D(1)``,
+       halving the time axis once.
+    3. :class:`SinusoidalPositionEmbedding` adding fixed position
+       encodings.
+    4. ``encoder_layers`` repetitions of :func:`whisper_encoder_block`.
+    5. Final ``LayerNorm``.
+
+    Args:
+        d_model: Hidden / embedding dimension.
+        num_mel_bins: Number of mel bins in the input log-mel
+            spectrogram (``80`` for v1, ``128`` for v3).
+        max_source_positions: Length of the encoder output time axis
+            after the stride-2 conv. Always ``1500`` for Whisper.
+        encoder_layers: Number of stacked transformer blocks.
+        encoder_attention_heads: Heads per self-attention block.
+        encoder_ffn_dim: MLP intermediate dimension (conventionally
+            ``4 * d_model``).
+        name: Returned model name.
+
+    Returns:
+        ``keras.Model`` mapping
+        ``input_features: (B, num_mel_bins, T_audio)`` →
+        ``(B, max_source_positions, d_model)``.
+    """
     mel = layers.Input(shape=(num_mel_bins, None), name="input_features")
     x = layers.Permute((2, 1), name="encoder_permute_in")(mel)
 
@@ -121,6 +216,16 @@ def whisper_encoder(
 
 
 def _make_causal_mask_from_ids(decoder_input_ids):
+    """Build an additive causal attention mask matching the input length.
+
+    Returns a tensor of shape ``(1, 1, T, T)`` whose ``(i, j)`` entries
+    are ``-1e9`` when ``j > i`` and ``0`` otherwise. Suitable for being
+    added before softmax in :class:`WhisperAttention`.
+
+    Wrapped in a ``keras.layers.Lambda`` inside the decoder graph so
+    the mask shape stays dynamic with the decoded sequence length
+    ``T``.
+    """
     seq_len = ops.shape(decoder_input_ids)[1]
     i = ops.arange(seq_len)[:, None]
     j = ops.arange(seq_len)[None, :]
@@ -137,6 +242,36 @@ def whisper_decoder(
     decoder_ffn_dim,
     name="decoder",
 ):
+    """Build the Whisper decoder as a Functional :class:`keras.Model`.
+
+    Architecture (matches HF / OpenAI exactly):
+
+    1. ``decoder_input_ids`` of shape ``(B, L)`` → token embedding.
+    2. :class:`LearnedPositionEmbedding` added in place.
+    3. ``decoder_layers`` repetitions of :func:`whisper_decoder_block`,
+       each cross-attending to ``encoder_hidden_states``.
+    4. Final ``LayerNorm``.
+    5. Tied LM head: ``logits = x @ embedding_matrix.T`` (no separate
+       output projection — the input embedding weights are reused).
+
+    Args:
+        d_model: Hidden / embedding dimension.
+        max_target_positions: Maximum decoded sequence length the
+            position table supports. Always ``448`` for Whisper.
+        vocab_size: Token vocabulary size (``51865`` for v1,
+            ``51866`` for v3).
+        decoder_layers: Number of stacked transformer blocks.
+        decoder_attention_heads: Heads per attention sub-layer (shared
+            between self-attn and cross-attn).
+        decoder_ffn_dim: MLP intermediate dimension.
+        name: Returned model name.
+
+    Returns:
+        ``keras.Model`` whose dict-input
+        ``{"decoder_input_ids": (B, L),
+        "encoder_hidden_states": (B, T, d_model)}`` maps to
+        ``(B, L, vocab_size)`` logits.
+    """
     decoder_input_ids = layers.Input(
         shape=(None,), dtype="int32", name="decoder_input_ids"
     )
@@ -330,6 +465,19 @@ class Whisper(keras.Model):
 
 @register_model
 def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
+    """Whisper Tiny — 39 M params, 4 enc + 4 dec layers, ``d_model=384``, 80 mel bins.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperTiny"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -344,6 +492,19 @@ def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
 
 @register_model
 def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
+    """Whisper Base — 74 M params, 6 enc + 6 dec layers, ``d_model=512``, 80 mel bins.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperBase"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -358,6 +519,19 @@ def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
 
 @register_model
 def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
+    """Whisper Small — 244 M params, 12 enc + 12 dec layers, ``d_model=768``, 80 mel bins.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperSmall"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -372,6 +546,19 @@ def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
 
 @register_model
 def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
+    """Whisper Medium — 769 M params, 24 enc + 24 dec layers, ``d_model=1024``, 80 mel bins.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperMedium"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -388,6 +575,19 @@ def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
 
 @register_model
 def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
+    """Whisper Large — 1550 M params, 32 enc + 32 dec layers, ``d_model=1280``, 80 mel bins.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLarge"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -402,6 +602,22 @@ def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
 
 @register_model
 def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
+    """Whisper Large-v2 — same architecture as Large, retrained for 2.5x more epochs.
+
+    1550 M params, 32 enc + 32 dec layers, ``d_model=1280``, 80 mel
+    bins. v1 tokenizer (51 865 vocab).
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV2"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -418,6 +634,24 @@ def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
 
 @register_model
 def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
+    """Whisper Large-v3 — Large architecture upgraded to 128 mel bins and v3 tokenizer.
+
+    1550 M params, 32 enc + 32 dec layers, ``d_model=1280``, **128**
+    mel bins. v3 tokenizer (51 866 vocab — adds Cantonese ``yue``).
+    Use :class:`WhisperProcessor` with ``variant="v3"`` and
+    ``n_mels=128`` for matching preprocessing.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -434,6 +668,23 @@ def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
 
 @register_model
 def WhisperLargeV3Turbo(weights="openai", name="WhisperLargeV3Turbo", **kwargs):
+    """Whisper Large-v3-Turbo — Large-v3 encoder + slim 4-layer decoder.
+
+    809 M params, 32 enc + **4** dec layers, ``d_model=1280``, 128 mel
+    bins, v3 tokenizer. ~8x faster decoding than Large-v3 with minor
+    quality loss; quality near Large-v2 on multilingual ASR.
+
+    Args:
+        weights: ``"openai"`` (default) downloads the converted OpenAI
+            checkpoint from the kmodels release tag; ``None`` returns
+            a randomly-initialized model; any other string is treated
+            as a local ``.weights.h5`` path.
+        name: Model name forwarded to :class:`Whisper`.
+        **kwargs: Forwarded to :class:`Whisper`.
+
+    Returns:
+        :class:`Whisper` instance.
+    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3Turbo"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):

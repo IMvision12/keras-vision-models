@@ -80,10 +80,10 @@ from kmodels.models.whisper import (
     WhisperTiny, WhisperProcessor, WhisperGenerate,
 )
 
-bundle = WhisperTiny(weights="openai")
+model = WhisperTiny(weights="openai")
 processor = WhisperProcessor(variant="v1")    # 51865 vocab, 80 mels
 
-generator = WhisperGenerate.from_bundle(bundle, processor)
+generator = WhisperGenerate(model, processor)
 
 # raw_audio: 1-D float32 in [-1, 1] at 16 kHz
 text = generator(raw_audio, language="en", task="transcribe")
@@ -100,9 +100,9 @@ from kmodels.models.whisper import (
     WhisperBase, WhisperProcessor, WhisperGenerate,
 )
 
-bundle = WhisperBase(weights="openai")
+model = WhisperBase(weights="openai")
 processor = WhisperProcessor(variant="v1")
-generator = WhisperGenerate.from_bundle(bundle, processor)
+generator = WhisperGenerate(model, processor)
 
 wave, _ = librosa.load("speech.wav", sr=16000, mono=True)
 print(generator(wave, language="en", task="transcribe", max_new_tokens=224))
@@ -145,7 +145,7 @@ inputs = processor(audio=wave, sampling_rate=16000)
 forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
 
 ids = whisper_generate(
-    bundle["encoder"], bundle["decoder"], inputs["input_features"],
+    model["encoder"], model["decoder"], inputs["input_features"],
     forced_decoder_ids=forced,
     decoder_start_token_id=processor.decoder_start_token_id,
     eos_token_id=processor.tokenizer.eos_token_id,
@@ -163,7 +163,7 @@ handles both via constructor kwargs:
 ```python
 from kmodels.models.whisper import WhisperLargeV3Turbo, WhisperProcessor
 
-bundle = WhisperLargeV3Turbo(weights="openai")
+model = WhisperLargeV3Turbo(weights="openai")
 processor = WhisperProcessor(variant="v3", n_mels=128)
 
 # Cantonese transcription
@@ -336,11 +336,11 @@ from kmodels.models.whisper import (
     WhisperBase, WhisperProcessor, WhisperClassify,
 )
 
-bundle = WhisperBase(weights="openai")
+model = WhisperBase(weights="openai")
 processor = WhisperProcessor(variant="v1")
 
 clf = WhisperClassify(
-    bundle["encoder"],
+    model,
     num_classes=10,           # e.g. 10 keyword classes
     pooling="mean",           # "mean" | "max" | "first"
     classifier_dropout=0.1,
@@ -365,7 +365,7 @@ small data regime, useful as a representation-quality baseline:
 
 ```python
 clf = WhisperClassify(
-    bundle["encoder"],
+    model,
     num_classes=99,           # e.g. 99-language id
     freeze_encoder=True,
 )
@@ -380,7 +380,7 @@ the dataset is small:
 
 ```python
 clf = WhisperClassify(
-    bundle["encoder"],
+    model,
     num_classes=8,
     projector_dim=256,        # encoder d_model -> 256 -> num_classes
     pooling="mean",
@@ -397,8 +397,8 @@ text path is what feeds the label tensor:
 import keras
 from kmodels.models.whisper import WhisperTiny, WhisperProcessor
 
-bundle = WhisperTiny(weights="openai")
-encoder, decoder = bundle["encoder"], bundle["decoder"]
+model = WhisperTiny(weights="openai")
+encoder, decoder = model["encoder"], model["decoder"]
 processor = WhisperProcessor(variant="v1")
 
 # audio batch -> input features

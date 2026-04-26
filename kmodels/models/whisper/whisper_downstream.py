@@ -1,7 +1,7 @@
 """Downstream task wrappers for Whisper.
 
-* :class:`WhisperGenerate` — one-call ASR / translation. Bundles
-  encoder + decoder + :class:`WhisperProcessor` and runs greedy
+* :class:`WhisperGenerate` — one-call ASR / translation. Bundles the
+  Whisper encoder + decoder + :class:`WhisperProcessor` and runs greedy
   decoding through :func:`whisper_generate`.
 * :class:`WhisperClassify` — encoder + mean pool + linear head for
   audio classification (language id, intent, keyword spotting,
@@ -19,12 +19,13 @@ from .whisper_processor import WhisperProcessor
 
 
 class WhisperGenerate:
-    """Convenience wrapper around encoder + decoder + processor.
+    """Convenience wrapper around a Whisper bundle + processor.
 
     Replaces the 6-line ``feature_extractor → get_decoder_prompt_ids →
     whisper_generate → batch_decode`` chain with a single callable:
 
-    >>> generator = WhisperGenerate(encoder, decoder, processor)
+    >>> model = WhisperBase(weights="openai")
+    >>> generator = WhisperGenerate(model, processor)
     >>> generator(wave, language="en", task="transcribe")
     ['hello world']
 
@@ -32,26 +33,16 @@ class WhisperGenerate:
     arguments to the processor and the underlying greedy decoder.
 
     Args:
-        encoder: ``keras.Model`` from :func:`build_encoder`.
-        decoder: ``keras.Model`` from :func:`build_decoder`.
+        model: The bundle dict returned by ``Whisper{Tiny,Base,...}()``,
+            i.e. ``{"encoder": ..., "decoder": ..., "config": ...}``.
         processor: A :class:`WhisperProcessor` matching the model's
             tokenizer variant + mel bin count.
     """
 
-    def __init__(
-        self,
-        encoder: keras.Model,
-        decoder: keras.Model,
-        processor: WhisperProcessor,
-    ):
-        self.encoder = encoder
-        self.decoder = decoder
+    def __init__(self, model: dict, processor: WhisperProcessor):
+        self.encoder = model["encoder"]
+        self.decoder = model["decoder"]
         self.processor = processor
-
-    @classmethod
-    def from_bundle(cls, bundle: dict, processor: WhisperProcessor):
-        """Build from a ``Whisper{Tiny,Base,...}()`` factory output."""
-        return cls(bundle["encoder"], bundle["decoder"], processor)
 
     def __call__(
         self,
@@ -107,7 +98,7 @@ class WhisperGenerate:
 
 
 def WhisperClassify(
-    encoder: keras.Model,
+    model: dict,
     num_classes: int,
     projector_dim: Optional[int] = None,
     pooling: str = "mean",
@@ -136,8 +127,9 @@ def WhisperClassify(
     any other Keras model.
 
     Args:
-        encoder: A pretrained Whisper encoder ``keras.Model`` (e.g.
-            ``WhisperBase(weights="openai")["encoder"]``).
+        model: The bundle dict returned by ``Whisper{Tiny,Base,...}()``,
+            i.e. ``{"encoder": ..., "decoder": ..., "config": ...}``.
+            Only the encoder is used; the decoder is discarded.
         num_classes: Output class count.
         projector_dim: When set, insert a ``Dense(projector_dim)``
             layer between the encoder and the pool. ``None`` (default)
@@ -152,6 +144,7 @@ def WhisperClassify(
     if pooling not in ("mean", "max", "first"):
         raise ValueError(f"pooling must be 'mean', 'max', or 'first'; got {pooling!r}")
 
+    encoder = model["encoder"]
     if freeze_encoder:
         encoder.trainable = False
 

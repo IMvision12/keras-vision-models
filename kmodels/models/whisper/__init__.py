@@ -1,4 +1,4 @@
-from .downstream import WhisperClassify, WhisperGenerate
+from .whisper_downstream import WhisperClassify, WhisperGenerate
 from .whisper_feature_extractor import WhisperFeatureExtractor
 from .whisper_model import (
     WhisperBase,

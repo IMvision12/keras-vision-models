@@ -1,5 +1,6 @@
 import math
 
+import keras
 import numpy as np
 from keras import ops
 
@@ -52,7 +53,8 @@ def _build_mel_filter_bank(
     return filt * enorm
 
 
-class WhisperFeatureExtractor:
+@keras.saving.register_keras_serializable(package="kmodels")
+class WhisperFeatureExtractor(keras.layers.Layer):
     """Mel spectrogram extractor matching HF ``WhisperFeatureExtractor``.
 
     Pure Keras 3 implementation — all numeric operations go through
@@ -74,7 +76,9 @@ class WhisperFeatureExtractor:
         hop_length: int = 160,
         n_mels: int = 80,
         chunk_length: int = 30,
+        **kwargs,
     ):
+        super().__init__(**kwargs)
         self.sampling_rate = sampling_rate
         self.n_fft = n_fft
         self.hop_length = hop_length
@@ -125,7 +129,7 @@ class WhisperFeatureExtractor:
         log_spec = (log_spec + 4.0) / 4.0
         return log_spec
 
-    def __call__(self, raw_speech, sampling_rate: int = 16000):
+    def call(self, raw_speech, sampling_rate: int = 16000):
         if sampling_rate != self.sampling_rate:
             raise ValueError(
                 f"WhisperFeatureExtractor expects {self.sampling_rate} Hz input; "
@@ -134,3 +138,16 @@ class WhisperFeatureExtractor:
         batch_np = self._normalize_waves(raw_speech)
         batch = ops.convert_to_tensor(batch_np, dtype="float32")
         return self._log_mel_spectrogram(batch)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "sampling_rate": self.sampling_rate,
+                "n_fft": self.n_fft,
+                "hop_length": self.hop_length,
+                "n_mels": self.n_mels,
+                "chunk_length": self.chunk_length,
+            }
+        )
+        return config

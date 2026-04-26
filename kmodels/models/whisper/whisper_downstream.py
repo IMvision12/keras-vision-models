@@ -1,7 +1,7 @@
 """Downstream task wrappers for Whisper.
 
-* :class:`WhisperGenerate` — one-call ASR / translation. Bundles the
-  Whisper encoder + decoder + :class:`WhisperProcessor` and runs greedy
+* :class:`WhisperGenerate` — one-call ASR / translation. Bundles a
+  :class:`WhisperModel` + :class:`WhisperProcessor` and runs greedy
   decoding through :func:`whisper_generate`.
 * :class:`WhisperClassify` — encoder + mean pool + linear head for
   audio classification (language id, intent, keyword spotting,
@@ -14,12 +14,12 @@ from typing import List, Optional, Union
 import keras
 from keras import layers
 
-from .whisper_model import whisper_generate
+from .whisper_model import WhisperModel, whisper_generate
 from .whisper_processor import WhisperProcessor
 
 
 class WhisperGenerate:
-    """Convenience wrapper around a Whisper bundle + processor.
+    """Convenience wrapper around a :class:`WhisperModel` + processor.
 
     Replaces the 6-line ``feature_extractor → get_decoder_prompt_ids →
     whisper_generate → batch_decode`` chain with a single callable:
@@ -33,15 +33,15 @@ class WhisperGenerate:
     arguments to the processor and the underlying greedy decoder.
 
     Args:
-        model: The bundle dict returned by ``Whisper{Tiny,Base,...}()``,
-            i.e. ``{"encoder": ..., "decoder": ..., "config": ...}``.
+        model: A :class:`WhisperModel` instance (typically returned by
+            ``Whisper{Tiny,Base,...}()``).
         processor: A :class:`WhisperProcessor` matching the model's
             tokenizer variant + mel bin count.
     """
 
-    def __init__(self, model: dict, processor: WhisperProcessor):
-        self.encoder = model["encoder"]
-        self.decoder = model["decoder"]
+    def __init__(self, model: WhisperModel, processor: WhisperProcessor):
+        self.encoder = model.encoder
+        self.decoder = model.decoder
         self.processor = processor
 
     def __call__(
@@ -98,7 +98,7 @@ class WhisperGenerate:
 
 
 def WhisperClassify(
-    model: dict,
+    model: WhisperModel,
     num_classes: int,
     projector_dim: Optional[int] = None,
     pooling: str = "mean",
@@ -127,9 +127,9 @@ def WhisperClassify(
     any other Keras model.
 
     Args:
-        model: The bundle dict returned by ``Whisper{Tiny,Base,...}()``,
-            i.e. ``{"encoder": ..., "decoder": ..., "config": ...}``.
-            Only the encoder is used; the decoder is discarded.
+        model: A :class:`WhisperModel` instance (typically returned by
+            ``Whisper{Tiny,Base,...}()``). Only the encoder is used;
+            the decoder is discarded.
         num_classes: Output class count.
         projector_dim: When set, insert a ``Dense(projector_dim)``
             layer between the encoder and the pool. ``None`` (default)
@@ -144,7 +144,7 @@ def WhisperClassify(
     if pooling not in ("mean", "max", "first"):
         raise ValueError(f"pooling must be 'mean', 'max', or 'first'; got {pooling!r}")
 
-    encoder = model["encoder"]
+    encoder = model.encoder
     if freeze_encoder:
         encoder.trainable = False
 

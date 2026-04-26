@@ -36,10 +36,11 @@ bins instead of 80).
 ## Available Weights
 
 Every variant ships a single `"openai"` weights preset converted from
-the official OpenAI checkpoints on HuggingFace. Encoder and decoder are
-saved as separate `.weights.h5` files and pulled from the kmodels
+the official OpenAI checkpoints on HuggingFace. One combined
+`.weights.h5` file per variant (encoder + decoder together) is hosted
+under the kmodels
 [`whisper`](https://github.com/IMvision12/keras-models/releases/tag/whisper)
-release tag on first use, then cached locally.
+release tag and downloaded on first use, then cached locally.
 
 | Variant | `openai` |
 |---|:-:|
@@ -51,6 +52,47 @@ release tag on first use, then cached locally.
 | `WhisperLargeV2` | ✅ |
 | `WhisperLargeV3` | ✅ |
 | `WhisperLargeV3Turbo` | ✅ |
+
+## Model
+
+Every variant factory (`WhisperTiny`, `WhisperBase`, ...) returns a
+`WhisperModel` — a `keras.Model` Functional subclass that wires the
+encoder and decoder into a single graph. The encoder and decoder are
+exposed as attributes for inference / generation paths:
+
+```python
+from kmodels.models.whisper import WhisperTiny
+
+model = WhisperTiny(weights="openai")        # WhisperModel instance
+
+model.encoder        # keras.Model: input_features -> (B, T, d_model)
+model.decoder        # keras.Model: {decoder_input_ids, encoder_hidden_states} -> logits
+model.d_model        # 384
+model.vocab_size     # 51865
+
+# Joint forward pass (teacher-forced training):
+out = model({
+    "input_features":   mel,    # (B, n_mels, 3000)
+    "decoder_input_ids": ids,   # (B, L)
+})
+out["encoder_hidden_states"]    # (B, T, d_model)
+out["logits"]                   # (B, L, vocab_size)
+```
+
+The class is also constructable directly with custom hyperparameters
+for from-scratch training:
+
+```python
+from kmodels.models.whisper import WhisperModel
+
+model = WhisperModel(
+    d_model=384,
+    encoder_layers=4, decoder_layers=4,
+    encoder_attention_heads=6, decoder_attention_heads=6,
+    encoder_ffn_dim=1536, decoder_ffn_dim=1536,
+    num_mel_bins=80, vocab_size=51865,
+)
+```
 
 ## Features and Capabilities
 
@@ -145,7 +187,7 @@ inputs = processor(audio=wave, sampling_rate=16000)
 forced = processor.get_decoder_prompt_ids(language="en", task="transcribe")
 
 ids = whisper_generate(
-    model["encoder"], model["decoder"], inputs["input_features"],
+    model.encoder, model.decoder, inputs["input_features"],
     forced_decoder_ids=forced,
     decoder_start_token_id=processor.decoder_start_token_id,
     eos_token_id=processor.tokenizer.eos_token_id,
@@ -327,11 +369,10 @@ Architecture:
 4. Optional dropout
 5. ``Dense(num_classes)`` head → logits
 
-Returned as a Functional `keras.Model` — use `compile` / `fit` /
-`save_weights` / `load_weights` like any other Keras model.
+Returned as a Functional `keras.Model` — `load_weights` a fine-tuned
+checkpoint and call it on log-mel features:
 
 ```python
-import keras
 from kmodels.models.whisper import (
     WhisperBase, WhisperProcessor, WhisperClassify,
 )
@@ -343,40 +384,19 @@ clf = WhisperClassify(
     model,
     num_classes=10,           # e.g. 10 keyword classes
     pooling="mean",           # "mean" | "max" | "first"
-    classifier_dropout=0.1,
-    freeze_encoder=False,     # set True for linear-probe baselines
 )
+clf.load_weights("path/to/finetuned_classifier.weights.h5")
 
-clf.compile(
-    optimizer=keras.optimizers.AdamW(1e-5),
-    loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-    metrics=["sparse_categorical_accuracy"],
-)
-
-# input_features: (B, n_mels, 3000) — `processor(audio=...)["input_features"]`
-# labels:         (B,)              int class ids
-clf.fit(input_features, labels, epochs=5, batch_size=8)
-```
-
-### Linear probe (frozen encoder)
-
-Set `freeze_encoder=True` to train just the classification head — fast,
-small data regime, useful as a representation-quality baseline:
-
-```python
-clf = WhisperClassify(
-    model,
-    num_classes=99,           # e.g. 99-language id
-    freeze_encoder=True,
-)
-# Only the projector + classifier weights receive gradients.
+# raw_audio: 1-D float32 in [-1, 1] at 16 kHz (or batched / list of waves)
+input_features = processor(audio=raw_audio, sampling_rate=16000)["input_features"]
+logits = clf(input_features)         # (B, num_classes)
+pred = int(logits.numpy().argmax(-1)[0])
 ```
 
 ### Optional projector
 
 Insert a lower-rank `Dense` between the encoder and the pool — useful
-when `d_model` is large (1024 / 1280 in medium / large variants) and
-the dataset is small:
+when `d_model` is large (1024 / 1280 in medium / large variants):
 
 ```python
 clf = WhisperClassify(
@@ -398,7 +418,7 @@ import keras
 from kmodels.models.whisper import WhisperTiny, WhisperProcessor
 
 model = WhisperTiny(weights="openai")
-encoder, decoder = model["encoder"], model["decoder"]
+encoder, decoder = model.encoder, model.decoder
 processor = WhisperProcessor(variant="v1")
 
 # audio batch -> input features

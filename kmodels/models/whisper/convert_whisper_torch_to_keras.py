@@ -3,11 +3,12 @@
 Usage (from repo root):
 
     python -m kmodels.models.whisper.convert_whisper_torch_to_keras \\
-        --variant tiny --out whisper_tiny_openai.weights.h5
+        --variant tiny --out-dir .
 
-Produces a single ``.weights.h5`` file that can be loaded via the saved
-encoder/decoder split: the encoder weights are named ``encoder_*`` and
-decoder weights ``decoder_*``, so one file can hydrate both sub-models.
+Produces a single ``whisper{variant}_openai.weights.h5`` file holding
+both the encoder and decoder sub-graphs of a :class:`WhisperModel`. The
+file is loaded directly via ``WhisperTiny(weights="openai")`` (or
+``model.load_weights(path)``).
 """
 
 import argparse
@@ -300,9 +301,9 @@ _SLUG = {
     "small": "small",
     "medium": "medium",
     "large": "large",
-    "large-v2": "large_v2",
-    "large-v3": "large_v3",
-    "large-v3-turbo": "large_v3_turbo",
+    "large-v2": "largev2",
+    "large-v3": "largev3",
+    "large-v3-turbo": "largev3turbo",
 }
 
 
@@ -319,26 +320,22 @@ def convert(variant: str, out_dir: str = "."):
     state = torch_model.state_dict()
     cfg = torch_model.config
 
-    print(f"[2/4] Building Keras {variant} models")
-    built = BUILDER[variant]()
-    encoder, decoder = built["encoder"], built["decoder"]
+    print(f"[2/4] Building Keras {variant} model")
+    model = BUILDER[variant](weights=None)
 
     print("[3/4] Mapping weights")
     kmap = _layer_weight_map(state, cfg.encoder_layers, cfg.decoder_layers)
-    enc_a, enc_m = _assign_to_model(encoder, kmap)
-    dec_a, dec_m = _assign_to_model(decoder, kmap)
+    enc_a, enc_m = _assign_to_model(model.encoder, kmap)
+    dec_a, dec_m = _assign_to_model(model.decoder, kmap)
     print(f"  encoder assigned={enc_a} missing={enc_m}")
     print(f"  decoder assigned={dec_a} missing={dec_m}")
 
     slug = _SLUG[variant]
-    enc_path = os.path.join(out_dir, f"{slug}_encoder.weights.h5")
-    dec_path = os.path.join(out_dir, f"{slug}_decoder.weights.h5")
-    print(f"[4/4] Saving split weights under {out_dir}/")
-    encoder.save_weights(enc_path)
-    decoder.save_weights(dec_path)
-    print(f"  wrote {enc_path}")
-    print(f"  wrote {dec_path}")
-    return encoder, decoder
+    out_path = os.path.join(out_dir, f"whisper{slug}_openai.weights.h5")
+    print(f"[4/4] Saving combined weights to {out_path}")
+    model.save_weights(out_path)
+    print(f"  wrote {out_path}")
+    return model
 
 
 if __name__ == "__main__":

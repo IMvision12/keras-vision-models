@@ -7,6 +7,7 @@ from .whisper_model import (
     WhisperLargeV3,
     WhisperLargeV3Turbo,
     WhisperMedium,
+    WhisperModel,
     WhisperSmall,
     WhisperTiny,
     build_decoder,
@@ -17,6 +18,7 @@ from .whisper_processor import WhisperProcessor
 from .whisper_tokenizer import WhisperTokenizer
 
 __all__ = [
+    "WhisperModel",
     "WhisperTiny",
     "WhisperBase",
     "WhisperSmall",

@@ -1,10 +1,3 @@
-_RELEASE_BASE = "https://github.com/IMvision12/keras-models/releases/download/whisper/"
-
-
-def _w(name: str) -> str:
-    return _RELEASE_BASE + name
-
-
 WHISPER_MODEL_CONFIG = {
     "WhisperTiny": {
         "d_model": 384,
@@ -18,11 +11,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 80,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v1",
     },
     "WhisperBase": {
         "d_model": 512,
@@ -36,11 +24,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 80,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v1",
     },
     "WhisperSmall": {
         "d_model": 768,
@@ -54,11 +37,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 80,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v1",
     },
     "WhisperMedium": {
         "d_model": 1024,
@@ -72,11 +50,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 80,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v1",
     },
     "WhisperLarge": {
         "d_model": 1280,
@@ -90,11 +63,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 80,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v1",
     },
     "WhisperLargeV2": {
         "d_model": 1280,
@@ -108,11 +76,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 80,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v1",
     },
     "WhisperLargeV3": {
         "d_model": 1280,
@@ -126,11 +89,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 128,
-        "pad_token_id": 50256,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v3",
     },
     "WhisperLargeV3Turbo": {
         "d_model": 1280,
@@ -144,11 +102,6 @@ WHISPER_MODEL_CONFIG = {
         "max_source_positions": 1500,
         "max_target_positions": 448,
         "num_mel_bins": 128,
-        "pad_token_id": 50257,
-        "bos_token_id": 50257,
-        "eos_token_id": 50257,
-        "decoder_start_token_id": 50258,
-        "tokenizer_version": "v3",
     },
 }
 
@@ -251,14 +204,14 @@ WHISPER_BEGIN_SUPPRESS_TOKENS = [220, 50257]
 # v3  -> large-v3 / large-v3-turbo                          (51866 vocab)
 WHISPER_TOKENIZER_FILES = {
     "v1": {
-        "vocab": _w("vocab.json"),
-        "merges": _w("merges.txt"),
-        "added_tokens": _w("added_tokens.json"),
+        "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/vocab.json",
+        "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/merges.txt",
+        "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/added_tokens.json",
     },
     "v3": {
-        "vocab": _w("vocab_v3.json"),
-        "merges": _w("merges_v3.txt"),
-        "added_tokens": _w("added_tokens_v3.json"),
+        "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/vocab_v3.json",
+        "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/merges_v3.txt",
+        "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/added_tokens_v3.json",
     },
 }
 
@@ -266,50 +219,42 @@ WHISPER_TOKENIZER_FILES = {
 WHISPER_WEIGHTS_CONFIG = {
     "WhisperTiny": {
         "openai": {
-            "encoder_url": _w("tiny_encoder.weights.h5"),
-            "decoder_url": _w("tiny_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispertiny_openai.weights.h5",
         },
     },
     "WhisperBase": {
         "openai": {
-            "encoder_url": _w("base_encoder.weights.h5"),
-            "decoder_url": _w("base_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperbase_openai.weights.h5",
         },
     },
     "WhisperSmall": {
         "openai": {
-            "encoder_url": _w("small_encoder.weights.h5"),
-            "decoder_url": _w("small_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispersmall_openai.weights.h5",
         },
     },
     "WhisperMedium": {
         "openai": {
-            "encoder_url": _w("medium_encoder.weights.h5"),
-            "decoder_url": _w("medium_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispermedium_openai.weights.h5",
         },
     },
     "WhisperLarge": {
         "openai": {
-            "encoder_url": _w("large_encoder.weights.h5"),
-            "decoder_url": _w("large_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlarge_openai.weights.h5",
         },
     },
     "WhisperLargeV2": {
         "openai": {
-            "encoder_url": _w("large_v2_encoder.weights.h5"),
-            "decoder_url": _w("large_v2_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev2_openai.weights.h5",
         },
     },
     "WhisperLargeV3": {
         "openai": {
-            "encoder_url": _w("large_v3_encoder.weights.h5"),
-            "decoder_url": _w("large_v3_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3_openai.weights.h5",
         },
     },
     "WhisperLargeV3Turbo": {
         "openai": {
-            "encoder_url": _w("large_v3_turbo_encoder.weights.h5"),
-            "decoder_url": _w("large_v3_turbo_decoder.weights.h5"),
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3turbo_openai.weights.h5",
         },
     },
 }

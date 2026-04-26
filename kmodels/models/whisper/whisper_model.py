@@ -2,7 +2,8 @@ import keras
 import numpy as np
 from keras import layers, ops
 
-from kmodels.weight_utils import download_file
+from kmodels.model_registry import register_model
+from kmodels.weight_utils import get_all_weight_names, load_weights_from_config
 
 from .config import (
     WHISPER_BEGIN_SUPPRESS_TOKENS,
@@ -189,62 +190,196 @@ def build_decoder(cfg, name="decoder"):
     )
 
 
-def _load_pretrained(encoder, decoder, variant_key: str, weights: str):
-    """Download + load the ``{variant_key}`` weights keyed by ``weights``."""
-    if variant_key not in WHISPER_WEIGHTS_CONFIG:
-        raise ValueError(f"No weights config for {variant_key}")
-    variants = WHISPER_WEIGHTS_CONFIG[variant_key]
-    if weights not in variants:
-        raise ValueError(
-            f"Unknown weights preset {weights!r} for {variant_key}. "
-            f"Available: {list(variants)}"
+class WhisperModel(keras.Model):
+    """Whisper encoder-decoder transformer for ASR / translation.
+
+    Wires :func:`build_encoder` and :func:`build_decoder` into a single
+    Functional graph so the full model can be called with one dict:
+
+    >>> out = model({"input_features": mel, "decoder_input_ids": ids})
+    >>> out["encoder_hidden_states"]   # (B, T, d_model)
+    >>> out["logits"]                  # (B, L, vocab_size)
+
+    This is the teacher-forced training path. For autoregressive
+    inference use :func:`whisper_generate` (or the high-level
+    :class:`WhisperGenerate` wrapper), which calls the encoder once and
+    the decoder per step via the ``model.encoder`` and ``model.decoder``
+    attributes.
+
+    Args:
+        d_model: Hidden / embedding dimension. ``384`` (tiny) →
+            ``1280`` (large).
+        encoder_layers: Number of encoder transformer blocks.
+        decoder_layers: Number of decoder transformer blocks.
+        encoder_attention_heads: Encoder self-attn head count.
+        decoder_attention_heads: Decoder self-attn / cross-attn head
+            count.
+        encoder_ffn_dim: Encoder MLP hidden dim. Conventionally
+            ``4 * d_model``.
+        decoder_ffn_dim: Decoder MLP hidden dim. Conventionally
+            ``4 * d_model``.
+        num_mel_bins: Mel bin count of the input log-mel spectrogram.
+            ``80`` for v1 variants, ``128`` for large-v3 /
+            large-v3-turbo.
+        max_source_positions: Max encoder position (post-stride-2 conv).
+            Always ``1500`` for Whisper (= 30 s @ 16 kHz / 320 hop).
+        max_target_positions: Max decoded length, including special
+            prompt prefix. Always ``448``.
+        vocab_size: Token vocabulary size. ``51865`` for v1 variants,
+            ``51866`` for v3 (adds Cantonese language id).
+        name: Model name. Defaults to ``"WhisperModel"``.
+        **kwargs: Additional ``keras.Model`` keyword arguments.
+    """
+
+    def __init__(
+        self,
+        d_model=384,
+        encoder_layers=4,
+        decoder_layers=4,
+        encoder_attention_heads=6,
+        decoder_attention_heads=6,
+        encoder_ffn_dim=1536,
+        decoder_ffn_dim=1536,
+        num_mel_bins=80,
+        max_source_positions=1500,
+        max_target_positions=448,
+        vocab_size=51865,
+        name="WhisperModel",
+        **kwargs,
+    ):
+        cfg = {
+            "d_model": d_model,
+            "encoder_layers": encoder_layers,
+            "decoder_layers": decoder_layers,
+            "encoder_attention_heads": encoder_attention_heads,
+            "decoder_attention_heads": decoder_attention_heads,
+            "encoder_ffn_dim": encoder_ffn_dim,
+            "decoder_ffn_dim": decoder_ffn_dim,
+            "num_mel_bins": num_mel_bins,
+            "max_source_positions": max_source_positions,
+            "max_target_positions": max_target_positions,
+            "vocab_size": vocab_size,
+        }
+
+        encoder = build_encoder(cfg, name=f"{name}_encoder")
+        decoder = build_decoder(cfg, name=f"{name}_decoder")
+
+        input_features = layers.Input(shape=(num_mel_bins, None), name="input_features")
+        decoder_input_ids = layers.Input(
+            shape=(None,), dtype="int32", name="decoder_input_ids"
         )
-    urls = variants[weights]
-    enc_path = download_file(urls["encoder_url"])
-    dec_path = download_file(urls["decoder_url"])
-    encoder.load_weights(enc_path)
-    decoder.load_weights(dec_path)
+        encoder_hidden_states = encoder(input_features)
+        logits = decoder(
+            {
+                "decoder_input_ids": decoder_input_ids,
+                "encoder_hidden_states": encoder_hidden_states,
+            }
+        )
+
+        super().__init__(
+            inputs={
+                "input_features": input_features,
+                "decoder_input_ids": decoder_input_ids,
+            },
+            outputs={
+                "encoder_hidden_states": encoder_hidden_states,
+                "logits": logits,
+            },
+            name=name,
+            **kwargs,
+        )
+
+        self.encoder = encoder
+        self.decoder = decoder
+        self.d_model = d_model
+        self.encoder_layers = encoder_layers
+        self.decoder_layers = decoder_layers
+        self.encoder_attention_heads = encoder_attention_heads
+        self.decoder_attention_heads = decoder_attention_heads
+        self.encoder_ffn_dim = encoder_ffn_dim
+        self.decoder_ffn_dim = decoder_ffn_dim
+        self.num_mel_bins = num_mel_bins
+        self.max_source_positions = max_source_positions
+        self.max_target_positions = max_target_positions
+        self.vocab_size = vocab_size
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "d_model": self.d_model,
+                "encoder_layers": self.encoder_layers,
+                "decoder_layers": self.decoder_layers,
+                "encoder_attention_heads": self.encoder_attention_heads,
+                "decoder_attention_heads": self.decoder_attention_heads,
+                "encoder_ffn_dim": self.encoder_ffn_dim,
+                "decoder_ffn_dim": self.decoder_ffn_dim,
+                "num_mel_bins": self.num_mel_bins,
+                "max_source_positions": self.max_source_positions,
+                "max_target_positions": self.max_target_positions,
+                "vocab_size": self.vocab_size,
+                "name": self.name,
+            }
+        )
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
-def _build_variant(variant_key: str, slug: str, weights=None):
+def _build_variant(variant_key: str, weights=None, name=None, **kwargs):
     cfg = WHISPER_MODEL_CONFIG[variant_key]
-    encoder = build_encoder(cfg, name=f"whisper_{slug}_encoder")
-    decoder = build_decoder(cfg, name=f"whisper_{slug}_decoder")
-    if weights is not None:
-        _load_pretrained(encoder, decoder, variant_key, weights)
-    return {"encoder": encoder, "decoder": decoder, "config": cfg}
+    model = WhisperModel(**cfg, name=name or variant_key, **kwargs)
+
+    if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
+        load_weights_from_config(variant_key, weights, model, WHISPER_WEIGHTS_CONFIG)
+    elif weights is not None:
+        model.load_weights(weights)
+    else:
+        print("No weights loaded.")
+
+    return model
 
 
-def WhisperTiny(weights=None):
-    return _build_variant("WhisperTiny", "tiny", weights)
+@register_model
+def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
+    return _build_variant("WhisperTiny", weights, name, **kwargs)
 
 
-def WhisperBase(weights=None):
-    return _build_variant("WhisperBase", "base", weights)
+@register_model
+def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
+    return _build_variant("WhisperBase", weights, name, **kwargs)
 
 
-def WhisperSmall(weights=None):
-    return _build_variant("WhisperSmall", "small", weights)
+@register_model
+def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
+    return _build_variant("WhisperSmall", weights, name, **kwargs)
 
 
-def WhisperMedium(weights=None):
-    return _build_variant("WhisperMedium", "medium", weights)
+@register_model
+def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
+    return _build_variant("WhisperMedium", weights, name, **kwargs)
 
 
-def WhisperLarge(weights=None):
-    return _build_variant("WhisperLarge", "large", weights)
+@register_model
+def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
+    return _build_variant("WhisperLarge", weights, name, **kwargs)
 
 
-def WhisperLargeV2(weights=None):
-    return _build_variant("WhisperLargeV2", "large_v2", weights)
+@register_model
+def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
+    return _build_variant("WhisperLargeV2", weights, name, **kwargs)
 
 
-def WhisperLargeV3(weights=None):
-    return _build_variant("WhisperLargeV3", "large_v3", weights)
+@register_model
+def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
+    return _build_variant("WhisperLargeV3", weights, name, **kwargs)
 
 
-def WhisperLargeV3Turbo(weights=None):
-    return _build_variant("WhisperLargeV3Turbo", "large_v3_turbo", weights)
+@register_model
+def WhisperLargeV3Turbo(weights="openai", name="WhisperLargeV3Turbo", **kwargs):
+    return _build_variant("WhisperLargeV3Turbo", weights, name, **kwargs)
 
 
 def whisper_generate(

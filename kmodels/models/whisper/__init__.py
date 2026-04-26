@@ -12,6 +12,7 @@ from .whisper_model import (
     build_encoder,
     whisper_generate,
 )
+from .whisper_processor import WhisperProcessor
 from .whisper_tokenizer import WhisperTokenizer
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "WhisperLargeV3Turbo",
     "WhisperFeatureExtractor",
     "WhisperTokenizer",
+    "WhisperProcessor",
     "build_encoder",
     "build_decoder",
     "whisper_generate",

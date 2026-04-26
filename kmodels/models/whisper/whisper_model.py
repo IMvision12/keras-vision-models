@@ -70,11 +70,15 @@ def whisper_decoder_block(
     return x
 
 
-def whisper_encoder(cfg, name="encoder"):
-    d_model = cfg["d_model"]
-    num_mel_bins = cfg["num_mel_bins"]
-    max_src = cfg["max_source_positions"]
-
+def whisper_encoder(
+    d_model,
+    num_mel_bins,
+    max_source_positions,
+    encoder_layers,
+    encoder_attention_heads,
+    encoder_ffn_dim,
+    name="encoder",
+):
     mel = layers.Input(shape=(num_mel_bins, None), name="input_features")
     x = layers.Permute((2, 1), name="encoder_permute_in")(mel)
 
@@ -98,17 +102,17 @@ def whisper_encoder(cfg, name="encoder"):
     x = layers.Lambda(_gelu, name="encoder_conv2_act")(x)
 
     x = SinusoidalPositionEmbedding(
-        max_source_positions=max_src,
+        max_source_positions=max_source_positions,
         d_model=d_model,
         name="encoder_embed_positions",
     )(x)
 
-    for i in range(cfg["encoder_layers"]):
+    for i in range(encoder_layers):
         x = whisper_encoder_block(
             x,
             d_model=d_model,
-            num_heads=cfg["encoder_attention_heads"],
-            ffn_dim=cfg["encoder_ffn_dim"],
+            num_heads=encoder_attention_heads,
+            ffn_dim=encoder_ffn_dim,
             layer_idx=i,
         )
 
@@ -124,11 +128,15 @@ def _make_causal_mask_from_ids(decoder_input_ids):
     return mask[None, None, :, :]
 
 
-def whisper_decoder(cfg, name="decoder"):
-    d_model = cfg["d_model"]
-    max_tgt = cfg["max_target_positions"]
-    vocab_size = cfg["vocab_size"]
-
+def whisper_decoder(
+    d_model,
+    max_target_positions,
+    vocab_size,
+    decoder_layers,
+    decoder_attention_heads,
+    decoder_ffn_dim,
+    name="decoder",
+):
     decoder_input_ids = layers.Input(
         shape=(None,), dtype="int32", name="decoder_input_ids"
     )
@@ -141,7 +149,7 @@ def whisper_decoder(cfg, name="decoder"):
     )
     x = tok_embed(decoder_input_ids)
     x = LearnedPositionEmbedding(
-        max_target_positions=max_tgt,
+        max_target_positions=max_target_positions,
         d_model=d_model,
         name="decoder_embed_positions",
     )(x)
@@ -152,14 +160,14 @@ def whisper_decoder(cfg, name="decoder"):
         output_shape=lambda s: (1, 1, s[1], s[1]),
     )(decoder_input_ids)
 
-    for i in range(cfg["decoder_layers"]):
+    for i in range(decoder_layers):
         x = whisper_decoder_block(
             x,
             encoder_hidden_states=encoder_hidden_states,
             causal_mask=causal_mask,
             d_model=d_model,
-            num_heads=cfg["decoder_attention_heads"],
-            ffn_dim=cfg["decoder_ffn_dim"],
+            num_heads=decoder_attention_heads,
+            ffn_dim=decoder_ffn_dim,
             layer_idx=i,
         )
 
@@ -237,22 +245,24 @@ class Whisper(keras.Model):
         name="Whisper",
         **kwargs,
     ):
-        cfg = {
-            "d_model": d_model,
-            "encoder_layers": encoder_layers,
-            "decoder_layers": decoder_layers,
-            "encoder_attention_heads": encoder_attention_heads,
-            "decoder_attention_heads": decoder_attention_heads,
-            "encoder_ffn_dim": encoder_ffn_dim,
-            "decoder_ffn_dim": decoder_ffn_dim,
-            "num_mel_bins": num_mel_bins,
-            "max_source_positions": max_source_positions,
-            "max_target_positions": max_target_positions,
-            "vocab_size": vocab_size,
-        }
-
-        encoder = whisper_encoder(cfg, name=f"{name}_encoder")
-        decoder = whisper_decoder(cfg, name=f"{name}_decoder")
+        encoder = whisper_encoder(
+            d_model=d_model,
+            num_mel_bins=num_mel_bins,
+            max_source_positions=max_source_positions,
+            encoder_layers=encoder_layers,
+            encoder_attention_heads=encoder_attention_heads,
+            encoder_ffn_dim=encoder_ffn_dim,
+            name=f"{name}_encoder",
+        )
+        decoder = whisper_decoder(
+            d_model=d_model,
+            max_target_positions=max_target_positions,
+            vocab_size=vocab_size,
+            decoder_layers=decoder_layers,
+            decoder_attention_heads=decoder_attention_heads,
+            decoder_ffn_dim=decoder_ffn_dim,
+            name=f"{name}_decoder",
+        )
 
         input_features = layers.Input(shape=(num_mel_bins, None), name="input_features")
         decoder_input_ids = layers.Input(

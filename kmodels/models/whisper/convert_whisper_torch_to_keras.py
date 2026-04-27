@@ -1,16 +1,11 @@
-import argparse
-import os
-import sys
-from typing import Dict, Tuple
+import gc
 
 import numpy as np
 import torch
+from keras import ops
 from transformers import WhisperForConditionalGeneration
 
-sys.path.insert(
-    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-)
-
+from kmodels.models.whisper.whisper_layers import WhisperAttention
 from kmodels.models.whisper.whisper_model import (
     WhisperBase,
     WhisperLarge,
@@ -20,6 +15,10 @@ from kmodels.models.whisper.whisper_model import (
     WhisperMedium,
     WhisperSmall,
     WhisperTiny,
+)
+from kmodels.weight_utils.weight_transfer_torch_to_keras import (
+    transfer_nested_layer_weights,
+    transfer_weights,
 )
 
 HF_CHECKPOINT = {
@@ -42,247 +41,7 @@ BUILDER = {
     "large-v3": WhisperLargeV3,
     "large-v3-turbo": WhisperLargeV3Turbo,
 }
-
-
-def _torch_to_numpy(tensor: torch.Tensor) -> np.ndarray:
-    return tensor.detach().cpu().numpy()
-
-
-def _layer_weight_map(
-    torch_state: Dict[str, torch.Tensor],
-    num_encoder_layers: int,
-    num_decoder_layers: int,
-) -> Dict[str, np.ndarray]:
-    """Build {keras_layer_name: {variable_name: ndarray}} mapping."""
-    kmap: Dict[str, Dict[str, np.ndarray]] = {}
-
-    def _put(layer_name: str, var_name: str, arr: np.ndarray):
-        kmap.setdefault(layer_name, {})[var_name] = arr
-
-    # ---- Encoder conv stem ----
-    # PyTorch Conv1d weight shape: (out, in, k). Keras Conv1D kernel: (k, in, out).
-    for i in (1, 2):
-        w = _torch_to_numpy(torch_state[f"model.encoder.conv{i}.weight"])
-        b = _torch_to_numpy(torch_state[f"model.encoder.conv{i}.bias"])
-        _put(f"encoder_conv{i}", "kernel", np.transpose(w, (2, 1, 0)))
-        _put(f"encoder_conv{i}", "bias", b)
-
-    # ---- Encoder sinusoidal position embedding (non-trainable, but we still set it) ----
-    _put(
-        "encoder_embed_positions",
-        "weight",
-        _torch_to_numpy(torch_state["model.encoder.embed_positions.weight"]),
-    )
-
-    # ---- Encoder blocks ----
-    for i in range(num_encoder_layers):
-        base = f"model.encoder.layers.{i}"
-        kprefix = f"encoder_layers_{i}"
-
-        # self-attn (k has no bias)
-        for proj in ("q_proj", "k_proj", "v_proj", "out_proj"):
-            w = _torch_to_numpy(torch_state[f"{base}.self_attn.{proj}.weight"])
-            _put(f"{kprefix}_self_attn_{proj}", "kernel", np.transpose(w, (1, 0)))
-            bias_key = f"{base}.self_attn.{proj}.bias"
-            if bias_key in torch_state:
-                _put(
-                    f"{kprefix}_self_attn_{proj}",
-                    "bias",
-                    _torch_to_numpy(torch_state[bias_key]),
-                )
-
-        # self-attn LN
-        _put(
-            f"{kprefix}_self_attn_layer_norm",
-            "gamma",
-            _torch_to_numpy(torch_state[f"{base}.self_attn_layer_norm.weight"]),
-        )
-        _put(
-            f"{kprefix}_self_attn_layer_norm",
-            "beta",
-            _torch_to_numpy(torch_state[f"{base}.self_attn_layer_norm.bias"]),
-        )
-
-        # FFN
-        for fc in ("fc1", "fc2"):
-            w = _torch_to_numpy(torch_state[f"{base}.{fc}.weight"])
-            b = _torch_to_numpy(torch_state[f"{base}.{fc}.bias"])
-            _put(f"{kprefix}_{fc}", "kernel", np.transpose(w, (1, 0)))
-            _put(f"{kprefix}_{fc}", "bias", b)
-
-        # final LN
-        _put(
-            f"{kprefix}_final_layer_norm",
-            "gamma",
-            _torch_to_numpy(torch_state[f"{base}.final_layer_norm.weight"]),
-        )
-        _put(
-            f"{kprefix}_final_layer_norm",
-            "beta",
-            _torch_to_numpy(torch_state[f"{base}.final_layer_norm.bias"]),
-        )
-
-    # ---- Encoder final LN ----
-    _put(
-        "encoder_layer_norm",
-        "gamma",
-        _torch_to_numpy(torch_state["model.encoder.layer_norm.weight"]),
-    )
-    _put(
-        "encoder_layer_norm",
-        "beta",
-        _torch_to_numpy(torch_state["model.encoder.layer_norm.bias"]),
-    )
-
-    # ---- Decoder token + pos embeddings ----
-    _put(
-        "decoder_embed_tokens",
-        "embeddings",
-        _torch_to_numpy(torch_state["model.decoder.embed_tokens.weight"]),
-    )
-    _put(
-        "decoder_embed_positions",
-        "weight",
-        _torch_to_numpy(torch_state["model.decoder.embed_positions.weight"]),
-    )
-
-    # ---- Decoder blocks ----
-    for i in range(num_decoder_layers):
-        base = f"model.decoder.layers.{i}"
-        kprefix = f"decoder_layers_{i}"
-
-        # self-attn
-        for proj in ("q_proj", "k_proj", "v_proj", "out_proj"):
-            w = _torch_to_numpy(torch_state[f"{base}.self_attn.{proj}.weight"])
-            _put(f"{kprefix}_self_attn_{proj}", "kernel", np.transpose(w, (1, 0)))
-            bias_key = f"{base}.self_attn.{proj}.bias"
-            if bias_key in torch_state:
-                _put(
-                    f"{kprefix}_self_attn_{proj}",
-                    "bias",
-                    _torch_to_numpy(torch_state[bias_key]),
-                )
-
-        # self-attn LN
-        _put(
-            f"{kprefix}_self_attn_layer_norm",
-            "gamma",
-            _torch_to_numpy(torch_state[f"{base}.self_attn_layer_norm.weight"]),
-        )
-        _put(
-            f"{kprefix}_self_attn_layer_norm",
-            "beta",
-            _torch_to_numpy(torch_state[f"{base}.self_attn_layer_norm.bias"]),
-        )
-
-        # cross-attn (encoder_attn in HF)
-        for proj in ("q_proj", "k_proj", "v_proj", "out_proj"):
-            w = _torch_to_numpy(torch_state[f"{base}.encoder_attn.{proj}.weight"])
-            _put(f"{kprefix}_encoder_attn_{proj}", "kernel", np.transpose(w, (1, 0)))
-            bias_key = f"{base}.encoder_attn.{proj}.bias"
-            if bias_key in torch_state:
-                _put(
-                    f"{kprefix}_encoder_attn_{proj}",
-                    "bias",
-                    _torch_to_numpy(torch_state[bias_key]),
-                )
-
-        # cross-attn LN
-        _put(
-            f"{kprefix}_encoder_attn_layer_norm",
-            "gamma",
-            _torch_to_numpy(torch_state[f"{base}.encoder_attn_layer_norm.weight"]),
-        )
-        _put(
-            f"{kprefix}_encoder_attn_layer_norm",
-            "beta",
-            _torch_to_numpy(torch_state[f"{base}.encoder_attn_layer_norm.bias"]),
-        )
-
-        # FFN
-        for fc in ("fc1", "fc2"):
-            w = _torch_to_numpy(torch_state[f"{base}.{fc}.weight"])
-            b = _torch_to_numpy(torch_state[f"{base}.{fc}.bias"])
-            _put(f"{kprefix}_{fc}", "kernel", np.transpose(w, (1, 0)))
-            _put(f"{kprefix}_{fc}", "bias", b)
-
-        # final LN
-        _put(
-            f"{kprefix}_final_layer_norm",
-            "gamma",
-            _torch_to_numpy(torch_state[f"{base}.final_layer_norm.weight"]),
-        )
-        _put(
-            f"{kprefix}_final_layer_norm",
-            "beta",
-            _torch_to_numpy(torch_state[f"{base}.final_layer_norm.bias"]),
-        )
-
-    # ---- Decoder final LN ----
-    _put(
-        "decoder_layer_norm",
-        "gamma",
-        _torch_to_numpy(torch_state["model.decoder.layer_norm.weight"]),
-    )
-    _put(
-        "decoder_layer_norm",
-        "beta",
-        _torch_to_numpy(torch_state["model.decoder.layer_norm.bias"]),
-    )
-
-    return kmap
-
-
-def _iter_all_layers(model):
-    """Yield every layer including those nested inside custom Layer subclasses."""
-    import keras
-
-    seen = set()
-
-    def _walk(layer):
-        if id(layer) in seen:
-            return
-        seen.add(id(layer))
-        yield layer
-        for attr in vars(layer).values():
-            if isinstance(attr, keras.layers.Layer):
-                yield from _walk(attr)
-            elif isinstance(attr, (list, tuple)):
-                for item in attr:
-                    if isinstance(item, keras.layers.Layer):
-                        yield from _walk(item)
-
-    for layer in model.layers:
-        yield from _walk(layer)
-
-
-def _assign_to_model(model, kmap: Dict[str, Dict[str, np.ndarray]]) -> Tuple[int, int]:
-    assigned, missing = 0, 0
-    for layer in _iter_all_layers(model):
-        if layer.name not in kmap:
-            continue
-        layer_weights = kmap[layer.name]
-        new_values = []
-        for w in layer.weights:
-            short = w.path.rsplit("/", 1)[-1].split(":")[0]
-            if short in layer_weights:
-                arr = layer_weights[short]
-                if tuple(arr.shape) != tuple(w.shape):
-                    raise ValueError(
-                        f"Shape mismatch for {layer.name}/{short}: "
-                        f"got {arr.shape}, expected {tuple(w.shape)}"
-                    )
-                new_values.append(arr)
-                assigned += 1
-            else:
-                new_values.append(w.numpy())
-                missing += 1
-        if new_values:
-            layer.set_weights(new_values)
-    return assigned, missing
-
-
-_SLUG = {
+SLUG = {
     "tiny": "tiny",
     "base": "base",
     "small": "small",
@@ -293,45 +52,203 @@ _SLUG = {
     "large-v3-turbo": "largev3turbo",
 }
 
+DENSE_MAP = {"kernel": "weight"}
+LN_MAP = {"gamma": "weight", "beta": "bias"}
+EMBED_MAP = {"embeddings": "weight"}
 
-def convert(variant: str, out_dir: str = "."):
-    if variant not in HF_CHECKPOINT:
-        raise ValueError(
-            f"Unknown variant {variant}. Choose from {list(HF_CHECKPOINT)}."
+SHARD_THRESHOLD_PARAMS = 500_000_000
+
+
+def transfer_encoder(encoder, state, num_layers):
+    for i in (1, 2):
+        conv = encoder.get_layer(f"encoder_conv{i}")
+        conv.kernel.assign(
+            np.transpose(state[f"model.encoder.conv{i}.weight"], (2, 1, 0))
+        )
+        transfer_weights("bias", conv.bias, state[f"model.encoder.conv{i}.bias"])
+
+    encoder.get_layer("encoder_embed_positions").pos_embed.assign(
+        state["model.encoder.embed_positions.weight"]
+    )
+
+    attns = {
+        layer.name_prefix: layer
+        for layer in encoder.layers
+        if isinstance(layer, WhisperAttention)
+    }
+
+    for i in range(num_layers):
+        kp = f"encoder_layers_{i}"
+        hp = f"model.encoder.layers.{i}"
+
+        sa_kp = f"{kp}_self_attn"
+        transfer_nested_layer_weights(
+            attns[sa_kp],
+            state,
+            f"{hp}.self_attn",
+            name_mapping={f"{sa_kp}_": "", "kernel": "weight"},
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_self_attn_layer_norm"),
+            state,
+            f"{hp}.self_attn_layer_norm",
+            name_mapping=LN_MAP,
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_fc1"),
+            state,
+            f"{hp}.fc1",
+            name_mapping=DENSE_MAP,
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_fc2"),
+            state,
+            f"{hp}.fc2",
+            name_mapping=DENSE_MAP,
+        )
+        transfer_nested_layer_weights(
+            encoder.get_layer(f"{kp}_final_layer_norm"),
+            state,
+            f"{hp}.final_layer_norm",
+            name_mapping=LN_MAP,
         )
 
-    print(f"[1/4] Loading HF checkpoint: {HF_CHECKPOINT[variant]}")
-    torch_model = WhisperForConditionalGeneration.from_pretrained(
-        HF_CHECKPOINT[variant]
-    ).eval()
-    state = torch_model.state_dict()
+    transfer_nested_layer_weights(
+        encoder.get_layer("encoder_layer_norm"),
+        state,
+        "model.encoder.layer_norm",
+        name_mapping=LN_MAP,
+    )
+
+
+def transfer_decoder(decoder, state, num_layers):
+    transfer_nested_layer_weights(
+        decoder.get_layer("decoder_embed_tokens"),
+        state,
+        "model.decoder.embed_tokens",
+        name_mapping=EMBED_MAP,
+    )
+
+    decoder.get_layer("decoder_embed_positions").pos_embed.assign(
+        state["model.decoder.embed_positions.weight"]
+    )
+
+    attns = {
+        layer.name_prefix: layer
+        for layer in decoder.layers
+        if isinstance(layer, WhisperAttention)
+    }
+
+    for i in range(num_layers):
+        kp = f"decoder_layers_{i}"
+        hp = f"model.decoder.layers.{i}"
+
+        sa_kp = f"{kp}_self_attn"
+        transfer_nested_layer_weights(
+            attns[sa_kp],
+            state,
+            f"{hp}.self_attn",
+            name_mapping={f"{sa_kp}_": "", "kernel": "weight"},
+        )
+        transfer_nested_layer_weights(
+            decoder.get_layer(f"{kp}_self_attn_layer_norm"),
+            state,
+            f"{hp}.self_attn_layer_norm",
+            name_mapping=LN_MAP,
+        )
+
+        ca_kp = f"{kp}_encoder_attn"
+        transfer_nested_layer_weights(
+            attns[ca_kp],
+            state,
+            f"{hp}.encoder_attn",
+            name_mapping={f"{ca_kp}_": "", "kernel": "weight"},
+        )
+        transfer_nested_layer_weights(
+            decoder.get_layer(f"{kp}_encoder_attn_layer_norm"),
+            state,
+            f"{hp}.encoder_attn_layer_norm",
+            name_mapping=LN_MAP,
+        )
+
+        transfer_nested_layer_weights(
+            decoder.get_layer(f"{kp}_fc1"),
+            state,
+            f"{hp}.fc1",
+            name_mapping=DENSE_MAP,
+        )
+        transfer_nested_layer_weights(
+            decoder.get_layer(f"{kp}_fc2"),
+            state,
+            f"{hp}.fc2",
+            name_mapping=DENSE_MAP,
+        )
+        transfer_nested_layer_weights(
+            decoder.get_layer(f"{kp}_final_layer_norm"),
+            state,
+            f"{hp}.final_layer_norm",
+            name_mapping=LN_MAP,
+        )
+
+    transfer_nested_layer_weights(
+        decoder.get_layer("decoder_layer_norm"),
+        state,
+        "model.decoder.layer_norm",
+        name_mapping=LN_MAP,
+    )
+
+
+for variant, hf_name in HF_CHECKPOINT.items():
+    print(f"\n{'=' * 60}")
+    print(f"Converting {hf_name}")
+    print(f"{'=' * 60}")
+
+    print(f"[1/4] Loading {hf_name}")
+    torch_model = WhisperForConditionalGeneration.from_pretrained(hf_name).eval()
+    state = {k: v.detach().cpu().numpy() for k, v in torch_model.state_dict().items()}
     cfg = torch_model.config
 
-    print(f"[2/4] Building Keras {variant} model")
+    print(f"[2/4] Building Keras {variant}")
     model = BUILDER[variant](weights=None)
 
-    print("[3/4] Mapping weights")
-    kmap = _layer_weight_map(state, cfg.encoder_layers, cfg.decoder_layers)
-    enc_a, enc_m = _assign_to_model(model.encoder, kmap)
-    dec_a, dec_m = _assign_to_model(model.decoder, kmap)
-    print(f"  encoder assigned={enc_a} missing={enc_m}")
-    print(f"  decoder assigned={dec_a} missing={dec_m}")
+    print("[3/4] Transferring weights")
+    transfer_encoder(model.encoder, state, cfg.encoder_layers)
+    transfer_decoder(model.decoder, state, cfg.decoder_layers)
 
-    slug = _SLUG[variant]
-    out_path = os.path.join(out_dir, f"whisper{slug}_openai.weights.h5")
-    print(f"[4/4] Saving combined weights to {out_path}")
-    model.save_weights(out_path)
-    print(f"  wrote {out_path}")
-    return model
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--variant", default="tiny", choices=list(HF_CHECKPOINT))
-    parser.add_argument(
-        "--out-dir",
-        default=".",
-        help="Directory to drop the {slug}_encoder/{slug}_decoder weights files.",
+    print("[4/4] Verifying parity with HF")
+    np.random.seed(0)
+    test_mel = np.random.randn(1, cfg.num_mel_bins, 3000).astype(np.float32)
+    test_ids = np.array(
+        [[cfg.decoder_start_token_id, cfg.decoder_start_token_id + 1]],
+        dtype=np.int32,
     )
-    args = parser.parse_args()
-    convert(args.variant, args.out_dir)
+    keras_logits = ops.convert_to_numpy(
+        model({"input_features": test_mel, "decoder_input_ids": test_ids})["logits"]
+    )
+    with torch.no_grad():
+        hf_logits = (
+            torch_model(
+                input_features=torch.from_numpy(test_mel),
+                decoder_input_ids=torch.from_numpy(test_ids),
+            )
+            .logits.detach()
+            .cpu()
+            .numpy()
+        )
+    diff = float(np.max(np.abs(keras_logits - hf_logits)))
+    print(f"  max abs logit diff: {diff:.6e}")
+    assert diff < 1e-3, f"{variant}: logit diff too high: {diff:.6e}"
+
+    base = f"whisper{SLUG[variant]}_openai"
+    if model.count_params() > SHARD_THRESHOLD_PARAMS:
+        out_path = f"{base}.weights.json"
+        model.save_weights(out_path, max_shard_size=1.5)
+    else:
+        out_path = f"{base}.weights.h5"
+        model.save_weights(out_path)
+    print(f"Saved -> {out_path}")
+
+    del torch_model, model, state
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()

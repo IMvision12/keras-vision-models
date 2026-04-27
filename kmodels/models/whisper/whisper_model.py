@@ -465,19 +465,6 @@ class Whisper(keras.Model):
 
 @register_model
 def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
-    """Whisper Tiny — 39 M params, 4 enc + 4 dec layers, ``d_model=384``, 80 mel bins.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperTiny"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -492,19 +479,6 @@ def WhisperTiny(weights="openai", name="WhisperTiny", **kwargs):
 
 @register_model
 def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
-    """Whisper Base — 74 M params, 6 enc + 6 dec layers, ``d_model=512``, 80 mel bins.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperBase"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -519,19 +493,6 @@ def WhisperBase(weights="openai", name="WhisperBase", **kwargs):
 
 @register_model
 def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
-    """Whisper Small — 244 M params, 12 enc + 12 dec layers, ``d_model=768``, 80 mel bins.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperSmall"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -546,19 +507,6 @@ def WhisperSmall(weights="openai", name="WhisperSmall", **kwargs):
 
 @register_model
 def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
-    """Whisper Medium — 769 M params, 24 enc + 24 dec layers, ``d_model=1024``, 80 mel bins.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperMedium"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -575,19 +523,6 @@ def WhisperMedium(weights="openai", name="WhisperMedium", **kwargs):
 
 @register_model
 def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
-    """Whisper Large — 1550 M params, 32 enc + 32 dec layers, ``d_model=1280``, 80 mel bins.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLarge"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -602,22 +537,6 @@ def WhisperLarge(weights="openai", name="WhisperLarge", **kwargs):
 
 @register_model
 def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
-    """Whisper Large-v2 — same architecture as Large, retrained for 2.5x more epochs.
-
-    1550 M params, 32 enc + 32 dec layers, ``d_model=1280``, 80 mel
-    bins. v1 tokenizer (51 865 vocab).
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV2"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -634,24 +553,6 @@ def WhisperLargeV2(weights="openai", name="WhisperLargeV2", **kwargs):
 
 @register_model
 def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
-    """Whisper Large-v3 — Large architecture upgraded to 128 mel bins and v3 tokenizer.
-
-    1550 M params, 32 enc + 32 dec layers, ``d_model=1280``, **128**
-    mel bins. v3 tokenizer (51 866 vocab — adds Cantonese ``yue``).
-    Use :class:`WhisperProcessor` with ``variant="v3"`` and
-    ``n_mels=128`` for matching preprocessing.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):
@@ -668,23 +569,6 @@ def WhisperLargeV3(weights="openai", name="WhisperLargeV3", **kwargs):
 
 @register_model
 def WhisperLargeV3Turbo(weights="openai", name="WhisperLargeV3Turbo", **kwargs):
-    """Whisper Large-v3-Turbo — Large-v3 encoder + slim 4-layer decoder.
-
-    809 M params, 32 enc + **4** dec layers, ``d_model=1280``, 128 mel
-    bins, v3 tokenizer. ~8x faster decoding than Large-v3 with minor
-    quality loss; quality near Large-v2 on multilingual ASR.
-
-    Args:
-        weights: ``"openai"`` (default) downloads the converted OpenAI
-            checkpoint from the kmodels release tag; ``None`` returns
-            a randomly-initialized model; any other string is treated
-            as a local ``.weights.h5`` path.
-        name: Model name forwarded to :class:`Whisper`.
-        **kwargs: Forwarded to :class:`Whisper`.
-
-    Returns:
-        :class:`Whisper` instance.
-    """
     model = Whisper(**WHISPER_MODEL_CONFIG["WhisperLargeV3Turbo"], name=name, **kwargs)
 
     if weights in get_all_weight_names(WHISPER_WEIGHTS_CONFIG):

@@ -100,23 +100,6 @@ class WhisperProcessor(keras.layers.Layer):
         task: str = "transcribe",
         no_timestamps: bool = True,
     ) -> List[tuple]:
-        """Build the ``forced_decoder_ids`` list for ``WhisperGenerate``.
-
-        Mirrors HF ``WhisperProcessor.get_decoder_prompt_ids``. The
-        returned list is keyed on the **decoded position** (1, 2, 3) —
-        position 0 is always ``<|startoftranscript|>`` and is set
-        separately via ``decoder_start_token_id``.
-
-        Args:
-            language: Either a 2-3 char ISO code (``"en"``, ``"zh"``,
-                ``"yue"``) or the full special token (``"<|en|>"``).
-                Pass ``None`` to skip the language slot (e.g. for the
-                auto-detect path).
-            task: ``"transcribe"`` or ``"translate"``.
-            no_timestamps: When ``True``, append the
-                ``<|notimestamps|>`` token at position 3 so the decoder
-                emits raw text without timestamp tokens.
-        """
         if task not in ("transcribe", "translate"):
             raise ValueError(f"task must be 'transcribe' or 'translate', got {task!r}")
 

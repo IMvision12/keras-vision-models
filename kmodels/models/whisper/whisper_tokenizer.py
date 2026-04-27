@@ -107,12 +107,6 @@ class WhisperTokenizer(keras.Layer):
     def tokenize(
         self, text: Union[str, List[str]]
     ) -> Union[List[int], List[List[int]]]:
-        """Encode raw text into BPE token ids (no special tokens added).
-
-        For speech-to-text you usually don't encode text — the decoder prompt
-        is built from special-token ids directly. This method is here for
-        completeness and for language-model-style fine-tuning setups.
-        """
         if isinstance(text, str):
             return self._tok.encode(text, add_special_tokens=False).ids
         encs = self._tok.encode_batch(text, add_special_tokens=False)

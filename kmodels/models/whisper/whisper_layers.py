@@ -83,23 +83,6 @@ class WhisperAttention(keras.layers.Layer):
         return ops.transpose(x, (0, 2, 1, 3))
 
     def call(self, hidden_states, key_value_states=None, attention_mask=None):
-        """Run scaled dot-product attention.
-
-        Args:
-            hidden_states: Query tensor of shape
-                ``(B, T_q, proj_dim)``.
-            key_value_states: Optional ``(B, T_kv, proj_dim)`` tensor.
-                When supplied, switches the layer to cross-attention
-                mode (K and V are projected from this tensor instead of
-                from ``hidden_states``).
-            attention_mask: Optional additive mask broadcastable to
-                ``(B, num_heads, T_q, T_kv)``. Large negative entries
-                (typically ``-1e9``) zero out positions after softmax;
-                ``0`` entries pass through unchanged.
-
-        Returns:
-            Attention output of shape ``(B, T_q, proj_dim)``.
-        """
         batch_size = ops.shape(hidden_states)[0]
         kv = key_value_states if key_value_states is not None else hidden_states
 
@@ -246,19 +229,6 @@ class LearnedPositionEmbedding(keras.layers.Layer):
         super().build(input_shape)
 
     def call(self, inputs, past_key_values_length=0):
-        """Add the position embedding rows for the current decoder window.
-
-        Args:
-            inputs: Token-embedded decoder input of shape
-                ``(B, T, d_model)``.
-            past_key_values_length: Offset into the position table; the
-                slice ``[start : start + T]`` is added to ``inputs``.
-                When running without a KV cache this is always ``0``.
-
-        Returns:
-            ``(B, T, d_model)`` tensor with positional information
-            added in place.
-        """
         seq_len = ops.shape(inputs)[1]
         start = past_key_values_length
         pe = self.pos_embed[start : start + seq_len]

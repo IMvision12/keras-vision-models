@@ -204,14 +204,14 @@ WHISPER_BEGIN_SUPPRESS_TOKENS = [220, 50257]
 # v3  -> large-v3 / large-v3-turbo                          (51866 vocab)
 WHISPER_TOKENIZER_FILES = {
     "v1": {
-        "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/vocab.json",
-        "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/merges.txt",
-        "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/added_tokens.json",
+        "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_vocab.json",
+        "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_merges.txt",
+        "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_added_tokens.json",
     },
     "v3": {
-        "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/vocab_v3.json",
-        "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/merges_v3.txt",
-        "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/added_tokens_v3.json",
+        "vocab": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_vocab_v3.json",
+        "merges": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_merges_v3.txt",
+        "added_tokens": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisper_added_tokens_v3.json",
     },
 }
 
@@ -234,27 +234,27 @@ WHISPER_WEIGHTS_CONFIG = {
     },
     "WhisperMedium": {
         "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispermedium_openai.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whispermedium_openai.weights.json",
         },
     },
     "WhisperLarge": {
         "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlarge_openai.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlarge_openai.weights.json",
         },
     },
     "WhisperLargeV2": {
         "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev2_openai.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev2_openai.weights.json",
         },
     },
     "WhisperLargeV3": {
         "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3_openai.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3_openai.weights.json",
         },
     },
     "WhisperLargeV3Turbo": {
         "openai": {
-            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3turbo_openai.weights.h5",
+            "url": "https://github.com/IMvision12/keras-models/releases/download/whisper/whisperlargev3turbo_openai.weights.json",
         },
     },
 }

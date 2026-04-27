@@ -245,7 +245,12 @@ def qwen2_vl_generate(
         )
         hidden_np = ops.convert_to_numpy(hidden)
         embed_w = ops.convert_to_numpy(bundle["embed_tokens"].embeddings)
-        logits = hidden_np[0, -1] @ embed_w.T
+        # Untied variants (7B / 72B) carry a separate ``lm_head`` Dense;
+        # tied variants (2B) share the embedding table.
+        if bundle.get("lm_head") is not None:
+            logits = ops.convert_to_numpy(bundle["lm_head"](hidden_np[:, -1:, :]))[0, 0]
+        else:
+            logits = hidden_np[0, -1] @ embed_w.T
         next_id = int(np.argmax(logits))
         generated.append(next_id)
         if next_id == eos_id:

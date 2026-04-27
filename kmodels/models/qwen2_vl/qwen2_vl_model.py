@@ -2,21 +2,28 @@
 
 Design:
   * ``build_qwen2_llm(cfg)`` — functional model accepting
-    ``{"input_embeds", "position_ids", "causal_mask"}``; returns token logits.
-    Accepting embeds (not ids) lets the multimodal path substitute vision
-    features at the embedding layer.
+    ``{"input_embeds", "position_ids", "causal_mask"}``; returns LLM hidden
+    states. Accepting embeds (not ids) lets the multimodal path substitute
+    vision features at the embedding layer.
   * ``build_qwen2_vision(cfg)`` — functional model accepting packed
     ``{"pixel_values", "grid_thw", "rotary_cos", "rotary_sin"}``; returns
     LLM-space hidden states (post-merger).
-  * ``Qwen2VL2B(weights=None)`` — returns both sub-models + shared embedding
-    table (tied with ``lm_head``).
+  * Per-variant factories (``Qwen2VL2B``, ``Qwen2VL2BInstruct``,
+    ``Qwen2VL7B``, ``Qwen2VL7BInstruct``, ``Qwen2VL72B``,
+    ``Qwen2VL72BInstruct``) — return a bundle dict
+    ``{config, embed_tokens, llm, vision, lm_head?, llm_inv_freq,
+    vision_inv_freq}``. ``lm_head`` is included only when the variant has
+    ``tie_word_embeddings=False`` (7B / 72B). The 2B variants reuse
+    ``embed_tokens`` for the output projection.
 """
 
 import keras
 import numpy as np
 from keras import layers, ops
 
-from .config import QWEN2_VL_MODEL_CONFIG
+from kmodels.model_registry import register_model
+
+from .config import QWEN2_VL_HF_CONVERT_VARIANTS, QWEN2_VL_MODEL_CONFIG
 from .qwen2_vl_layers import (
     Qwen2Attention,
     Qwen2MLP,
@@ -159,7 +166,11 @@ def build_qwen2_vision(cfg, name="qwen2_vision"):
         pixel_values
     )  # (N, embed_dim)
     # Add a pseudo-batch axis so attention ops work.
-    x = layers.Lambda(lambda t: ops.expand_dims(t, 0), name="vision_add_batch")(x)
+    x = layers.Lambda(
+        lambda t: ops.expand_dims(t, 0),
+        output_shape=lambda s: (1,) + tuple(s),
+        name="vision_add_batch",
+    )(x)
 
     for i in range(depth):
         x = vision_block(
@@ -173,11 +184,16 @@ def build_qwen2_vision(cfg, name="qwen2_vision"):
         )
 
     # Merger: LN + group (merge_size**2 patches) + MLP to LLM hidden size.
-    x = layers.Lambda(lambda t: t[0], name="vision_drop_batch")(x)  # (N, C)
+    x = layers.Lambda(
+        lambda t: t[0],
+        output_shape=lambda s: (s[1], s[2]),
+        name="vision_drop_batch",
+    )(x)
     x = layers.LayerNormalization(epsilon=1e-6, name="visual_merger_ln_q")(x)
     # Group every (merge_size**2) consecutive patches along N axis.
     x = layers.Lambda(
         lambda t, g=merge_size**2: ops.reshape(t, (-1, g * embed_dim)),
+        output_shape=(merge_size**2 * embed_dim,),
         name="visual_merger_group",
     )(x)
     x = layers.Dense(
@@ -185,7 +201,11 @@ def build_qwen2_vision(cfg, name="qwen2_vision"):
         use_bias=True,
         name="visual_merger_mlp_0",
     )(x)
-    x = layers.Lambda(lambda t: t * ops.sigmoid(1.702 * t), name="visual_merger_act")(x)
+    x = layers.Lambda(
+        lambda t: t * ops.sigmoid(1.702 * t),
+        output_shape=lambda s: s,
+        name="visual_merger_act",
+    )(x)
     x = layers.Dense(hidden_size, use_bias=True, name="visual_merger_mlp_2")(x)
 
     return keras.Model(
@@ -233,39 +253,41 @@ def make_text_position_ids(seq_len, batch=1):
 
 
 # ----------------------------------------------------------------------------
-# Top-level factory
+# Top-level factories
 # ----------------------------------------------------------------------------
 
 
-def Qwen2VL2B(weights="qwen"):
-    """Build the Qwen2-VL-2B-Instruct bundle.
+def _build_qwen2_vl(variant_key: str, weights, name: str) -> dict:
+    """Build the bundle for ``variant_key`` and optionally hydrate from HF.
 
     Args:
-        weights: ``"qwen"`` (default) downloads + converts + caches the
-            official HF checkpoint on first use (no kmodels redistribution).
-            Pass ``None`` for a randomly-initialised bundle.
+        variant_key: A key in :data:`QWEN2_VL_MODEL_CONFIG`.
+        weights: ``"qwen"`` to download + convert + cache the official HF
+            checkpoint on first use; ``None`` for random init; or a path
+            to a pre-converted directory.
+        name: Name prefix for the Keras sub-models.
+
+    Returns:
+        ``{config, embed_tokens, llm, vision, lm_head?, llm_inv_freq,
+        vision_inv_freq}``. ``lm_head`` is present iff
+        ``tie_word_embeddings=False`` for that variant.
     """
-    from .config import (
-        QWEN2_VL_HF_CONVERT_DEFAULT_ALIAS,
-        QWEN2_VL_HF_CONVERT_VARIANTS,
-    )
-
-    cfg = QWEN2_VL_MODEL_CONFIG["Qwen2VL2B"]
+    cfg = QWEN2_VL_MODEL_CONFIG[variant_key]
     tc = cfg["text_config"]
+    vc = cfg["vision_config"]
 
+    slug = name.lower()
     embed_tokens = keras.layers.Embedding(
         input_dim=tc["vocab_size"],
         output_dim=tc["hidden_size"],
         name="model_embed_tokens",
     )
-    llm = build_qwen2_llm(cfg, name="qwen2_vl_2b_llm")
-    vision = build_qwen2_vision(cfg, name="qwen2_vl_2b_vision")
+    llm = build_qwen2_llm(cfg, name=f"{slug}_llm")
+    vision = build_qwen2_vision(cfg, name=f"{slug}_vision")
 
     head_dim = tc["hidden_size"] // tc["num_attention_heads"]
     llm_inv_freq = build_llm_inv_freq(head_dim, tc["rope_theta"])
-    vision_head_dim = (
-        cfg["vision_config"]["embed_dim"] // cfg["vision_config"]["num_heads"]
-    )
+    vision_head_dim = vc["embed_dim"] // vc["num_heads"]
     vision_inv_freq = build_vision_inv_freq(vision_head_dim)
 
     bundle = {
@@ -277,9 +299,13 @@ def Qwen2VL2B(weights="qwen"):
         "vision_inv_freq": vision_inv_freq,
     }
 
-    if weights is not None and weights == QWEN2_VL_HF_CONVERT_DEFAULT_ALIAS.get(
-        "Qwen2VL2B"
-    ):
+    # Untied variants (7B / 72B) need a separate output projection.
+    if not tc["tie_word_embeddings"]:
+        bundle["lm_head"] = keras.layers.Dense(
+            tc["vocab_size"], use_bias=False, name="lm_head"
+        )
+
+    if weights == "qwen":
         from .convert_qwen2_vl_hf_to_keras import (
             load_and_convert_bundle_from_hf,
             transfer_qwen2_vl_weights,
@@ -287,8 +313,71 @@ def Qwen2VL2B(weights="qwen"):
 
         load_and_convert_bundle_from_hf(
             bundle=bundle,
-            model_name="qwen2_vl_2b",
-            hf_model_id=QWEN2_VL_HF_CONVERT_VARIANTS["Qwen2VL2B"],
+            model_name=slug,
+            hf_model_id=QWEN2_VL_HF_CONVERT_VARIANTS[variant_key],
             transfer_fn=transfer_qwen2_vl_weights,
         )
+    elif weights is not None:
+        raise ValueError(
+            f"Unknown weights preset {weights!r}. Expected 'qwen' or None."
+        )
+    else:
+        print("No weights loaded.")
+
     return bundle
+
+
+@register_model
+def Qwen2VL2B(weights="qwen", name="Qwen2VL2B"):
+    """Qwen2-VL 2B base — 1.5 B params, 28 layers, ``hidden=1536``, tied LM head.
+
+    Loads from ``Qwen/Qwen2-VL-2B`` on HF.
+    """
+    return _build_qwen2_vl("Qwen2VL2B", weights, name)
+
+
+@register_model
+def Qwen2VL2BInstruct(weights="qwen", name="Qwen2VL2BInstruct"):
+    """Qwen2-VL 2B Instruct — same architecture as 2B, instruction-tuned weights.
+
+    Loads from ``Qwen/Qwen2-VL-2B-Instruct`` on HF.
+    """
+    return _build_qwen2_vl("Qwen2VL2BInstruct", weights, name)
+
+
+@register_model
+def Qwen2VL7B(weights="qwen", name="Qwen2VL7B"):
+    """Qwen2-VL 7B base — 8 B params, 28 layers, ``hidden=3584``, untied LM head.
+
+    Loads from ``Qwen/Qwen2-VL-7B`` on HF.
+    """
+    return _build_qwen2_vl("Qwen2VL7B", weights, name)
+
+
+@register_model
+def Qwen2VL7BInstruct(weights="qwen", name="Qwen2VL7BInstruct"):
+    """Qwen2-VL 7B Instruct — same architecture as 7B, instruction-tuned weights.
+
+    Loads from ``Qwen/Qwen2-VL-7B-Instruct`` on HF.
+    """
+    return _build_qwen2_vl("Qwen2VL7BInstruct", weights, name)
+
+
+@register_model
+def Qwen2VL72B(weights="qwen", name="Qwen2VL72B"):
+    """Qwen2-VL 72B base — 72 B params, 80 layers, ``hidden=8192``, untied LM head.
+
+    Loads from ``Qwen/Qwen2-VL-72B`` on HF. Requires ~150 GB RAM during
+    conversion.
+    """
+    return _build_qwen2_vl("Qwen2VL72B", weights, name)
+
+
+@register_model
+def Qwen2VL72BInstruct(weights="qwen", name="Qwen2VL72BInstruct"):
+    """Qwen2-VL 72B Instruct — same architecture as 72B, instruction-tuned weights.
+
+    Loads from ``Qwen/Qwen2-VL-72B-Instruct`` on HF. Requires ~150 GB RAM
+    during conversion.
+    """
+    return _build_qwen2_vl("Qwen2VL72BInstruct", weights, name)

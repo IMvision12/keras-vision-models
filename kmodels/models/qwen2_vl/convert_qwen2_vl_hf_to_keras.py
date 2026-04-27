@@ -87,6 +87,18 @@ def _build_kmap(
 
     put("model_norm", "weight", g(f"{llm_pfx}.norm.weight"))
 
+    # Untied LM head (7B / 72B). HF stores ``lm_head.weight`` at the top
+    # level alongside the wrapped ``model.*`` keys.
+    if not tc["tie_word_embeddings"]:
+        if "lm_head.weight" in state_dict:
+            lm_head_w = g("lm_head.weight")
+            put("lm_head", "kernel", np.transpose(lm_head_w, (1, 0)))
+        else:
+            raise KeyError(
+                "tie_word_embeddings=False but 'lm_head.weight' missing from "
+                "the HF state dict."
+            )
+
     w = g(f"{vis_pfx}.patch_embed.proj.weight")
     w = w.reshape(w.shape[0], -1)
     put("visual_patch_embed_proj", "kernel", np.transpose(w, (1, 0)))
@@ -179,6 +191,10 @@ def transfer_qwen2_vl_weights(
     _assign(bundle["embed_tokens"], kmap)
     _assign(bundle["llm"], kmap)
     _assign(bundle["vision"], kmap)
+    if bundle.get("lm_head") is not None:
+        # Build the Dense once we know the input feature size.
+        bundle["lm_head"].build((None, bundle["config"]["text_config"]["hidden_size"]))
+        _assign(bundle["lm_head"], kmap)
 
 
 # ----------------------------------------------------------------------------
@@ -190,13 +206,16 @@ def _cache_dir(model_name: str) -> str:
     return os.path.join(os.path.expanduser("~"), ".cache", "kmodels", model_name)
 
 
-def _paths(model_name: str):
+def _paths(model_name: str, *, with_lm_head: bool):
     d = _cache_dir(model_name)
-    return {
+    paths = {
         "embed": os.path.join(d, f"{model_name}_embed.weights.h5"),
         "llm": os.path.join(d, f"{model_name}_llm.weights.h5"),
         "vision": os.path.join(d, f"{model_name}_vision.weights.h5"),
     }
+    if with_lm_head:
+        paths["lm_head"] = os.path.join(d, f"{model_name}_lm_head.weights.h5")
+    return paths
 
 
 def load_and_convert_bundle_from_hf(
@@ -213,7 +232,8 @@ def load_and_convert_bundle_from_hf(
     Otherwise: pull from HF, run ``transfer_fn`` on the state dict, save
     three split weight files under ``~/.cache/kmodels/<model_name>/``.
     """
-    paths = _paths(model_name)
+    has_lm_head = bundle.get("lm_head") is not None
+    paths = _paths(model_name, with_lm_head=has_lm_head)
     if all(os.path.exists(p) for p in paths.values()):
         print(f"Loading cached {model_name} weights from {_cache_dir(model_name)}")
         # Wrap embed_tokens in a Sequential so save/load_weights has a home.
@@ -222,6 +242,11 @@ def load_and_convert_bundle_from_hf(
         emb.load_weights(paths["embed"])
         bundle["llm"].load_weights(paths["llm"])
         bundle["vision"].load_weights(paths["vision"])
+        if has_lm_head:
+            hidden = bundle["config"]["text_config"]["hidden_size"]
+            lm_head_wrapper = keras.Sequential([bundle["lm_head"]])
+            lm_head_wrapper.build((None, hidden))
+            lm_head_wrapper.load_weights(paths["lm_head"])
         return
 
     try:
@@ -257,9 +282,16 @@ def load_and_convert_bundle_from_hf(
     emb_model.save_weights(paths["embed"])
     bundle["llm"].save_weights(paths["llm"])
     bundle["vision"].save_weights(paths["vision"])
+    if has_lm_head:
+        hidden = bundle["config"]["text_config"]["hidden_size"]
+        lm_head_wrapper = keras.Sequential([bundle["lm_head"]])
+        lm_head_wrapper.build((None, hidden))
+        lm_head_wrapper.save_weights(paths["lm_head"])
 
-    total = sum(
-        sum(np.prod(w.shape) * 4 for w in m.weights)
-        for m in (bundle["embed_tokens"], bundle["llm"], bundle["vision"])
-    ) / (1024**3)
+    submodels = [bundle["embed_tokens"], bundle["llm"], bundle["vision"]]
+    if has_lm_head:
+        submodels.append(bundle["lm_head"])
+    total = sum(sum(np.prod(w.shape) * 4 for w in m.weights) for m in submodels) / (
+        1024**3
+    )
     print(f"Cached {model_name} weights to {_cache_dir(model_name)} ({total:.1f} GB)")

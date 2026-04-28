@@ -43,7 +43,7 @@ model = kmodels.models.detr.DETRResNet101(weights=None, input_shape=(800, 800, 3
 
 ```python
 import kmodels
-from kmodels.models.detr import DETRImageProcessor, DETRPostProcessor
+from kmodels.models.detr import DETRImageProcessor
 from PIL import Image
 
 model = kmodels.models.detr.DETRResNet50(
@@ -65,7 +65,7 @@ output = model(processed, training=False)
 # output["pred_boxes"]: (1, 100, 4)  — normalized (cx, cy, w, h)
 
 # Post-process: filter by confidence, convert boxes to pixel coords
-results = DETRPostProcessor(output, threshold=0.7, target_sizes=[original_size])
+results = processor.post_process_object_detection(output, threshold=0.7, target_sizes=[original_size])
 for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
@@ -105,7 +105,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.detr import DETRResNet50, DETRImageProcessor, DETRPostProcessor
+from kmodels.models.detr import DETRResNet50, DETRImageProcessor
 
 model = DETRResNet50(weights="coco", input_shape=(800, 800, 3), include_normalization=False)
 
@@ -116,7 +116,7 @@ processor = DETRImageProcessor(size={"height": 800, "width": 800})
 processed = processor(img)
 output = model(processed, training=False)
 
-results = DETRPostProcessor(output, threshold=0.7, target_sizes=[original_size])
+results = processor.post_process_object_detection(output, threshold=0.7, target_sizes=[original_size])
 
 COLORS = plt.cm.tab10.colors
 
@@ -147,7 +147,7 @@ When using a model fine-tuned on a custom dataset, pass your class names to the 
 ```python
 MY_CLASSES = ["cat", "dog", "bird"]
 
-results = DETRPostProcessor(output, threshold=0.7,
+results = processor.post_process_object_detection(output, threshold=0.7,
     target_sizes=[original_size], label_names=MY_CLASSES)
 ```
 

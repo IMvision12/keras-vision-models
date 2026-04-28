@@ -594,14 +594,14 @@ class DepthAnythingV1(keras.Model):
         from kmodels.models.depth_anything_v1 import (
             DepthAnythingV1Small,
             DepthAnythingV1ImageProcessor,
-            DepthAnythingV1PostProcessDepth,
+            depth_anything_v1_post_process_depth,
         )
 
         model = DepthAnythingV1Small(weights="da_v1")
         proc = DepthAnythingV1ImageProcessor()
         inputs = proc("photo.jpg")
         depth = model(inputs["pixel_values"])
-        depth_full = DepthAnythingV1PostProcessDepth(
+        depth_full = depth_anything_v1_post_process_depth(
             depth, original_size=inputs["original_size"]
         )
         ```

@@ -90,8 +90,7 @@ processor stretches the image directly to the target size so the shape
 matches what the Keras model was built with.
 
 - `DepthAnythingV1ImageProcessor(target_size=518)(image)` / `DepthAnythingV2ImageProcessor()(...)`
-- `DepthAnythingV1PostProcessDepth(predicted_depth, original_size)` /
-  `DepthAnythingV2PostProcessDepth(...)`
+- `processor.post_process_depth_estimation(predicted_depth, original_size)` (method on either processor)
 
 `target_size` accepts either a single `int` (square output) or a
 `(height, width)` tuple. Both dimensions should be multiples of the
@@ -104,14 +103,13 @@ import numpy as np
 from kmodels.models.depth_anything_v1 import (
     DepthAnythingV1Small,
     DepthAnythingV1ImageProcessor,
-    DepthAnythingV1PostProcessDepth,
 )
 
 model = DepthAnythingV1Small(weights="da_v1")
 processor = DepthAnythingV1ImageProcessor()
 inputs = processor("photo.jpg")
 depth = model(inputs["pixel_values"])
-depth_full = DepthAnythingV1PostProcessDepth(
+depth_full = processor.post_process_depth_estimation(
     depth, original_size=inputs["original_size"]
 )
 print(depth_full.shape)  # (1, orig_h, orig_w)
@@ -133,7 +131,6 @@ import matplotlib.cm as cm
 from kmodels.models.depth_anything_v1 import (
     DepthAnythingV1Small,
     DepthAnythingV1ImageProcessor,
-    DepthAnythingV1PostProcessDepth,
 )
 
 # 1) build model + load pretrained weights
@@ -148,7 +145,7 @@ orig_h, orig_w = inputs["original_size"]
 raw_depth = model(inputs["pixel_values"], training=False)
 
 # 4) resample depth back to the original image size
-depth = DepthAnythingV1PostProcessDepth(
+depth = processor.post_process_depth_estimation(
     raw_depth, original_size=(orig_h, orig_w)
 )
 depth = keras.ops.convert_to_numpy(depth)[0]   # (orig_h, orig_w) float32
@@ -180,7 +177,6 @@ import matplotlib.cm as cm
 from kmodels.models.depth_anything_v2 import (
     DepthAnythingV2Base,
     DepthAnythingV2ImageProcessor,
-    DepthAnythingV2PostProcessDepth,
 )
 
 # 1) build model + load pretrained weights
@@ -195,7 +191,7 @@ orig_h, orig_w = inputs["original_size"]
 raw_depth = model(inputs["pixel_values"], training=False)
 
 # 4) resample depth back to the original image size
-depth = DepthAnythingV2PostProcessDepth(
+depth = processor.post_process_depth_estimation(
     raw_depth, original_size=(orig_h, orig_w)
 )
 depth = keras.ops.convert_to_numpy(depth)[0]
@@ -218,14 +214,13 @@ Output (mountain valley — crisp ridges and foreground detail):
 from kmodels.models.depth_anything_v2 import (
     DepthAnythingV2MetricIndoorLarge,
     DepthAnythingV2ImageProcessor,
-    DepthAnythingV2PostProcessDepth,
 )
 
 model = DepthAnythingV2MetricIndoorLarge(weights="da_v2")
 processor = DepthAnythingV2ImageProcessor()
 inputs = processor("room.jpg")
 depth = model(inputs["pixel_values"])
-depth_full = DepthAnythingV2PostProcessDepth(
+depth_full = processor.post_process_depth_estimation(
     depth, original_size=inputs["original_size"]
 )
 # depth_full values are in meters, bounded to [0, 20]
@@ -315,8 +310,8 @@ Image processors return tensors in the requested layout; post-processors accept 
 
 Output shape is `(batch, height, width, 1)` in `channels_last` or
 `(batch, 1, height, width)` in `channels_first`. Use
-`Depth*PostProcessDepth` to resample back to the original image size and
-squeeze the channel dimension.
+`processor.post_process_depth_estimation(...)` to resample back to the
+original image size and squeeze the channel dimension.
 
 ## Citations
 

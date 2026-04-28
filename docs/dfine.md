@@ -44,7 +44,7 @@ model = kmodels.models.dfine.DFineLarge(weights=None, input_shape=(640, 640, 3))
 
 ```python
 import kmodels
-from kmodels.models.dfine import DFineImageProcessor, DFinePostProcessor
+from kmodels.models.dfine import DFineImageProcessor
 from PIL import Image
 
 model = kmodels.models.dfine.DFineLarge(weights="coco")
@@ -62,7 +62,7 @@ output = model(processed, training=False)
 # output["pred_boxes"]: (1, 300, 4)  — normalized (cx, cy, w, h)
 
 # Post-process: sigmoid, top-K selection, convert boxes to pixel coords
-results = DFinePostProcessor(output, threshold=0.5, target_sizes=[original_size])
+results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
 for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
@@ -103,7 +103,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.dfine import DFineLarge, DFineImageProcessor, DFinePostProcessor
+from kmodels.models.dfine import DFineLarge, DFineImageProcessor
 
 model = DFineLarge(weights="coco")
 
@@ -114,7 +114,7 @@ processor = DFineImageProcessor()
 processed = processor(img)
 output = model(processed, training=False)
 
-results = DFinePostProcessor(output, threshold=0.5, target_sizes=[original_size])
+results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
 
 COLORS = plt.cm.tab10.colors
 
@@ -145,7 +145,7 @@ When using a model fine-tuned on a custom dataset, pass your class names to the 
 ```python
 MY_CLASSES = ["cat", "dog", "bird"]
 
-results = DFinePostProcessor(output, threshold=0.5,
+results = processor.post_process_object_detection(output, threshold=0.5,
     target_sizes=[original_size], label_names=MY_CLASSES)
 ```
 

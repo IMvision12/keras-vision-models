@@ -69,7 +69,7 @@ The default SAM2 functional graph has three inputs. Box and dense-mask prompts a
 import numpy as np
 import keras
 from kmodels.models.sam2 import (
-    Sam2Large, Sam2ImageProcessorWithPrompts, Sam2PostProcessMasks,
+    Sam2Large, Sam2ImageProcessorWithPrompts,
 )
 
 model = Sam2Large(input_shape=(1024, 1024, 3), weights="sav")
@@ -87,7 +87,7 @@ outputs = model({
     "input_labels": inputs["input_labels"],
 })
 
-masks = Sam2PostProcessMasks(
+masks = processor.post_process_masks(
     outputs["pred_masks"], original_size=inputs["original_size"]
 )
 iou_scores = keras.ops.convert_to_numpy(outputs["iou_scores"])[0, 0]
@@ -238,7 +238,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.sam2 import (
-    Sam2Large, Sam2ImageProcessorWithPrompts, Sam2PostProcessMasks,
+    Sam2Large, Sam2ImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -287,7 +287,7 @@ for i, prompt in enumerate(prompts):
     best_idx = int(np.argmax(iou_scores))
 
     masks_full = keras.ops.convert_to_numpy(
-        Sam2PostProcessMasks(
+        processor.post_process_masks(
             outputs["pred_masks"], original_size=inputs["original_size"]
         )
     )[0, 0]
@@ -403,15 +403,15 @@ Under the hood the driver:
 
 ### Rolling your own driver
 
-If you want HuggingFace-parity behavior exactly, import the helpers directly and skip `Sam2GenerateMasks`:
+If you want HuggingFace-parity behavior exactly, import the helpers from the SAM submodule and skip `Sam2GenerateMasks`:
 
 ```python
-from kmodels.models.sam import (
+from kmodels.models.sam.sam_image_processor import (
     generate_crop_boxes, filter_masks, post_process_for_mask_generation,
 )
 ```
 
-These are architecture-agnostic — the SAM2 AMG driver reuses the same helpers verbatim — so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`.
+These are architecture-agnostic — the SAM2 AMG driver reuses the same helpers verbatim — so you can mirror any custom pipeline written against `transformers`' `Sam2ImageProcessor`. They are not part of the top-level public API; keep `Sam2GenerateMasks` as the recommended entry point.
 
 ## Architecture
 
@@ -429,7 +429,7 @@ The model returns a dictionary with:
 - `iou_scores`: Predicted IoU scores (0–1, sigmoid-activated) for each mask of shape `(batch, point_batch, num_masks)`.
 - `object_score_logits`: Object-presence score logits of shape `(batch, point_batch, 1)`. Raw logits — apply `sigmoid` if you want a probability.
 
-Use `Sam2PostProcessMasks` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
+Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
 
 ## HuggingFace API Parity Notes
 
@@ -440,7 +440,7 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `Sam2Model` AP
 | Optional prompts | pass `None` in `forward` | build-time flags (`include_box_input`, `include_mask_input`) + explicit inputs |
 | `multimask_output` | runtime kwarg | construction-time flag |
 | Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
-| Post-processing | `processor.post_process_masks` (list per image) | `Sam2PostProcessMasks` (one image per call) |
+| Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
 | Automatic mask generation | helpers on `Sam2ImageProcessor`; driver lives in Meta's original repo | helpers re-used from `kmodels.models.sam` + built-in `Sam2GenerateMasks` driver |
 | Image preprocessing | `keep_aspect_ratio=True` + pad to square | per-axis stretch to 1024×1024 |
 | Box-only prompts | supported (points branch is skipped) | small drift — see the box-prompt note above |

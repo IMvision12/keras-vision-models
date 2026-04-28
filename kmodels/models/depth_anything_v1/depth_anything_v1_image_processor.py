@@ -88,8 +88,15 @@ class DepthAnythingV1ImageProcessor(BaseImageProcessor):
             "reshaped_size": reshaped_hw,
         }
 
+    def post_process_depth_estimation(
+        self, predicted_depth, original_size, data_format=None
+    ):
+        return depth_anything_v1_post_process_depth(
+            predicted_depth, original_size=original_size, data_format=data_format
+        )
 
-def DepthAnythingV1PostProcessDepth(
+
+def depth_anything_v1_post_process_depth(
     predicted_depth: "keras.KerasTensor",
     original_size: Tuple[int, int],
     data_format: Optional[str] = None,
@@ -118,7 +125,7 @@ def DepthAnythingV1PostProcessDepth(
     Example:
         ```python
         depth = model(inputs["pixel_values"])
-        depth_full = DepthAnythingV1PostProcessDepth(
+        depth_full = depth_anything_v1_post_process_depth(
             depth, original_size=inputs["original_size"]
         )
         ```

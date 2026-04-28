@@ -100,6 +100,15 @@ class Sam2ImageProcessor(BaseImageProcessor):
             "reshaped_size": (self.target_length, self.target_length),
         }
 
+    def post_process_masks(self, pred_masks, original_size, target_length=None):
+        return sam2_post_process_masks(
+            pred_masks,
+            original_size=original_size,
+            target_length=target_length
+            if target_length is not None
+            else self.target_length,
+        )
+
 
 class Sam2ImageProcessorWithPrompts(Sam2ImageProcessor):
     """Preprocess an image plus optional point prompts for Sam2 inference.
@@ -152,7 +161,7 @@ class Sam2ImageProcessorWithPrompts(Sam2ImageProcessor):
         return result
 
 
-def Sam2PostProcessMasks(
+def sam2_post_process_masks(
     pred_masks: "keras.KerasTensor",
     original_size: Tuple[int, int],
     target_length: int = 1024,
@@ -170,7 +179,7 @@ def Sam2PostProcessMasks(
         original_size: Original image ``(height, width)``.
         target_length: Model input resolution. Unused by this
             implementation but kept for API parity with
-            :func:`SAMPostProcessMasks`. Defaults to ``1024``.
+            :func:`sam_post_process_masks`. Defaults to ``1024``.
 
     Returns:
         Keras tensor of masks shaped
@@ -178,9 +187,9 @@ def Sam2PostProcessMasks(
 
     Example:
         ```python
-        from kmodels.models.sam2 import Sam2PostProcessMasks
+        from kmodels.models.sam2 import sam2_post_process_masks
 
-        masks = Sam2PostProcessMasks(
+        masks = sam2_post_process_masks(
             outputs["pred_masks"],
             original_size=inputs["original_size"],
         )
@@ -427,7 +436,7 @@ def Sam2GenerateMasks(
             pred_masks = out["pred_masks"]
             iou_scores = out["iou_scores"]
 
-            upsampled = Sam2PostProcessMasks(
+            upsampled = sam2_post_process_masks(
                 pred_masks, original_size=(crop_h, crop_w), target_length=target_length
             )
             up_shape = keras.ops.shape(upsampled)

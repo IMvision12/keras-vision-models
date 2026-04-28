@@ -123,8 +123,18 @@ class DeepLabV3ImageProcessor(BaseImageProcessor):
 
         return image
 
+    def post_process_semantic_segmentation(
+        self, outputs, target_size=None, label_names=None, data_format=None
+    ):
+        return deeplabv3_post_process_semantic_segmentation(
+            outputs,
+            target_size=target_size,
+            label_names=label_names,
+            data_format=data_format,
+        )
 
-def DeepLabV3PostProcessor(
+
+def deeplabv3_post_process_semantic_segmentation(
     outputs: "keras.KerasTensor",
     target_size: Optional[Tuple[int, int]] = None,
     label_names: Optional[List[str]] = None,
@@ -162,13 +172,13 @@ def DeepLabV3PostProcessor(
     Example:
         ```python
         from kmodels.models.deeplabv3 import (
-            DeepLabV3ResNet50, DeepLabV3ImageProcessor, DeepLabV3PostProcessor,
+            DeepLabV3ResNet50, DeepLabV3ImageProcessor, deeplabv3_post_process_semantic_segmentation,
         )
 
         model = DeepLabV3ResNet50(weights="voc")
         img = DeepLabV3ImageProcessor("photo.jpg")
         output = model(img, training=False)
-        result = DeepLabV3PostProcessor(output, target_size=(orig_h, orig_w))
+        result = deeplabv3_post_process_semantic_segmentation(output, target_size=(orig_h, orig_w))
         print(result["class_names"])
         ```
     """

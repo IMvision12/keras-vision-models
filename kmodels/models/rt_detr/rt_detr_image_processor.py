@@ -154,8 +154,24 @@ class RTDETRImageProcessor(BaseImageProcessor):
 
         return image
 
+    def post_process_object_detection(
+        self,
+        outputs,
+        threshold=0.5,
+        num_top_queries=300,
+        target_sizes=None,
+        label_names=None,
+    ):
+        return rt_detr_post_process_object_detection(
+            outputs,
+            threshold=threshold,
+            num_top_queries=num_top_queries,
+            target_sizes=target_sizes,
+            label_names=label_names,
+        )
 
-def RTDETRPostProcessor(
+
+def rt_detr_post_process_object_detection(
     outputs: Dict[str, keras.KerasTensor],
     threshold: float = 0.5,
     num_top_queries: int = 300,
@@ -197,13 +213,13 @@ def RTDETRPostProcessor(
     Example:
         ```python
         from kmodels.models.rt_detr import (
-            RTDETRResNet50, RTDETRImageProcessor, RTDETRPostProcessor,
+            RTDETRResNet50, RTDETRImageProcessor, rt_detr_post_process_object_detection,
         )
 
         model = RTDETRResNet50(weights="coco")
         img = RTDETRImageProcessor("photo.jpg")
         output = model(img, training=False)
-        results = RTDETRPostProcessor(
+        results = rt_detr_post_process_object_detection(
             output, threshold=0.5, target_sizes=[(orig_h, orig_w)],
         )
         for r in results:

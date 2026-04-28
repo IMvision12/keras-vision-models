@@ -10,8 +10,6 @@ from .whisper_model import (
     WhisperMedium,
     WhisperSmall,
     WhisperTiny,
-    whisper_decoder,
-    whisper_encoder,
 )
 from .whisper_processor import WhisperProcessor
 from .whisper_tokenizer import WhisperTokenizer
@@ -30,6 +28,4 @@ __all__ = [
     "WhisperTokenizer",
     "WhisperProcessor",
     "WhisperGenerate",
-    "whisper_encoder",
-    "whisper_decoder",
 ]

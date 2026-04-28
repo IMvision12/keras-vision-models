@@ -64,7 +64,7 @@ The SAM model's functional graph has six inputs that must always be provided —
 import numpy as np
 import keras
 from kmodels.models.sam import (
-    SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
+    SAM_ViT_Base, SAMImageProcessorWithPrompts,
 )
 
 model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
@@ -83,7 +83,7 @@ inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
 
 outputs = model.predict(inputs, verbose=0)
 
-masks = SAMPostProcessMasks(
+masks = processor.post_process_masks(
     outputs["pred_masks"],
     original_size=inputs["original_size"],
     reshaped_size=inputs["reshaped_size"],
@@ -118,7 +118,7 @@ Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. The prompt en
 ```python
 import numpy as np
 from kmodels.models.sam import (
-    SAM_ViT_Base, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
+    SAM_ViT_Base, SAMImageProcessorWithPrompts,
 )
 
 model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
@@ -134,7 +134,7 @@ inputs["has_boxes_input"] = np.ones((1, 1), dtype="float32")
 inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
 
 outputs = model.predict(inputs, verbose=0)
-masks = SAMPostProcessMasks(
+masks = processor.post_process_masks(
     outputs["pred_masks"],
     original_size=inputs["original_size"],
     reshaped_size=inputs["reshaped_size"],
@@ -216,7 +216,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.sam import (
-    SAM_ViT_Large, SAMImageProcessorWithPrompts, SAMPostProcessMasks,
+    SAM_ViT_Large, SAMImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -258,7 +258,7 @@ for i, prompt in enumerate(prompts):
         "input_labels": inputs["input_labels"],
     }, verbose=0)
 
-    masks = SAMPostProcessMasks(
+    masks = processor.post_process_masks(
         outputs["pred_masks"],
         original_size=inputs["original_size"],
         reshaped_size=inputs["reshaped_size"],
@@ -375,15 +375,15 @@ Under the hood the driver:
 
 ### Rolling your own driver
 
-If you want HuggingFace-parity behavior exactly, import the helpers directly and skip `SAMGenerateMasks`:
+If you want HuggingFace-parity behavior exactly, import the helpers from the submodule and skip `SAMGenerateMasks`:
 
 ```python
-from kmodels.models.sam import (
+from kmodels.models.sam.sam_image_processor import (
     generate_crop_boxes, filter_masks, post_process_for_mask_generation,
 )
 ```
 
-These map 1:1 to the HF equivalents, so you can mirror any custom pipeline written against `transformers`' `SamProcessor`.
+These map 1:1 to the HF equivalents, so you can mirror any custom pipeline written against `transformers`' `SamProcessor`. They are not part of the top-level public API — keep `SAMGenerateMasks` as the recommended entry point.
 
 ## Architecture
 
@@ -401,7 +401,7 @@ The model returns a dictionary with:
 - `pred_masks`: Low-resolution predicted masks of shape `(batch, point_batch, num_masks, 256, 256)`, where `num_masks=3` for `multimask_output=True` (the default) or `num_masks=1` for `multimask_output=False`.
 - `iou_scores`: Predicted IoU scores for each mask of shape `(batch, point_batch, num_masks)`.
 
-Use `SAMPostProcessMasks` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
+Use `processor.post_process_masks(...)` to upscale masks to the original image resolution. The output is mask **logits** — threshold with `> 0` to get a binary mask (or whatever `mask_threshold` you prefer).
 
 ## HuggingFace API Parity Notes
 
@@ -412,7 +412,7 @@ The Keras port intentionally differs from the PyTorch/HuggingFace `SamModel` API
 | Optional prompts | pass `None` in `forward` | pass zero placeholders + `has_*_input=0` |
 | `multimask_output` | runtime kwarg | construction-time flag |
 | Precomputed embeddings | `model(image_embeddings=..., ...)` | `model.prompt_decoder_model(...)` sub-model |
-| Post-processing | `processor.post_process_masks` (list per image) | `SAMPostProcessMasks` (one image per call) |
+| Post-processing | `processor.post_process_masks` (list per image) | `processor.post_process_masks` (one image per call) |
 | Automatic mask generation | helpers only; driver lives in Meta's original repo | helpers + built-in `SAMGenerateMasks` driver |
 
 All forward-pass weights are byte-equivalent to the HuggingFace checkpoints — the divergence is purely at the Python API surface.

@@ -42,7 +42,7 @@ model = kmodels.models.rt_detr_v2.RTDETRV2ResNet50(weights=None)
 
 ```python
 import kmodels
-from kmodels.models.rt_detr_v2 import RTDETRV2ImageProcessor, RTDETRV2PostProcessor
+from kmodels.models.rt_detr_v2 import RTDETRV2ImageProcessor
 from PIL import Image
 
 model = kmodels.models.rt_detr_v2.RTDETRV2ResNet50(weights="coco")
@@ -60,7 +60,7 @@ output = model(processed, training=False)
 # output["pred_boxes"]: (1, 300, 4)  — normalized (cx, cy, w, h)
 
 # Post-process: sigmoid, top-K selection, convert boxes to pixel coords
-results = RTDETRV2PostProcessor(output, threshold=0.5, target_sizes=[original_size])
+results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
 for score, label, box in zip(results[0]["scores"], results[0]["label_names"], results[0]["boxes"]):
     print(f"{label}: {score:.2f} at [{box[0]:.0f}, {box[1]:.0f}, {box[2]:.0f}, {box[3]:.0f}]")
 
@@ -104,7 +104,6 @@ import matplotlib.pyplot as plt
 from kmodels.models.rt_detr_v2 import (
     RTDETRV2ResNet50,
     RTDETRV2ImageProcessor,
-    RTDETRV2PostProcessor,
 )
 
 model = RTDETRV2ResNet50(weights="coco")
@@ -116,7 +115,7 @@ processor = RTDETRV2ImageProcessor()
 processed = processor(img)
 output = model(processed, training=False)
 
-results = RTDETRV2PostProcessor(output, threshold=0.5, target_sizes=[original_size])
+results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
 
 COLORS = plt.cm.tab10.colors
 
@@ -147,7 +146,7 @@ When using a model fine-tuned on a custom dataset, pass your class names to the 
 ```python
 MY_CLASSES = ["cat", "dog", "bird"]
 
-results = RTDETRV2PostProcessor(output, threshold=0.5,
+results = processor.post_process_object_detection(output, threshold=0.5,
     target_sizes=[original_size], label_names=MY_CLASSES)
 ```
 

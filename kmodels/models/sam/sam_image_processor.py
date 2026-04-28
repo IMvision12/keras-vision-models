@@ -105,6 +105,18 @@ class SAMImageProcessor(BaseImageProcessor):
             "reshaped_size": (new_h, new_w),
         }
 
+    def post_process_masks(
+        self, pred_masks, original_size, reshaped_size, target_length=None
+    ):
+        return sam_post_process_masks(
+            pred_masks,
+            original_size=original_size,
+            reshaped_size=reshaped_size,
+            target_length=target_length
+            if target_length is not None
+            else self.target_length,
+        )
+
 
 class SAMImageProcessorWithPrompts(SAMImageProcessor):
     """Preprocess an image plus optional prompts for SAM inference.
@@ -182,7 +194,7 @@ class SAMImageProcessorWithPrompts(SAMImageProcessor):
         return result
 
 
-def SAMPostProcessMasks(
+def sam_post_process_masks(
     pred_masks: "keras.KerasTensor",
     original_size: Tuple[int, int],
     reshaped_size: Tuple[int, int],
@@ -206,7 +218,7 @@ def SAMPostProcessMasks(
 
     Example:
         ```python
-        masks_np = SAMPostProcessMasks(
+        masks_np = sam_post_process_masks(
             outputs["pred_masks"],
             original_size=inputs["original_size"],
             reshaped_size=inputs["reshaped_size"],
@@ -1011,7 +1023,7 @@ def SAMGenerateMasks(
             iou_scores = out["iou_scores"]  # (1, pb, num_masks)
 
             crop_h, crop_w = int(cropped_image.shape[0]), int(cropped_image.shape[1])
-            upsampled = SAMPostProcessMasks(
+            upsampled = sam_post_process_masks(
                 pred_masks,
                 original_size=(crop_h, crop_w),
                 reshaped_size=_reshaped_size,

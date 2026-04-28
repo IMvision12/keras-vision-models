@@ -319,8 +319,18 @@ class SegFormerImageProcessor(BaseImageProcessor):
 
         return image
 
+    def post_process_semantic_segmentation(
+        self, outputs, target_size, label_names=None, data_format=None
+    ):
+        return segformer_post_process_semantic_segmentation(
+            outputs,
+            target_size=target_size,
+            label_names=label_names,
+            data_format=data_format,
+        )
 
-def SegFormerPostProcessor(
+
+def segformer_post_process_semantic_segmentation(
     outputs: "keras.KerasTensor",
     target_size: Optional[Tuple[int, int]] = None,
     label_names: Optional[List[str]] = None,
@@ -359,14 +369,14 @@ def SegFormerPostProcessor(
     Example:
         ```python
         from kmodels.models.segformer import (
-            SegFormerB0, SegFormerImageProcessor, SegFormerPostProcessor,
+            SegFormerB0, SegFormerImageProcessor, segformer_post_process_semantic_segmentation,
         )
 
         model = SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
         proc = SegFormerImageProcessor()
         img = proc("photo.jpg")
         output = model(img, training=False)
-        result = SegFormerPostProcessor(output, target_size=(orig_h, orig_w))
+        result = segformer_post_process_semantic_segmentation(output, target_size=(orig_h, orig_w))
         print(result["class_names"])
         ```
     """

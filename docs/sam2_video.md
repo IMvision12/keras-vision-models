@@ -60,14 +60,13 @@ The model exposes:
 
 - `Sam2VideoImageProcessor()(image)` — preprocess one frame and return default empty prompt placeholders.
 - `Sam2VideoImageProcessorWithPrompts(input_points, input_labels)(image)` — same as above plus encoded point prompts (per-axis stretched into 1024-space).
-- `Sam2VideoPostProcessMasks(pred_masks, original_size)` — bilinear-resize predicted masks back to the original frame resolution.
+- `processor.post_process_masks(pred_masks, original_size)` (method on either processor) — bilinear-resize predicted masks back to the original frame resolution.
 
 ```python
 import numpy as np
 from kmodels.models.sam2_video import (
     Sam2VideoSmall,
     Sam2VideoImageProcessorWithPrompts,
-    Sam2VideoPostProcessMasks,
 )
 
 model = Sam2VideoSmall(input_shape=(1024, 1024, 3), weights="sav")
@@ -81,7 +80,7 @@ outputs = model({
     "input_points": inputs["input_points"],
     "input_labels": inputs["input_labels"],
 })
-masks = Sam2VideoPostProcessMasks(
+masks = processor.post_process_masks(
     outputs["pred_masks"], original_size=inputs["original_size"]
 )
 ```

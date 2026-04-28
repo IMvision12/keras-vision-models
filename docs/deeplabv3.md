@@ -42,7 +42,7 @@ custom_model = kmodels.models.deeplabv3.DeepLabV3ResNet50(
 
 ```python
 import kmodels
-from kmodels.models.deeplabv3 import DeepLabV3ImageProcessor, DeepLabV3PostProcessor
+from kmodels.models.deeplabv3 import DeepLabV3ImageProcessor
 
 model = kmodels.models.deeplabv3.DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
 
@@ -51,7 +51,7 @@ image = processor("image.jpg")
 
 output = model(image, training=False)  # Output shape: (1, 512, 512, 21)
 
-result = DeepLabV3PostProcessor(output)
+result = processor.post_process_semantic_segmentation(output)
 print(f"Detected: {[c for c in result['class_names'] if c != 'background']}")
 
 # Output:
@@ -86,7 +86,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.deeplabv3 import DeepLabV3ResNet50, DeepLabV3ImageProcessor, DeepLabV3PostProcessor
+from kmodels.models.deeplabv3 import DeepLabV3ResNet50, DeepLabV3ImageProcessor
 
 VOC_COLORMAP = np.array([
     [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0], [0, 0, 128],
@@ -105,7 +105,7 @@ processor = DeepLabV3ImageProcessor(size={"height": 512, "width": 512})
 processed = processor(img)
 output = model(processed, training=False)
 
-result = DeepLabV3PostProcessor(output, target_size=original_size)
+result = processor.post_process_semantic_segmentation(output, target_size=original_size)
 mask_resized = result["segmentation"]
 
 colored_mask = VOC_COLORMAP[mask_resized]
@@ -140,7 +140,7 @@ When using a model fine-tuned on a custom dataset, pass your class names to the 
 ```python
 MY_CLASSES = ["background", "crack", "pothole", "patch"]
 
-result = DeepLabV3PostProcessor(output, target_size=original_size, label_names=MY_CLASSES)
+result = processor.post_process_semantic_segmentation(output, target_size=original_size, label_names=MY_CLASSES)
 ```
 
 If `label_names` is not provided, Pascal VOC class names (21 classes) are used by default.

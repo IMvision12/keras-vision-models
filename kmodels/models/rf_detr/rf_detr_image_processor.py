@@ -174,8 +174,24 @@ class RFDETRImageProcessor(BaseImageProcessor):
 
         return image
 
+    def post_process_object_detection(
+        self,
+        outputs,
+        threshold=0.5,
+        num_top_queries=300,
+        target_sizes=None,
+        label_names=None,
+    ):
+        return rf_detr_post_process_object_detection(
+            outputs,
+            threshold=threshold,
+            num_top_queries=num_top_queries,
+            target_sizes=target_sizes,
+            label_names=label_names,
+        )
 
-def RFDETRPostProcessor(
+
+def rf_detr_post_process_object_detection(
     outputs: Dict[str, keras.KerasTensor],
     threshold: float = 0.5,
     num_top_queries: int = 300,
@@ -213,12 +229,12 @@ def RFDETRPostProcessor(
 
     Example:
         ```python
-        from kmodels.models.rf_detr import RFDETRBase, RFDETRImageProcessor, RFDETRPostProcessor
+        from kmodels.models.rf_detr import RFDETRBase, RFDETRImageProcessor, rf_detr_post_process_object_detection
 
         model = RFDETRBase(weights="coco")
         img = RFDETRImageProcessor("photo.jpg", size={"height": 560, "width": 560})
         output = model(img, training=False)
-        results = RFDETRPostProcessor(output, threshold=0.5,
+        results = rf_detr_post_process_object_detection(output, threshold=0.5,
                                       target_sizes=[(orig_h, orig_w)])
         for r in results:
             for name, score in zip(r["label_names"], r["scores"]):

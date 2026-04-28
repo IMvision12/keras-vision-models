@@ -1,10 +1,21 @@
-from kmodels.models.clip.clip_image_processor import CLIPImageProcessor
-from kmodels.models.clip.clip_model import (
+from .clip_image_processor import CLIPImageProcessor
+from .clip_model import (
     ClipVitBase16,
     ClipVitBase32,
     ClipVitBigG14,
     ClipVitG14,
     ClipVitLarge14,
 )
-from kmodels.models.clip.clip_processor import CLIPProcessor
-from kmodels.models.clip.clip_tokenizer import CLIPTokenizer
+from .clip_processor import CLIPProcessor
+from .clip_tokenizer import CLIPTokenizer
+
+__all__ = [
+    "ClipVitBase16",
+    "ClipVitBase32",
+    "ClipVitBigG14",
+    "ClipVitG14",
+    "ClipVitLarge14",
+    "CLIPImageProcessor",
+    "CLIPProcessor",
+    "CLIPTokenizer",
+]

@@ -57,7 +57,7 @@ segformer = kmodels.models.segformer.SegFormerB0(weights=None, backbone=backbone
 
 ```python
 import kmodels
-from kmodels.models.segformer import SegFormerImageProcessor, SegFormerPostProcessor
+from kmodels.models.segformer import SegFormerImageProcessor
 
 model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 
@@ -66,7 +66,7 @@ processed = processor("image.jpg")
 
 output = model(processed, training=False)
 
-result = SegFormerPostProcessor(output)
+result = processor.post_process_semantic_segmentation(output)
 print(f"Detected classes: {result['class_names']}")
 
 # Output:
@@ -102,7 +102,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.segformer import SegFormerB0, SegFormerImageProcessor, SegFormerPostProcessor
+from kmodels.models.segformer import SegFormerB0, SegFormerImageProcessor
 
 model = SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 
@@ -113,7 +113,7 @@ processor = SegFormerImageProcessor(size={"height": 512, "width": 512})
 processed = processor(img)
 output = model(processed, training=False)
 
-result = SegFormerPostProcessor(output, target_size=original_size)
+result = processor.post_process_semantic_segmentation(output, target_size=original_size)
 mask_resized = result["segmentation"]
 
 # Generate colors per class
@@ -151,16 +151,10 @@ plt.close(fig)
 When using a model fine-tuned on a custom dataset, pass your class names to the post-processor via `label_names`:
 
 ```python
-from kmodels.models.segformer import SegFormerPostProcessor, CITYSCAPES_CLASSES
-
-# For Cityscapes fine-tuned models
-result = SegFormerPostProcessor(output, target_size=original_size,
-    label_names=CITYSCAPES_CLASSES)
-
 # For any custom dataset
 MY_CLASSES = ["background", "road", "building", "vegetation"]
-result = SegFormerPostProcessor(output, target_size=original_size,
+result = processor.post_process_semantic_segmentation(output, target_size=original_size,
     label_names=MY_CLASSES)
 ```
 
-If `label_names` is not provided, ADE20K class names (150 classes) are used by default. Built-in class lists `ADE20K_CLASSES` and `CITYSCAPES_CLASSES` are available as imports.
+If `label_names` is not provided, ADE20K class names (150 classes) are used by default.

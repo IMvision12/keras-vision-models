@@ -98,6 +98,15 @@ class Sam2VideoImageProcessor(BaseImageProcessor):
             "reshaped_size": (self.target_length, self.target_length),
         }
 
+    def post_process_masks(self, pred_masks, original_size, target_length=None):
+        return sam2_video_post_process_masks(
+            pred_masks,
+            original_size=original_size,
+            target_length=target_length
+            if target_length is not None
+            else self.target_length,
+        )
+
 
 class Sam2VideoImageProcessorWithPrompts(Sam2VideoImageProcessor):
     """Preprocess a frame plus optional point prompts for Sam2Video inference.
@@ -150,7 +159,7 @@ class Sam2VideoImageProcessorWithPrompts(Sam2VideoImageProcessor):
         return result
 
 
-def Sam2VideoPostProcessMasks(
+def sam2_video_post_process_masks(
     pred_masks: "keras.KerasTensor",
     original_size: Tuple[int, int],
     target_length: int = 1024,
@@ -168,7 +177,7 @@ def Sam2VideoPostProcessMasks(
         original_size: Original frame ``(height, width)``.
         target_length: Model input resolution. Unused by this
             implementation but kept for API parity with
-            :func:`SAMPostProcessMasks`. Defaults to ``1024``.
+            :func:`sam_post_process_masks`. Defaults to ``1024``.
 
     Returns:
         Keras tensor of masks shaped
@@ -176,9 +185,9 @@ def Sam2VideoPostProcessMasks(
 
     Example:
         ```python
-        from kmodels.models.sam2_video import Sam2VideoPostProcessMasks
+        from kmodels.models.sam2_video import sam2_video_post_process_masks
 
-        masks = Sam2VideoPostProcessMasks(
+        masks = sam2_video_post_process_masks(
             outputs["pred_masks"],
             original_size=inputs["original_size"],
         )

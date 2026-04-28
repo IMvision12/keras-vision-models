@@ -1,8 +1,5 @@
-from kmodels.models.depth_anything_v2.depth_anything_v2_image_processor import (
-    DepthAnythingV2ImageProcessor,
-    DepthAnythingV2PostProcessDepth,
-)
-from kmodels.models.depth_anything_v2.depth_anything_v2_model import (
+from .depth_anything_v2_image_processor import DepthAnythingV2ImageProcessor
+from .depth_anything_v2_model import (
     DepthAnythingV2Base,
     DepthAnythingV2Large,
     DepthAnythingV2MetricIndoorBase,
@@ -13,3 +10,16 @@ from kmodels.models.depth_anything_v2.depth_anything_v2_model import (
     DepthAnythingV2MetricOutdoorSmall,
     DepthAnythingV2Small,
 )
+
+__all__ = [
+    "DepthAnythingV2Small",
+    "DepthAnythingV2Base",
+    "DepthAnythingV2Large",
+    "DepthAnythingV2MetricIndoorSmall",
+    "DepthAnythingV2MetricIndoorBase",
+    "DepthAnythingV2MetricIndoorLarge",
+    "DepthAnythingV2MetricOutdoorSmall",
+    "DepthAnythingV2MetricOutdoorBase",
+    "DepthAnythingV2MetricOutdoorLarge",
+    "DepthAnythingV2ImageProcessor",
+]

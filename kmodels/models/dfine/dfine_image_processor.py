@@ -144,8 +144,24 @@ class DFineImageProcessor(BaseImageProcessor):
             image = ops.transpose(image, (0, 3, 1, 2))
         return image
 
+    def post_process_object_detection(
+        self,
+        outputs,
+        threshold=0.5,
+        target_sizes=None,
+        num_top_queries=300,
+        label_names=None,
+    ):
+        return dfine_post_process_object_detection(
+            outputs,
+            threshold=threshold,
+            target_sizes=target_sizes,
+            num_top_queries=num_top_queries,
+            label_names=label_names,
+        )
 
-def DFinePostProcessor(
+
+def dfine_post_process_object_detection(
     outputs: Dict[str, "keras.KerasTensor"],
     threshold: float = 0.5,
     target_sizes: Optional[List[Tuple[int, int]]] = None,

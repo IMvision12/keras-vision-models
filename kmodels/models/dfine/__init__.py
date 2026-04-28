@@ -1,8 +1,4 @@
-from .dfine_image_processor import (
-    COCO_CLASSES,
-    DFineImageProcessor,
-    DFinePostProcessor,
-)
+from .dfine_image_processor import DFineImageProcessor
 from .dfine_model import (
     DFineLarge,
     DFineMedium,
@@ -10,3 +6,12 @@ from .dfine_model import (
     DFineSmall,
     DFineXLarge,
 )
+
+__all__ = [
+    "DFineNano",
+    "DFineSmall",
+    "DFineMedium",
+    "DFineLarge",
+    "DFineXLarge",
+    "DFineImageProcessor",
+]

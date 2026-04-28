@@ -1,10 +1,5 @@
-from kmodels.models.segformer.segformer_image_preprocessor import (
-    ADE20K_CLASSES,
-    CITYSCAPES_CLASSES,
-    SegFormerImageProcessor,
-    SegFormerPostProcessor,
-)
-from kmodels.models.segformer.segformer_model import (
+from .segformer_image_preprocessor import SegFormerImageProcessor
+from .segformer_model import (
     SegFormerB0,
     SegFormerB1,
     SegFormerB2,
@@ -12,3 +7,13 @@ from kmodels.models.segformer.segformer_model import (
     SegFormerB4,
     SegFormerB5,
 )
+
+__all__ = [
+    "SegFormerB0",
+    "SegFormerB1",
+    "SegFormerB2",
+    "SegFormerB3",
+    "SegFormerB4",
+    "SegFormerB5",
+    "SegFormerImageProcessor",
+]

@@ -180,8 +180,18 @@ class DETRImageProcessor(BaseImageProcessor):
 
         return image
 
+    def post_process_object_detection(
+        self, outputs, threshold=0.7, target_sizes=None, label_names=None
+    ):
+        return detr_post_process_object_detection(
+            outputs,
+            threshold=threshold,
+            target_sizes=target_sizes,
+            label_names=label_names,
+        )
 
-def DETRPostProcessor(
+
+def detr_post_process_object_detection(
     outputs: Dict[str, keras.KerasTensor],
     threshold: float = 0.7,
     target_sizes: Optional[List[Tuple[int, int]]] = None,
@@ -215,11 +225,11 @@ def DETRPostProcessor(
 
     Example:
         ```python
-        from kmodels.models.detr import DETRResNet50, DETRPostProcessor
+        from kmodels.models.detr import DETRResNet50, detr_post_process_object_detection
 
         model = DETRResNet50(weights="detr.weights.h5")
         output = model(image, training=False)
-        results = DETRPostProcessor(output, threshold=0.7,
+        results = detr_post_process_object_detection(output, threshold=0.7,
                                     target_sizes=[(800, 800)])
         for det in results[0]["label_names"]:
             print(det)

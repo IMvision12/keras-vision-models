@@ -184,40 +184,77 @@ All Conv2D, UpSampling2D, and GroupNormalization layers use the configured data 
 3. **Box prompts** improve instance masks significantly by providing spatial guidance to the geometry encoder.
 4. **The text encoder model** is a separate functional `keras.Model` — it can be run independently for text caching.
 
-## Example: Complete Workflow
+## Real-World End-to-End Example
+
+End-to-end open-vocabulary detection + instance segmentation on a real
+image. Renders detection boxes and instance masks side-by-side and
+saves the result.
+
+> **Note:** SAM3 weights are gated. Accept the license at
+> [huggingface.co/facebook/sam3](https://huggingface.co/facebook/sam3)
+> and run `huggingface-cli login` (or set `HF_TOKEN`) before the first
+> call.
 
 ```python
 import os
 os.environ["KERAS_BACKEND"] = "torch"
 
-import numpy as np
 from PIL import Image
-from kmodels.models.sam3 import SAM3, SAM3ObjectDetection, SAM3InstanceSegmentation
-from kmodels.models.sam3.sam3_utils import draw_detections, draw_instance_masks
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
-# Load model
+from kmodels.models.sam3 import SAM3
+from kmodels.models.sam3.sam3_downstream import (
+    SAM3ObjectDetection,
+    SAM3InstanceSegmentation,
+)
+from kmodels.models.sam3.sam3_utils import (
+    draw_detections,
+    draw_instance_masks,
+)
+
+# First call: downloads from HF, converts, caches (~5 min)
 model = SAM3(input_shape=(1008, 1008, 3), weights="sam3")
 
-image = Image.open("photo.jpg")
+image = Image.open("assets/coco_horse_dog.jpg").convert("RGB")
 
-# Detection
+# 1) Object detection on the same image with multiple text prompts
 detector = SAM3ObjectDetection(model)
-det_results = detector.predict(images=image, text="person")
-vis = draw_detections(image, det_results[0], title="person")
-vis.save("detection_output.jpg")
+det_dog = detector.predict(images=image, text="dog")[0]
+det_horse = detector.predict(images=image, text="horse")[0]
 
-# Instance segmentation
+# 2) Instance segmentation for the dog
 segmenter = SAM3InstanceSegmentation(model)
-inst_results = segmenter.predict(images=image, text="person")
-vis = draw_instance_masks(image, inst_results[0], title="person")
-vis.save("instance_output.jpg")
+inst_dog = segmenter.predict(images=image, text="dog")[0]
 
-# Print results
-for i, (score, box) in enumerate(zip(
-    det_results[0]["scores"], det_results[0]["boxes"]
-)):
-    print(f"Detection {i}: score={score:.3f} box={box}")
+# 3) Render: detections on the left, instance masks on the right
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+vis_det = draw_detections(image, det_horse, title="horse + dog")
+# overlay dog boxes too on the same canvas
+vis_det = draw_detections(vis_det, det_dog, title="horse + dog")
+ax1.imshow(vis_det)
+ax1.set_title("Object Detection", fontsize=14)
+ax1.axis("off")
+
+vis_inst = draw_instance_masks(image, inst_dog, title="dog instances")
+ax2.imshow(vis_inst)
+ax2.set_title("Instance Segmentation (dog)", fontsize=14)
+ax2.axis("off")
+
+plt.tight_layout()
+fig.savefig("sam3_horse_dog_output.jpg", bbox_inches="tight", dpi=130)
+plt.close(fig)
 ```
+
+![SAM3 Open-Vocabulary Detection + Instance Segmentation Output](../assets/sam3_horse_dog_output.jpg)
+
+Running this on `assets/coco_horse_dog.jpg` with text prompts `"horse"`
+and `"dog"` returns one matched instance per prompt — the open-vocabulary
+detector is **honest about absence**: querying for an object the image
+doesn't contain (e.g. `"person"`) returns zero detections, unlike
+fixed-class detectors that always emit `num_queries` candidates.
 
 ## Citation
 

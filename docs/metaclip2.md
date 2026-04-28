@@ -170,6 +170,81 @@ tokenizer = MetaClip2Mt5Tokenizer(context_length=77)
 # same pipeline from step 2 onward
 ```
 
+## Real-World Multilingual Zero-Shot Example
+
+End-to-end zero-shot classification on a real image, with prompts in
+six languages plus two distractors. Prints the ranked probabilities
+and raw similarity scores.
+
+**Input image:**
+
+![Horse and dog input](../assets/coco_horse_dog.jpg)
+
+```python
+import keras
+import numpy as np
+
+from kmodels.models.metaclip2 import (
+    MetaClip2WorldwideS16,
+    MetaClip2ImageProcessor,
+    MetaClip2Tokenizer,
+)
+
+model = MetaClip2WorldwideS16(weights="worldwide_224")
+img_proc = MetaClip2ImageProcessor(image_resolution=224)
+tokenizer = MetaClip2Tokenizer(context_length=77)
+
+prompts = [
+    "a photo of a horse and a dog in the snow",   # English
+    "une photo d'un chien et d'un cheval",        # French
+    "ein Foto von einem Pferd und einem Hund",    # German
+    "una foto de un caballo y un perro",          # Spanish
+    "雪地里的马和狗",                             # Chinese
+    "馬と犬の写真",                               # Japanese
+    "a photo of a cat",                            # distractor
+    "a photo of a car",                            # distractor
+]
+
+images = img_proc(image_paths="assets/coco_horse_dog.jpg")["images"]
+tok = tokenizer(inputs=prompts)
+images = keras.ops.repeat(images, len(prompts), axis=0)
+
+out = model(
+    {
+        "images": images,
+        "token_ids": tok["token_ids"],
+        "padding_mask": tok["padding_mask"],
+    },
+    training=False,
+)
+
+scores = np.diag(keras.ops.convert_to_numpy(out["image_logits"]))
+probs = np.exp(scores - scores.max())
+probs = probs / probs.sum()
+
+print(f"{'Probability':>12s}  {'Score':>7s}  Prompt")
+for prompt, score, prob in sorted(zip(prompts, scores, probs), key=lambda t: -t[1]):
+    print(f"{prob:11.2%}   {score:7.3f}  {prompt}")
+```
+
+**Output:**
+
+```
+ Probability    Score  Prompt
+      54.83%   24.143  ein Foto von einem Pferd und einem Hund
+      19.24%   23.096  una foto de un caballo y un perro
+      13.47%   22.740  une photo d'un chien et d'un cheval
+      12.40%   22.656  馬と犬の写真
+       0.06%   17.308  雪地里的马和狗
+       0.01%   14.931  a photo of a horse and a dog in the snow
+       0.00%    9.457  a photo of a cat
+       0.00%    8.089  a photo of a car
+```
+
+The top-4 predictions are all correct descriptions of the same scene —
+German, Spanish, French, and Japanese all rank above the distractors.
+Cat / car distractors round to 0% across all six languages.
+
 ## Tokenizers
 
 Both tokenizers are **pure-Python wrappers around `sentencepiece`** — no

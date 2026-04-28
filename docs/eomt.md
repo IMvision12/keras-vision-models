@@ -108,10 +108,7 @@ instance = processor.post_process_instance_segmentation(
 | `post_process_instance_segmentation` | `{"segmentation": (H, W) int32, "segments_info": [...]}` |
 
 The same forward pass on `model` is shared across all three methods —
-just call the one(s) you need. The free-function exports
-(`EoMTPostProcessPanoptic` / `EoMTPostProcessSemantic` /
-`EoMTPostProcessInstance`) are still available for callers that want
-to bypass the processor.
+just call the one(s) you need.
 
 ### Data format
 

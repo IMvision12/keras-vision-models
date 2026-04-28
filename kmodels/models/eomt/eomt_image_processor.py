@@ -245,7 +245,7 @@ class EoMTImageProcessor(BaseImageProcessor):
         stuff_classes: Optional[List[int]] = None,
         label_names: Optional[List[str]] = None,
     ) -> Dict:
-        return EoMTPostProcessPanoptic(
+        return eomt_post_process_panoptic(
             outputs,
             target_size=target_size,
             threshold=threshold,
@@ -262,7 +262,7 @@ class EoMTImageProcessor(BaseImageProcessor):
         target_size: Tuple[int, int],
         label_names: Optional[List[str]] = None,
     ) -> Dict:
-        return EoMTPostProcessSemantic(
+        return eomt_post_process_semantic(
             outputs,
             target_size=target_size,
             model_size=self.target_size,
@@ -276,7 +276,7 @@ class EoMTImageProcessor(BaseImageProcessor):
         threshold: float = 0.5,
         label_names: Optional[List[str]] = None,
     ) -> Dict:
-        return EoMTPostProcessInstance(
+        return eomt_post_process_instance(
             outputs,
             target_size=target_size,
             threshold=threshold,
@@ -331,7 +331,7 @@ def _unpad_and_resize_masks(
     return keras.ops.convert_to_numpy(mask_final)
 
 
-def EoMTPostProcessPanoptic(
+def eomt_post_process_panoptic(
     outputs: Dict[str, keras.KerasTensor],
     target_size: Tuple[int, int],
     threshold: float = 0.8,
@@ -367,7 +367,7 @@ def EoMTPostProcessPanoptic(
     Example:
         ```python
         output = model(img, training=False)
-        result = EoMTPostProcessPanoptic(
+        result = eomt_post_process_panoptic(
             output, target_size=(original_h, original_w)
         )
         ```
@@ -457,7 +457,7 @@ def EoMTPostProcessPanoptic(
     return {"segmentation": segmentation, "segments_info": segments_info}
 
 
-def EoMTPostProcessSemantic(
+def eomt_post_process_semantic(
     outputs: Dict[str, keras.KerasTensor],
     target_size: Tuple[int, int],
     model_size: int = 640,
@@ -505,7 +505,7 @@ def EoMTPostProcessSemantic(
     return {"segmentation": segmentation, "class_names": class_names}
 
 
-def EoMTPostProcessInstance(
+def eomt_post_process_instance(
     outputs: Dict[str, keras.KerasTensor],
     target_size: Tuple[int, int],
     threshold: float = 0.5,

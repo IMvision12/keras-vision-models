@@ -40,7 +40,7 @@ model_custom = kmodels.models.eomt.EoMT_Base(weights=None, input_shape=(640, 640
 
 ```python
 import kmodels
-from kmodels.models.eomt import EoMTImageProcessor, EoMTPostProcessPanoptic
+from kmodels.models.eomt import EoMTImageProcessor
 from PIL import Image
 
 model = kmodels.models.eomt.EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
@@ -57,8 +57,12 @@ output = model(processed, training=False)
 # output["class_logits"]: (1, num_queries, 134) — class logits per query
 # output["mask_logits"]:  (1, num_queries, mask_h, mask_w) — mask logits
 
-# Post-process: panoptic segmentation with things + stuff classes
-result = EoMTPostProcessPanoptic(output, target_size=(original_h, original_w), threshold=0.8)
+#   processor.post_process_panoptic_segmentation(...)
+#   processor.post_process_semantic_segmentation(...)
+#   processor.post_process_instance_segmentation(...)
+result = processor.post_process_panoptic_segmentation(
+    output, target_size=(original_h, original_w), threshold=0.8,
+)
 for seg in result["segments_info"][:6]:
     name = seg["label_name"].replace("things: ", "").replace("stuff: ", "")
     print(f"{name}: {seg['score']:.2f}")
@@ -70,6 +74,44 @@ for seg in result["segments_info"][:6]:
 # remote: 1.00
 # remote: 1.00
 ```
+
+## Segmentation Modes
+
+`EoMTImageProcessor` exposes the three post-processing modes as methods,
+mirroring HuggingFace `transformers`:
+
+```python
+processor = EoMTImageProcessor(target_size=640)
+output = model(processor(image), training=False)
+target_size = (image.height, image.width)
+
+# Panoptic (things + stuff merged into one segmentation)
+panoptic = processor.post_process_panoptic_segmentation(
+    output, target_size=target_size, threshold=0.8,
+)
+
+# Semantic (per-pixel class id, no instance separation)
+semantic = processor.post_process_semantic_segmentation(
+    output, target_size=target_size,
+)
+
+# Instance (per-object binary masks)
+instance = processor.post_process_instance_segmentation(
+    output, target_size=target_size, threshold=0.5,
+)
+```
+
+| Method | Returns |
+|---|---|
+| `post_process_panoptic_segmentation` | `{"segmentation": (H, W) int32, "segments_info": [...]}` |
+| `post_process_semantic_segmentation` | `{"segmentation": (H, W) int32, "class_names": [...]}` |
+| `post_process_instance_segmentation` | `{"segmentation": (H, W) int32, "segments_info": [...]}` |
+
+The same forward pass on `model` is shared across all three methods —
+just call the one(s) you need. The free-function exports
+(`EoMTPostProcessPanoptic` / `EoMTPostProcessSemantic` /
+`EoMTPostProcessInstance`) are still available for callers that want
+to bypass the processor.
 
 ### Data format
 
@@ -99,7 +141,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.eomt import EoMT_Large, EoMTImageProcessor, EoMTPostProcessPanoptic
+from kmodels.models.eomt import EoMT_Large, EoMTImageProcessor
 
 model = EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
 
@@ -110,7 +152,9 @@ processor = EoMTImageProcessor(target_size=640)
 processed = processor(img)
 output = model(processed, training=False)
 
-result = EoMTPostProcessPanoptic(output, target_size=(original_h, original_w), threshold=0.8)
+result = processor.post_process_panoptic_segmentation(
+    output, target_size=(original_h, original_w), threshold=0.8,
+)
 
 segmentation = result["segmentation"]
 segments_info = result["segments_info"]

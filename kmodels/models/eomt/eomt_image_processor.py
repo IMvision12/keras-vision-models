@@ -235,6 +235,55 @@ class EoMTImageProcessor(BaseImageProcessor):
 
         return padded
 
+    def post_process_panoptic_segmentation(
+        self,
+        outputs: Dict[str, keras.KerasTensor],
+        target_size: Tuple[int, int],
+        threshold: float = 0.8,
+        mask_threshold: float = 0.5,
+        overlap_mask_area_threshold: float = 0.8,
+        stuff_classes: Optional[List[int]] = None,
+        label_names: Optional[List[str]] = None,
+    ) -> Dict:
+        return EoMTPostProcessPanoptic(
+            outputs,
+            target_size=target_size,
+            threshold=threshold,
+            mask_threshold=mask_threshold,
+            overlap_mask_area_threshold=overlap_mask_area_threshold,
+            model_size=self.target_size,
+            stuff_classes=stuff_classes,
+            label_names=label_names,
+        )
+
+    def post_process_semantic_segmentation(
+        self,
+        outputs: Dict[str, keras.KerasTensor],
+        target_size: Tuple[int, int],
+        label_names: Optional[List[str]] = None,
+    ) -> Dict:
+        return EoMTPostProcessSemantic(
+            outputs,
+            target_size=target_size,
+            model_size=self.target_size,
+            label_names=label_names,
+        )
+
+    def post_process_instance_segmentation(
+        self,
+        outputs: Dict[str, keras.KerasTensor],
+        target_size: Tuple[int, int],
+        threshold: float = 0.5,
+        label_names: Optional[List[str]] = None,
+    ) -> Dict:
+        return EoMTPostProcessInstance(
+            outputs,
+            target_size=target_size,
+            threshold=threshold,
+            model_size=self.target_size,
+            label_names=label_names,
+        )
+
 
 def _unpad_and_resize_masks(
     mask_logits,

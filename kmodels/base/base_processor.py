@@ -13,10 +13,6 @@ class BaseProcessor(keras.layers.Layer):
     the tokenizer.
     """
 
-    tokenizer = None
-    image_processor = None
-    feature_extractor = None
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -24,16 +20,18 @@ class BaseProcessor(keras.layers.Layer):
         raise NotImplementedError(f"{type(self).__name__} must implement `call`.")
 
     def decode(self, *args, **kwargs) -> str:
-        if self.tokenizer is None:
+        tokenizer = getattr(self, "tokenizer", None)
+        if tokenizer is None:
             raise AttributeError(
                 f"{type(self).__name__}.decode() requires `self.tokenizer` to be set."
             )
-        return self.tokenizer.decode(*args, **kwargs)
+        return tokenizer.decode(*args, **kwargs)
 
     def batch_decode(self, *args, **kwargs):
-        if self.tokenizer is None:
+        tokenizer = getattr(self, "tokenizer", None)
+        if tokenizer is None:
             raise AttributeError(
                 f"{type(self).__name__}.batch_decode() requires "
                 "`self.tokenizer` to be set."
             )
-        return self.tokenizer.batch_decode(*args, **kwargs)
+        return tokenizer.batch_decode(*args, **kwargs)

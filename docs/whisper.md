@@ -131,23 +131,60 @@ text = generator(raw_audio, language="en", task="transcribe")
 print(text)        # ['hello world']
 ```
 
-## End-to-End ASR Example
+## Real-World End-to-End Example
 
-Full pipeline on a real `.wav` file. Works on any Keras 3 backend.
+End-to-end transcription on a real audio sample (5.86 s clip from
+LibriSpeech). The asset ships with the repo at
+``assets/librispeech_sample.wav`` (16 kHz mono, 16-bit PCM).
+
+**Input audio:**
+
+<audio controls>
+  <source src="../assets/librispeech_sample.wav" type="audio/wav">
+  Your browser does not support the audio element. Download the file
+  directly: <a href="../assets/librispeech_sample.wav">librispeech_sample.wav</a>
+</audio>
+
+**Reference transcript (LibriSpeech ground truth):**
+
+> MISTER QUILTER IS THE APOSTLE OF THE MIDDLE CLASSES AND WE ARE GLAD
+> TO WELCOME HIS GOSPEL
 
 ```python
-import librosa
+import os
+os.environ["KERAS_BACKEND"] = "torch"
+
+import soundfile as sf
+
 from kmodels.models.whisper import (
     WhisperBase, WhisperProcessor, WhisperGenerate,
 )
 
+# Build model + processor + greedy generator
 model = WhisperBase(weights="openai")
 processor = WhisperProcessor(variant="v1")
 generator = WhisperGenerate(model, processor)
 
-wave, _ = librosa.load("speech.wav", sr=16000, mono=True)
-print(generator(wave, language="en", task="transcribe", max_new_tokens=224))
+# Load a 16 kHz mono float32 waveform
+audio, sr = sf.read("assets/librispeech_sample.wav")
+assert sr == 16000
+
+# Transcribe — `WhisperGenerate` runs feature extraction, encoder,
+# greedy decoding, and detokenization in one call.
+text = generator(audio, language="en", task="transcribe", max_new_tokens=224)
+print(text[0])
 ```
+
+**Output:**
+
+```
+ Mr. Quilter is the apostle of the middle classes, and we are glad to welcome his gospel.
+```
+
+Whisper's training data includes capitalization and punctuation, so the
+output reads more naturally than the LibriSpeech reference (which is
+all-caps and punctuation-stripped). Both are correct — the words match
+once you normalize.
 
 ### Translation to English
 

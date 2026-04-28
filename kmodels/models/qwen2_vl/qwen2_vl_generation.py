@@ -1,15 +1,3 @@
-"""Multimodal assembly + greedy generation for Qwen2-VL.
-
-Glues together:
-  * ``Qwen2VLImageProcessor``  -> pixel_values + image_grid_thw
-  * ``Qwen2VLTokenizer``       -> input_ids (with ``<|image_pad|>`` placeholders)
-  * vision encoder             -> vision_embeds (N_merged_patches, hidden)
-  * embed_tokens               -> text_embeds (B, T, hidden)
-  * scatter vision_embeds into text_embeds at ``<|image_pad|>`` positions
-  * build per-axis M-RoPE position_ids (HF ``get_rope_index`` semantics)
-  * LLM forward
-"""
-
 import numpy as np
 from keras import ops
 
@@ -28,12 +16,6 @@ def build_multimodal_position_ids(
     video_token_id: int = VIDEO_TOKEN_ID,
     vision_start_token_id: int = VISION_START_TOKEN_ID,
 ) -> np.ndarray:
-    """Port of HF ``get_rope_index`` (image-only case).
-
-    Returns position_ids of shape ``(3, B, T)``: rows are temporal / height /
-    width indices. For text-only tokens all three rows share the same value.
-    For image tokens the rows diverge and reflect the 3D grid layout.
-    """
     B, T = input_ids.shape
     position_ids = np.zeros((3, B, T), dtype=np.int64)
 
@@ -43,13 +25,13 @@ def build_multimodal_position_ids(
         image_nums = (ids[vision_starts + 1] == image_token_id).sum()
         video_nums = (ids[vision_starts + 1] == video_token_id).sum()
 
-        img_idx = 0  # index into image_grid_thw
+        img_idx = 0
         vid_idx = 0
         remain_images = int(image_nums)
         remain_videos = int(video_nums)
 
-        st = 0  # text cursor
-        st_cursor = 0  # next free position (max so far + 1)
+        st = 0
+        st_cursor = 0
         llm_pos_ids_list = []
 
         while st < T:
@@ -70,14 +52,12 @@ def build_multimodal_position_ids(
                 remain_videos -= 1
                 ed = ed_video
             else:
-                # no more vision tokens
                 text_len = T - st
                 llm_pos_ids_list.append(
                     np.arange(text_len).reshape(1, -1).repeat(3, axis=0) + st_cursor
                 )
                 break
 
-            # text before vision
             text_len = ed - st
             if text_len > 0:
                 llm_pos_ids_list.append(
@@ -85,7 +65,6 @@ def build_multimodal_position_ids(
                 )
                 st_cursor += text_len
 
-            # vision tokens: (t_len * h_len/ms * w_len/ms) merged patches
             h = h_len // spatial_merge_size
             w = w_len // spatial_merge_size
             t = t_len
@@ -121,12 +100,6 @@ def scatter_vision_into_embeds(
     vision_embeds: np.ndarray,
     image_token_id: int = IMAGE_TOKEN_ID,
 ) -> np.ndarray:
-    """Replace embeddings at ``image_token_id`` positions with vision features.
-
-    ``text_embeds`` shape: ``(B, T, C)``. ``vision_embeds`` shape:
-    ``(N_merged_total, C)`` — total merged patches across all images, in
-    order of appearance in ``input_ids``.
-    """
     out = text_embeds.copy()
     B, T, C = text_embeds.shape
     v_idx = 0
@@ -151,7 +124,6 @@ def qwen2_vl_encode_inputs(
     image_processor,
     images,
 ) -> dict:
-    """Prepare everything the LLM needs from a prompt + images."""
     from .qwen2_vl_layers import build_vision_rope_cos_sin
 
     cfg = bundle["config"]
@@ -168,15 +140,13 @@ def qwen2_vl_encode_inputs(
     )
     grid_thw = img_inputs["image_grid_thw"]
 
-    # Count merged patches per image -> build prompt with placeholders.
     merged_counts = [int(t) * int(h) // ms * int(w) // ms for t, h, w in grid_thw]
     prompt = tokenizer.build_chat_prompt(prompt_text, image_patch_counts=merged_counts)
     input_ids = np.asarray(
         tokenizer.tokenize(prompt, add_special_tokens=False), dtype=np.int32
     )
-    input_ids = input_ids[None, :]  # (1, T)
+    input_ids = input_ids[None, :]
 
-    # Run vision if images provided.
     head_dim = vc["embed_dim"] // vc["num_heads"]
     if grid_thw.shape[0] > 0:
         cos_v, sin_v = build_vision_rope_cos_sin(
@@ -218,12 +188,10 @@ def qwen2_vl_generate(
     images=None,
     max_new_tokens: int = 64,
 ):
-    """Greedy generation, returns ``(generated_ids, decoded_text)``."""
     tc = bundle["config"]["text_config"]
     inv_freq = ops.convert_to_tensor(bundle["llm_inv_freq"], dtype="float32")
     eos_id = tokenizer.eos_token_id
 
-    # Encode prompt + images once.
     enc = qwen2_vl_encode_inputs(
         bundle, prompt_text, tokenizer, image_processor, images
     )
@@ -245,8 +213,6 @@ def qwen2_vl_generate(
         )
         hidden_np = ops.convert_to_numpy(hidden)
         embed_w = ops.convert_to_numpy(bundle["embed_tokens"].embeddings)
-        # Untied variants (7B / 72B) carry a separate ``lm_head`` Dense;
-        # tied variants (2B) share the embedding table.
         if bundle.get("lm_head") is not None:
             logits = ops.convert_to_numpy(bundle["lm_head"](hidden_np[:, -1:, :]))[0, 0]
         else:
@@ -256,7 +222,6 @@ def qwen2_vl_generate(
         if next_id == eos_id:
             break
 
-        # Append the new token's embedding and extend position_ids.
         next_embed = embed_w[next_id][None, None, :]
         inputs_embeds = np.concatenate([inputs_embeds, next_embed], axis=1)
         next_pos = position_ids[:, :, -1:] + 1

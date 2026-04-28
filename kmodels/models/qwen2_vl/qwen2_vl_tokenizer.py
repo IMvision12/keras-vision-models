@@ -1,5 +1,3 @@
-"""Qwen2-VL tokenizer: GPT-2-style byte-level BPE with vision special tokens."""
-
 import json
 import os
 from typing import List, Union
@@ -33,19 +31,6 @@ def _download(repo_id, fname):
 
 @keras.saving.register_keras_serializable(package="kmodels")
 class Qwen2VLTokenizer(keras.Layer):
-    """Qwen2 byte-level BPE tokenizer with vision/special tokens.
-
-    Uses the programmatic ``tokenizers`` (Rust) pipeline:
-    NFC normalizer + (Split-regex + ByteLevel) pre-tokenizer + BPE model
-    + ByteLevel post-processor + ByteLevel decoder. Registers the 14
-    Qwen2-VL special tokens via ``add_special_tokens``.
-
-    Args:
-        vocab_file / merges_file: Paths to ``vocab.json`` / ``merges.txt``.
-            Downloaded from HF when not provided.
-        repo_id: HF repo used for auto-download fallback.
-    """
-
     IM_START = 151644
     IM_END = 151645
     VISION_START = 151652
@@ -76,13 +61,11 @@ class Qwen2VLTokenizer(keras.Layer):
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
 
-        # Load added tokens (14 Qwen2-VL specials) from the HF repo.
         try:
             added_path = _download(repo_id, "added_tokens.json")
             with open(added_path, "r", encoding="utf-8") as f:
                 self.added_tokens = json.load(f)
         except Exception:
-            # Fallback: construct the 14 well-known Qwen2-VL specials manually.
             self.added_tokens = {
                 "<|endoftext|>": 151643,
                 "<|im_start|>": 151644,
@@ -130,10 +113,6 @@ class Qwen2VLTokenizer(keras.Layer):
         self._tok = tok
         self._special_ids = set(self.added_tokens.values()) | {pad_token_id}
 
-    # ------------------------------------------------------------------
-    # Encoding / decoding
-    # ------------------------------------------------------------------
-
     def tokenize(
         self, text: Union[str, List[str]], add_special_tokens: bool = False
     ) -> Union[List[int], List[List[int]]]:
@@ -175,22 +154,12 @@ class Qwen2VLTokenizer(keras.Layer):
             "attention_mask": keras.ops.convert_to_tensor(mask, dtype="int32"),
         }
 
-    # ------------------------------------------------------------------
-    # Chat template helper
-    # ------------------------------------------------------------------
-
     def build_chat_prompt(
         self,
         text: str,
         image_patch_counts: List[int] = None,
         system_message: str = "You are a helpful assistant.",
     ) -> str:
-        """Build a Qwen2-VL chat prompt with optional image placeholders.
-
-        ``image_patch_counts`` is a list of ``(n_merged_patches,)`` per image.
-        Each image inserts ``<|vision_start|>`` + ``<|image_pad|>`` repeated
-        ``n_merged_patches`` times + ``<|vision_end|>``.
-        """
         parts = [
             f"<|im_start|>system\n{system_message}<|im_end|>\n",
             "<|im_start|>user\n",

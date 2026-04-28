@@ -188,9 +188,6 @@ QWEN2_VL_MODEL_CONFIG = {
 }
 
 
-# Qwen2-VL weights are NOT redistributed by kmodels: we download from the
-# official Qwen HF repos on first use, convert on the fly, and cache under
-# ``~/.cache/kmodels/<variant_lower>/``. Subsequent loads are instant.
 QWEN2_VL_HF_CONVERT_VARIANTS = {
     "Qwen2VL2B": "Qwen/Qwen2-VL-2B",
     "Qwen2VL2BInstruct": "Qwen/Qwen2-VL-2B-Instruct",

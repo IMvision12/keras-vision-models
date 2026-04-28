@@ -1,31 +1,11 @@
-"""On-the-fly HF → Keras weight conversion for Qwen2-VL.
-
-Mirrors the pattern used by MetaCLIP 2 / SAM3:
-
-  * First call: downloads HF checkpoint, runs the transfer function,
-    writes cache under ``~/.cache/kmodels/<model_name>/``.
-  * Subsequent calls: instant load from cache.
-
-Because ``Qwen2VL2B`` returns a *bundle* of three sub-models
-(``embed_tokens``, ``llm``, ``vision``) rather than a single model, this
-module exposes its own ``load_and_convert_bundle_from_hf`` helper that
-saves/loads them as three separate files in the cache directory.
-"""
-
 import os
 from typing import Callable, Dict
 
 import keras
 import numpy as np
 
-# ----------------------------------------------------------------------------
-# Weight mapping — reused from the standalone converter, but now consumes a
-# pre-built ``{key: ndarray}`` state dict rather than opening safetensors.
-# ----------------------------------------------------------------------------
-
 
 def _t2np(t):
-    # Accepts torch tensors (bf16/fp16 → fp32) or numpy arrays.
     try:
         import torch
 
@@ -53,9 +33,6 @@ def _build_kmap(
     def g(name):
         return _t2np(state_dict[name])
 
-    # Detect state-dict layout: ``from_pretrained`` yields
-    # ``model.language_model.*`` + ``model.visual.*`` + ``lm_head.weight``,
-    # while raw safetensors use ``model.*`` + ``visual.*``.
     if "model.language_model.embed_tokens.weight" in state_dict:
         llm_pfx = "model.language_model"
         vis_pfx = "model.visual"
@@ -87,8 +64,6 @@ def _build_kmap(
 
     put("model_norm", "weight", g(f"{llm_pfx}.norm.weight"))
 
-    # Untied LM head (7B / 72B). HF stores ``lm_head.weight`` at the top
-    # level alongside the wrapped ``model.*`` keys.
     if not tc["tie_word_embeddings"]:
         if "lm_head.weight" in state_dict:
             lm_head_w = g("lm_head.weight")
@@ -186,20 +161,13 @@ def _assign(model_or_layer, kmap):
 def transfer_qwen2_vl_weights(
     bundle: dict, hf_state_dict: Dict[str, np.ndarray]
 ) -> None:
-    """Apply an HF Qwen2-VL state dict to a kmodels bundle in-place."""
     kmap = _build_kmap(hf_state_dict, bundle["config"])
     _assign(bundle["embed_tokens"], kmap)
     _assign(bundle["llm"], kmap)
     _assign(bundle["vision"], kmap)
     if bundle.get("lm_head") is not None:
-        # Build the Dense once we know the input feature size.
         bundle["lm_head"].build((None, bundle["config"]["text_config"]["hidden_size"]))
         _assign(bundle["lm_head"], kmap)
-
-
-# ----------------------------------------------------------------------------
-# Bundle-aware downloader / cache
-# ----------------------------------------------------------------------------
 
 
 def _cache_dir(model_name: str) -> str:
@@ -226,17 +194,10 @@ def load_and_convert_bundle_from_hf(
     hf_model_cls: str = None,
     hf_kwargs: dict = None,
 ) -> None:
-    """Download HF weights for a Qwen2-VL-style bundle; cache split files.
-
-    If the cache files already exist, just load them and return.
-    Otherwise: pull from HF, run ``transfer_fn`` on the state dict, save
-    three split weight files under ``~/.cache/kmodels/<model_name>/``.
-    """
     has_lm_head = bundle.get("lm_head") is not None
     paths = _paths(model_name, with_lm_head=has_lm_head)
     if all(os.path.exists(p) for p in paths.values()):
         print(f"Loading cached {model_name} weights from {_cache_dir(model_name)}")
-        # Wrap embed_tokens in a Sequential so save/load_weights has a home.
         emb = keras.Sequential([bundle["embed_tokens"]])
         emb.build((None,))
         emb.load_weights(paths["embed"])
@@ -249,14 +210,17 @@ def load_and_convert_bundle_from_hf(
             lm_head_wrapper.load_weights(paths["lm_head"])
         return
 
-    try:
-        import torch  # noqa: F401
-        import transformers
-    except ImportError as e:
+    import importlib.util
+
+    if (
+        importlib.util.find_spec("torch") is None
+        or importlib.util.find_spec("transformers") is None
+    ):
         raise ImportError(
             f"Converting {model_name} weights requires `torch` and `transformers`. "
             "Install with: pip install torch transformers"
-        ) from e
+        )
+    import transformers
 
     print(f"Downloading {model_name} from HuggingFace ({hf_model_id})...")
     hf_token = os.environ.get("HF_TOKEN")
@@ -268,7 +232,6 @@ def load_and_convert_bundle_from_hf(
     cls = getattr(transformers, cls_name)
     hf_model = cls.from_pretrained(hf_model_id, **kwargs).eval()
 
-    # Build a plain dict {name: torch.Tensor}; transfer_fn does the dtype cast.
     hf_state_dict = dict(hf_model.state_dict())
     del hf_model
 

@@ -10,6 +10,7 @@ from tokenizers.pre_tokenizers import ByteLevel, Split
 from tokenizers.pre_tokenizers import Sequence as PreSeq
 from tokenizers.processors import RobertaProcessing
 
+from kmodels.base import BaseTokenizer
 from kmodels.weight_utils import download_file
 
 VOCAB_URL = (
@@ -26,7 +27,7 @@ SAM3_EOS_TOKEN_ID = 49407
 SAM3_PAD_TOKEN_ID = 49407
 
 
-class SAM3CLIPTokenizer:
+class SAM3CLIPTokenizer(BaseTokenizer):
     """BPE tokenizer for SAM3's CLIP text encoder (context_length=32).
 
     Uses HuggingFace `tokenizers` (Rust) under the hood. Auto-downloads
@@ -44,8 +45,13 @@ class SAM3CLIPTokenizer:
     """
 
     def __init__(
-        self, vocab_file=None, merges_file=None, context_length=SAM3_CONTEXT_LENGTH
+        self,
+        vocab_file=None,
+        merges_file=None,
+        context_length=SAM3_CONTEXT_LENGTH,
+        **kwargs,
     ):
+        super().__init__(**kwargs)
         self.context_length = context_length
         self.bos_token_id = SAM3_BOS_TOKEN_ID
         self.eos_token_id = SAM3_EOS_TOKEN_ID

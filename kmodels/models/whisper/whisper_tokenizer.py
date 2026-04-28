@@ -9,13 +9,14 @@ from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
 
+from kmodels.base import BaseTokenizer
 from kmodels.weight_utils import download_file
 
 from .config import WHISPER_TOKENIZER_FILES
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class WhisperTokenizer(keras.Layer):
+class WhisperTokenizer(BaseTokenizer):
     """Whisper byte-level BPE tokenizer, built on HuggingFace ``tokenizers`` (Rust).
 
     Matches HF ``WhisperTokenizer`` exactly for text encoding / decoding.

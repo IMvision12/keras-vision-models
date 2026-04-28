@@ -53,7 +53,8 @@ image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
 
 # Preprocess: resize to 640x640, rescale to [0, 1] (no ImageNet normalization)
-processed = DFineImageProcessor(image)
+processor = DFineImageProcessor()
+processed = processor(image)
 
 # Inference
 output = model(processed, training=False)
@@ -80,10 +81,12 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = DFineImageProcessor("photo.jpg")
+processor = DFineImageProcessor()
+inputs = processor("photo.jpg")
 
 # force channels_first for this call only
-inputs = DFineImageProcessor("photo.jpg", data_format="channels_first")
+processor = DFineImageProcessor(data_format="channels_first")
+inputs = processor("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -107,7 +110,8 @@ model = DFineLarge(weights="coco")
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
-processed = DFineImageProcessor(img)
+processor = DFineImageProcessor()
+processed = processor(img)
 output = model(processed, training=False)
 
 results = DFinePostProcessor(output, threshold=0.5, target_sizes=[original_size])

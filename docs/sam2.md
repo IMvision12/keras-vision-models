@@ -75,11 +75,11 @@ from kmodels.models.sam2 import (
 model = Sam2Large(input_shape=(1024, 1024, 3), weights="sav")
 
 # Foreground point in original image pixel coordinates
-inputs = Sam2ImageProcessorWithPrompts(
-    "photo.jpg",
+processor = Sam2ImageProcessorWithPrompts(
     input_points=np.array([[[450, 600]]], dtype=np.float32),
-    input_labels=np.array([[1]], dtype=np.int32),
+    input_labels=np.array([[1]], dtype=np.int32)
 )
+inputs = processor("photo.jpg")
 
 outputs = model({
     "pixel_values": inputs["pixel_values"],
@@ -102,10 +102,12 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = Sam2ImageProcessor("photo.jpg")
+processor = Sam2ImageProcessor()
+inputs = processor("photo.jpg")
 
 # force channels_first for this call only
-inputs = Sam2ImageProcessor("photo.jpg", data_format="channels_first")
+processor = Sam2ImageProcessor(data_format="channels_first")
+inputs = processor("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -131,11 +133,11 @@ box_corners = np.array([[[100, 200], [400, 500]]], dtype=np.float32)
 # Labels: 2 = top-left corner, 3 = bottom-right corner
 box_labels = np.array([[2, 3]], dtype=np.int32)
 
-inputs = Sam2ImageProcessorWithPrompts(
-    "photo.jpg",
+processor = Sam2ImageProcessorWithPrompts(
     input_points=box_corners,
-    input_labels=box_labels,
+    input_labels=box_labels
 )
+inputs = processor("photo.jpg")
 
 outputs = model({
     "pixel_values": inputs["pixel_values"],
@@ -156,11 +158,11 @@ model = Sam2Small(
     include_box_input=True,
 )
 
-inputs = Sam2ImageProcessorWithPrompts(
-    "photo.jpg",
+processor = Sam2ImageProcessorWithPrompts(
     input_points=np.array([[[450, 600]]], dtype=np.float32),
-    input_labels=np.array([[1]], dtype=np.int32),
+    input_labels=np.array([[1]], dtype=np.int32)
 )
+inputs = processor("photo.jpg")
 # Box input shape: (batch, num_boxes, 4) with (x1, y1, x2, y2) in
 # original-image pixel coordinates. ``num_boxes`` acts as the
 # ``point_batch`` axis in the sparse-embedding concat — supply one
@@ -193,7 +195,8 @@ import keras
 from kmodels.models.sam2 import Sam2Tiny, Sam2ImageProcessor
 
 model = Sam2Tiny(weights="sav")
-pre = Sam2ImageProcessor("photo.jpg")
+processor = Sam2ImageProcessor()
+pre = processor("photo.jpg")
 
 # Run the Hiera + FPN encoder once
 encoder_out = model.get_image_embeddings(pre["pixel_values"])
@@ -269,11 +272,11 @@ ax.imshow(img_np)
 
 for i, prompt in enumerate(prompts):
     px, py = prompt["point"]
-    inputs = Sam2ImageProcessorWithPrompts(
-        img_np,
+    processor = Sam2ImageProcessorWithPrompts(
         input_points=np.array([[[px, py]]], dtype=np.float32),
-        input_labels=np.array([[1]], dtype=np.int32),
-    )
+        input_labels=np.array([[1]], dtype=np.int32)
+)
+    inputs = processor(img_np)
     outputs = model({
         "pixel_values": inputs["pixel_values"],
         "input_points": inputs["input_points"],

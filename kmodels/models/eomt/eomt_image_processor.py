@@ -4,6 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
 
 COCO_PANOPTIC_CLASSES = [
@@ -155,72 +156,84 @@ def _get_resized_size(orig_h: int, orig_w: int, target_size: int) -> Tuple[int, 
     return int(orig_h * scale), int(orig_w * scale)
 
 
-def EoMTImageProcessor(
-    image: Union[str, np.ndarray, Image.Image],
-    target_size: int = 640,
-    image_mean: Optional[Tuple[float, ...]] = None,
-    image_std: Optional[Tuple[float, ...]] = None,
-    data_format: Optional[str] = None,
-) -> keras.KerasTensor:
-    """Preprocess an image for EoMT inference.
+class EoMTImageProcessor(BaseImageProcessor):
+    """Preprocess images for EoMT inference.
 
     Resizes, pads to square, rescales to [0, 1], and applies ImageNet
-    normalization to match EoMT training preprocessing. Uses pure Keras 3
-    ops for all tensor operations.
+    normalization. Uses pure Keras 3 ops for all tensor operations.
 
     Args:
-        image: Input image as a file path, numpy array, or PIL Image.
         target_size: Target square size (default 640).
         image_mean: Per-channel mean for normalization.
         image_std: Per-channel std for normalization.
-
-    Returns:
-        Preprocessed Keras tensor with shape ``(1, target_size, target_size, 3)``.
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
 
     Example:
         ```python
         from kmodels.models.eomt import EoMT_Large
-        from kmodels.models.eomt.eomt_image_processor import EoMTImageProcessor
+        from kmodels.models.eomt.eomt_image_processor import (
+            EoMTImageProcessor,
+        )
 
         model = EoMT_Large(weights="coco_panoptic_640")
-        img = EoMTImageProcessor("photo.jpg", target_size=640)
+        proc = EoMTImageProcessor(target_size=640)
+        img = proc("photo.jpg")
         output = model(img, training=False)
         ```
     """
-    if image_mean is None:
-        image_mean = IMAGENET_MEAN
-    if image_std is None:
-        image_std = IMAGENET_STD
 
-    if isinstance(image, np.ndarray) and image.ndim == 4:
-        image = image[0]
-    image = load_image(image).astype(np.float32)
+    def __init__(
+        self,
+        target_size: int = 640,
+        image_mean: Optional[Tuple[float, ...]] = None,
+        image_std: Optional[Tuple[float, ...]] = None,
+        data_format: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.target_size = target_size
+        self.image_mean = image_mean if image_mean is not None else IMAGENET_MEAN
+        self.image_std = image_std if image_std is not None else IMAGENET_STD
+        self.data_format = data_format
 
-    h, w = image.shape[:2]
-    new_h, new_w = _get_resized_size(h, w, target_size)
+    def __call__(self, image: Union[str, np.ndarray, Image.Image]) -> keras.KerasTensor:
+        return self.call(image)
 
-    image = keras.ops.convert_to_tensor(image, dtype="float32")
-    image = keras.ops.expand_dims(image, axis=0)
+    def call(self, image: Union[str, np.ndarray, Image.Image]) -> keras.KerasTensor:
+        if isinstance(image, np.ndarray) and image.ndim == 4:
+            image = image[0]
+        image = load_image(image).astype(np.float32)
 
-    image = keras.ops.image.resize(image, (new_h, new_w), interpolation="bilinear")
+        h, w = image.shape[:2]
+        new_h, new_w = _get_resized_size(h, w, self.target_size)
 
-    image = image / 255.0
+        image = keras.ops.convert_to_tensor(image, dtype="float32")
+        image = keras.ops.expand_dims(image, axis=0)
 
-    padded = keras.ops.zeros((1, target_size, target_size, 3), dtype="float32")
-    padded = keras.ops.slice_update(padded, (0, 0, 0, 0), image)
+        image = keras.ops.image.resize(image, (new_h, new_w), interpolation="bilinear")
 
-    mean = keras.ops.reshape(
-        keras.ops.convert_to_tensor(image_mean, dtype="float32"), (1, 1, 1, 3)
-    )
-    std = keras.ops.reshape(
-        keras.ops.convert_to_tensor(image_std, dtype="float32"), (1, 1, 1, 3)
-    )
-    padded = (padded - mean) / std
+        image = image / 255.0
 
-    if get_data_format(data_format) == "channels_first":
-        padded = keras.ops.transpose(padded, (0, 3, 1, 2))
+        padded = keras.ops.zeros(
+            (1, self.target_size, self.target_size, 3), dtype="float32"
+        )
+        padded = keras.ops.slice_update(padded, (0, 0, 0, 0), image)
 
-    return padded
+        mean = keras.ops.reshape(
+            keras.ops.convert_to_tensor(self.image_mean, dtype="float32"),
+            (1, 1, 1, 3),
+        )
+        std = keras.ops.reshape(
+            keras.ops.convert_to_tensor(self.image_std, dtype="float32"),
+            (1, 1, 1, 3),
+        )
+        padded = (padded - mean) / std
+
+        if get_data_format(self.data_format) == "channels_first":
+            padded = keras.ops.transpose(padded, (0, 3, 1, 2))
+
+        return padded
 
 
 def _unpad_and_resize_masks(

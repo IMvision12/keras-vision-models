@@ -1,11 +1,13 @@
 import keras
 
+from kmodels.base import BaseProcessor
+
 from .metaclip2_image_processor import MetaClip2ImageProcessor
 from .metaclip2_tokenizer import MetaClip2Tokenizer
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MetaClip2Processor(keras.layers.Layer):
+class MetaClip2Processor(BaseProcessor):
     """Combined image + text processor for MetaCLIP 2.
 
     Wraps :class:`MetaClip2ImageProcessor` and :class:`MetaClip2Tokenizer`.

@@ -5,6 +5,7 @@ from typing import List, Union
 import keras
 import numpy as np
 
+from kmodels.base import BaseTokenizer
 from kmodels.weight_utils import download_file
 
 _PUNCT_TABLE = str.maketrans("", "", string.punctuation)
@@ -20,7 +21,7 @@ DEFAULT_MT5_SENTENCEPIECE_URL = (
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MetaClip2Mt5Tokenizer(keras.Layer):
+class MetaClip2Mt5Tokenizer(BaseTokenizer):
     """SigLIP-style tokenizer for the MetaCLIP 2 mT5 variants.
 
     Loads a SentencePiece model file (``spiece.model``) and replicates

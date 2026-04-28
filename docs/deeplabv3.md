@@ -46,7 +46,8 @@ from kmodels.models.deeplabv3 import DeepLabV3ImageProcessor, DeepLabV3PostProce
 
 model = kmodels.models.deeplabv3.DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
 
-image = DeepLabV3ImageProcessor("image.jpg", size={"height": 512, "width": 512})
+processor = DeepLabV3ImageProcessor(size={"height": 512, "width": 512})
+image = processor("image.jpg")
 
 output = model(image, training=False)  # Output shape: (1, 512, 512, 21)
 
@@ -63,10 +64,12 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = DeepLabV3ImageProcessor("photo.jpg")
+processor = DeepLabV3ImageProcessor()
+inputs = processor("photo.jpg")
 
 # force channels_first for this call only
-inputs = DeepLabV3ImageProcessor("photo.jpg", data_format="channels_first")
+processor = DeepLabV3ImageProcessor(data_format="channels_first")
+inputs = processor("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -98,7 +101,8 @@ model = DeepLabV3ResNet50(weights="coco_voc", input_shape=(512, 512, 3))
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
-processed = DeepLabV3ImageProcessor(img, size={"height": 512, "width": 512})
+processor = DeepLabV3ImageProcessor(size={"height": 512, "width": 512})
+processed = processor(img)
 output = model(processed, training=False)
 
 result = DeepLabV3PostProcessor(output, target_size=original_size)

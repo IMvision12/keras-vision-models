@@ -4,6 +4,8 @@ import keras
 import numpy as np
 from keras import ops
 
+from kmodels.base import BaseAudioFeatureExtractor
+
 
 def _build_mel_filter_bank(
     n_fft: int,
@@ -54,7 +56,7 @@ def _build_mel_filter_bank(
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class WhisperFeatureExtractor(keras.layers.Layer):
+class WhisperFeatureExtractor(BaseAudioFeatureExtractor):
     """Mel spectrogram extractor matching HF ``WhisperFeatureExtractor``.
 
     Pure Keras 3 implementation — all numeric operations go through

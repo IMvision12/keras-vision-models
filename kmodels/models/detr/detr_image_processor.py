@@ -4,6 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import preprocess_image
 
 # COCO 2017 class labels (91 categories). Index 0..90 are object classes,
@@ -103,29 +104,13 @@ COCO_CLASSES = [
 ]
 
 
-def DETRImageProcessor(
-    image: Union[str, np.ndarray, Image.Image],
-    size: Optional[Dict[str, int]] = None,
-    resample: str = "bilinear",
-    do_rescale: bool = True,
-    rescale_factor: float = 1 / 255,
-    do_normalize: bool = True,
-    image_mean: Optional[Tuple[float, ...]] = None,
-    image_std: Optional[Tuple[float, ...]] = None,
-    return_tensor: bool = True,
-    data_format: Optional[str] = None,
-) -> Union[keras.KerasTensor, np.ndarray]:
-    """Preprocess an image for DETR inference.
+class DETRImageProcessor(BaseImageProcessor):
+    """Preprocess images for DETR inference.
 
-    Handles loading, resizing, rescaling, and ImageNet normalization to match
-    the preprocessing used during DETR training.
-
-    Use this when the model is created with ``include_normalization=False``.
-    If ``include_normalization=True``, only resizing is needed and you can
-    skip rescale/normalize (or simply pass uint8 images directly to the model).
+    Use this when the model is created with
+    ``include_normalization=False``.
 
     Args:
-        image: Input image as a file path, numpy array, or PIL Image.
         size: Target size as ``{"height": H, "width": W}``.
             Default: ``{"height": 800, "width": 800}``.
         resample: Interpolation method (``"nearest"``, ``"bilinear"``,
@@ -137,45 +122,63 @@ def DETRImageProcessor(
             Default: ``(0.485, 0.456, 0.406)``.
         image_std: Per-channel std for normalization.
             Default: ``(0.229, 0.224, 0.225)``.
-        return_tensor: If True return a Keras tensor, otherwise numpy array.
-
-    Returns:
-        Preprocessed image with shape ``(1, H, W, 3)`` ready for model input.
-
-    Example:
-        ```python
-        from kmodels.models.detr import DETRImageProcessor, DETRResNet50
-
-        model = DETRResNet50(weights="detr.weights.h5", include_normalization=False)
-        img = DETRImageProcessor("photo.jpg")
-        output = model(img, training=False)
-        ```
+        return_tensor: If True return a Keras tensor, otherwise numpy
+            array.
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
     """
-    if size is None:
-        size = {"height": 800, "width": 800}
-    if image_mean is None:
-        image_mean = (0.485, 0.456, 0.406)
-    if image_std is None:
-        image_std = (0.229, 0.224, 0.225)
 
-    image, _, _, _ = preprocess_image(
-        image,
-        target_size=(size["height"], size["width"]),
-        image_mean=image_mean if do_normalize else None,
-        image_std=image_std if do_normalize else None,
-        rescale=do_rescale,
-        interpolation=resample,
-        antialias=False,
-        data_format=data_format,
-    )
-    if do_rescale and rescale_factor != 1 / 255:
-        # preprocess_image always divides by 255; re-apply any custom ratio.
-        image = image * (rescale_factor * 255)
+    def __init__(
+        self,
+        size: Optional[Dict[str, int]] = None,
+        resample: str = "bilinear",
+        do_rescale: bool = True,
+        rescale_factor: float = 1 / 255,
+        do_normalize: bool = True,
+        image_mean: Optional[Tuple[float, ...]] = None,
+        image_std: Optional[Tuple[float, ...]] = None,
+        return_tensor: bool = True,
+        data_format: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.size = size if size is not None else {"height": 800, "width": 800}
+        self.resample = resample
+        self.do_rescale = do_rescale
+        self.rescale_factor = rescale_factor
+        self.do_normalize = do_normalize
+        self.image_mean = (
+            image_mean if image_mean is not None else (0.485, 0.456, 0.406)
+        )
+        self.image_std = image_std if image_std is not None else (0.229, 0.224, 0.225)
+        self.return_tensor = return_tensor
+        self.data_format = data_format
 
-    if not return_tensor:
-        image = keras.ops.convert_to_numpy(image)
+    def __call__(
+        self, image: Union[str, np.ndarray, Image.Image]
+    ) -> Union[keras.KerasTensor, np.ndarray]:
+        return self.call(image)
 
-    return image
+    def call(
+        self, image: Union[str, np.ndarray, Image.Image]
+    ) -> Union[keras.KerasTensor, np.ndarray]:
+        image, _, _, _ = preprocess_image(
+            image,
+            target_size=(self.size["height"], self.size["width"]),
+            image_mean=self.image_mean if self.do_normalize else None,
+            image_std=self.image_std if self.do_normalize else None,
+            rescale=self.do_rescale,
+            interpolation=self.resample,
+            antialias=False,
+            data_format=self.data_format,
+        )
+        if self.do_rescale and self.rescale_factor != 1 / 255:
+            image = image * (self.rescale_factor * 255)
+
+        if not self.return_tensor:
+            image = keras.ops.convert_to_numpy(image)
+
+        return image
 
 
 def DETRPostProcessor(

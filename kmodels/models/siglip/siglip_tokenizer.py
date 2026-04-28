@@ -13,6 +13,8 @@ from tokenizers.normalizers import Sequence as NormSeq
 from tokenizers.pre_tokenizers import Metaspace
 from tokenizers.processors import TemplateProcessing
 
+from kmodels.base import BaseTokenizer
+
 _PUNCT_CHARS = "".join(
     f"\\{c}" if c in r"\^$.|?*+()[]{}" else c for c in string.punctuation
 )
@@ -20,7 +22,7 @@ _PUNCT_REGEX = f"[{_PUNCT_CHARS}]"
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SigLIPTokenizer(keras.Layer):
+class SigLIPTokenizer(BaseTokenizer):
     """SigLIP SentencePiece Unigram tokenizer, built on HuggingFace `tokenizers`.
 
     Matches HF ``SiglipTokenizer`` exactly: when ``do_lower_case=True``

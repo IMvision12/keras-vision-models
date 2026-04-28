@@ -5,8 +5,8 @@ class BaseProcessor(keras.layers.Layer):
     """Base class for kmodels multi-modal processors.
 
     Multi-modal processors compose a :class:`BaseTokenizer` and a
-    :class:`BaseImageProcessor` / :class:`BaseFeatureExtractor` into
-    one callable. Subclasses set ``self.tokenizer`` /
+    :class:`BaseImageProcessor` / :class:`BaseAudioFeatureExtractor`
+    into one callable. Subclasses set ``self.tokenizer`` /
     ``self.image_processor`` / ``self.feature_extractor`` in
     ``__init__`` and implement ``call`` to dispatch over their
     component(s). ``decode`` / ``batch_decode`` are wired through to

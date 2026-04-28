@@ -49,7 +49,8 @@ image = Image.open("image.jpg").convert("RGB")
 original_h, original_w = image.size[1], image.size[0]
 
 # Preprocess: resize, pad to square, rescale, ImageNet normalize
-processed = EoMTImageProcessor(target_size=640)(image)
+processor = EoMTImageProcessor(target_size=640)
+processed = processor(image)
 
 # Inference
 output = model(processed, training=False)
@@ -76,10 +77,12 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = EoMTImageProcessor()("photo.jpg")
+processor = EoMTImageProcessor()
+inputs = processor("photo.jpg")
 
 # force channels_first for this call only
-inputs = EoMTImageProcessor(data_format="channels_first")("photo.jpg")
+processor = EoMTImageProcessor(data_format="channels_first")
+inputs = processor("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -103,7 +106,8 @@ model = EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
 img = Image.open("image.jpg").convert("RGB")
 original_h, original_w = img.size[1], img.size[0]
 
-processed = EoMTImageProcessor(target_size=640)(img)
+processor = EoMTImageProcessor(target_size=640)
+processed = processor(img)
 output = model(processed, training=False)
 
 result = EoMTPostProcessPanoptic(output, target_size=(original_h, original_w), threshold=0.8)

@@ -71,10 +71,11 @@ from kmodels.models.sam2_video import (
 )
 
 model = Sam2VideoSmall(input_shape=(1024, 1024, 3), weights="sav")
-inputs = Sam2VideoImageProcessorWithPrompts(
+processor = Sam2VideoImageProcessorWithPrompts(
     input_points=np.array([[[450, 600]]], dtype=np.float32),
     input_labels=np.array([[1]], dtype=np.int32)
-)("frame.jpg")
+)
+inputs = processor("frame.jpg")
 outputs = model({
     "pixel_values": inputs["pixel_values"],
     "input_points": inputs["input_points"],
@@ -98,10 +99,11 @@ from kmodels.models.sam2_video import (
 
 model = Sam2VideoLarge(input_shape=(1024, 1024, 3), weights="sav")
 
-inputs = Sam2VideoImageProcessorWithPrompts(
+processor = Sam2VideoImageProcessorWithPrompts(
     input_points=np.array([[[450, 600]]], dtype=np.float32),
     input_labels=np.array([[1]], dtype=np.int32)
-)("frame.jpg")
+)
+inputs = processor("frame.jpg")
 outputs = model({
     "pixel_values": inputs["pixel_values"],
     "input_points": inputs["input_points"],
@@ -173,7 +175,8 @@ frames, vh, vw, duration = load_video_frames(VIDEO_PATH, NUM_FRAMES)
 # Preprocess each frame with the pure-Keras processor
 processed_frames = {}
 for i, frame in enumerate(frames):
-    proc = Sam2VideoImageProcessor()(frame)
+    processor = Sam2VideoImageProcessor()
+    proc = processor(frame)
     processed_frames[i] = keras.ops.convert_to_numpy(proc["pixel_values"])
 
 # Build the Keras model and predictor

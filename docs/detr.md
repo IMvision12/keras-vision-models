@@ -56,7 +56,8 @@ image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
 
 # Preprocess: resize, rescale, ImageNet normalize
-processed = DETRImageProcessor(size={"height": 800, "width": 800})(image)
+processor = DETRImageProcessor(size={"height": 800, "width": 800})
+processed = processor(image)
 
 # Inference
 output = model(processed, training=False)
@@ -82,10 +83,12 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = DETRImageProcessor()("photo.jpg")
+processor = DETRImageProcessor()
+inputs = processor("photo.jpg")
 
 # force channels_first for this call only
-inputs = DETRImageProcessor(data_format="channels_first")("photo.jpg")
+processor = DETRImageProcessor(data_format="channels_first")
+inputs = processor("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -109,7 +112,8 @@ model = DETRResNet50(weights="coco", input_shape=(800, 800, 3), include_normaliz
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
-processed = DETRImageProcessor(size={"height": 800, "width": 800})(img)
+processor = DETRImageProcessor(size={"height": 800, "width": 800})
+processed = processor(img)
 output = model(processed, training=False)
 
 results = DETRPostProcessor(output, threshold=0.7, target_sizes=[original_size])

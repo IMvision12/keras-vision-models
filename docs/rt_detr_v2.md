@@ -51,7 +51,7 @@ image = Image.open("image.jpg")
 original_size = image.size[::-1]  # (H, W)
 
 # Preprocess: resize to 640x640, rescale to [0, 1] (no ImageNet normalization)
-processed = RTDETRV2ImageProcessor(image)
+processed = RTDETRV2ImageProcessor()(image)
 
 # Inference
 output = model(processed, training=False)
@@ -78,10 +78,10 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = RTDETRV2ImageProcessor("photo.jpg")
+inputs = RTDETRV2ImageProcessor()("photo.jpg")
 
 # force channels_first for this call only
-inputs = RTDETRV2ImageProcessor("photo.jpg", data_format="channels_first")
+inputs = RTDETRV2ImageProcessor(data_format="channels_first")("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -109,7 +109,7 @@ model = RTDETRV2ResNet50(weights="coco")
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
-processed = RTDETRV2ImageProcessor(img)
+processed = RTDETRV2ImageProcessor()(img)
 output = model(processed, training=False)
 
 results = RTDETRV2PostProcessor(output, threshold=0.5, target_sizes=[original_size])

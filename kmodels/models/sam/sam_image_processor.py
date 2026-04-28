@@ -6,6 +6,7 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
@@ -22,129 +23,107 @@ def _get_preprocess_shape(
     return new_h, new_w
 
 
-def SAMImageProcessor(
-    image: Union[str, np.ndarray, "Image.Image"],
-    target_length: int = 1024,
-    image_mean: Optional[Tuple[float, ...]] = None,
-    image_std: Optional[Tuple[float, ...]] = None,
-    data_format: Optional[str] = None,
-) -> Dict[str, "keras.KerasTensor"]:
-    """Preprocess an image for SAM inference.
+class SAMImageProcessor(BaseImageProcessor):
+    """Preprocess images for SAM inference.
 
-    Resizes the image so its longest side equals ``target_length``, applies
-    ImageNet normalization, and pads to a square. Also prepares default prompt
-    inputs (empty points, labels, boxes, masks) so the model can run with just
-    an image.
+    Resizes the image so its longest side equals ``target_length``,
+    applies ImageNet normalization, and pads to a square. Also prepares
+    default prompt inputs (empty points, labels, boxes) so the model
+    can run with just an image.
 
     Args:
-        image: Input image as a file path, numpy array, or PIL Image.
         target_length: Target size for the longest side (default 1024).
         image_mean: Per-channel mean for normalization.
         image_std: Per-channel std for normalization.
-
-    Returns:
-        Dict with keys:
-            - ``"pixel_values"``: ``(1, target_length, target_length, 3)``
-            - ``"input_points"``: ``(1, 1, 0, 2)`` empty placeholder
-            - ``"input_labels"``: ``(1, 1, 0)`` empty placeholder
-            - ``"input_boxes"``: ``(1, 0, 4)`` empty placeholder
-            - ``"input_masks"``: ``(1, 0, target_length, target_length, 1)``
-            - ``"original_size"``: ``(orig_h, orig_w)``
-            - ``"reshaped_size"``: ``(new_h, new_w)``
-
-    Example:
-        ```python
-        from kmodels.models.sam import SAM_ViT_Huge, SAMImageProcessor
-
-        model = SAM_ViT_Huge(weights="sa1b")
-        inputs = SAMImageProcessor("photo.jpg")
-        outputs = model(inputs)
-        ```
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
     """
-    if image_mean is None:
-        image_mean = IMAGENET_MEAN
-    if image_std is None:
-        image_std = IMAGENET_STD
 
-    if isinstance(image, np.ndarray) and image.ndim == 4:
-        image = image[0]
-    image = load_image(image).astype(np.float32)
+    def __init__(
+        self,
+        target_length: int = 1024,
+        image_mean: Optional[Tuple[float, ...]] = None,
+        image_std: Optional[Tuple[float, ...]] = None,
+        data_format: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.target_length = target_length
+        self.image_mean = image_mean if image_mean is not None else IMAGENET_MEAN
+        self.image_std = image_std if image_std is not None else IMAGENET_STD
+        self.data_format = data_format
 
-    orig_h, orig_w = image.shape[:2]
-    new_h, new_w = _get_preprocess_shape(orig_h, orig_w, target_length)
+    def __call__(
+        self, image: Union[str, np.ndarray, "Image.Image"]
+    ) -> Dict[str, "keras.KerasTensor"]:
+        return self.call(image)
 
-    image = keras.ops.convert_to_tensor(image, dtype="float32")
-    image = keras.ops.expand_dims(image, axis=0)
-    image = keras.ops.image.resize(image, (new_h, new_w), interpolation="bilinear")
+    def call(
+        self, image: Union[str, np.ndarray, "Image.Image"]
+    ) -> Dict[str, "keras.KerasTensor"]:
+        if isinstance(image, np.ndarray) and image.ndim == 4:
+            image = image[0]
+        image = load_image(image).astype(np.float32)
 
-    image = image / 255.0
+        orig_h, orig_w = image.shape[:2]
+        new_h, new_w = _get_preprocess_shape(orig_h, orig_w, self.target_length)
 
-    mean = keras.ops.reshape(
-        keras.ops.convert_to_tensor(image_mean, dtype="float32"), (1, 1, 1, 3)
-    )
-    std = keras.ops.reshape(
-        keras.ops.convert_to_tensor(image_std, dtype="float32"), (1, 1, 1, 3)
-    )
-    image = (image - mean) / std
+        image = keras.ops.convert_to_tensor(image, dtype="float32")
+        image = keras.ops.expand_dims(image, axis=0)
+        image = keras.ops.image.resize(image, (new_h, new_w), interpolation="bilinear")
 
-    padded = keras.ops.zeros((1, target_length, target_length, 3), dtype="float32")
-    padded = keras.ops.slice_update(padded, (0, 0, 0, 0), image)
+        image = image / 255.0
 
-    if get_data_format(data_format) == "channels_first":
-        padded = keras.ops.transpose(padded, (0, 3, 1, 2))
+        mean = keras.ops.reshape(
+            keras.ops.convert_to_tensor(self.image_mean, dtype="float32"),
+            (1, 1, 1, 3),
+        )
+        std = keras.ops.reshape(
+            keras.ops.convert_to_tensor(self.image_std, dtype="float32"),
+            (1, 1, 1, 3),
+        )
+        image = (image - mean) / std
 
-    empty_points = keras.ops.zeros((1, 1, 0, 2), dtype="float32")
-    empty_labels = keras.ops.zeros((1, 1, 0), dtype="int32")
-    empty_boxes = keras.ops.zeros((1, 0, 4), dtype="float32")
+        padded = keras.ops.zeros(
+            (1, self.target_length, self.target_length, 3), dtype="float32"
+        )
+        padded = keras.ops.slice_update(padded, (0, 0, 0, 0), image)
 
-    return {
-        "pixel_values": padded,
-        "input_points": empty_points,
-        "input_labels": empty_labels,
-        "input_boxes": empty_boxes,
-        "original_size": (orig_h, orig_w),
-        "reshaped_size": (new_h, new_w),
-    }
+        if get_data_format(self.data_format) == "channels_first":
+            padded = keras.ops.transpose(padded, (0, 3, 1, 2))
+
+        empty_points = keras.ops.zeros((1, 1, 0, 2), dtype="float32")
+        empty_labels = keras.ops.zeros((1, 1, 0), dtype="int32")
+        empty_boxes = keras.ops.zeros((1, 0, 4), dtype="float32")
+
+        return {
+            "pixel_values": padded,
+            "input_points": empty_points,
+            "input_labels": empty_labels,
+            "input_boxes": empty_boxes,
+            "original_size": (orig_h, orig_w),
+            "reshaped_size": (new_h, new_w),
+        }
 
 
-def SAMImageProcessorWithPrompts(
-    image: Union[str, np.ndarray, "Image.Image"],
-    input_points: Optional[np.ndarray] = None,
-    input_labels: Optional[np.ndarray] = None,
-    input_boxes: Optional[np.ndarray] = None,
-    target_length: int = 1024,
-    image_mean: Optional[Tuple[float, ...]] = None,
-    image_std: Optional[Tuple[float, ...]] = None,
-    data_format: Optional[str] = None,
-) -> Dict[str, "keras.KerasTensor"]:
-    """Preprocess an image and prompts for SAM inference.
+class SAMImageProcessorWithPrompts(SAMImageProcessor):
+    """Preprocess an image plus optional prompts for SAM inference.
 
-    Extends ``SAMImageProcessor`` by also encoding prompt inputs (points,
-    labels, boxes) into the correct tensor format expected by the model.
-
-    Args:
-        image: Input image as a file path, numpy array, or PIL Image.
-        input_points: Point prompts of shape ``(num_point_sets, num_points, 2)``
-            in ``(x, y)`` pixel coordinates.  Wrapped with a batch dim automatically.
-        input_labels: Point labels matching ``input_points`` shape
-            ``(num_point_sets, num_points)``.  ``1`` = foreground, ``0`` = background.
-        input_boxes: Box prompts of shape ``(num_boxes, 4)`` as
-            ``(x1, y1, x2, y2)`` pixel coordinates.
-        target_length: Target size for the longest side (default 1024).
-        image_mean: Per-channel mean for normalization.
-        image_std: Per-channel std for normalization.
-
-    Returns:
-        Dict with keys matching ``SAMImageProcessor`` output, but with
-        populated prompt tensors.
+    Extends :class:`SAMImageProcessor` by also encoding prompt inputs
+    (points, labels, boxes) into the tensor format the model expects.
+    Constructor kwargs match :class:`SAMImageProcessor`; prompts are
+    passed at call time.
 
     Example:
         ```python
         from kmodels.models.sam import SAM_ViT_Huge
-        from kmodels.models.sam.sam_image_processor import SAMImageProcessorWithPrompts
+        from kmodels.models.sam.sam_image_processor import (
+            SAMImageProcessorWithPrompts,
+        )
 
         model = SAM_ViT_Huge(weights="sa1b")
-        inputs = SAMImageProcessorWithPrompts(
+        proc = SAMImageProcessorWithPrompts()
+        inputs = proc(
             "photo.jpg",
             input_points=np.array([[[450, 600]]]),
             input_labels=np.array([[1]]),
@@ -152,41 +131,55 @@ def SAMImageProcessorWithPrompts(
         outputs = model(inputs)
         ```
     """
-    result = SAMImageProcessor(
-        image, target_length, image_mean, image_std, data_format=data_format
-    )
 
-    # Compute scale factor to transform points from original to resized coords
-    orig_h, orig_w = result["original_size"]
-    scale = target_length / max(orig_h, orig_w)
+    def __call__(
+        self,
+        image: Union[str, np.ndarray, "Image.Image"],
+        input_points: Optional[np.ndarray] = None,
+        input_labels: Optional[np.ndarray] = None,
+        input_boxes: Optional[np.ndarray] = None,
+    ) -> Dict[str, "keras.KerasTensor"]:
+        return self.call(image, input_points, input_labels, input_boxes)
 
-    if input_points is not None:
-        points = np.array(input_points, dtype=np.float64) * scale
-        points = keras.ops.convert_to_tensor(points, dtype="float32")
-        if keras.ops.ndim(points) == 2:
-            points = keras.ops.expand_dims(points, axis=0)
-        if keras.ops.ndim(points) == 3:
-            points = keras.ops.expand_dims(points, axis=0)
-        result["input_points"] = points
+    def call(
+        self,
+        image: Union[str, np.ndarray, "Image.Image"],
+        input_points: Optional[np.ndarray] = None,
+        input_labels: Optional[np.ndarray] = None,
+        input_boxes: Optional[np.ndarray] = None,
+    ) -> Dict[str, "keras.KerasTensor"]:
+        result = SAMImageProcessor.call(self, image)
 
-    if input_labels is not None:
-        labels = keras.ops.convert_to_tensor(input_labels, dtype="int32")
-        if keras.ops.ndim(labels) == 1:
-            labels = keras.ops.expand_dims(labels, axis=0)
-        if keras.ops.ndim(labels) == 2:
-            labels = keras.ops.expand_dims(labels, axis=0)
-        result["input_labels"] = labels
+        orig_h, orig_w = result["original_size"]
+        scale = self.target_length / max(orig_h, orig_w)
 
-    if input_boxes is not None:
-        boxes = np.array(input_boxes, dtype=np.float64) * scale
-        boxes = keras.ops.convert_to_tensor(boxes, dtype="float32")
-        if keras.ops.ndim(boxes) == 1:
-            boxes = keras.ops.expand_dims(boxes, axis=0)
-        if keras.ops.ndim(boxes) == 2:
-            boxes = keras.ops.expand_dims(boxes, axis=0)
-        result["input_boxes"] = boxes
+        if input_points is not None:
+            points = np.array(input_points, dtype=np.float64) * scale
+            points = keras.ops.convert_to_tensor(points, dtype="float32")
+            if keras.ops.ndim(points) == 2:
+                points = keras.ops.expand_dims(points, axis=0)
+            if keras.ops.ndim(points) == 3:
+                points = keras.ops.expand_dims(points, axis=0)
+            result["input_points"] = points
 
-    return result
+        if input_labels is not None:
+            labels = keras.ops.convert_to_tensor(input_labels, dtype="int32")
+            if keras.ops.ndim(labels) == 1:
+                labels = keras.ops.expand_dims(labels, axis=0)
+            if keras.ops.ndim(labels) == 2:
+                labels = keras.ops.expand_dims(labels, axis=0)
+            result["input_labels"] = labels
+
+        if input_boxes is not None:
+            boxes = np.array(input_boxes, dtype=np.float64) * scale
+            boxes = keras.ops.convert_to_tensor(boxes, dtype="float32")
+            if keras.ops.ndim(boxes) == 1:
+                boxes = keras.ops.expand_dims(boxes, axis=0)
+            if keras.ops.ndim(boxes) == 2:
+                boxes = keras.ops.expand_dims(boxes, axis=0)
+            result["input_boxes"] = boxes
+
+        return result
 
 
 def SAMPostProcessMasks(

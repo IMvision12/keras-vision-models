@@ -1,12 +1,13 @@
 import keras
 
+from kmodels.base import BaseProcessor
 from kmodels.models.clip.clip_image_processor import CLIPImageProcessor
 from kmodels.models.clip.clip_tokenizer import CLIPTokenizer
 from kmodels.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class CLIPProcessor(keras.layers.Layer):
+class CLIPProcessor(BaseProcessor):
     """
     Combined processor for CLIP model, handling both image and text inputs.
 

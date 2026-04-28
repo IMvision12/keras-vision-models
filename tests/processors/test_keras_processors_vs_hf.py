@@ -79,10 +79,9 @@ def _as_numpy(x) -> np.ndarray:
 def _run_detr(data_format):
     ours = _as_numpy(
         DETRImageProcessor(
-            ASSET_PATH,
             size={"height": 800, "width": 800},
             data_format=data_format,
-        )
+        )(ASSET_PATH)
     )
     hf = DetrImageProcessor(
         do_resize=True,
@@ -97,10 +96,9 @@ def _run_detr(data_format):
 def _run_rt_detr(data_format):
     ours = _as_numpy(
         RTDETRImageProcessor(
-            ASSET_PATH,
             size={"height": 640, "width": 640},
             data_format=data_format,
-        )
+        )(ASSET_PATH)
     )
     hf = RTDetrImageProcessor(
         do_resize=True,
@@ -115,10 +113,9 @@ def _run_rt_detr(data_format):
 def _run_rt_detr_v2(data_format):
     ours = _as_numpy(
         RTDETRV2ImageProcessor(
-            ASSET_PATH,
             size={"height": 640, "width": 640},
             data_format=data_format,
-        )
+        )(ASSET_PATH)
     )
     hf = RTDetrImageProcessor(
         do_resize=True,
@@ -131,7 +128,7 @@ def _run_rt_detr_v2(data_format):
 
 
 def _run_dfine(data_format):
-    ours = _as_numpy(DFineImageProcessor(ASSET_PATH, data_format=data_format))
+    ours = _as_numpy(DFineImageProcessor(data_format=data_format)(ASSET_PATH))
     hf = RTDetrImageProcessor(
         do_resize=True,
         size={"height": 640, "width": 640},
@@ -143,7 +140,7 @@ def _run_dfine(data_format):
 
 
 def _run_segformer(data_format):
-    ours = _as_numpy(SegFormerImageProcessor(ASSET_PATH, data_format=data_format))
+    ours = _as_numpy(SegFormerImageProcessor(data_format=data_format)(ASSET_PATH))
     hf = SegformerImageProcessor(
         do_resize=True,
         size={"height": 512, "width": 512},
@@ -154,7 +151,7 @@ def _run_segformer(data_format):
 
 
 def _run_eomt(data_format):
-    ours = _as_numpy(EoMTImageProcessor(ASSET_PATH, data_format=data_format))
+    ours = _as_numpy(EoMTImageProcessor(data_format=data_format)(ASSET_PATH))
     hf = EomtImageProcessor(
         do_resize=True,
         size={"longest_edge": 640, "shortest_edge": 640},
@@ -167,7 +164,7 @@ def _run_eomt(data_format):
 
 def _run_sam(data_format):
     ours = _as_numpy(
-        SAMImageProcessor(ASSET_PATH, data_format=data_format)["pixel_values"]
+        SAMImageProcessor(data_format=data_format)(ASSET_PATH)["pixel_values"]
     )
     hf = SamImageProcessor(
         size={"longest_edge": 1024},
@@ -180,7 +177,7 @@ def _run_sam(data_format):
 
 def _run_sam2(data_format):
     ours = _as_numpy(
-        Sam2ImageProcessor(ASSET_PATH, data_format=data_format)["pixel_values"]
+        Sam2ImageProcessor(data_format=data_format)(ASSET_PATH)["pixel_values"]
     )
     hf = HFSam2ImageProcessor()(images=_pil_image(), return_tensors="np")[
         "pixel_values"
@@ -230,7 +227,7 @@ def _run_metaclip2(data_format):
 
 def _run_depth_anything_v1(data_format):
     ours = _as_numpy(
-        DepthAnythingV1ImageProcessor(ASSET_PATH, data_format=data_format)[
+        DepthAnythingV1ImageProcessor(data_format=data_format)(ASSET_PATH)[
             "pixel_values"
         ]
     )
@@ -250,7 +247,7 @@ def _run_depth_anything_v1(data_format):
 
 def _run_depth_anything_v2(data_format):
     ours = _as_numpy(
-        DepthAnythingV2ImageProcessor(ASSET_PATH, data_format=data_format)[
+        DepthAnythingV2ImageProcessor(data_format=data_format)(ASSET_PATH)[
             "pixel_values"
         ]
     )

@@ -4,6 +4,7 @@ from typing import List, Union
 import keras
 import numpy as np
 
+from kmodels.base import BaseTokenizer
 from kmodels.weight_utils import download_file
 
 METACLIP2_EOS_TOKEN_ID = 2
@@ -19,7 +20,7 @@ DEFAULT_SENTENCEPIECE_URL = (
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class MetaClip2Tokenizer(keras.Layer):
+class MetaClip2Tokenizer(BaseTokenizer):
     """XLM-RoBERTa SentencePiece tokenizer wrapper for MetaCLIP 2.
 
     Wraps ``sentencepiece.SentencePieceProcessor`` to match the exact

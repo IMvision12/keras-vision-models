@@ -58,8 +58,8 @@ The model exposes:
 
 `kmodels.models.sam2_video` ships a pure-Keras frame processor with the same interface as `kmodels.models.sam2.Sam2ImageProcessor`:
 
-- `Sam2VideoImageProcessor(image)` — preprocess one frame and return default empty prompt placeholders.
-- `Sam2VideoImageProcessorWithPrompts(image, input_points, input_labels)` — same as above plus encoded point prompts (per-axis stretched into 1024-space).
+- `Sam2VideoImageProcessor()(image)` — preprocess one frame and return default empty prompt placeholders.
+- `Sam2VideoImageProcessorWithPrompts(input_points, input_labels)(image)` — same as above plus encoded point prompts (per-axis stretched into 1024-space).
 - `Sam2VideoPostProcessMasks(pred_masks, original_size)` — bilinear-resize predicted masks back to the original frame resolution.
 
 ```python
@@ -72,10 +72,9 @@ from kmodels.models.sam2_video import (
 
 model = Sam2VideoSmall(input_shape=(1024, 1024, 3), weights="sav")
 inputs = Sam2VideoImageProcessorWithPrompts(
-    "frame.jpg",
     input_points=np.array([[[450, 600]]], dtype=np.float32),
-    input_labels=np.array([[1]], dtype=np.int32),
-)
+    input_labels=np.array([[1]], dtype=np.int32)
+)("frame.jpg")
 outputs = model({
     "pixel_values": inputs["pixel_values"],
     "input_points": inputs["input_points"],
@@ -100,10 +99,9 @@ from kmodels.models.sam2_video import (
 model = Sam2VideoLarge(input_shape=(1024, 1024, 3), weights="sav")
 
 inputs = Sam2VideoImageProcessorWithPrompts(
-    "frame.jpg",
     input_points=np.array([[[450, 600]]], dtype=np.float32),
-    input_labels=np.array([[1]], dtype=np.int32),
-)
+    input_labels=np.array([[1]], dtype=np.int32)
+)("frame.jpg")
 outputs = model({
     "pixel_values": inputs["pixel_values"],
     "input_points": inputs["input_points"],
@@ -175,7 +173,7 @@ frames, vh, vw, duration = load_video_frames(VIDEO_PATH, NUM_FRAMES)
 # Preprocess each frame with the pure-Keras processor
 processed_frames = {}
 for i, frame in enumerate(frames):
-    proc = Sam2VideoImageProcessor(frame)
+    proc = Sam2VideoImageProcessor()(frame)
     processed_frames[i] = keras.ops.convert_to_numpy(proc["pixel_values"])
 
 # Build the Keras model and predictor

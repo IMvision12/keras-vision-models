@@ -7,6 +7,7 @@ import numpy as np
 from keras import ops
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
 
 COCO_CLASSES = [
@@ -93,47 +94,55 @@ COCO_CLASSES = [
 ]
 
 
-def DFineImageProcessor(
-    image: Union[str, np.ndarray, "Image.Image"],
-    target_size: Tuple[int, int] = (640, 640),
-    rescale_factor: float = 1.0 / 255.0,
-    data_format: Optional[str] = None,
-):
-    """Preprocess an image for D-FINE inference.
+class DFineImageProcessor(BaseImageProcessor):
+    """Preprocess images for D-FINE inference.
 
-    Loads the image (if needed), resizes to ``target_size`` using bilinear
-    interpolation, and rescales pixel values to ``[0, 1]``. D-FINE does
+    Loads the image (if needed), resizes to ``target_size`` using
+    bilinear interpolation (PIL-based to match HF's DFineImageProcessor
+    exactly), and rescales pixel values to ``[0, 1]``. D-FINE does
     **not** apply ImageNet normalisation.
 
     Args:
-        image: Input image as a file path, numpy array ``(H, W, 3)`` with
-            values in ``[0, 255]``, or a PIL ``Image``.
         target_size: ``(height, width)`` to resize to.
             Defaults to ``(640, 640)``.
         rescale_factor: Multiplicative rescale factor.
             Defaults to ``1/255``.
-
-    Returns:
-        A Keras tensor of shape ``(1, height, width, 3)`` with float32
-        values in ``[0, 1]``.
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
     """
-    # D-FINE keeps a PIL-based resize path on purpose — it matches the exact
-    # interpolation that HF's DFineImageProcessor uses. Only the load step is
-    # consolidated through `load_image`; the resize stays on PIL.
-    if isinstance(image, np.ndarray) and image.ndim == 4:
-        image = image[0]
-    arr = load_image(image)
-    pil_img = Image.fromarray(arr)
-    if pil_img.size != (target_size[1], target_size[0]):
-        pil_img = pil_img.resize((target_size[1], target_size[0]), Image.BILINEAR)
-    image = np.array(pil_img, dtype=np.float32)
 
-    image = ops.convert_to_tensor(image, dtype="float32")
-    image = ops.expand_dims(image, axis=0)
-    image = image * rescale_factor
-    if get_data_format(data_format) == "channels_first":
-        image = ops.transpose(image, (0, 3, 1, 2))
-    return image
+    def __init__(
+        self,
+        target_size: Tuple[int, int] = (640, 640),
+        rescale_factor: float = 1.0 / 255.0,
+        data_format: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.target_size = target_size
+        self.rescale_factor = rescale_factor
+        self.data_format = data_format
+
+    def __call__(self, image: Union[str, np.ndarray, "Image.Image"]):
+        return self.call(image)
+
+    def call(self, image: Union[str, np.ndarray, "Image.Image"]):
+        if isinstance(image, np.ndarray) and image.ndim == 4:
+            image = image[0]
+        arr = load_image(image)
+        pil_img = Image.fromarray(arr)
+        if pil_img.size != (self.target_size[1], self.target_size[0]):
+            pil_img = pil_img.resize(
+                (self.target_size[1], self.target_size[0]), Image.BILINEAR
+            )
+        image = np.array(pil_img, dtype=np.float32)
+
+        image = ops.convert_to_tensor(image, dtype="float32")
+        image = ops.expand_dims(image, axis=0)
+        image = image * self.rescale_factor
+        if get_data_format(self.data_format) == "channels_first":
+            image = ops.transpose(image, (0, 3, 1, 2))
+        return image
 
 
 def DFinePostProcessor(

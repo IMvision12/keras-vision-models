@@ -5,11 +5,12 @@ import numpy as np
 from keras import ops
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SigLIPImageProcessor(keras.layers.Layer):
+class SigLIPImageProcessor(BaseImageProcessor):
     """
     Image processor for SigLIP (Sigmoid Loss for Language Image Pre-training) models.
     This processor handles various preprocessing steps for images to be used with SigLIP models,

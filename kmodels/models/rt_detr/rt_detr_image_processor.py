@@ -4,6 +4,7 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import preprocess_image
 
 COCO_CLASSES = [
@@ -90,23 +91,13 @@ COCO_CLASSES = [
 ]
 
 
-def RTDETRImageProcessor(
-    image: Union[str, np.ndarray, Image.Image],
-    size: Optional[Dict[str, int]] = None,
-    resample: str = "bilinear",
-    do_rescale: bool = True,
-    rescale_factor: float = 1 / 255,
-    return_tensor: bool = True,
-    data_format: Optional[str] = None,
-) -> Union[keras.KerasTensor, np.ndarray]:
-    """Preprocess an image for RT-DETR inference.
+class RTDETRImageProcessor(BaseImageProcessor):
+    """Preprocess images for RT-DETR inference.
 
-    Handles loading, resizing, and rescaling to match the preprocessing
-    used during RT-DETR training. Unlike DETR, RT-DETR does **not**
-    apply ImageNet normalization; only rescaling to ``[0, 1]`` is needed.
+    Unlike DETR, RT-DETR does **not** apply ImageNet normalization;
+    only rescaling to ``[0, 1]`` is needed.
 
     Args:
-        image: Input image as a file path, numpy array, or PIL Image.
         size: Target size as ``{"height": H, "width": W}``.
             Default: ``{"height": 640, "width": 640}``.
         resample: Interpolation method (``"nearest"``, ``"bilinear"``,
@@ -115,40 +106,53 @@ def RTDETRImageProcessor(
         rescale_factor: Rescale factor (default ``1/255``).
         return_tensor: If True return a Keras tensor, otherwise numpy
             array.
-
-    Returns:
-        Preprocessed image with shape ``(1, H, W, 3)`` ready for model
-        input.
-
-    Example:
-        ```python
-        from kmodels.models.rt_detr import RTDETRImageProcessor, RTDETRResNet50
-
-        model = RTDETRResNet50(weights="coco")
-        img = RTDETRImageProcessor("photo.jpg")
-        output = model(img, training=False)
-        ```
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
     """
-    if size is None:
-        size = {"height": 640, "width": 640}
 
-    image, _, _, _ = preprocess_image(
-        image,
-        target_size=(size["height"], size["width"]),
-        image_mean=None,
-        image_std=None,
-        rescale=do_rescale,
-        interpolation=resample,
-        antialias=False,
-        data_format=data_format,
-    )
-    if do_rescale and rescale_factor != 1 / 255:
-        image = image * (rescale_factor * 255)
+    def __init__(
+        self,
+        size: Optional[Dict[str, int]] = None,
+        resample: str = "bilinear",
+        do_rescale: bool = True,
+        rescale_factor: float = 1 / 255,
+        return_tensor: bool = True,
+        data_format: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.size = size if size is not None else {"height": 640, "width": 640}
+        self.resample = resample
+        self.do_rescale = do_rescale
+        self.rescale_factor = rescale_factor
+        self.return_tensor = return_tensor
+        self.data_format = data_format
 
-    if not return_tensor:
-        image = keras.ops.convert_to_numpy(image)
+    def __call__(
+        self, image: Union[str, np.ndarray, Image.Image]
+    ) -> Union[keras.KerasTensor, np.ndarray]:
+        return self.call(image)
 
-    return image
+    def call(
+        self, image: Union[str, np.ndarray, Image.Image]
+    ) -> Union[keras.KerasTensor, np.ndarray]:
+        image, _, _, _ = preprocess_image(
+            image,
+            target_size=(self.size["height"], self.size["width"]),
+            image_mean=None,
+            image_std=None,
+            rescale=self.do_rescale,
+            interpolation=self.resample,
+            antialias=False,
+            data_format=self.data_format,
+        )
+        if self.do_rescale and self.rescale_factor != 1 / 255:
+            image = image * (self.rescale_factor * 255)
+
+        if not self.return_tensor:
+            image = keras.ops.convert_to_numpy(image)
+
+        return image
 
 
 def RTDETRPostProcessor(

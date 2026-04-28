@@ -70,10 +70,9 @@ from kmodels.models.sam import (
 model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
 
 inputs = SAMImageProcessorWithPrompts(
-    "groceries.jpg",
     input_points=np.array([[[390, 280]]]),  # (x, y) pixel coord on the subject
     input_labels=np.array([[1]]),           # 1 = foreground
-)
+)("groceries.jpg")
 
 # Fill in the placeholders for the prompt kinds we're not using
 inputs["input_boxes"]     = np.zeros((1, 1, 4), dtype="float32")
@@ -101,10 +100,10 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = SAMImageProcessor("photo.jpg")
+inputs = SAMImageProcessor()("photo.jpg")
 
 # force channels_first for this call only
-inputs = SAMImageProcessor("photo.jpg", data_format="channels_first")
+inputs = SAMImageProcessor(data_format="channels_first")("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -122,11 +121,10 @@ from kmodels.models.sam import (
 model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
 
 inputs = SAMImageProcessorWithPrompts(
-    "photo.jpg",
     input_points=np.zeros((1, 1, 1, 2), dtype="float32"),   # placeholder
     input_labels=-10 * np.ones((1, 1, 1), dtype="int32"),   # ignore
     input_boxes=np.array([[100, 200, 400, 500]]),           # (x1, y1, x2, y2)
-)
+)("photo.jpg")
 inputs["input_masks"]     = np.zeros((1, 256, 256, 1), dtype="float32")
 inputs["has_boxes_input"] = np.ones((1, 1), dtype="float32")
 inputs["has_mask_input"]  = np.zeros((1, 1), dtype="float32")
@@ -168,7 +166,7 @@ For interactive tools that try many prompts on the same image, run the ViT encod
 from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessor
 
 model = SAM_ViT_Base(weights="sa1b")
-pre = SAMImageProcessor("photo.jpg")
+pre = SAMImageProcessor()("photo.jpg")
 
 # Run the vision encoder once
 image_embeddings = model.get_image_embeddings(pre["pixel_values"])
@@ -245,8 +243,9 @@ ax.imshow(np.array(img))
 
 for i, prompt in enumerate(prompts):
     inputs = SAMImageProcessorWithPrompts(
-        img, input_points=prompt["points"], input_labels=prompt["labels"],
-    )
+        input_points=prompt["points"],
+        input_labels=prompt["labels"],
+    )(img)
     outputs = model.predict({
         "pixel_values": inputs["pixel_values"],
         "input_points": inputs["input_points"],

@@ -5,11 +5,12 @@ import numpy as np
 from keras import ops
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class CLIPImageProcessor(keras.layers.Layer):
+class CLIPImageProcessor(BaseImageProcessor):
     """
     Image processor for CLIP (Contrastive Language-Image Pre-training) models.
 

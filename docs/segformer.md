@@ -61,7 +61,7 @@ from kmodels.models.segformer import SegFormerImageProcessor, SegFormerPostProce
 
 model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 
-processed = SegFormerImageProcessor("image.jpg", size={"height": 512, "width": 512})
+processed = SegFormerImageProcessor(size={"height": 512, "width": 512})("image.jpg")
 
 output = model(processed, training=False)
 
@@ -79,10 +79,10 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = SegFormerImageProcessor("photo.jpg")
+inputs = SegFormerImageProcessor()("photo.jpg")
 
 # force channels_first for this call only
-inputs = SegFormerImageProcessor("photo.jpg", data_format="channels_first")
+inputs = SegFormerImageProcessor(data_format="channels_first")("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
@@ -106,7 +106,7 @@ model = SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
-processed = SegFormerImageProcessor(img, size={"height": 512, "width": 512})
+processed = SegFormerImageProcessor(size={"height": 512, "width": 512})(img)
 output = model(processed, training=False)
 
 result = SegFormerPostProcessor(output, target_size=original_size)

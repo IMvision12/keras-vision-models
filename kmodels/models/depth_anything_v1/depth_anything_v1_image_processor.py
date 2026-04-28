@@ -4,39 +4,21 @@ import keras
 import numpy as np
 from PIL import Image
 
+from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, preprocess_image
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
 
-def DepthAnythingV1ImageProcessor(
-    image: Union[str, np.ndarray, "Image.Image"],
-    target_size: Union[int, Tuple[int, int]] = 518,
-    image_mean: Optional[Tuple[float, ...]] = None,
-    image_std: Optional[Tuple[float, ...]] = None,
-    data_format: Optional[str] = None,
-) -> Dict[str, "keras.KerasTensor"]:
-    """Preprocess a single image for DepthAnythingV1 inference.
+class DepthAnythingV1ImageProcessor(BaseImageProcessor):
+    """Preprocess images for DepthAnythingV1 inference.
 
     Resizes the image to ``target_size`` with bicubic interpolation
     (mirroring the HF ``DPTImageProcessor`` resample setting),
-    rescales to ``[0, 1]``, and applies ImageNet normalization. Unlike
-    HF ``DPTImageProcessor`` (which preserves aspect ratio and
-    produces a variable-shape output), this processor stretches the
-    image directly to the target size, so the shape must match the
-    one the Keras model was built with.
-
-    Both target dims should be multiples of the DINOv2 patch size
-    (``14``). The pretrained ``518 x 518`` pos embeds are
-    bilinearly interpolated to the model's grid on weight load, so a
-    non-518 square (e.g. ``392``) or non-square pair
-    (e.g. ``(392, 784)``) both work as long as the model was built
-    with that same shape.
+    rescales to ``[0, 1]``, and applies ImageNet normalization.
 
     Args:
-        image: Input image as a file path, NumPy array ``(H, W, 3)``,
-            or PIL Image.
         target_size: Target spatial size. Either a single ``int``
             (square output) or a ``(height, width)`` tuple. Defaults
             to ``518``.
@@ -44,14 +26,8 @@ def DepthAnythingV1ImageProcessor(
             ImageNet statistics.
         image_std: Per-channel std for normalization. Defaults to
             ImageNet statistics.
-
-    Returns:
-        Dict with keys:
-            - ``"pixel_values"``: ``(1, target_h, target_w, 3)``
-              (or ``(1, 3, target_h, target_w)`` when
-              ``keras.config.image_data_format() == "channels_first"``)
-            - ``"original_size"``: ``(orig_h, orig_w)``
-            - ``"reshaped_size"``: ``(target_h, target_w)``
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
 
     Example:
         ```python
@@ -62,37 +38,55 @@ def DepthAnythingV1ImageProcessor(
         model = DepthAnythingV1Small(
             input_shape=(392, 784, 3), weights="lihe_yang"
         )
-        inputs = DepthAnythingV1ImageProcessor(
-            "photo.jpg", target_size=(392, 784)
-        )
+        proc = DepthAnythingV1ImageProcessor(target_size=(392, 784))
+        inputs = proc("photo.jpg")
         depth = model(inputs["pixel_values"])
         ```
     """
-    if isinstance(target_size, int):
-        target_h, target_w = target_size, target_size
-    else:
-        target_h, target_w = int(target_size[0]), int(target_size[1])
-    if image_mean is None:
-        image_mean = IMAGENET_MEAN
-    if image_std is None:
-        image_std = IMAGENET_STD
 
-    pixel_values, original_sizes, reshaped_hw, _ = preprocess_image(
-        image,
-        target_size=(target_h, target_w),
-        image_mean=image_mean,
-        image_std=image_std,
-        rescale=True,
-        interpolation="bicubic",
-        antialias=True,
-        data_format=data_format,
-    )
+    def __init__(
+        self,
+        target_size: Union[int, Tuple[int, int]] = 518,
+        image_mean: Optional[Tuple[float, ...]] = None,
+        image_std: Optional[Tuple[float, ...]] = None,
+        data_format: Optional[str] = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        if isinstance(target_size, int):
+            self.target_h, self.target_w = target_size, target_size
+        else:
+            self.target_h = int(target_size[0])
+            self.target_w = int(target_size[1])
+        self.target_size = target_size
+        self.image_mean = image_mean if image_mean is not None else IMAGENET_MEAN
+        self.image_std = image_std if image_std is not None else IMAGENET_STD
+        self.data_format = data_format
 
-    return {
-        "pixel_values": pixel_values,
-        "original_size": original_sizes[0],
-        "reshaped_size": reshaped_hw,
-    }
+    def __call__(
+        self, image: Union[str, np.ndarray, "Image.Image"]
+    ) -> Dict[str, "keras.KerasTensor"]:
+        return self.call(image)
+
+    def call(
+        self, image: Union[str, np.ndarray, "Image.Image"]
+    ) -> Dict[str, "keras.KerasTensor"]:
+        pixel_values, original_sizes, reshaped_hw, _ = preprocess_image(
+            image,
+            target_size=(self.target_h, self.target_w),
+            image_mean=self.image_mean,
+            image_std=self.image_std,
+            rescale=True,
+            interpolation="bicubic",
+            antialias=True,
+            data_format=self.data_format,
+        )
+
+        return {
+            "pixel_values": pixel_values,
+            "original_size": original_sizes[0],
+            "reshaped_size": reshaped_hw,
+        }
 
 
 def DepthAnythingV1PostProcessDepth(

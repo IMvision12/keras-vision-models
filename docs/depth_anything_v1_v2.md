@@ -89,7 +89,7 @@ preserves the aspect ratio and produces a variable-shape output — this
 processor stretches the image directly to the target size so the shape
 matches what the Keras model was built with.
 
-- `DepthAnythingV1ImageProcessor(image, target_size=518)` / `DepthAnythingV2ImageProcessor(...)`
+- `DepthAnythingV1ImageProcessor(target_size=518)(image)` / `DepthAnythingV2ImageProcessor()(...)`
 - `DepthAnythingV1PostProcessDepth(predicted_depth, original_size)` /
   `DepthAnythingV2PostProcessDepth(...)`
 
@@ -108,7 +108,7 @@ from kmodels.models.depth_anything_v1 import (
 )
 
 model = DepthAnythingV1Small(weights="da_v1")
-inputs = DepthAnythingV1ImageProcessor("photo.jpg")
+inputs = DepthAnythingV1ImageProcessor()("photo.jpg")
 depth = model(inputs["pixel_values"])
 depth_full = DepthAnythingV1PostProcessDepth(
     depth, original_size=inputs["original_size"]
@@ -139,7 +139,7 @@ from kmodels.models.depth_anything_v1 import (
 model = DepthAnythingV1Small(weights="da_v1")
 
 # 2) preprocess the image (stretches to 518x518, ImageNet-normalized)
-inputs = DepthAnythingV1ImageProcessor("assets/coco_horse_dog.jpg")
+inputs = DepthAnythingV1ImageProcessor()("assets/coco_horse_dog.jpg")
 orig_h, orig_w = inputs["original_size"]
 
 # 3) forward pass — raw depth at model resolution
@@ -185,7 +185,7 @@ from kmodels.models.depth_anything_v2 import (
 model = DepthAnythingV2Base(weights="da_v2")
 
 # 2) preprocess the image
-inputs = DepthAnythingV2ImageProcessor("assets/valley.png")
+inputs = DepthAnythingV2ImageProcessor()("assets/valley.png")
 orig_h, orig_w = inputs["original_size"]
 
 # 3) forward pass — raw depth at model resolution
@@ -219,7 +219,7 @@ from kmodels.models.depth_anything_v2 import (
 )
 
 model = DepthAnythingV2MetricIndoorLarge(weights="da_v2")
-inputs = DepthAnythingV2ImageProcessor("room.jpg")
+inputs = DepthAnythingV2ImageProcessor()("room.jpg")
 depth = model(inputs["pixel_values"])
 depth_full = DepthAnythingV2PostProcessDepth(
     depth, original_size=inputs["original_size"]
@@ -258,9 +258,8 @@ model = DepthAnythingV2Small(
     input_shape=(392, 784, 3),
     weights="da_v2",
 )
-inputs = DepthAnythingV2ImageProcessor(
-    "photo.jpg", target_size=(392, 784)
-)
+inputs = DepthAnythingV2ImageProcessor(target_size=(392, 784)
+)("photo.jpg")
 depth = model(inputs["pixel_values"])
 ```
 
@@ -289,10 +288,10 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 # follow the global config (the default)
-inputs = DepthAnythingV1ImageProcessor("photo.jpg")
+inputs = DepthAnythingV1ImageProcessor()("photo.jpg")
 
 # force channels_first for this call only
-inputs = DepthAnythingV1ImageProcessor("photo.jpg", data_format="channels_first")
+inputs = DepthAnythingV1ImageProcessor(data_format="channels_first")("photo.jpg")
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.

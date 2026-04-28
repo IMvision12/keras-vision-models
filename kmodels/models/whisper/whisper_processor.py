@@ -2,12 +2,14 @@ from typing import List, Optional, Union
 
 import keras
 
+from kmodels.base import BaseProcessor
+
 from .whisper_feature_extractor import WhisperFeatureExtractor
 from .whisper_tokenizer import WhisperTokenizer
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class WhisperProcessor(keras.layers.Layer):
+class WhisperProcessor(BaseProcessor):
     """Combined audio + text processor for Whisper.
 
     Wraps :class:`WhisperFeatureExtractor` and :class:`WhisperTokenizer`,

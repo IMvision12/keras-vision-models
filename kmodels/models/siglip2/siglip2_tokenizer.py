@@ -5,9 +5,11 @@ import numpy as np
 import sentencepiece as spm
 from keras import ops
 
+from kmodels.base import BaseTokenizer
+
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SigLIP2Tokenizer(keras.Layer):
+class SigLIP2Tokenizer(BaseTokenizer):
     """SigLIP2 SentencePiece tokenizer matching HF ``google/siglip2-*``.
 
     HF's SigLIP2 (Gemma) tokenizer.json always appends ``<eos>`` via a

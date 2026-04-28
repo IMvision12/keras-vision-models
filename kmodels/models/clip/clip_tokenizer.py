@@ -12,9 +12,11 @@ from tokenizers.pre_tokenizers import ByteLevel, Split
 from tokenizers.pre_tokenizers import Sequence as PreSeq
 from tokenizers.processors import RobertaProcessing
 
+from kmodels.base import BaseTokenizer
+
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class CLIPTokenizer(keras.Layer):
+class CLIPTokenizer(BaseTokenizer):
     """CLIP BPE tokenizer, built on HuggingFace `tokenizers` (Rust).
 
     Wraps a programmatically-assembled `tokenizers.Tokenizer` that matches

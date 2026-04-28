@@ -2,13 +2,14 @@ from typing import List, Optional, Union
 
 import keras
 
+from kmodels.base import BaseProcessor
 from kmodels.models.siglip2.siglip2_image_processor import SigLIP2ImageProcessor
 from kmodels.models.siglip2.siglip2_tokenizer import SigLIP2Tokenizer
 from kmodels.weight_utils import download_file
 
 
 @keras.saving.register_keras_serializable(package="kmodels")
-class SigLIP2Processor(keras.layers.Layer):
+class SigLIP2Processor(BaseProcessor):
     """
     Unified processor for SigLIP2 models.
 

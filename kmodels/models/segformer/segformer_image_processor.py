@@ -146,7 +146,7 @@ class SegFormerImageProcessor(BaseImageProcessor):
         return image
 
     def post_process_semantic_segmentation(
-        self, outputs, target_size, label_names=None, data_format=None
+        self, outputs, target_size=None, label_names=None, data_format=None
     ):
         return segformer_post_process_semantic_segmentation(
             outputs,

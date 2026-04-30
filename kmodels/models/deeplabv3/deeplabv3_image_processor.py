@@ -8,30 +8,7 @@ from PIL import Image
 
 from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, preprocess_image
-
-VOC_CLASSES = [
-    "background",
-    "aeroplane",
-    "bicycle",
-    "bird",
-    "boat",
-    "bottle",
-    "bus",
-    "car",
-    "cat",
-    "chair",
-    "cow",
-    "dining table",
-    "dog",
-    "horse",
-    "motorbike",
-    "person",
-    "potted plant",
-    "sheep",
-    "sofa",
-    "train",
-    "tv/monitor",
-]
+from kmodels.utils.labels import PASCAL_VOC_CLASSES
 
 
 class DeepLabV3ImageProcessor(BaseImageProcessor):
@@ -182,7 +159,7 @@ def deeplabv3_post_process_semantic_segmentation(
         print(result["class_names"])
         ```
     """
-    _names = label_names if label_names is not None else VOC_CLASSES
+    _names = label_names if label_names is not None else PASCAL_VOC_CLASSES
 
     logits = keras.ops.convert_to_numpy(outputs)
     channel_axis = 0 if get_data_format(data_format) == "channels_first" else -1

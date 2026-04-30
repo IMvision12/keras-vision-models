@@ -196,7 +196,7 @@ def _run_clip(data_format):
 
 def _run_siglip(data_format):
     processor = KerasSigLIPImageProcessor(data_format=data_format)
-    ours = _as_numpy(processor(ASSET_PATH))
+    ours = _as_numpy(processor(ASSET_PATH)["images"])
     hf = SiglipImageProcessor()(images=_pil_image(), return_tensors="np")[
         "pixel_values"
     ]

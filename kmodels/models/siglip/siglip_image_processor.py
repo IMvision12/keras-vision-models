@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import keras
 import numpy as np
@@ -49,11 +49,12 @@ class SigLIPImageProcessor(BaseImageProcessor):
         Process images from file paths:
         ```python
         # Process a single image path
-        images = processor("path/to/image.jpg")  # Shape: (1, 224, 224, 3)
+        result = processor("path/to/image.jpg")
+        processed_image = result["images"]  # Shape: (1, 224, 224, 3)
 
         # Process multiple image paths
-        images = processor(["path/to/image1.jpg", "path/to/image2.jpg", "path/to/image3.jpg"])
-        # Shape: (3, 224, 224, 3)
+        result = processor(["path/to/image1.jpg", "path/to/image2.jpg", "path/to/image3.jpg"])
+        processed_images = result["images"]  # Shape: (3, 224, 224, 3)
         ```
 
         Custom processing configuration:
@@ -204,13 +205,13 @@ class SigLIPImageProcessor(BaseImageProcessor):
     def __call__(
         self,
         image: Union[str, List[str], np.ndarray, Image.Image, "keras.KerasTensor"],
-    ) -> Any:
+    ) -> Dict[str, Any]:
         return self.call(image)
 
     def call(
         self,
         image: Union[str, List[str], np.ndarray, Image.Image, "keras.KerasTensor"],
-    ) -> Any:
+    ) -> Dict[str, Any]:
         if isinstance(image, str):
             processed_image = self.process_path(image)
             images = ops.expand_dims(processed_image, axis=0)
@@ -238,7 +239,7 @@ class SigLIPImageProcessor(BaseImageProcessor):
                 )
         if self.data_format == "channels_first":
             images = ops.transpose(images, (0, 3, 1, 2))
-        return images
+        return {"images": images}
 
     def get_config(self):
         config = super().get_config()

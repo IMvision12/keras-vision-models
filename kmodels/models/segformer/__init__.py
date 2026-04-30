@@ -1,4 +1,4 @@
-from .segformer_image_preprocessor import SegFormerImageProcessor
+from .segformer_image_processor import SegFormerImageProcessor
 from .segformer_model import (
     SegFormerB0,
     SegFormerB1,

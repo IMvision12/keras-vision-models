@@ -38,7 +38,7 @@ from kmodels.models.rt_detr import RTDETRImageProcessor
 from kmodels.models.rt_detr_v2 import RTDETRV2ImageProcessor
 from kmodels.models.sam import SAMImageProcessor
 from kmodels.models.sam2 import Sam2ImageProcessor
-from kmodels.models.segformer.segformer_image_preprocessor import (
+from kmodels.models.segformer.segformer_image_processor import (
     SegFormerImageProcessor,
 )
 from kmodels.models.siglip.siglip_image_processor import (

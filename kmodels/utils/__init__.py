@@ -1,3 +1,4 @@
+from kmodels.utils import viz
 from kmodels.utils.image import (
     BatchImageInput,
     ImageInput,
@@ -14,10 +15,9 @@ from kmodels.utils.video import (
     load_video,
     sample_frames,
 )
-from kmodels.utils.visualization import (
-    overlay_depth,
-    plot_boxes,
-    plot_image,
-    plot_masks,
-    plot_points,
+from kmodels.utils.viz import (
+    plot_depth,
+    plot_detections,
+    plot_sam_masks,
+    plot_segmentation,
 )

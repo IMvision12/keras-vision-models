@@ -79,7 +79,7 @@ class RFDETRImageProcessor(BaseImageProcessor):
         if not self.return_tensor:
             image = keras.ops.convert_to_numpy(image)
 
-        return image
+        return {"pixel_values": image}
 
     def post_process_object_detection(
         self,

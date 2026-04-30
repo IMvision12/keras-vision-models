@@ -62,9 +62,9 @@ from kmodels.models.segformer import SegFormerImageProcessor
 model = kmodels.models.segformer.SegFormerB0(weights="ade20k_512", input_shape=(512, 512, 3))
 
 processor = SegFormerImageProcessor(size={"height": 512, "width": 512})
-processed = processor("image.jpg")
+inputs = processor("image.jpg")
 
-output = model(processed, training=False)
+output = model(inputs["pixel_values"], training=False)
 
 result = processor.post_process_semantic_segmentation(output)
 print(f"Detected classes: {result['class_names']}")
@@ -110,8 +110,8 @@ img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
 processor = SegFormerImageProcessor(size={"height": 512, "width": 512})
-processed = processor(img)
-output = model(processed, training=False)
+inputs = processor(img)
+output = model(inputs["pixel_values"], training=False)
 
 result = processor.post_process_semantic_segmentation(output, target_size=original_size)
 mask_resized = result["segmentation"]

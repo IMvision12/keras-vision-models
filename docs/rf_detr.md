@@ -44,10 +44,10 @@ original_size = image.size[::-1]  # (H, W)
 
 # Preprocess: rescale, ImageNet normalize, resize to model resolution
 processor = RFDETRImageProcessor(size={"height": 560, "width": 560})
-processed = processor(image)
+inputs = processor(image)
 
 # Inference
-output = model(processed, training=False)
+output = model(inputs["pixel_values"], training=False)
 # output["pred_logits"]: (1, 300, 91) — class logits per query
 # output["pred_boxes"]:  (1, 300, 4)  — normalized (cx, cy, w, h)
 
@@ -100,8 +100,8 @@ img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
 processor = RFDETRImageProcessor(size={"height": 560, "width": 560})
-processed = processor(img)
-output = model(processed, training=False)
+inputs = processor(img)
+output = model(inputs["pixel_values"], training=False)
 
 results = processor.post_process_object_detection(output, threshold=0.5, target_sizes=[original_size])
 

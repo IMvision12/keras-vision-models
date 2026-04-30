@@ -61,12 +61,12 @@ class DETRImageProcessor(BaseImageProcessor):
 
     def __call__(
         self, image: Union[str, np.ndarray, Image.Image]
-    ) -> Union[keras.KerasTensor, np.ndarray]:
+    ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
         return self.call(image)
 
     def call(
         self, image: Union[str, np.ndarray, Image.Image]
-    ) -> Union[keras.KerasTensor, np.ndarray]:
+    ) -> Dict[str, Union[keras.KerasTensor, np.ndarray]]:
         image, _, _, _ = preprocess_image(
             image,
             target_size=(self.size["height"], self.size["width"]),
@@ -83,7 +83,7 @@ class DETRImageProcessor(BaseImageProcessor):
         if not self.return_tensor:
             image = keras.ops.convert_to_numpy(image)
 
-        return image
+        return {"pixel_values": image}
 
     def post_process_object_detection(
         self, outputs, threshold=0.7, target_sizes=None, label_names=None

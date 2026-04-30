@@ -50,10 +50,10 @@ original_h, original_w = image.size[1], image.size[0]
 
 # Preprocess: resize, pad to square, rescale, ImageNet normalize
 processor = EoMTImageProcessor(target_size=640)
-processed = processor(image)
+inputs = processor(image)
 
 # Inference
-output = model(processed, training=False)
+output = model(inputs["pixel_values"], training=False)
 # output["class_logits"]: (1, num_queries, 134) — class logits per query
 # output["mask_logits"]:  (1, num_queries, mask_h, mask_w) — mask logits
 
@@ -146,8 +146,8 @@ img = Image.open("image.jpg").convert("RGB")
 original_h, original_w = img.size[1], img.size[0]
 
 processor = EoMTImageProcessor(target_size=640)
-processed = processor(img)
-output = model(processed, training=False)
+inputs = processor(img)
+output = model(inputs["pixel_values"], training=False)
 
 result = processor.post_process_panoptic_segmentation(
     output, target_size=(original_h, original_w), threshold=0.8,

@@ -102,8 +102,8 @@ img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
 processor = DeepLabV3ImageProcessor(size={"height": 512, "width": 512})
-processed = processor(img)
-output = model(processed, training=False)
+inputs = processor(img)
+output = model(inputs["pixel_values"], training=False)
 
 result = processor.post_process_semantic_segmentation(output, target_size=original_size)
 mask_resized = result["segmentation"]

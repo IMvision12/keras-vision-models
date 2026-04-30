@@ -1459,7 +1459,7 @@ def build_text_encoder(
 
 
 @register_model
-def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def SAM3(input_shape=None, input_tensor=None, weights="saco", **kwargs):
     """SAM3 open-vocabulary detector, segmenter, and promptable model.
 
     Factory function that builds the full SAM3 model including ViT-L
@@ -1468,7 +1468,7 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
 
     SAM3 weights are distributed under Meta's SAM License and require
     accepting the license at https://huggingface.co/facebook/sam3.
-    On first use with ``weights="sam3"``, the model is downloaded from
+    On first use with ``weights="saco"``, the model is downloaded from
     HuggingFace, converted to Keras format, and cached locally at
     ``~/.cache/kmodels/sam3/``.
 
@@ -1476,9 +1476,11 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
         input_shape (tuple or None): Input image shape. Defaults to
             ``(1008, 1008, 3)`` for channels_last.
         input_tensor: Optional input tensor.
-        weights (str or None): ``"sam3"`` to download and convert from
+        weights (str or None): ``"saco"`` to download and convert from
             HuggingFace (cached after first run), ``None`` for random
-            init, or a file path to a ``.weights.h5`` file.
+            init, or a file path to a ``.weights.h5`` file. ``"saco"``
+            denotes the SA-Co training dataset
+            (Segment Anything with Concepts).
         **kwargs: Additional keyword arguments.
 
     Returns:
@@ -1496,7 +1498,7 @@ def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
         **kwargs,
     )
 
-    if weights == "sam3":
+    if weights == "saco":
         from .convert_sam3_hf_to_keras import transfer_sam3_weights
 
         load_gated_weights_from_hf(

@@ -57,10 +57,10 @@ original_size = image.size[::-1]  # (H, W)
 
 # Preprocess: resize, rescale, ImageNet normalize
 processor = DETRImageProcessor(size={"height": 800, "width": 800})
-processed = processor(image)
+inputs = processor(image)
 
 # Inference
-output = model(processed, training=False)
+output = model(inputs["pixel_values"], training=False)
 # output["logits"]:     (1, 100, 92) — class logits per query
 # output["pred_boxes"]: (1, 100, 4)  — normalized (cx, cy, w, h)
 
@@ -79,7 +79,7 @@ for score, label, box in zip(results[0]["scores"], results[0]["label_names"], re
 
 ### Data format
 
-Every processor and format-sensitive post-processor in this module accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
+The image processor accepts a `data_format=None` kwarg. The default (`None`) resolves to `keras.config.image_data_format()`; pass `"channels_first"` or `"channels_last"` to override per-call without touching global state.
 
 ```python
 # follow the global config (the default)
@@ -91,7 +91,7 @@ processor = DETRImageProcessor(data_format="channels_first")
 inputs = processor("photo.jpg")
 ```
 
-Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.
+Detection post-processors emit boxes in `xyxy` pixel coordinates and class indices — there is no spatial channel axis to interpret, so they don't take a `data_format` kwarg. See `docs/utils.md` for the families that do.
 
 ## Full Inference with Visualization
 
@@ -113,8 +113,8 @@ img = Image.open("image.jpg").convert("RGB")
 original_size = img.size[::-1]  # (H, W)
 
 processor = DETRImageProcessor(size={"height": 800, "width": 800})
-processed = processor(img)
-output = model(processed, training=False)
+inputs = processor(img)
+output = model(inputs["pixel_values"], training=False)
 
 results = processor.post_process_object_detection(output, threshold=0.7, target_sizes=[original_size])
 

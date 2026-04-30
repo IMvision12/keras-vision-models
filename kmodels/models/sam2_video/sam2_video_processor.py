@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 
 from kmodels.base import BaseImageProcessor
+from kmodels.utils.image import get_data_format
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -25,6 +26,8 @@ class Sam2VideoImageProcessor(BaseImageProcessor):
             ImageNet statistics.
         image_std: Per-channel std for normalization. Defaults to
             ImageNet statistics.
+        data_format: ``"channels_first"`` / ``"channels_last"``;
+            ``None`` resolves to ``keras.backend.image_data_format()``.
     """
 
     def __init__(
@@ -32,12 +35,14 @@ class Sam2VideoImageProcessor(BaseImageProcessor):
         target_length: int = 1024,
         image_mean: Optional[Tuple[float, ...]] = None,
         image_std: Optional[Tuple[float, ...]] = None,
+        data_format: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.target_length = target_length
         self.image_mean = image_mean if image_mean is not None else IMAGENET_MEAN
         self.image_std = image_std if image_std is not None else IMAGENET_STD
+        self.data_format = data_format
 
     def __call__(
         self, image: Union[str, np.ndarray, "Image.Image"]
@@ -73,6 +78,7 @@ class Sam2VideoImageProcessor(BaseImageProcessor):
             (self.target_length, self.target_length),
             interpolation="bilinear",
             antialias=True,
+            data_format="channels_last",
         )
 
         image = image / 255.0
@@ -86,6 +92,9 @@ class Sam2VideoImageProcessor(BaseImageProcessor):
             (1, 1, 1, 3),
         )
         image = (image - mean) / std
+
+        if get_data_format(self.data_format) == "channels_first":
+            image = keras.ops.transpose(image, (0, 3, 1, 2))
 
         empty_points = keras.ops.zeros((1, 1, 0, 2), dtype="float32")
         empty_labels = keras.ops.zeros((1, 1, 0), dtype="int32")

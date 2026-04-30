@@ -975,7 +975,7 @@ def _create_sam2_video_model(
 def Sam2VideoTiny(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     """SAM 2 Video Tiny variant (Hiera tiny backbone)."""
@@ -988,7 +988,7 @@ def Sam2VideoTiny(
 def Sam2VideoSmall(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     """SAM 2 Video Small variant (Hiera small backbone)."""
@@ -1001,7 +1001,7 @@ def Sam2VideoSmall(
 def Sam2VideoBasePlus(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     """SAM 2 Video Base-Plus variant (Hiera base-plus backbone)."""
@@ -1014,7 +1014,7 @@ def Sam2VideoBasePlus(
 def Sam2VideoLarge(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     """SAM 2 Video Large variant (Hiera large backbone)."""

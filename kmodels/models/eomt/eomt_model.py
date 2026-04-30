@@ -600,7 +600,7 @@ def EoMTSmall(
     num_labels=None,
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="coco_panoptic_640",
     **kwargs,
 ):
     return _create_eomt_model(
@@ -620,7 +620,7 @@ def EoMTBase(
     num_labels=None,
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="coco_panoptic_640",
     **kwargs,
 ):
     return _create_eomt_model(
@@ -640,7 +640,7 @@ def EoMTLarge(
     num_labels=None,
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="coco_panoptic_640",
     **kwargs,
 ):
     return _create_eomt_model(

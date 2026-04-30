@@ -49,7 +49,7 @@ Every processor and format-sensitive post-processor in this module accepts a `da
 
 ```python
 processor = SigLIPImageProcessor(data_format="channels_first")
-images = processor("photo.jpg")["images"]
+images = processor("photo.jpg")["pixel_values"]
 ```
 
 Image processors return tensors in the requested layout; post-processors accept tensors in either layout and read the flag to pick the channel axis. See `docs/utils.md` for which families have format-sensitive post-processors.

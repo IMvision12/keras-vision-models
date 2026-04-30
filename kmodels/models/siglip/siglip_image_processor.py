@@ -37,24 +37,24 @@ class SigLIPImageProcessor(BaseImageProcessor):
         image = keras.utils.load_img("path/to/image.jpg")
         image_array = keras.utils.img_to_array(image)
         result = processor(image_array)
-        processed_image = result["images"]  # Shape: (1, 224, 224, 3)
+        processed_image = result["pixel_values"]  # Shape: (1, 224, 224, 3)
 
         # Process a batch of images
         batch_size = 4
         random_images = ops.random.uniform((batch_size, 256, 256, 3))
         result = processor(random_images)
-        processed_batch = result["images"]  # Shape: (4, 224, 224, 3)
+        processed_batch = result["pixel_values"]  # Shape: (4, 224, 224, 3)
         ```
 
         Process images from file paths:
         ```python
         # Process a single image path
         result = processor("path/to/image.jpg")
-        processed_image = result["images"]  # Shape: (1, 224, 224, 3)
+        processed_image = result["pixel_values"]  # Shape: (1, 224, 224, 3)
 
         # Process multiple image paths
         result = processor(["path/to/image1.jpg", "path/to/image2.jpg", "path/to/image3.jpg"])
-        processed_images = result["images"]  # Shape: (3, 224, 224, 3)
+        processed_images = result["pixel_values"]  # Shape: (3, 224, 224, 3)
         ```
 
         Custom processing configuration:
@@ -95,7 +95,7 @@ class SigLIPImageProcessor(BaseImageProcessor):
         # Process augmented image
         processor = SigLIPImageProcessor()
         result = processor(augmented)
-        processed_image = result["images"]
+        processed_image = result["pixel_values"]
         ```
     """
 
@@ -239,7 +239,7 @@ class SigLIPImageProcessor(BaseImageProcessor):
                 )
         if self.data_format == "channels_first":
             images = ops.transpose(images, (0, 3, 1, 2))
-        return {"images": images}
+        return {"pixel_values": images}
 
     def get_config(self):
         config = super().get_config()

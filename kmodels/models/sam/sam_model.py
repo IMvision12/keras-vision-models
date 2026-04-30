@@ -732,7 +732,7 @@ def _create_sam_model(
 def SAMViTBase(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sa1b",
     **kwargs,
 ):
     return _create_sam_model(
@@ -748,7 +748,7 @@ def SAMViTBase(
 def SAMViTLarge(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sa1b",
     **kwargs,
 ):
     return _create_sam_model(
@@ -764,7 +764,7 @@ def SAMViTLarge(
 def SAMViTHuge(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sa1b",
     **kwargs,
 ):
     return _create_sam_model(

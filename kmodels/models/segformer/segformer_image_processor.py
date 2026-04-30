@@ -143,7 +143,7 @@ class SegFormerImageProcessor(BaseImageProcessor):
         if not self.return_tensor:
             image = keras.ops.convert_to_numpy(image)
 
-        return image
+        return {"pixel_values": image}
 
     def post_process_semantic_segmentation(
         self, outputs, target_size=None, label_names=None, data_format=None

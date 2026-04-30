@@ -339,6 +339,14 @@ class Whisper(keras.Model):
     encoder once and the decoder per step via the ``model.encoder`` and
     ``model.decoder`` attributes.
 
+    .. note::
+        Unlike vision models in kmodels, Whisper has a **fixed input
+        shape** dictated by the audio pipeline: log-mel spectrograms
+        of ``(num_mel_bins, max_source_positions * 2)`` —
+        ``(80, 3000)`` for v1/v2 variants, ``(128, 3000)`` for
+        large-v3 / large-v3-turbo. There is no ``input_shape`` kwarg;
+        feed :class:`WhisperFeatureExtractor` output directly.
+
     Args:
         d_model: Hidden / embedding dimension. ``384`` (tiny) →
             ``1280`` (large).

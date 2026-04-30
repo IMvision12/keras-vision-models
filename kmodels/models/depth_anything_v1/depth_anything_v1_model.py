@@ -809,21 +809,25 @@ def create_depth_anything_v1(variant, input_shape, input_tensor, weights, **kwar
 
 
 @register_model
-def DepthAnythingV1Small(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def DepthAnythingV1Small(
+    input_shape=None, input_tensor=None, weights="da_v1", **kwargs
+):
     return create_depth_anything_v1(
         "DepthAnythingV1Small", input_shape, input_tensor, weights, **kwargs
     )
 
 
 @register_model
-def DepthAnythingV1Base(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def DepthAnythingV1Base(input_shape=None, input_tensor=None, weights="da_v1", **kwargs):
     return create_depth_anything_v1(
         "DepthAnythingV1Base", input_shape, input_tensor, weights, **kwargs
     )
 
 
 @register_model
-def DepthAnythingV1Large(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def DepthAnythingV1Large(
+    input_shape=None, input_tensor=None, weights="da_v1", **kwargs
+):
     return create_depth_anything_v1(
         "DepthAnythingV1Large", input_shape, input_tensor, weights, **kwargs
     )

@@ -11,35 +11,72 @@ from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
 from kmodels.utils.labels import COCO_80_CLASSES
 
+_PIL_RESAMPLE = {
+    "nearest": Image.NEAREST,
+    "bilinear": Image.BILINEAR,
+    "bicubic": Image.BICUBIC,
+}
+
 
 class DFineImageProcessor(BaseImageProcessor):
     """Preprocess images for D-FINE inference.
 
-    Loads the image (if needed), resizes to ``target_size`` using
-    bilinear interpolation (PIL-based to match HF's DFineImageProcessor
-    exactly), and rescales pixel values to ``[0, 1]``. D-FINE does
-    **not** apply ImageNet normalisation.
+    Loads the image (if needed), resizes to ``size`` using PIL bilinear
+    interpolation (to match HF's DFineImageProcessor exactly), and
+    rescales pixel values to ``[0, 1]``. D-FINE's published checkpoints
+    do **not** apply ImageNet normalisation, but ``do_normalize=True``
+    is exposed for fine-tuning on custom datasets.
 
     Args:
-        target_size: ``(height, width)`` to resize to.
-            Defaults to ``(640, 640)``.
+        size: Target size as ``{"height": H, "width": W}``.
+            Default: ``{"height": 640, "width": 640}``.
+        resample: Interpolation (``"nearest"``, ``"bilinear"``,
+            ``"bicubic"``).
+        do_rescale: Whether to multiply by ``rescale_factor``.
         rescale_factor: Multiplicative rescale factor.
             Defaults to ``1/255``.
+        do_normalize: Whether to apply ImageNet normalization.
+            Defaults to ``False`` (D-FINE published checkpoints do not
+            normalize).
+        image_mean: Per-channel mean for normalization. Used only when
+            ``do_normalize=True``. Defaults to ImageNet mean.
+        image_std: Per-channel std for normalization. Used only when
+            ``do_normalize=True``. Defaults to ImageNet std.
+        return_tensor: Return Keras tensor (True) or numpy array.
         data_format: ``"channels_first"`` / ``"channels_last"``;
             ``None`` resolves to ``keras.backend.image_data_format()``.
     """
 
     def __init__(
         self,
-        target_size: Tuple[int, int] = (640, 640),
+        size: Optional[Dict[str, int]] = None,
+        resample: str = "bilinear",
+        do_rescale: bool = True,
         rescale_factor: float = 1.0 / 255.0,
+        do_normalize: bool = False,
+        image_mean: Optional[Tuple[float, ...]] = None,
+        image_std: Optional[Tuple[float, ...]] = None,
+        return_tensor: bool = True,
         data_format: Optional[str] = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self.target_size = target_size
+        self.size = size if size is not None else {"height": 640, "width": 640}
+        self.resample = resample
+        self.do_rescale = do_rescale
         self.rescale_factor = rescale_factor
+        self.do_normalize = do_normalize
+        self.image_mean = (
+            image_mean if image_mean is not None else (0.485, 0.456, 0.406)
+        )
+        self.image_std = image_std if image_std is not None else (0.229, 0.224, 0.225)
+        self.return_tensor = return_tensor
         self.data_format = data_format
+
+        if self.resample not in _PIL_RESAMPLE:
+            raise ValueError(
+                f"resample must be one of {list(_PIL_RESAMPLE)}, got {resample!r}"
+            )
 
     def __call__(self, image: Union[str, np.ndarray, "Image.Image"]):
         return self.call(image)
@@ -49,18 +86,30 @@ class DFineImageProcessor(BaseImageProcessor):
             image = image[0]
         arr = load_image(image)
         pil_img = Image.fromarray(arr)
-        if pil_img.size != (self.target_size[1], self.target_size[0]):
-            pil_img = pil_img.resize(
-                (self.target_size[1], self.target_size[0]), Image.BILINEAR
-            )
+        target_wh = (self.size["width"], self.size["height"])
+        if pil_img.size != target_wh:
+            pil_img = pil_img.resize(target_wh, _PIL_RESAMPLE[self.resample])
         image = np.array(pil_img, dtype=np.float32)
 
         image = ops.convert_to_tensor(image, dtype="float32")
         image = ops.expand_dims(image, axis=0)
-        image = image * self.rescale_factor
+        if self.do_rescale:
+            image = image * self.rescale_factor
+        if self.do_normalize:
+            mean = ops.reshape(
+                ops.convert_to_tensor(self.image_mean, dtype="float32"),
+                (1, 1, 1, 3),
+            )
+            std = ops.reshape(
+                ops.convert_to_tensor(self.image_std, dtype="float32"),
+                (1, 1, 1, 3),
+            )
+            image = (image - mean) / std
         if get_data_format(self.data_format) == "channels_first":
             image = ops.transpose(image, (0, 3, 1, 2))
-        return image
+        if not self.return_tensor:
+            image = ops.convert_to_numpy(image)
+        return {"pixel_values": image}
 
     def post_process_object_detection(
         self,

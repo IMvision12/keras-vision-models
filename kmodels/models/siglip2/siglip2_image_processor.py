@@ -35,13 +35,13 @@ class SigLIP2ImageProcessor(SigLIPImageProcessor):
         image = keras.utils.load_img("path/to/image.jpg")
         image_array = keras.utils.img_to_array(image)
         result = processor(image_array)
-        processed_image = result["images"]  # Shape: (1, 224, 224, 3)
+        processed_image = result["pixel_values"]  # Shape: (1, 224, 224, 3)
 
         # Process a batch of images
         batch_size = 4
         random_images = ops.random.uniform((batch_size, 256, 256, 3))
         result = processor(random_images)
-        processed_batch = result["images"]  # Shape: (4, 224, 224, 3)
+        processed_batch = result["pixel_values"]  # Shape: (4, 224, 224, 3)
         ```
 
         Custom configuration for SigLIP2:

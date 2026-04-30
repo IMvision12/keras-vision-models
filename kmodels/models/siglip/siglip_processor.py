@@ -196,10 +196,10 @@ class SigLIPProcessor(BaseProcessor):
             raise ValueError("Cannot specify both 'images' and 'image_paths'")
 
         if images is not None:
-            encoding.update(self.image_processor(images))
+            encoding["images"] = self.image_processor(images)["pixel_values"]
 
         if image_paths is not None:
-            encoding.update(self.image_processor(image_paths))
+            encoding["images"] = self.image_processor(image_paths)["pixel_values"]
 
         if not encoding:
             raise ValueError(

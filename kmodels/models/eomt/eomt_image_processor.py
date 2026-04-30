@@ -62,10 +62,14 @@ class EoMTImageProcessor(BaseImageProcessor):
         self.image_std = image_std if image_std is not None else IMAGENET_STD
         self.data_format = data_format
 
-    def __call__(self, image: Union[str, np.ndarray, Image.Image]) -> keras.KerasTensor:
+    def __call__(
+        self, image: Union[str, np.ndarray, Image.Image]
+    ) -> Dict[str, keras.KerasTensor]:
         return self.call(image)
 
-    def call(self, image: Union[str, np.ndarray, Image.Image]) -> keras.KerasTensor:
+    def call(
+        self, image: Union[str, np.ndarray, Image.Image]
+    ) -> Dict[str, keras.KerasTensor]:
         if isinstance(image, np.ndarray) and image.ndim == 4:
             image = image[0]
         image = load_image(image).astype(np.float32)
@@ -98,7 +102,7 @@ class EoMTImageProcessor(BaseImageProcessor):
         if get_data_format(self.data_format) == "channels_first":
             padded = keras.ops.transpose(padded, (0, 3, 1, 2))
 
-        return padded
+        return {"pixel_values": padded}
 
     def post_process_panoptic_segmentation(
         self,

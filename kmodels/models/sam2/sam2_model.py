@@ -821,7 +821,7 @@ def create_sam2_model(
 def Sam2Tiny(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     return create_sam2_model(
@@ -837,7 +837,7 @@ def Sam2Tiny(
 def Sam2Small(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     return create_sam2_model(
@@ -853,7 +853,7 @@ def Sam2Small(
 def Sam2BasePlus(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     return create_sam2_model(
@@ -869,7 +869,7 @@ def Sam2BasePlus(
 def Sam2Large(
     input_shape=None,
     input_tensor=None,
-    weights=None,
+    weights="sav",
     **kwargs,
 ):
     return create_sam2_model(

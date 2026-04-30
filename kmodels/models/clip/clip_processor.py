@@ -158,11 +158,11 @@ class CLIPProcessor(BaseProcessor):
             raise ValueError("Cannot specify both 'images' and 'image_paths'")
 
         if images is not None:
-            image_encoding = self.image_processor(inputs=images)
+            image_encoding = self.image_processor(images)
             encoding.update(image_encoding)
 
         if image_paths is not None:
-            image_encoding = self.image_processor(image_paths=image_paths)
+            image_encoding = self.image_processor(image_paths)
             encoding.update(image_encoding)
 
         return encoding

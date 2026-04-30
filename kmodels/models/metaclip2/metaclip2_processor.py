@@ -53,7 +53,7 @@ class MetaClip2Processor(BaseProcessor):
         if text is not None:
             encoding.update(self.tokenizer(inputs=text))
         if images is not None:
-            encoding.update(self.image_processor(inputs=images))
+            encoding.update(self.image_processor(images))
         if image_paths is not None:
-            encoding.update(self.image_processor(image_paths=image_paths))
+            encoding.update(self.image_processor(image_paths))
         return encoding

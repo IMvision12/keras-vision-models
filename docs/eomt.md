@@ -15,9 +15,9 @@ EoMT (Encoder-only Mask Transformer) is a panoptic segmentation model that simpl
 
 | Model Variant | Supported Pre-trained Weights | Description |
 |---------------|-------------------------------|-------------|
-| `EoMT_Small`  | `coco_panoptic_640`           | Lightweight variant for panoptic segmentation |
-| `EoMT_Base`   | `coco_panoptic_640`           | Standard base variant for panoptic segmentation |
-| `EoMT_Large`  | `coco_panoptic_640`, `coco_instance_640`, `ade20k_semantic_512` | Large variant supporting Panoptic, Instance, and Semantic segmentation |
+| `EoMTSmall`  | `coco_panoptic_640`           | Lightweight variant for panoptic segmentation |
+| `EoMTBase`   | `coco_panoptic_640`           | Standard base variant for panoptic segmentation |
+| `EoMTLarge`  | `coco_panoptic_640`, `coco_instance_640`, `ade20k_semantic_512` | Large variant supporting Panoptic, Instance, and Semantic segmentation |
 
 *Note: `coco_panoptic_640` weights are pretrained on the COCO panoptic dataset at 640x640 resolution. `coco_instance_640` brings COCO instance segmentation capability. `ade20k_semantic_512` provides rigorous semantic segmentation trained on the ADE20K dataset natively working at 512x512 resolution.*
 
@@ -27,13 +27,13 @@ EoMT (Encoder-only Mask Transformer) is a panoptic segmentation model that simpl
 import kmodels
 
 # Small Variant
-model = kmodels.models.eomt.EoMT_Small(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+model = kmodels.models.eomt.EoMTSmall(weights="coco_panoptic_640", input_shape=(640, 640, 3))
 
 # Large Variant with Instance Weights
-model_large = kmodels.models.eomt.EoMT_Large(weights="coco_instance_640", input_shape=(640, 640, 3))
+model_large = kmodels.models.eomt.EoMTLarge(weights="coco_instance_640", input_shape=(640, 640, 3))
 
 # Without pre-trained weights
-model_custom = kmodels.models.eomt.EoMT_Base(weights=None, input_shape=(640, 640, 3))
+model_custom = kmodels.models.eomt.EoMTBase(weights=None, input_shape=(640, 640, 3))
 ```
 
 ## Inference Example
@@ -43,7 +43,7 @@ import kmodels
 from kmodels.models.eomt import EoMTImageProcessor
 from PIL import Image
 
-model = kmodels.models.eomt.EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+model = kmodels.models.eomt.EoMTLarge(weights="coco_panoptic_640", input_shape=(640, 640, 3))
 
 image = Image.open("image.jpg").convert("RGB")
 original_h, original_w = image.size[1], image.size[0]
@@ -138,9 +138,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.eomt import EoMT_Large, EoMTImageProcessor
+from kmodels.models.eomt import EoMTLarge, EoMTImageProcessor
 
-model = EoMT_Large(weights="coco_panoptic_640", input_shape=(640, 640, 3))
+model = EoMTLarge(weights="coco_panoptic_640", input_shape=(640, 640, 3))
 
 img = Image.open("image.jpg").convert("RGB")
 original_h, original_w = img.size[1], img.size[0]

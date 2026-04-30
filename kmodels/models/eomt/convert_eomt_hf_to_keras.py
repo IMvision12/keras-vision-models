@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 from transformers import EomtForUniversalSegmentation
 
-from kmodels.models.eomt.eomt_model import EoMT_Base, EoMT_Large, EoMT_Small
+from kmodels.models.eomt.eomt_model import EoMTBase, EoMTLarge, EoMTSmall
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -20,35 +20,35 @@ weight_name_mapping: Dict[str, str] = {
 
 model_configs: List[Dict[str, Union[type, str, int]]] = [
     {
-        "keras_model_cls": EoMT_Small,
+        "keras_model_cls": EoMTSmall,
         "hf_model_name": "tue-mps/coco_panoptic_eomt_small_640_2x",
         "input_shape": (640, 640, 3),
         "num_queries": 200,
         "num_labels": 133,
     },
     {
-        "keras_model_cls": EoMT_Base,
+        "keras_model_cls": EoMTBase,
         "hf_model_name": "tue-mps/coco_panoptic_eomt_base_640_2x",
         "input_shape": (640, 640, 3),
         "num_queries": 200,
         "num_labels": 133,
     },
     {
-        "keras_model_cls": EoMT_Large,
+        "keras_model_cls": EoMTLarge,
         "hf_model_name": "tue-mps/coco_panoptic_eomt_large_640",
         "input_shape": (640, 640, 3),
         "num_queries": 200,
         "num_labels": 133,
     },
     {
-        "keras_model_cls": EoMT_Large,
+        "keras_model_cls": EoMTLarge,
         "hf_model_name": "tue-mps/coco_instance_eomt_large_640",
         "input_shape": (640, 640, 3),
         "num_queries": 200,
         "num_labels": 80,
     },
     {
-        "keras_model_cls": EoMT_Large,
+        "keras_model_cls": EoMTLarge,
         "hf_model_name": "tue-mps/ade20k_semantic_eomt_large_512",
         "input_shape": (512, 512, 3),
         "num_queries": 100,

@@ -260,7 +260,7 @@ class SAM(keras.Model):
 
     Example:
         ```python
-        model = kmodels.models.sam.SAM_ViT_Huge(
+        model = kmodels.models.sam.SAMViTHuge(
             input_shape=(1024, 1024, 3),
             weights="sa1b",
         )
@@ -664,7 +664,7 @@ def _create_sam_model(
 
     Args:
         variant: String, model variant name (e.g.,
-            ``"SAM_ViT_Huge"``).
+            ``"SAMViTHuge"``).
         input_shape: Optional tuple of integers specifying the
             input shape ``(H, W, C)``. Defaults to
             ``(1024, 1024, 3)``.
@@ -729,14 +729,14 @@ def _create_sam_model(
 
 
 @register_model
-def SAM_ViT_Base(
+def SAMViTBase(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
     return _create_sam_model(
-        "SAM_ViT_Base",
+        "SAMViTBase",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -745,14 +745,14 @@ def SAM_ViT_Base(
 
 
 @register_model
-def SAM_ViT_Large(
+def SAMViTLarge(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
     return _create_sam_model(
-        "SAM_ViT_Large",
+        "SAMViTLarge",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,
@@ -761,14 +761,14 @@ def SAM_ViT_Large(
 
 
 @register_model
-def SAM_ViT_Huge(
+def SAMViTHuge(
     input_shape=None,
     input_tensor=None,
     weights=None,
     **kwargs,
 ):
     return _create_sam_model(
-        "SAM_ViT_Huge",
+        "SAMViTHuge",
         input_shape=input_shape,
         input_tensor=input_tensor,
         weights=weights,

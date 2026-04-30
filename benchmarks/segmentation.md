@@ -26,9 +26,9 @@ Each family section cites the exact paper Table the values came from. `—` mean
 
 | Variant | PQ (no mask) | PQ (w/ mask) | Params (M) |
 |---------|------------:|------------:|-----------:|
-| `EoMT_Small` | 44.7 | 46.1 | 24  |
-| `EoMT_Base`  | 50.6 | 51.5 | 93  |
-| `EoMT_Large` | 56.0 | 56.2 | 316 |
+| `EoMTSmall` | 44.7 | 46.1 | 24  |
+| `EoMTBase`  | 50.6 | 51.5 | 93  |
+| `EoMTLarge` | 56.0 | 56.2 | 316 |
 
 For the ViT-L variant only, the paper provides additional task results (Tables 4–6) showing how the same architecture transfers across protocols:
 
@@ -57,9 +57,9 @@ Values are read from Figure 13 (right) with ~0.3 mIoU precision since the paper 
 
 | Variant | 1-click mIoU (%) | 1-click oracle mIoU (%) | Params (M) |
 |---------|-----------------:|------------------------:|-----------:|
-| `SAM_ViT_Base`  | 57.0 | 69.0 | 94  |
-| `SAM_ViT_Large` | 58.5 | 71.5 | 308 |
-| `SAM_ViT_Huge`  | 59.0 | 72.5 | 641 |
+| `SAMViTBase`  | 57.0 | 69.0 | 94  |
+| `SAMViTLarge` | 58.5 | 71.5 | 308 |
+| `SAMViTHuge`  | 59.0 | 72.5 | 641 |
 
 The SAM 2 paper's Table 5 gives a tabulated counterpart for SAM (ViT-H) on a slightly extended evaluation: **58.1** 1-click mIoU on SA-23 (and **81.3** with 5 clicks), confirming that SAM ViT-H sits in the high-58/low-59 range. SAM also reports, for the default ViT-H release: zero-shot mask AR@1000 = **59.3** on LVIS object proposals (Table 4); edge-detection on BSDS500 = ODS **0.768** / R50 **0.928** (Table 3); and instance segmentation on LVIS with ViTDet boxes = mask AP **44.7** (Table 5).
 

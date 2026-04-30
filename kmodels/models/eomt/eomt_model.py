@@ -500,7 +500,7 @@ def _create_eomt_model(
     optionally loads pretrained weights.
 
     Args:
-        variant: String, model variant name (e.g., `"EoMT_Large"`).
+        variant: String, model variant name (e.g., `"EoMTLarge"`).
         num_queries: Integer, number of learned object queries.
             Defaults to `200`.
         num_labels: Integer or `None`, number of segmentation
@@ -595,7 +595,7 @@ def _create_eomt_model(
 
 
 @register_model
-def EoMT_Small(
+def EoMTSmall(
     num_queries=200,
     num_labels=None,
     input_shape=None,
@@ -604,7 +604,7 @@ def EoMT_Small(
     **kwargs,
 ):
     return _create_eomt_model(
-        "EoMT_Small",
+        "EoMTSmall",
         num_queries=num_queries,
         num_labels=num_labels,
         input_shape=input_shape,
@@ -615,7 +615,7 @@ def EoMT_Small(
 
 
 @register_model
-def EoMT_Base(
+def EoMTBase(
     num_queries=200,
     num_labels=None,
     input_shape=None,
@@ -624,7 +624,7 @@ def EoMT_Base(
     **kwargs,
 ):
     return _create_eomt_model(
-        "EoMT_Base",
+        "EoMTBase",
         num_queries=num_queries,
         num_labels=num_labels,
         input_shape=input_shape,
@@ -635,7 +635,7 @@ def EoMT_Base(
 
 
 @register_model
-def EoMT_Large(
+def EoMTLarge(
     num_queries=200,
     num_labels=None,
     input_shape=None,
@@ -644,7 +644,7 @@ def EoMT_Large(
     **kwargs,
 ):
     return _create_eomt_model(
-        "EoMT_Large",
+        "EoMTLarge",
         num_queries=num_queries,
         num_labels=num_labels,
         input_shape=input_shape,

@@ -128,12 +128,12 @@ class SAMImageProcessorWithPrompts(SAMImageProcessor):
 
     Example:
         ```python
-        from kmodels.models.sam import SAM_ViT_Huge
+        from kmodels.models.sam import SAMViTHuge
         from kmodels.models.sam.sam_image_processor import (
             SAMImageProcessorWithPrompts,
         )
 
-        model = SAM_ViT_Huge(weights="sa1b")
+        model = SAMViTHuge(weights="sa1b")
         proc = SAMImageProcessorWithPrompts()
         inputs = proc(
             "photo.jpg",
@@ -936,8 +936,8 @@ def SAMGenerateMasks(
 
     Example:
         ```python
-        from kmodels.models.sam import SAM_ViT_Base, SAMGenerateMasks
-        model = SAM_ViT_Base(weights="sa1b")
+        from kmodels.models.sam import SAMViTBase, SAMGenerateMasks
+        model = SAMViTBase(weights="sa1b")
         out = SAMGenerateMasks(model, "photo.jpg", points_per_side=16)
         print(len(out["masks"]))
         ```

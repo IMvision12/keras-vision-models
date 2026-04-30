@@ -171,12 +171,12 @@ class EoMTImageProcessor(BaseImageProcessor):
 
     Example:
         ```python
-        from kmodels.models.eomt import EoMT_Large
+        from kmodels.models.eomt import EoMTLarge
         from kmodels.models.eomt.eomt_image_processor import (
             EoMTImageProcessor,
         )
 
-        model = EoMT_Large(weights="coco_panoptic_640")
+        model = EoMTLarge(weights="coco_panoptic_640")
         proc = EoMTImageProcessor(target_size=640)
         img = proc("photo.jpg")
         output = model(img, training=False)

@@ -623,9 +623,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 64, 64, 3),
         "expected_output_shape": (2, 64, 64, 21),
     },
-    "EoMT_Small": {
+    "EoMTSmall": {
         "module": "kmodels.models.eomt",
-        "model_cls": "EoMT_Small",
+        "model_cls": "EoMTSmall",
         "model_type": "segmentation",
         "init_kwargs": {
             "weights": None,
@@ -651,9 +651,9 @@ MODEL_TEST_CONFIGS = {
         "input_shape": (2, 32, 32, 3),
         "expected_output_shape": (2, 32, 32, 150),
     },
-    "SAM_ViT_Base": {
+    "SAMViTBase": {
         "module": "kmodels.models.sam",
-        "model_cls": "SAM_ViT_Base",
+        "model_cls": "SAMViTBase",
         "model_type": "promptable_segmentation",
         "init_kwargs": {
             "weights": None,

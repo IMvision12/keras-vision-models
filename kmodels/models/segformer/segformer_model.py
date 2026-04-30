@@ -470,7 +470,7 @@ def SegFormerB0(
     num_classes=None,
     input_shape=None,
     input_tensor=None,
-    weights="mit",
+    weights="ade20k_512",
     **kwargs,
 ):
     return _create_segformer_model(
@@ -490,7 +490,7 @@ def SegFormerB1(
     num_classes=None,
     input_shape=None,
     input_tensor=None,
-    weights="mit",
+    weights="ade20k_512",
     **kwargs,
 ):
     return _create_segformer_model(
@@ -510,7 +510,7 @@ def SegFormerB2(
     num_classes=None,
     input_shape=None,
     input_tensor=None,
-    weights="mit",
+    weights="ade20k_512",
     **kwargs,
 ):
     return _create_segformer_model(
@@ -530,7 +530,7 @@ def SegFormerB3(
     num_classes=None,
     input_shape=None,
     input_tensor=None,
-    weights="mit",
+    weights="ade20k_512",
     **kwargs,
 ):
     return _create_segformer_model(
@@ -550,7 +550,7 @@ def SegFormerB4(
     num_classes=None,
     input_shape=None,
     input_tensor=None,
-    weights="mit",
+    weights="ade20k_512",
     **kwargs,
 ):
     return _create_segformer_model(
@@ -570,7 +570,7 @@ def SegFormerB5(
     num_classes=None,
     input_shape=None,
     input_tensor=None,
-    weights="mit",
+    weights="ade20k_512",
     **kwargs,
 ):
     return _create_segformer_model(

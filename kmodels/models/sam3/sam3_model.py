@@ -1459,7 +1459,7 @@ def build_text_encoder(
 
 
 @register_model
-def SAM3(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def SAM3(input_shape=None, input_tensor=None, weights="sam3", **kwargs):
     """SAM3 open-vocabulary detector, segmenter, and promptable model.
 
     Factory function that builds the full SAM3 model including ViT-L

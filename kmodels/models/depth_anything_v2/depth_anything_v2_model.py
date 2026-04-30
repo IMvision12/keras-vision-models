@@ -82,21 +82,25 @@ def create_depth_anything_v2(variant, input_shape, input_tensor, weights, **kwar
 
 
 @register_model
-def DepthAnythingV2Small(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def DepthAnythingV2Small(
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
+):
     return create_depth_anything_v2(
         "DepthAnythingV2Small", input_shape, input_tensor, weights, **kwargs
     )
 
 
 @register_model
-def DepthAnythingV2Base(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def DepthAnythingV2Base(input_shape=None, input_tensor=None, weights="da_v2", **kwargs):
     return create_depth_anything_v2(
         "DepthAnythingV2Base", input_shape, input_tensor, weights, **kwargs
     )
 
 
 @register_model
-def DepthAnythingV2Large(input_shape=None, input_tensor=None, weights=None, **kwargs):
+def DepthAnythingV2Large(
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
+):
     return create_depth_anything_v2(
         "DepthAnythingV2Large", input_shape, input_tensor, weights, **kwargs
     )
@@ -104,7 +108,7 @@ def DepthAnythingV2Large(input_shape=None, input_tensor=None, weights=None, **kw
 
 @register_model
 def DepthAnythingV2MetricIndoorSmall(
-    input_shape=None, input_tensor=None, weights=None, **kwargs
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
 ):
     return create_depth_anything_v2(
         "DepthAnythingV2MetricIndoorSmall",
@@ -117,7 +121,7 @@ def DepthAnythingV2MetricIndoorSmall(
 
 @register_model
 def DepthAnythingV2MetricIndoorBase(
-    input_shape=None, input_tensor=None, weights=None, **kwargs
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
 ):
     return create_depth_anything_v2(
         "DepthAnythingV2MetricIndoorBase",
@@ -130,7 +134,7 @@ def DepthAnythingV2MetricIndoorBase(
 
 @register_model
 def DepthAnythingV2MetricIndoorLarge(
-    input_shape=None, input_tensor=None, weights=None, **kwargs
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
 ):
     return create_depth_anything_v2(
         "DepthAnythingV2MetricIndoorLarge",
@@ -143,7 +147,7 @@ def DepthAnythingV2MetricIndoorLarge(
 
 @register_model
 def DepthAnythingV2MetricOutdoorSmall(
-    input_shape=None, input_tensor=None, weights=None, **kwargs
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
 ):
     return create_depth_anything_v2(
         "DepthAnythingV2MetricOutdoorSmall",
@@ -156,7 +160,7 @@ def DepthAnythingV2MetricOutdoorSmall(
 
 @register_model
 def DepthAnythingV2MetricOutdoorBase(
-    input_shape=None, input_tensor=None, weights=None, **kwargs
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
 ):
     return create_depth_anything_v2(
         "DepthAnythingV2MetricOutdoorBase",
@@ -169,7 +173,7 @@ def DepthAnythingV2MetricOutdoorBase(
 
 @register_model
 def DepthAnythingV2MetricOutdoorLarge(
-    input_shape=None, input_tensor=None, weights=None, **kwargs
+    input_shape=None, input_tensor=None, weights="da_v2", **kwargs
 ):
     return create_depth_anything_v2(
         "DepthAnythingV2MetricOutdoorLarge",

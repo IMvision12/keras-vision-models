@@ -6,145 +6,10 @@ from PIL import Image
 
 from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
-
-COCO_PANOPTIC_CLASSES = [
-    "things: person",
-    "things: bicycle",
-    "things: car",
-    "things: motorcycle",
-    "things: airplane",
-    "things: bus",
-    "things: train",
-    "things: truck",
-    "things: boat",
-    "things: traffic light",
-    "things: fire hydrant",
-    "things: stop sign",
-    "things: parking meter",
-    "things: bench",
-    "things: bird",
-    "things: cat",
-    "things: dog",
-    "things: horse",
-    "things: sheep",
-    "things: cow",
-    "things: elephant",
-    "things: bear",
-    "things: zebra",
-    "things: giraffe",
-    "things: backpack",
-    "things: umbrella",
-    "things: handbag",
-    "things: tie",
-    "things: suitcase",
-    "things: frisbee",
-    "things: skis",
-    "things: snowboard",
-    "things: sports ball",
-    "things: kite",
-    "things: baseball bat",
-    "things: baseball glove",
-    "things: skateboard",
-    "things: surfboard",
-    "things: tennis racket",
-    "things: bottle",
-    "things: wine glass",
-    "things: cup",
-    "things: fork",
-    "things: knife",
-    "things: spoon",
-    "things: bowl",
-    "things: banana",
-    "things: apple",
-    "things: sandwich",
-    "things: orange",
-    "things: broccoli",
-    "things: carrot",
-    "things: hot dog",
-    "things: pizza",
-    "things: donut",
-    "things: cake",
-    "things: chair",
-    "things: couch",
-    "things: potted plant",
-    "things: bed",
-    "things: dining table",
-    "things: toilet",
-    "things: tv",
-    "things: laptop",
-    "things: mouse",
-    "things: remote",
-    "things: keyboard",
-    "things: cell phone",
-    "things: microwave",
-    "things: oven",
-    "things: toaster",
-    "things: sink",
-    "things: refrigerator",
-    "things: book",
-    "things: clock",
-    "things: vase",
-    "things: scissors",
-    "things: teddy bear",
-    "things: hair drier",
-    "things: toothbrush",
-    "stuff: banner",
-    "stuff: blanket",
-    "stuff: bridge",
-    "stuff: cardboard",
-    "stuff: counter",
-    "stuff: curtain",
-    "stuff: door-stuff",
-    "stuff: floor-wood",
-    "stuff: flower",
-    "stuff: fruit",
-    "stuff: gravel",
-    "stuff: house",
-    "stuff: light",
-    "stuff: mirror-stuff",
-    "stuff: net",
-    "stuff: pillow",
-    "stuff: platform",
-    "stuff: playingfield",
-    "stuff: railroad",
-    "stuff: river",
-    "stuff: road",
-    "stuff: roof",
-    "stuff: sand",
-    "stuff: sea",
-    "stuff: shelf",
-    "stuff: snow",
-    "stuff: stairs",
-    "stuff: tent",
-    "stuff: towel",
-    "stuff: wall-brick",
-    "stuff: wall-concrete",
-    "stuff: wall-other",
-    "stuff: wall-stone",
-    "stuff: wall-tile",
-    "stuff: wall-wood",
-    "stuff: water-other",
-    "stuff: window-blind",
-    "stuff: window-other",
-    "stuff: tree-merged",
-    "stuff: fence-merged",
-    "stuff: ceiling-merged",
-    "stuff: sky-other-merged",
-    "stuff: floor-other-merged",
-    "stuff: pavement-merged",
-    "stuff: mountain-merged",
-    "stuff: grass-merged",
-    "stuff: dirt-merged",
-    "stuff: paper-merged",
-    "stuff: food-other-merged",
-    "stuff: building-other-merged",
-    "stuff: rock-merged",
-    "stuff: wall-other-merged",
-    "stuff: rug-merged",
-]
-
-COCO_PANOPTIC_THING_IDS = list(range(80))
-COCO_PANOPTIC_STUFF_IDS = list(range(80, 133))
+from kmodels.utils.labels import (
+    COCO_PANOPTIC_133_CLASSES,
+    COCO_PANOPTIC_STUFF_IDS,
+)
 
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -171,12 +36,12 @@ class EoMTImageProcessor(BaseImageProcessor):
 
     Example:
         ```python
-        from kmodels.models.eomt import EoMT_Large
+        from kmodels.models.eomt import EoMTLarge
         from kmodels.models.eomt.eomt_image_processor import (
             EoMTImageProcessor,
         )
 
-        model = EoMT_Large(weights="coco_panoptic_640")
+        model = EoMTLarge(weights="coco_panoptic_640")
         proc = EoMTImageProcessor(target_size=640)
         img = proc("photo.jpg")
         output = model(img, training=False)
@@ -375,7 +240,7 @@ def eomt_post_process_panoptic(
     if stuff_classes is None:
         stuff_classes = COCO_PANOPTIC_STUFF_IDS
     if label_names is None:
-        label_names = COCO_PANOPTIC_CLASSES
+        label_names = COCO_PANOPTIC_133_CLASSES
 
     class_logits = outputs["class_logits"]
     mask_logits = outputs["mask_logits"]
@@ -479,7 +344,7 @@ def eomt_post_process_semantic(
             - ``"class_names"``: List of unique class names present in the segmentation.
     """
     if label_names is None:
-        label_names = COCO_PANOPTIC_CLASSES
+        label_names = COCO_PANOPTIC_133_CLASSES
 
     class_logits = outputs["class_logits"]
     mask_logits = outputs["mask_logits"]
@@ -529,7 +394,7 @@ def eomt_post_process_instance(
             - ``"segments_info"``: List of dicts per instance.
     """
     if label_names is None:
-        label_names = COCO_PANOPTIC_CLASSES
+        label_names = COCO_PANOPTIC_133_CLASSES
 
     class_logits = outputs["class_logits"]
     mask_logits = outputs["mask_logits"]

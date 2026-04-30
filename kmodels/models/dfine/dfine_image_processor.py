@@ -9,89 +9,7 @@ from PIL import Image
 
 from kmodels.base import BaseImageProcessor
 from kmodels.utils.image import get_data_format, load_image
-
-COCO_CLASSES = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "airplane",
-    "bus",
-    "train",
-    "truck",
-    "boat",
-    "traffic light",
-    "fire hydrant",
-    "stop sign",
-    "parking meter",
-    "bench",
-    "bird",
-    "cat",
-    "dog",
-    "horse",
-    "sheep",
-    "cow",
-    "elephant",
-    "bear",
-    "zebra",
-    "giraffe",
-    "backpack",
-    "umbrella",
-    "handbag",
-    "tie",
-    "suitcase",
-    "frisbee",
-    "skis",
-    "snowboard",
-    "sports ball",
-    "kite",
-    "baseball bat",
-    "baseball glove",
-    "skateboard",
-    "surfboard",
-    "tennis racket",
-    "bottle",
-    "wine glass",
-    "cup",
-    "fork",
-    "knife",
-    "spoon",
-    "bowl",
-    "banana",
-    "apple",
-    "sandwich",
-    "orange",
-    "broccoli",
-    "carrot",
-    "hot dog",
-    "pizza",
-    "donut",
-    "cake",
-    "chair",
-    "couch",
-    "potted plant",
-    "bed",
-    "dining table",
-    "toilet",
-    "tv",
-    "laptop",
-    "mouse",
-    "remote",
-    "keyboard",
-    "cell phone",
-    "microwave",
-    "oven",
-    "toaster",
-    "sink",
-    "refrigerator",
-    "book",
-    "clock",
-    "vase",
-    "scissors",
-    "teddy bear",
-    "hair drier",
-    "toothbrush",
-]
+from kmodels.utils.labels import COCO_80_CLASSES
 
 
 class DFineImageProcessor(BaseImageProcessor):
@@ -245,7 +163,7 @@ def dfine_post_process_object_detection(
         kept_boxes = topk_boxes[keep]
 
         labels_np = ops.convert_to_numpy(kept_labels).astype(int)
-        _names = label_names if label_names is not None else COCO_CLASSES
+        _names = label_names if label_names is not None else COCO_80_CLASSES
         mapped_names = [
             _names[l] if l < len(_names) else f"class_{l}" for l in labels_np
         ]

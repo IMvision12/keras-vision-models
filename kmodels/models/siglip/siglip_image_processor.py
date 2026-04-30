@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import keras
 import numpy as np
@@ -49,12 +49,11 @@ class SigLIPImageProcessor(BaseImageProcessor):
         Process images from file paths:
         ```python
         # Process a single image path
-        result = processor(image_paths="path/to/image.jpg")
+        result = processor("path/to/image.jpg")
         processed_image = result["images"]  # Shape: (1, 224, 224, 3)
 
         # Process multiple image paths
-        image_paths = ["path/to/image1.jpg", "path/to/image2.jpg", "path/to/image3.jpg"]
-        result = processor(image_paths=image_paths)
+        result = processor(["path/to/image1.jpg", "path/to/image2.jpg", "path/to/image3.jpg"])
         processed_images = result["images"]  # Shape: (3, 224, 224, 3)
         ```
 
@@ -203,46 +202,44 @@ class SigLIPImageProcessor(BaseImageProcessor):
             image = (image - self.mean) / self.std
         return image
 
+    def __call__(
+        self,
+        image: Union[str, List[str], np.ndarray, Image.Image, "keras.KerasTensor"],
+    ) -> Dict[str, Any]:
+        return self.call(image)
+
     def call(
         self,
-        inputs: Any = None,
-        image_paths: Union[str, List[str]] = None,
-    ) -> Any:
-        if image_paths is not None:
-            if inputs is not None:
-                raise ValueError("Cannot specify both 'inputs' and 'image_paths'")
-
-            if isinstance(image_paths, str):
-                processed_image = self.process_path(image_paths)
-                images = ops.expand_dims(processed_image, axis=0)
-            else:
-                if len(image_paths) == 0:
-                    raise ValueError("image_paths list cannot be empty")
-
-                processed_images = []
-                for path in image_paths:
-                    processed_images.append(self.process_path(path))
-                images = ops.stack(processed_images)
-            if self.data_format == "channels_first":
-                images = ops.transpose(images, (0, 3, 1, 2))
-            return images
-
-        if inputs is None:
-            raise ValueError("Must provide either 'inputs' or 'image_paths'")
-
-        if len(ops.shape(inputs)) == 3:
-            processed_image = self.preprocess(inputs)
+        image: Union[str, List[str], np.ndarray, Image.Image, "keras.KerasTensor"],
+    ) -> Dict[str, Any]:
+        if isinstance(image, str):
+            processed_image = self.process_path(image)
             images = ops.expand_dims(processed_image, axis=0)
-        elif len(ops.shape(inputs)) == 4:
-            images = ops.vectorized_map(self.preprocess, inputs)
+        elif isinstance(image, (list, tuple)):
+            if len(image) == 0:
+                raise ValueError("image list cannot be empty")
+            if not all(isinstance(p, str) for p in image):
+                raise ValueError("List inputs must be a list of file paths")
+            processed_images = [self.process_path(p) for p in image]
+            images = ops.stack(processed_images)
+        elif isinstance(image, Image.Image):
+            arr = np.array(image)
+            processed_image = self.preprocess(arr)
+            images = ops.expand_dims(processed_image, axis=0)
         else:
-            raise ValueError(
-                f"Input images must have 3 dimensions (H, W, C) or 4 dimensions (B, H, W, C), "
-                f"got shape: {ops.shape(inputs)}"
-            )
+            if len(ops.shape(image)) == 3:
+                processed_image = self.preprocess(image)
+                images = ops.expand_dims(processed_image, axis=0)
+            elif len(ops.shape(image)) == 4:
+                images = ops.vectorized_map(self.preprocess, image)
+            else:
+                raise ValueError(
+                    f"Input images must have 3 dimensions (H, W, C) or 4 dimensions (B, H, W, C), "
+                    f"got shape: {ops.shape(image)}"
+                )
         if self.data_format == "channels_first":
             images = ops.transpose(images, (0, 3, 1, 2))
-        return images
+        return {"images": images}
 
     def get_config(self):
         config = super().get_config()

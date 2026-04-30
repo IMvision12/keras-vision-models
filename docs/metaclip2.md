@@ -93,7 +93,7 @@ model = MetaClip2WorldwideS16(weights="worldwide_224")
 
 # 2) preprocess image (direct square PIL.BICUBIC resize + CLIP normalize)
 img_proc = MetaClip2ImageProcessor(image_resolution=224)
-images = img_proc(image_paths="assets/coco_horse_dog.jpg")["images"]  # (1, 224, 224, 3)
+images = img_proc("assets/coco_horse_dog.jpg")["images"]  # (1, 224, 224, 3)
 
 # 3) tokenize candidate prompts (pure-sentencepiece XLM-R tokenizer, 300+ langs)
 tokenizer = MetaClip2Tokenizer(context_length=77)
@@ -205,7 +205,7 @@ prompts = [
     "a photo of a car",                            # distractor
 ]
 
-images = img_proc(image_paths="assets/coco_horse_dog.jpg")["images"]
+images = img_proc("assets/coco_horse_dog.jpg")["images"]
 tok = tokenizer(inputs=prompts)
 images = keras.ops.repeat(images, len(prompts), axis=0)
 
@@ -305,7 +305,7 @@ normalization follow.
 ```python
 from kmodels.models.metaclip2 import MetaClip2ImageProcessor
 proc = MetaClip2ImageProcessor(image_resolution=224)
-pixel_values = proc(image_paths="photo.jpg")["images"]
+pixel_values = proc("photo.jpg")["images"]
 # (1, 224, 224, 3) float32, normalized
 ```
 

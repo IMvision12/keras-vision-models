@@ -17,9 +17,9 @@ SAM (Segment Anything Model) is a promptable segmentation model that can generat
 
 | Model | Parameters | Description | Weights |
 |-------|-----------|-------------|---------|
-| `SAM_ViT_Base` | ~93M | ViT-B/16 backbone | `sa1b` |
-| `SAM_ViT_Large` | ~308M | ViT-L/16 backbone | `sa1b` |
-| `SAM_ViT_Huge` | ~636M | ViT-H/16 backbone | `sa1b` |
+| `SAMViTBase` | ~93M | ViT-B/16 backbone | `sa1b` |
+| `SAMViTLarge` | ~308M | ViT-L/16 backbone | `sa1b` |
+| `SAMViTHuge` | ~636M | ViT-H/16 backbone | `sa1b` |
 
 ## Basic Usage
 
@@ -30,13 +30,13 @@ import kmodels
 print(kmodels.list_models("sam"))
 
 # Build a SAM model (default 1024×1024 input, multi-mask output)
-model = kmodels.models.sam.SAM_ViT_Base(
+model = kmodels.models.sam.SAMViTBase(
     input_shape=(1024, 1024, 3),
     weights="sa1b",
 )
 
 # For single best-mask output instead of 3 ambiguity hypotheses:
-model_single = kmodels.models.sam.SAM_ViT_Base(
+model_single = kmodels.models.sam.SAMViTBase(
     weights="sa1b",
     multimask_output=False,
 )
@@ -64,10 +64,10 @@ The SAM model's functional graph has six inputs that must always be provided —
 import numpy as np
 import keras
 from kmodels.models.sam import (
-    SAM_ViT_Base, SAMImageProcessorWithPrompts,
+    SAMViTBase, SAMImageProcessorWithPrompts,
 )
 
-model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAMViTBase(input_shape=(1024, 1024, 3), weights="sa1b")
 
 processor = SAMImageProcessorWithPrompts(
     input_points=np.array([[[390, 280]]]),  # (x, y) pixel coord on the subject
@@ -118,10 +118,10 @@ Pass a real `(x1, y1, x2, y2)` box and toggle `has_boxes_input=1`. The prompt en
 ```python
 import numpy as np
 from kmodels.models.sam import (
-    SAM_ViT_Base, SAMImageProcessorWithPrompts,
+    SAMViTBase, SAMImageProcessorWithPrompts,
 )
 
-model = SAM_ViT_Base(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAMViTBase(input_shape=(1024, 1024, 3), weights="sa1b")
 
 processor = SAMImageProcessorWithPrompts(
     input_points=np.zeros((1, 1, 1, 2), dtype="float32"),   # placeholder
@@ -167,9 +167,9 @@ For interactive tools that try many prompts on the same image, run the ViT encod
 | `model.prompt_encoder_model` | all six prompt inputs | `sparse_embeddings`, `dense_embeddings` |
 
 ```python
-from kmodels.models.sam import SAM_ViT_Base, SAMImageProcessor
+from kmodels.models.sam import SAMViTBase, SAMImageProcessor
 
-model = SAM_ViT_Base(weights="sa1b")
+model = SAMViTBase(weights="sa1b")
 processor = SAMImageProcessor()
 pre = processor("photo.jpg")
 
@@ -216,7 +216,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from kmodels.models.sam import (
-    SAM_ViT_Large, SAMImageProcessorWithPrompts,
+    SAMViTLarge, SAMImageProcessorWithPrompts,
 )
 
 COLORS = [
@@ -235,7 +235,7 @@ def show_points(coords, ax, color, marker_size=340):
                s=marker_size, edgecolors="white", linewidths=1.25, zorder=5)
 
 
-model = SAM_ViT_Large(input_shape=(1024, 1024, 3), weights="sa1b")
+model = SAMViTLarge(input_shape=(1024, 1024, 3), weights="sa1b")
 img = Image.open("assets/coco_cats.jpg").convert("RGB")   # COCO val2017/000000039769.jpg
 
 prompts = [
@@ -315,7 +315,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from kmodels.models.sam import SAM_ViT_Large, SAMGenerateMasks
+from kmodels.models.sam import SAMViTLarge, SAMGenerateMasks
 
 
 def overlay_masks(ax, masks_list):
@@ -332,7 +332,7 @@ def overlay_masks(ax, masks_list):
     ax.imshow(overlay)
 
 
-model = SAM_ViT_Large(weights="sa1b")
+model = SAMViTLarge(weights="sa1b")
 img = Image.open("assets/coco_cats.jpg").convert("RGB")
 
 result = SAMGenerateMasks(

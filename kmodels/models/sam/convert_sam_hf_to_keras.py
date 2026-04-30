@@ -3,7 +3,7 @@ import torch
 from tqdm import tqdm
 from transformers import SamModel
 
-from kmodels.models.sam.sam_model import SAM_ViT_Base, SAM_ViT_Huge, SAM_ViT_Large
+from kmodels.models.sam.sam_model import SAMViTBase, SAMViTHuge, SAMViTLarge
 from kmodels.weight_utils.weight_transfer_torch_to_keras import (
     transfer_nested_layer_weights,
     transfer_weights,
@@ -23,17 +23,17 @@ attention_name_mapping = {
 
 model_configs = [
     {
-        "keras_model_cls": SAM_ViT_Base,
+        "keras_model_cls": SAMViTBase,
         "hf_model_name": "facebook/sam-vit-base",
         "input_shape": (1024, 1024, 3),
     },
     {
-        "keras_model_cls": SAM_ViT_Large,
+        "keras_model_cls": SAMViTLarge,
         "hf_model_name": "facebook/sam-vit-large",
         "input_shape": (1024, 1024, 3),
     },
     {
-        "keras_model_cls": SAM_ViT_Huge,
+        "keras_model_cls": SAMViTHuge,
         "hf_model_name": "facebook/sam-vit-huge",
         "input_shape": (1024, 1024, 3),
     },

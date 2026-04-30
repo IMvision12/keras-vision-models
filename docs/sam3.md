@@ -16,7 +16,7 @@ The model uses 1008x1008 input resolution and includes a CLIP text encoder (24 l
 
 ## Weights License
 
-SAM3 weights are gated on HuggingFace. Before using `weights="sam3"`:
+SAM3 weights are gated on HuggingFace. Before using `weights="saco"`:
 
 1. Accept the license at https://huggingface.co/facebook/sam3
 2. Authenticate: `huggingface-cli login` or set `export HF_TOKEN=<your_token>`
@@ -30,7 +30,7 @@ from kmodels.models.sam3 import SAM3
 
 # First call: downloads from HF, converts, caches (~5 min)
 # Subsequent calls: loads from cache instantly
-model = SAM3(input_shape=(1008, 1008, 3), weights="sam3")
+model = SAM3(input_shape=(1008, 1008, 3), weights="saco")
 ```
 
 ## Object Detection
@@ -215,7 +215,7 @@ from kmodels.models.sam3.sam3_utils import (
 )
 
 # First call: downloads from HF, converts, caches (~5 min)
-model = SAM3(input_shape=(1008, 1008, 3), weights="sam3")
+model = SAM3(input_shape=(1008, 1008, 3), weights="saco")
 
 image = Image.open("assets/coco_horse_dog.jpg").convert("RGB")
 

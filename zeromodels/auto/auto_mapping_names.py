@@ -286,6 +286,7 @@ MODEL_TASK_MAPPING_NAMES = {
         "sam3": "SAM3Model",
         "segformer": "SegFormerModel",
         "senet": "SENetModel",
+        "sentence_transformer": "SentenceTransformerModel",
         "siglip": "SigLIPModel",
         "siglip2": "SigLIP2Model",
         "stable_diffusion": "StableDiffusionModel",
@@ -369,6 +370,7 @@ MODEL_TASK_MAPPING_NAMES = {
     },
     "TextEmbed": {
         "clip": "CLIPTextEmbed",
+        "sentence_transformer": "SentenceTransformerTextEmbed",
     },
     "TextGenerate": {
         "deepseek_v2": "DeepseekV2TextGenerate",
@@ -688,6 +690,7 @@ CONFIG_MAPPING_NAMES = {
     "sam3": "Sam3Config",
     "segformer": "SegformerConfig",
     "senet": "SENetConfig",
+    "sentence_transformer": "SentenceTransformerConfig",
     "siglip": "SigLIPConfig",
     "siglip2": "Siglip2Config",
     "siglip2_text": "Siglip2TextConfig",
@@ -801,6 +804,7 @@ TOKENIZER_MAPPING_NAMES = {
     "qwen3_vl_moe_text": "Qwen3VLMoeTokenizer",
     "roberta": "RobertaTokenizer",
     "sam3": "SAM3CLIPTokenizer",
+    "sentence_transformer": "SentenceTransformerTokenizer",
     "siglip": "SigLIPTokenizer",
     "siglip2": "SigLIP2Tokenizer",
     "speech_to_text": "Speech2TextTokenizer",

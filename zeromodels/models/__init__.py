@@ -121,6 +121,7 @@ from zeromodels.models import (
     sam3,
     segformer,
     senet,
+    sentence_transformer,
     siglip,
     siglip2,
     speech2text,

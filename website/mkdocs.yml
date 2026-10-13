@@ -159,6 +159,7 @@ nav:
           - Mixtral: mixtral.md
           - ModernBERT: modernbert.md
           - MPNet: mpnet.md
+          - Sentence Transformer: sentence_transformer.md
           - Qwen: qwen.md
           - Qwen2: qwen2.md
           - Qwen2 MoE: qwen2_moe.md

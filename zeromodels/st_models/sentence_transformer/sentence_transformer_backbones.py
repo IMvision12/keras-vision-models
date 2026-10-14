@@ -1,4 +1,4 @@
-"""Encoder backbones needed by the original Sentence Transformers checkpoints."""
+"""Encoder backbones for the supported Sentence Transformer checkpoints."""
 
 import math
 

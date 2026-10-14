@@ -85,14 +85,16 @@ def _hf_types(cls):
 
 def _iter_model_classes():
     import zeromodels.models as models
+    import zeromodels.st_models as st_models
     from zeromodels.base.base_model import BaseModel
 
-    for family in sorted(n for n in dir(models) if not n.startswith("_")):
-        package = getattr(models, family)
-        for name in getattr(package, "__all__", []):
-            obj = getattr(package, name, None)
-            if inspect.isclass(obj) and issubclass(obj, BaseModel):
-                yield name, obj
+    for namespace in (models, st_models):
+        for family in sorted(n for n in dir(namespace) if not n.startswith("_")):
+            package = getattr(namespace, family)
+            for name in getattr(package, "__all__", []):
+                obj = getattr(package, name, None)
+                if inspect.isclass(obj) and issubclass(obj, BaseModel):
+                    yield name, obj
 
 
 def test_top_level_and_task_autos_exported():

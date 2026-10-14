@@ -1,15 +1,76 @@
 """Offline contract tests for the multi-backbone sentence-embedding API."""
 
+import importlib
 import json
 
 import numpy as np
 import pytest
 from keras import ops
 
-from zeromodels.models.sentence_transformer import (
+from tests.base.model_test_registry import MODEL_TEST_CONFIGS
+from zeromodels.st_models import (
+    SentenceTransformer,
     SentenceTransformerModel,
     SentenceTransformerTextEmbed,
 )
+
+
+def test_top_level_st_api_and_legacy_imports_resolve_to_same_classes():
+    legacy = importlib.import_module("zeromodels.models.sentence_transformer")
+    legacy_model_module = importlib.import_module(
+        "zeromodels.models.sentence_transformer.sentence_transformer_model"
+    )
+    assert SentenceTransformer is SentenceTransformerModel
+    assert legacy.SentenceTransformerModel is SentenceTransformerModel
+    assert legacy_model_module.SentenceTransformerModel is SentenceTransformerModel
+
+
+def test_existing_hub_config_with_old_module_path_still_builds(monkeypatch):
+    from zeromodels.conversion import zm_config
+
+    spec = {
+        "model_module": "zeromodels.models.sentence_transformer",
+        "model_class": "SentenceTransformerModel",
+        "model_type": "sentence_transformer",
+        "backbone_type": "bert",
+        "vocab_size": 32,
+        "embed_dim": 8,
+        "num_layers": 1,
+        "num_heads": 2,
+        "mlp_dim": 16,
+        "max_position_embeddings": 16,
+    }
+    monkeypatch.setattr(zm_config, "load_zm_config", lambda repo_id: spec)
+
+    model = SentenceTransformer.from_hub_repo(
+        "zeromodels/example-sentence-transformer", load_weights=False
+    )
+    assert isinstance(model, SentenceTransformerModel)
+    assert model.config.backbone_type == "bert"
+
+
+def test_all_published_sentence_transformer_variants_are_in_offline_registry():
+    published = {
+        "all-mpnet-base-v2",
+        "multi-qa-mpnet-base-dot-v1",
+        "all-distilroberta-v1",
+        "all-MiniLM-L12-v2",
+        "multi-qa-distilbert-cos-v1",
+        "all-MiniLM-L6-v2",
+        "multi-qa-MiniLM-L6-cos-v1",
+        "paraphrase-multilingual-mpnet-base-v2",
+        "paraphrase-albert-small-v2",
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        "paraphrase-MiniLM-L3-v2",
+        "distiluse-base-multilingual-cased-v1",
+        "distiluse-base-multilingual-cased-v2",
+    }
+    registered = {
+        name.removeprefix("SentenceTransformer_")
+        for name in MODEL_TEST_CONFIGS
+        if name.startswith("SentenceTransformer_")
+    }
+    assert registered == {name.replace("-", "_") for name in published}
 
 
 @pytest.mark.parametrize(

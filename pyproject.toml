@@ -104,6 +104,7 @@ version = { attr = "zeromodels.__version__" }
 source = ["zeromodels", "tests"]
 omit = [
     "zeromodels/models/*/convert_*.py",
+    "zeromodels/st_models/*/convert_*.py",
 ]
 
 [tool.coverage.report]

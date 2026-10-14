@@ -1,3 +1,5 @@
+"""Configuration for Sentence Transformer embedding models."""
+
 from typing import Optional
 
 from zeromodels.base import BaseConfig

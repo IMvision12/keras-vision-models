@@ -1,4 +1,4 @@
-"""Transfer Sentence-Transformers / HF MPNet weights into Keras ST models."""
+"""Transfer upstream Sentence Transformer weights into Keras models."""
 
 from __future__ import annotations
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
     from transformers import AutoModel, AutoTokenizer
 
     from zeromodels.conversion.zm_config import write_zm_config
-    from zeromodels.models.sentence_transformer import (
+    from zeromodels.st_models import (
         SentenceTransformerModel,
         SentenceTransformerTokenizer,
     )

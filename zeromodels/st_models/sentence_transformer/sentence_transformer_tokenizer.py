@@ -1,4 +1,4 @@
-"""Fast-tokenizer adapter for supported Sentence Transformers encoders."""
+"""Fast-tokenizer adapter for supported Sentence Transformer encoders."""
 
 import re
 from typing import List, Union

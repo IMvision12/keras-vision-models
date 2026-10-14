@@ -1,4 +1,4 @@
-"""Pooling / projection helpers for Sentence-Transformers-style models."""
+"""Pooling and normalization layers for Sentence Transformer models."""
 
 import keras
 from keras import layers, ops

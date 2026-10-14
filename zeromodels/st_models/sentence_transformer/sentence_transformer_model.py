@@ -1,4 +1,4 @@
-"""Sentence-Transformers-style text embedding models (Keras 3)."""
+"""Sentence Transformer text embedding models (Keras 3)."""
 
 from __future__ import annotations
 

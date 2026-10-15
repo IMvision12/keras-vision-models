@@ -387,7 +387,7 @@ class QwenImage21Transformer2DModel(BaseModel):
         )
         is_text = ops.convert_to_tensor((~image_pad_mask).astype(np.float32))
         key_ok = text_valid_on_joint * is_text[None, :] + (1.0 - is_text[None, :])
-        attn_mask = attn_mask + (1.0 - key_ok)[:, None, None, :] * MASK_NEG
+        attn_mask = ops.add(attn_mask, (1.0 - key_ok)[:, None, None, :] * MASK_NEG)
 
         if causal_condition:
             t_all = ops.concatenate(

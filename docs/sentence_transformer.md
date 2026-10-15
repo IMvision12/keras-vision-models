@@ -10,33 +10,13 @@ with the <code>hf:</code> prefix, e.g.
 The backbone and embedding recipe are read from the checkpoint metadata.
 </div>
 
-ZeroModels loads the 13 original dense sentence-embedding checkpoints shown in
-the [Sentence Transformers pretrained-model table](https://sbert.net/docs/sentence_transformer/pretrained_models.html).
+ZeroModels loads 13 original dense sentence-embedding checkpoints. See the
+[Sentence Transformer models](sentence_transformers.md) page for the available
+ZeroModels-hosted checkpoint IDs and Hub links.
 It builds a Keras 3 encoder and applies the checkpoint's declared pooling,
 optional Dense projection, and optional L2 normalization. Parity has been
 verified on the Keras Torch backend; TensorFlow and JAX parity have not yet
 been checked for all 13 checkpoints.
-
-## Available ZeroModels checkpoints
-
-| Checkpoint (`zeromodels/<name>`) | Actual backbone | Embedding recipe | Dim |
-|---|---|---|---:|
-| `all-mpnet-base-v2` | MPNet | mean → normalize | 768 |
-| `multi-qa-mpnet-base-dot-v1` | MPNet | CLS, dot-product similarity | 768 |
-| `all-distilroberta-v1` | RoBERTa | mean → normalize | 768 |
-| `all-MiniLM-L12-v2` | BERT | mean → normalize | 384 |
-| `multi-qa-distilbert-cos-v1` | DistilBERT | mean → normalize | 768 |
-| `all-MiniLM-L6-v2` | BERT | mean → normalize | 384 |
-| `multi-qa-MiniLM-L6-cos-v1` | BERT | mean → normalize | 384 |
-| `paraphrase-multilingual-mpnet-base-v2` | XLM-RoBERTa | mean | 768 |
-| `paraphrase-albert-small-v2` | ALBERT | mean | 768 |
-| `paraphrase-multilingual-MiniLM-L12-v2` | BERT | mean | 384 |
-| `paraphrase-MiniLM-L3-v2` | BERT | mean | 384 |
-| `distiluse-base-multilingual-cased-v1` | DistilBERT | mean → Tanh Dense | 512 |
-| `distiluse-base-multilingual-cased-v2` | DistilBERT | mean → Tanh Dense | 512 |
-
-The name `paraphrase-multilingual-mpnet-base-v2` is historical: its actual
-checkpoint `model_type` is `xlm-roberta`, and ZeroModels uses the XLM-R backbone.
 
 ## Usage
 

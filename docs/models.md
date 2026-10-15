@@ -37,8 +37,14 @@ Encoders for embeddings and masked language modelling, and decoder LLMs, dense a
 - [Qwen3.5](qwen3_5.md)
 - [Qwen3-Next](qwen3_next.md)
 - [RoBERTa](roberta.md)
-- [Sentence Transformer](sentence_transformer.md)
 - [XLM-RoBERTa](xlm_roberta.md)
+
+## Sentence Transformer models
+
+Dense text embeddings with checkpoint-specific pooling and normalization.
+
+- [All 13 Sentence Transformer checkpoints](sentence_transformers.md)
+- [Sentence Transformer API and usage](sentence_transformer.md)
 
 ## Vision models
 

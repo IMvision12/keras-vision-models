@@ -159,7 +159,6 @@ nav:
           - Mixtral: mixtral.md
           - ModernBERT: modernbert.md
           - MPNet: mpnet.md
-          - Sentence Transformer: sentence_transformer.md
           - Qwen: qwen.md
           - Qwen2: qwen2.md
           - Qwen2 MoE: qwen2_moe.md
@@ -170,6 +169,9 @@ nav:
           - RoBERTa: roberta.md
           - T5: t5.md
           - XLM-RoBERTa: xlm_roberta.md
+      - Sentence Transformer models:
+          - sentence_transformers.md
+          - Sentence Transformer: sentence_transformer.md
       - Vision models:
           - BEiT: beit.md
           - Classification backbones: classification_backbones.md

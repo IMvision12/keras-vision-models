@@ -55,6 +55,22 @@ print(model.similarity(embeddings[:1], embeddings[1:]))
 the model and tokenizer. `model.similarity()` uses the checkpoint's declared
 cosine or dot-product scoring function.
 
+## Auto loading
+
+The same ZeroModels-hosted repositories work with the Auto API:
+
+```python
+from zeromodels import AutoZModel, AutoZMTokenizer
+
+repo = "zeromodels/all-MiniLM-L6-v2"
+model = AutoZModel.from_weights(repo)  # ZMSentenceTransformer
+tokenizer = AutoZMTokenizer.from_weights(repo)  # ZMSentenceTransformerTokenizer
+```
+
+Detection uses `model_type: "sentence_transformer"` in `zm_config.json`, so this
+works for all 13 hosted checkpoints and compatible fine-tunes. The model's full
+embedding recipe and the tokenizer's checkpoint-specific settings are preserved.
+
 ## Tokenizer preprocessing metadata
 
 Each checkpoint uses its own `tokenizer.json` for the vocabulary, normalization,

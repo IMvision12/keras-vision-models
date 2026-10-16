@@ -217,7 +217,16 @@ def test_cosine_similarity_accepts_numpy_embeddings():
     np.testing.assert_allclose(ops.convert_to_numpy(model.similarity(a, b)), [[1.0]])
 
 
-def test_sentence_transformer_h5_weights_round_trip(tmp_path):
+@pytest.mark.parametrize(
+    "declared", ("ZMSentenceTransformer", "SentenceTransformerModel")
+)
+def test_sentence_transformer_h5_weights_round_trip_through_auto(
+    monkeypatch, tmp_path, declared
+):
+    from zeromodels import AutoZModel
+    from zeromodels.base import base_mixin
+    from zeromodels.conversion import zm_config
+
     kwargs = {
         "backbone_type": "bert",
         "vocab_size": 32,
@@ -237,9 +246,19 @@ def test_sentence_transformer_h5_weights_round_trip(tmp_path):
     path = tmp_path / "model.weights.h5"
     model.save_weights(str(path))
 
-    reloaded = ZMSentenceTransformer(**model.config.constructor_kwargs())
+    config_path = zm_config.write_zm_config(
+        tmp_path, ZMSentenceTransformer, "example", model.config, weight_dtype="float32"
+    )
+    with open(config_path, encoding="utf-8") as stream:
+        spec = json.load(stream)
+    spec["model_class"] = declared
+    monkeypatch.setattr(zm_config, "load_zm_config", lambda repo_id: spec)
+    monkeypatch.setattr(base_mixin, "resolve_weights_url", lambda url: url)
+    monkeypatch.setattr(base_mixin, "download_weights", lambda url: str(path))
+
+    reloaded = AutoZModel.from_weights("zeromodels/example")
+    assert isinstance(reloaded, ZMSentenceTransformer)
     assert model.name == "SentenceTransformerModel"
     assert reloaded.name == "ZMSentenceTransformer"
-    reloaded.load_weights(str(path))
     actual = ops.convert_to_numpy(reloaded(inputs)["embeddings"])
     np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-5)

@@ -85,6 +85,14 @@ def mock_repo(monkeypatch, tmp_path, files):
 def test_hub_metadata_uses_one_snapshot_and_official_sequence_limit(
     monkeypatch, tmp_path, tokenizer_path, declared
 ):
+    from zeromodels import AutoZMTokenizer
+    from zeromodels.conversion import zm_config
+
+    monkeypatch.setattr(
+        zm_config,
+        "load_zm_config",
+        lambda repo_id: {"model_type": "sentence_transformer"},
+    )
     spec = metadata()
     spec["preprocessor_class"] = declared
     calls = mock_repo(
@@ -95,9 +103,8 @@ def test_hub_metadata_uses_one_snapshot_and_official_sequence_limit(
             "assets/tokenizer.json": tokenizer_path,
         },
     )
-    tok = ZMSentenceTransformerTokenizer.from_weights(
-        "zeromodels/example", revision="release"
-    )
+    tok = AutoZMTokenizer.from_weights("zeromodels/example", revision="release")
+    assert isinstance(tok, ZMSentenceTransformerTokenizer)
     encoded = tok(["hello world " * 10, "hello"])
     assert tok.max_seq_len == 6
     assert tok.cls_token_id == 2 and tok.sep_token_id == 3

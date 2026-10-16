@@ -5,8 +5,9 @@ for the backbone) so they never collide with the transformers ``AutoModel`` /
 ``AutoTokenizer`` / ... when both libraries are imported. The ``AutoZM<Task>`` model
 classes (``AutoZModel``, ``AutoZMDetect``, ``AutoZMImageClassify``, ``AutoZMTextGenerate``,
 ...) plus ``AutoZMConfig`` / ``AutoZMTokenizer`` / ``AutoZMProcessor`` /
-``AutoZMImageProcessor`` are generated from :mod:`zeromodels.models`, so this package
-re-exports whatever the factory built.
+``AutoZMImageProcessor`` are generated from the committed task tables. Class discovery
+includes :mod:`zeromodels.models` and :mod:`zeromodels.sentence_transformers`; this
+package re-exports whatever the factory built.
 """
 
 from zeromodels.auto import auto_factory

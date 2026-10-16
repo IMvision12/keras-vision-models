@@ -44,6 +44,29 @@ fine-tune of the same architecture loads exactly like the official weights.
     inspect, so pass it to the concrete class instead
     (`ResNetImageClassify.from_weights("resnet50_a1_in1k")`).
 
+## Sentence Transformer models
+
+All 13 ZeroModels-hosted Sentence Transformer checkpoints use
+`model_type: "sentence_transformer"`. The Auto loaders resolve them to
+`ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer`:
+
+```python
+from zeromodels import AutoZModel, AutoZMTokenizer
+
+repo = "zeromodels/all-MiniLM-L6-v2"
+model = AutoZModel.from_weights(repo)  # -> ZMSentenceTransformer
+tokenizer = AutoZMTokenizer.from_weights(repo)  # -> ZMSentenceTransformerTokenizer
+embeddings = model.encode(["A cat on a mat.", "A dog on a mat."], tokenizer=tokenizer)
+print(embeddings.shape)  # (2, 384)
+```
+
+Here `AutoZModel` loads the complete sentence-embedding stack, including its
+pooling, optional Dense projection, and normalization—not just the text encoder.
+The tokenizer preserves the checkpoint's own preprocessing recipe. See
+[Sentence Transformer](sentence_transformer.md) for the concrete API. Original
+upstream `hf:sentence-transformers/...` configs describe their backbone type;
+use the concrete classes to load their sentence-embedding recipe.
+
 ## Task classes
 
 ### Pipeline components

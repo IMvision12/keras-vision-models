@@ -3,10 +3,13 @@ on:
   pull_request:
   release:
     types: [created]
+  issue_comment:
+    types: [created]
 
 jobs:
   lint-and-format:
     name: Lint & Format
+    if: github.event_name != 'issue_comment'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,10 +20,72 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
 
+  authorize-tests:
+    name: Authorize PR tests
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      github.event.comment.user.login == 'IMvision12' &&
+      github.triggering_actor == 'IMvision12' &&
+      github.event.comment.body == '/run-tests'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    outputs:
+      run_tests: ${{ steps.authorize.outputs.run_tests }}
+      head_sha: ${{ steps.authorize.outputs.head_sha }}
+      check_run_id: ${{ steps.authorize.outputs.check_run_id }}
+    steps:
+      # This privileged job never checks out or executes PR-controlled files.
+      - name: Validate owner command and pin the PR commit
+        id: authorize
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { issue, comment, action } = context.payload;
+            if (action !== 'created' || !issue?.pull_request ||
+                comment?.user?.login?.toLowerCase() !== 'imvision12' ||
+                comment.body !== '/run-tests') {
+              throw new Error('Only IMvision12 can request PR tests with /run-tests.');
+            }
+            const { data: pr } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: issue.number,
+            });
+            if (pr.state !== 'open') {
+              throw new Error('Tests can only be requested on an open pull request.');
+            }
+            if (!/^[0-9a-f]{40}$/.test(pr.head.sha)) {
+              throw new Error('GitHub returned an invalid PR head commit.');
+            }
+            const { data: check } = await github.rest.checks.create({
+              ...context.repo,
+              name: 'Requested model, tokenizer & processor tests',
+              head_sha: pr.head.sha,
+              status: 'in_progress',
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              output: {
+                title: 'PR tests requested by IMvision12',
+                summary: `Testing PR #${issue.number} at ${pr.head.sha}. New pushes require a new /run-tests comment.`,
+              },
+            });
+            core.setOutput('head_sha', pr.head.sha);
+            core.setOutput('check_run_id', String(check.id));
+            core.setOutput('run_tests', 'true');
+
   test-code:
     name: Test the code (${{ matrix.backend }} ${{ matrix.shard }})
-    needs: lint-and-format
+    needs: [lint-and-format, authorize-tests]
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'release' && needs.lint-and-format.result == 'success') ||
+       (github.event_name == 'issue_comment' && github.triggering_actor == 'IMvision12' &&
+        needs.authorize-tests.outputs.run_tests == 'true'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       # Shard the model suite BY MODEL across parallel jobs (see the --shard
@@ -42,10 +107,14 @@ jobs:
       KERAS_BACKEND: ${{ matrix.backend }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authorize-tests.outputs.head_sha }}
+          persist-credentials: ${{ github.event_name != 'issue_comment' }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Cache pip packages
+        if: github.event_name != 'issue_comment'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -79,6 +148,7 @@ jobs:
       - name: Generate coverage
         run: coverage xml -o coverage.xml
       - name: Upload coverage
+        if: github.event_name != 'issue_comment'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
@@ -87,16 +157,27 @@ jobs:
 
   test-tokenizers:
     name: Test tokenizers (vs HF)
-    needs: lint-and-format
+    needs: [lint-and-format, authorize-tests]
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'release' && needs.lint-and-format.result == 'success') ||
+       (github.event_name == 'issue_comment' && github.triggering_actor == 'IMvision12' &&
+        needs.authorize-tests.outputs.run_tests == 'true'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       KERAS_BACKEND: torch
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authorize-tests.outputs.head_sha }}
+          persist-credentials: ${{ github.event_name != 'issue_comment' }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Cache pip packages
+        if: github.event_name != 'issue_comment'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -117,8 +198,15 @@ jobs:
 
   test-image-processors:
     name: Test image processors (vs HF, ${{ matrix.backend }})
-    needs: lint-and-format
+    needs: [lint-and-format, authorize-tests]
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'release' && needs.lint-and-format.result == 'success') ||
+       (github.event_name == 'issue_comment' && github.triggering_actor == 'IMvision12' &&
+        needs.authorize-tests.outputs.run_tests == 'true'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -127,10 +215,14 @@ jobs:
       KERAS_BACKEND: ${{ matrix.backend }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authorize-tests.outputs.head_sha }}
+          persist-credentials: ${{ github.event_name != 'issue_comment' }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Cache pip packages
+        if: github.event_name != 'issue_comment'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -154,8 +246,15 @@ jobs:
 
   test-processors:
     name: Test processors (vs HF, ${{ matrix.backend }})
-    needs: lint-and-format
+    needs: [lint-and-format, authorize-tests]
+    if: >-
+      always() && !cancelled() &&
+      ((github.event_name == 'release' && needs.lint-and-format.result == 'success') ||
+       (github.event_name == 'issue_comment' && github.triggering_actor == 'IMvision12' &&
+        needs.authorize-tests.outputs.run_tests == 'true'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -164,10 +263,14 @@ jobs:
       KERAS_BACKEND: ${{ matrix.backend }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.authorize-tests.outputs.head_sha }}
+          persist-credentials: ${{ github.event_name != 'issue_comment' }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Cache pip packages
+        if: github.event_name != 'issue_comment'
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
@@ -188,3 +291,38 @@ jobs:
         run: |
           pytest tests/processors/test_keras_processors_vs_hf.py \
                  -v --durations=20
+
+  report-pr-tests:
+    name: Report requested PR tests
+    needs: [authorize-tests, test-code, test-tokenizers, test-image-processors, test-processors]
+    if: >-
+      always() && github.event_name == 'issue_comment' &&
+      needs.authorize-tests.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+    steps:
+      # Keep the write token isolated from the jobs that execute PR code.
+      - name: Publish the result on the tested PR commit
+        uses: actions/github-script@v9
+        env:
+          TEST_RESULTS: ${{ toJSON(needs) }}
+          CHECK_RUN_ID: ${{ needs.authorize-tests.outputs.check_run_id }}
+        with:
+          script: |
+            const needs = JSON.parse(process.env.TEST_RESULTS);
+            const groups = ['test-code', 'test-tokenizers', 'test-image-processors', 'test-processors'];
+            const results = groups.map(name => needs[name].result);
+            const conclusion = results.every(result => result === 'success')
+              ? 'success'
+              : results.includes('cancelled') ? 'cancelled' : 'failure';
+            await github.rest.checks.update({
+              ...context.repo,
+              check_run_id: Number(process.env.CHECK_RUN_ID),
+              status: 'completed',
+              conclusion,
+              output: {
+                title: `Requested PR tests: ${conclusion}`,
+                summary: groups.map(name => `- ${name}: ${needs[name].result}`).join('\n'),
+              },
+            });

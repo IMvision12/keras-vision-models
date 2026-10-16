@@ -47,6 +47,53 @@ print(model.similarity(embeddings[:1], embeddings[1:]))
 the model and tokenizer. `model.similarity()` uses the checkpoint's declared
 cosine or dot-product scoring function.
 
+## Tokenizer preprocessing metadata
+
+Each checkpoint uses its own `tokenizer.json` for the vocabulary, normalization,
+token splitting, and special-token insertion. Optional `zm_preprocessor.json`
+records the surrounding official configuration in two separate blocks:
+
+```json
+{
+  "library_name": "zeromodels",
+  "preprocessor_module": "zeromodels.st_models",
+  "preprocessor_class": "SentenceTransformerTokenizer",
+  "tokenizer_file": "tokenizer.json",
+  "backbone_type": "bert",
+  "tokenizer_config": {
+    "do_lower_case": true,
+    "model_max_length": 512,
+    "cls_token": "[CLS]",
+    "sep_token": "[SEP]",
+    "pad_token": "[PAD]"
+  },
+  "sentence_transformer_config": {
+    "max_seq_length": 256,
+    "do_lower_case": false
+  }
+}
+```
+
+This abbreviated example represents `all-MiniLM-L6-v2`. The tokenizer's own
+lowercasing is already encoded in `tokenizer.json`; the Sentence Transformers
+flag requests an additional normalization step only when true. The effective
+sequence limit is 256, including special tokens. Padding and truncation sides
+come from `tokenizer_config`, defaulting to right; batches pad to their longest
+sequence and pairs use longest-first truncation.
+
+Both metadata and tokenizer assets load from one resolved Hub commit, available
+as `tokenizer.source_revision`. Pass `revision=` to select a particular snapshot.
+An explicit `max_seq_len=` overrides the stored limit. Legacy repos without
+`zm_preprocessor.json` continue to read the backbone and sequence limit from
+`zm_config.json`, including its nested `text_config` form.
+
+`write_zm_preprocessor(directory, tokenizer, variant)` exports a portable recipe
+referencing `tokenizer.json` in the same repo, rather than a local cache path.
+Text preprocessing uses the `tokenizers` library; `transformers` is not needed
+to load these converted checkpoints.
+
+## Original Sentence Transformers checkpoints
+
 To load directly from an original Sentence Transformers repo instead, use the
 `hf:` prefix for both components and pass the model's resolved revision to the
 tokenizer:

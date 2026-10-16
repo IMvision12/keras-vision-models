@@ -13,7 +13,7 @@
 
 ## 📖 Introduction
 
-ZeroModels is a collection of pretrained models built entirely in Keras 3. It spans a broad range of tasks, including image classification, object detection, segmentation, monocular depth estimation, feature extraction, vision-language modeling (VLMs), speech recognition, speech-aware language modeling, text encoding and masked language modeling, large language models (LLMs), text-to-text encoder-decoder modeling, multimodal vision-language generation, text-to-image diffusion, and more.
+ZeroModels is a collection of pretrained models built entirely in Keras 3. It spans a broad range of tasks, including image classification, object detection, segmentation, monocular depth estimation, feature extraction, vision-language modeling (VLMs), speech recognition, speech-aware language modeling, text encoding and masked language modeling, sentence embeddings, large language models (LLMs), text-to-text encoder-decoder modeling, multimodal vision-language generation, text-to-image diffusion, and more.
 
 ## ⚡ Installation
 
@@ -39,6 +39,28 @@ Classification backbones share a single [documentation page](https://imvision12.
 
 Documentation sources are also available in [`docs/`](docs/).
 
+
+## 💬 Sentence Transformers Models (st_models)
+
+All 13 checkpoints below have pre-converted Keras weights under the `zeromodels` Hugging Face organization. Load them through `zeromodels.st_models` for sentence similarity, semantic search, or clustering.
+
+| 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+|---------------|-------------------|---------------------|
+| [all-mpnet-base-v2](https://huggingface.co/zeromodels/all-mpnet-base-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [multi-qa-mpnet-base-dot-v1](https://huggingface.co/zeromodels/multi-qa-mpnet-base-dot-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [all-distilroberta-v1](https://huggingface.co/zeromodels/all-distilroberta-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [all-MiniLM-L12-v2](https://huggingface.co/zeromodels/all-MiniLM-L12-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [multi-qa-distilbert-cos-v1](https://huggingface.co/zeromodels/multi-qa-distilbert-cos-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [all-MiniLM-L6-v2](https://huggingface.co/zeromodels/all-MiniLM-L6-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [multi-qa-MiniLM-L6-cos-v1](https://huggingface.co/zeromodels/multi-qa-MiniLM-L6-cos-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [paraphrase-multilingual-mpnet-base-v2](https://huggingface.co/zeromodels/paraphrase-multilingual-mpnet-base-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| [paraphrase-albert-small-v2](https://huggingface.co/zeromodels/paraphrase-albert-small-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [paraphrase-multilingual-MiniLM-L12-v2](https://huggingface.co/zeromodels/paraphrase-multilingual-MiniLM-L12-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| [paraphrase-MiniLM-L3-v2](https://huggingface.co/zeromodels/paraphrase-MiniLM-L3-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| [distiluse-base-multilingual-cased-v1](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v1) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| [distiluse-base-multilingual-cased-v2](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+
+<br>
 
 ## 📑 Models
 
@@ -295,6 +317,7 @@ This project leverages [timm](https://github.com/huggingface/pytorch-image-model
 - The [Transformers](https://github.com/huggingface/transformers) library for its robust tools for loading and adapting pretrained models
 - The [pytorch-image-models (timm)](https://github.com/huggingface/pytorch-image-models) project for pioneering many computer vision model implementations
 - The [Diffusers](https://github.com/huggingface/diffusers) library, the reference the diffusion models are converted from and verified against
+- The [Sentence Transformers](https://github.com/huggingface/sentence-transformers) project for its sentence-embedding checkpoints and preprocessing recipes
 - All contributors to the original papers and architectures implemented in this library
 
 ## Citing

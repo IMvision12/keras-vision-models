@@ -1,8 +1,12 @@
 # Pull request test commands
 
-Lint & Format continues to run automatically on pull requests. Model, tokenizer,
-image-processor, and processor tests run on a pull request only when **IMvision12**
-posts a new conversation comment containing exactly:
+The automatic PR workflow (`test_code.yml`) contains only **Lint & Format**.
+Model, tokenizer, image-processor, and processor jobs live in a separate workflow
+(`model_tests.yml`) that does not subscribe to pull request events. They do not
+appear as queued or skipped PR checks before a command is posted.
+
+Those tests run on a pull request only when **IMvision12** posts a new
+conversation comment containing exactly:
 
 ```text
 /run-tests
@@ -20,14 +24,15 @@ does not start another test run; post `/run-tests` again to test the new commit.
 Results appear on the tested PR commit as **Requested model, tokenizer & processor
 tests**, with a link to the workflow's individual jobs. If these tests must block
 merging, require this aggregate check in the repository's branch protection or
-ruleset; automatically skipped test jobs are not a substitute for that check.
+ruleset. The test check is created only after an authorized command.
 
 The updated workflow must be present on the repository's default branch before
 GitHub delivers comment-triggered runs. No additional personal access token or
 repository secret is needed.
 
-Release-triggered tests still run automatically after lint succeeds. The release,
-documentation, and standalone cross-backend parity workflows are unchanged.
+Release events start the same lint and test jobs automatically in
+`model_tests.yml`, with the existing commands and matrices unchanged. The release,
+documentation, and standalone cross-backend parity workflow files are unchanged.
 
 Authorization and result-reporting jobs have check-writing permission but never
 check out PR code. Test jobs have read-only repository access and do not persist

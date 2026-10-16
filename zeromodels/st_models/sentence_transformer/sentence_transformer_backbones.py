@@ -67,7 +67,7 @@ class DistilBertEncoderBlock(layers.Layer):
         x = self.sa_layer_norm(x + self.out_lin(context))
         hidden = self.ffn_lin1(x)
         if self.activation == "gelu":
-            hidden = ops.gelu(hidden)
+            hidden = ops.gelu(hidden, approximate=False)
         else:
             raise ValueError(f"Unsupported DistilBERT activation: {self.activation}")
         return self.output_layer_norm(x + self.ffn_lin2(hidden))
@@ -125,7 +125,7 @@ class AlbertEncoderBlock(layers.Layer):
         if self.activation == "gelu_new":
             hidden = _gelu_new(hidden)
         elif self.activation == "gelu":
-            hidden = ops.gelu(hidden)
+            hidden = ops.gelu(hidden, approximate=False)
         else:
             raise ValueError(f"Unsupported ALBERT activation: {self.activation}")
         return self.full_layer_norm(x + self.ffn_output(hidden))

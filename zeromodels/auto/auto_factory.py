@@ -104,14 +104,20 @@ def _class_index():
     global _CLASS_INDEX
     if _CLASS_INDEX is None:
         import zeromodels.models as models
+        import zeromodels.sentence_transformers as sentence_transformers
 
         index = {}
-        for family in sorted(n for n in dir(models) if not n.startswith("_")):
-            package = getattr(models, family)
-            for name in getattr(package, "__all__", []):
-                obj = getattr(package, name, None)
-                if inspect.isclass(obj):
-                    index[name] = obj
+        for namespace in (models, sentence_transformers):
+            packages = [namespace]
+            packages.extend(
+                getattr(namespace, family)
+                for family in sorted(n for n in dir(namespace) if not n.startswith("_"))
+            )
+            for package in packages:
+                for name in getattr(package, "__all__", []):
+                    obj = getattr(package, name, None)
+                    if inspect.isclass(obj):
+                        index[name] = obj
         _CLASS_INDEX = index
     return _CLASS_INDEX
 

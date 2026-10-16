@@ -2996,6 +2996,55 @@ MODEL_TEST_CONFIGS = {
         "input_factory_kwargs": {"num_choices": 3, "seq_len": 16},
         "expected_output_shape": (2, 3),
     },
+    # ---- Sentence Transformers (MPNet backbone) ----
+    "ZMSentenceTransformer": {
+        "module": "zeromodels.sentence_transformers",
+        "model_cls": "ZMSentenceTransformer",
+        "model_type": "llm",
+        "init_kwargs": {
+            "backbone_type": "mpnet",
+            "vocab_size": 128,
+            "embed_dim": 32,
+            "num_layers": 2,
+            "num_heads": 2,
+            "mlp_dim": 64,
+            "max_position_embeddings": 64,
+            "relative_attention_num_buckets": 8,
+            "pooling": "mean",
+            "normalize_embeddings": True,
+            "max_seq_len": 32,
+        },
+        "input_factory": "modernbert_input",
+        "input_factory_kwargs": {"seq_len": 16},
+        "expected_output_shape": {
+            "embeddings": (2, 32),
+            "token_embeddings": (2, 16, 32),
+        },
+    },
+    "SentenceTransformerTextEmbed": {
+        "module": "zeromodels.sentence_transformers",
+        "model_cls": "SentenceTransformerTextEmbed",
+        "model_type": "llm",
+        "init_kwargs": {
+            "backbone_type": "mpnet",
+            "vocab_size": 128,
+            "embed_dim": 32,
+            "num_layers": 2,
+            "num_heads": 2,
+            "mlp_dim": 64,
+            "max_position_embeddings": 64,
+            "relative_attention_num_buckets": 8,
+            "pooling": "mean",
+            "normalize_embeddings": True,
+            "max_seq_len": 32,
+        },
+        "input_factory": "modernbert_input",
+        "input_factory_kwargs": {"seq_len": 16},
+        "expected_output_shape": {
+            "embeddings": (2, 32),
+            "token_embeddings": (2, 16, 32),
+        },
+    },
     # ---- Text encoders (XLM-RoBERTa) ----
     "XLMRobertaModel": {
         "module": "zeromodels.models.xlm_roberta",
@@ -4385,6 +4434,73 @@ MODEL_TEST_CONFIGS = {
     },
 }
 
+_SENTENCE_TRANSFORMER_VARIANTS = {
+    "all-mpnet-base-v2": ("mpnet", "mean", True, None, "cosine"),
+    "multi-qa-mpnet-base-dot-v1": ("mpnet", "cls", False, None, "dot"),
+    "all-distilroberta-v1": ("roberta", "mean", True, None, "cosine"),
+    "all-MiniLM-L12-v2": ("bert", "mean", True, None, "cosine"),
+    "multi-qa-distilbert-cos-v1": ("distilbert", "mean", True, None, "cosine"),
+    "all-MiniLM-L6-v2": ("bert", "mean", True, None, "cosine"),
+    "multi-qa-MiniLM-L6-cos-v1": ("bert", "mean", True, None, "cosine"),
+    "paraphrase-multilingual-mpnet-base-v2": (
+        "xlm-roberta",
+        "mean",
+        False,
+        None,
+        "cosine",
+    ),
+    "paraphrase-albert-small-v2": ("albert", "mean", False, None, "cosine"),
+    "paraphrase-multilingual-MiniLM-L12-v2": ("bert", "mean", False, None, "cosine"),
+    "paraphrase-MiniLM-L3-v2": ("bert", "mean", False, None, "cosine"),
+    "distiluse-base-multilingual-cased-v1": ("distilbert", "mean", False, 8, "cosine"),
+    "distiluse-base-multilingual-cased-v2": ("distilbert", "mean", False, 8, "cosine"),
+}
+for _variant, (
+    _backbone,
+    _pooling,
+    _normalize,
+    _projection,
+    _similarity,
+) in _SENTENCE_TRANSFORMER_VARIANTS.items():
+    _kwargs = {
+        "backbone_type": _backbone,
+        "vocab_size": 128,
+        "embed_dim": 16,
+        "num_layers": 1,
+        "num_heads": 2,
+        "mlp_dim": 32,
+        "max_position_embeddings": 64,
+        "relative_attention_num_buckets": 8,
+        "pooling": _pooling,
+        "normalize_embeddings": _normalize,
+        "projection_dim": _projection,
+        "similarity_fn_name": _similarity,
+        "max_seq_len": 32,
+    }
+    if _projection is not None:
+        _kwargs["projection_activation"] = "tanh"
+    if _backbone == "albert":
+        _kwargs["embedding_size"] = 8
+    _factory = (
+        "modernbert_input"
+        if _backbone in ("mpnet", "distilbert")
+        else "roberta_input"
+        if _backbone in ("roberta", "xlm-roberta")
+        else "bert_input"
+    )
+    MODEL_TEST_CONFIGS[f"ZMSentenceTransformer_{_variant.replace('-', '_')}"] = {
+        "module": "zeromodels.sentence_transformers",
+        "model_cls": "ZMSentenceTransformer",
+        "model_type": "llm",
+        "init_kwargs": _kwargs,
+        "input_factory": _factory,
+        "input_factory_kwargs": {"seq_len": 16},
+        "expected_output_shape": {
+            "embeddings": (2, _projection or 16),
+            "token_embeddings": (2, 16, 16),
+        },
+    }
+
 
 # The Qwen-VL `*Generate` classes share their base model's config + input but
 # add an LM head, so derive their test entries (logits output) from the bases.
@@ -4953,8 +5069,8 @@ _MODEL_CACHE = {}
 def get_cached_model(config):
     """Return a shared, build-once model for ``config``'s READ-ONLY tests.
 
-    Keyed by (class, active data_format, quantized) so a channels_first build or
-    a quantized variant never aliases the plain one. Use this only for tests that
+    Keyed by (registry entry, active data_format, quantized) so two entries using
+    the same class with different architectures never alias one another. Use this only for tests that
     do not mutate the model (forward / shape / NaN / ``get_config`` / ``save*``);
     a test that assigns weights, builds a different data format, or calls
     ``clear_session`` must call :func:`instantiate_model` for a fresh instance.
@@ -4967,7 +5083,7 @@ def get_cached_model(config):
     import keras
 
     key = (
-        config["model_cls"],
+        id(config),
         keras.config.image_data_format(),
         bool(config.get("quantization_config")),
     )

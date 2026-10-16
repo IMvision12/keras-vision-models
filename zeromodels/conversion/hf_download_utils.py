@@ -97,7 +97,7 @@ def load_bin_state_dict(paths):
     return state
 
 
-def download_hf_state_dict(hf_id, token=None):
+def download_hf_state_dict(hf_id, token=None, revision=None):
     """Download model weights and return a ``{name: numpy_array}`` mapping.
 
     ``token`` is forwarded to ``hf_hub_download`` for gated / private repos.
@@ -114,41 +114,49 @@ def download_hf_state_dict(hf_id, token=None):
     4. ``pytorch_model.bin.index.json`` (sharded pickle)
     """
     try:
-        path = hf_hub_download(hf_id, "model.safetensors", token=token)
+        path = hf_hub_download(
+            hf_id, "model.safetensors", token=token, revision=revision
+        )
     except EntryNotFoundError:
         path = None
     if path is not None:
         return LazyStateDict.from_files([path])
 
     try:
-        index_path = hf_hub_download(hf_id, "model.safetensors.index.json", token=token)
+        index_path = hf_hub_download(
+            hf_id, "model.safetensors.index.json", token=token, revision=revision
+        )
     except EntryNotFoundError:
         index_path = None
     if index_path is not None:
         with open(index_path, "r") as f:
             weight_map = json.load(f)["weight_map"]
         local = {
-            shard: hf_hub_download(hf_id, shard, token=token)
+            shard: hf_hub_download(hf_id, shard, token=token, revision=revision)
             for shard in sorted(set(weight_map.values()))
         }
         return LazyStateDict({name: local[shard] for name, shard in weight_map.items()})
 
     try:
-        path = hf_hub_download(hf_id, "pytorch_model.bin", token=token)
+        path = hf_hub_download(
+            hf_id, "pytorch_model.bin", token=token, revision=revision
+        )
     except EntryNotFoundError:
         path = None
     if path is not None:
         return load_bin_state_dict([path])
 
     try:
-        index_path = hf_hub_download(hf_id, "pytorch_model.bin.index.json", token=token)
+        index_path = hf_hub_download(
+            hf_id, "pytorch_model.bin.index.json", token=token, revision=revision
+        )
     except EntryNotFoundError:
         index_path = None
     if index_path is not None:
         with open(index_path, "r") as f:
             weight_map = json.load(f)["weight_map"]
         shards = [
-            hf_hub_download(hf_id, shard, token=token)
+            hf_hub_download(hf_id, shard, token=token, revision=revision)
             for shard in sorted(set(weight_map.values()))
         ]
         return load_bin_state_dict(shards)

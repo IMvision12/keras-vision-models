@@ -33,7 +33,8 @@ See also [bert.md](bert.md), [roberta.md](roberta.md), [modernbert.md](modernber
 [electra.md](electra.md).
 
 MPNet is also the backbone of `sentence-transformers/all-mpnet-base-v2`, one of the most
-widely used sentence-embedding models.
+widely used sentence-embedding models — see [sentence_transformer.md](sentence_transformer.md)
+for the separate embedding API.
 
 ## Variants
 

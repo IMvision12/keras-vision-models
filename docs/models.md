@@ -39,6 +39,13 @@ Encoders for embeddings and masked language modelling, and decoder LLMs, dense a
 - [RoBERTa](roberta.md)
 - [XLM-RoBERTa](xlm_roberta.md)
 
+## Sentence Transformer models
+
+Dense text embeddings with checkpoint-specific pooling and normalization.
+
+- [All 13 Sentence Transformer checkpoints](sentence_transformers.md)
+- [Sentence Transformer API and usage](sentence_transformer.md)
+
 ## Vision models
 
 Detection, segmentation, monocular depth, and self-supervised backbones.

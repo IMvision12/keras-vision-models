@@ -4,7 +4,7 @@ Each zeromodels weight repo can carry two small namespaced json files at its
 root, next to model.weights.h5:
 
   zm_config.json        the model: class + flat hyperparameters + weights filename.
-  zm_preprocessor.json  the image processor / feature extractor (when present).
+  zm_preprocessor.json  preprocessing settings (image/audio or tokenizer).
 
 They let a model be rebuilt and loaded from the repo alone, so a caller loads by
 repo id (zeromodels/detr-resnet-50) instead of a variant hardcoded in the
@@ -13,7 +13,8 @@ top level next to ``model_type``, alongside a few zeromodels loader keys
 (``model_module`` / ``model_class`` / ``variant`` / ``weights``). The zm_ prefix
 avoids the config.json / preprocessor_config.json names that would make the Hub
 mis-detect these Keras repos as transformers or keras-hub. The tokenizer stays a
-real tokenizer.json and is not described here.
+real tokenizer.json; optional tokenizer and Sentence Transformers settings are
+recorded as separate blocks in zm_preprocessor.json.
 """
 
 import inspect
@@ -87,12 +88,17 @@ def model_config_dict(config):
 def preprocessor_config(preprocessor):
     """Serialize a preprocessor's constructor state.
 
+    A preprocessor can provide ``get_hub_config`` for a portable Hub recipe
+    (e.g. tokenizer metadata referencing repo-relative assets).
     zeromodels image processors do not all implement ``get_config``, so read
     the values straight off the instance by walking the constructor signature:
     every named parameter maps to a same-named attribute (``self.size``,
     ``self.resample``, ...). Missing attributes fall back to the parameter
     default. ``self`` and ``*args`` / ``**kwargs`` are skipped.
     """
+    hub_config = getattr(preprocessor, "get_hub_config", None)
+    if callable(hub_config):
+        return _jsonable(hub_config())
     config = {}
     for name, param in inspect.signature(
         type(preprocessor).__init__
@@ -181,7 +187,7 @@ def write_zm_config(
 
 
 def write_zm_preprocessor(dest_dir, preprocessor, variant):
-    """Write a flat zm_preprocessor.json for a built ``preprocessor`` instance."""
+    """Write zm_preprocessor.json for a built ``preprocessor`` instance."""
     payload = {
         "library_name": "zeromodels",
         "zeromodels_version": _zm_version(),

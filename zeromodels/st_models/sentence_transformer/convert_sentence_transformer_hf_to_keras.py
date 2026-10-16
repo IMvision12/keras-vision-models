@@ -1,8 +1,6 @@
-"""Transfer upstream Sentence Transformer weights into Keras models."""
-
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Dict
 
 import numpy as np
 from huggingface_hub import hf_hub_download
@@ -23,40 +21,43 @@ from zeromodels.models.xlm_roberta.convert_xlm_roberta_hf_to_keras import (
     transfer_xlm_roberta_weights,
 )
 
+WEIGHT_NAME_MAPPING = {
+    "distilbert": {
+        "distil_word_embeddings": "embeddings.word_embeddings",
+        "distil_position_embeddings": "embeddings.position_embeddings",
+        "distil_embeddings_norm": "embeddings.LayerNorm",
+        "distil_layer_{index}/q_lin": "transformer.layer.{index}.attention.q_lin",
+        "distil_layer_{index}/k_lin": "transformer.layer.{index}.attention.k_lin",
+        "distil_layer_{index}/v_lin": "transformer.layer.{index}.attention.v_lin",
+        "distil_layer_{index}/out_lin": "transformer.layer.{index}.attention.out_lin",
+        "distil_layer_{index}/sa_layer_norm": "transformer.layer.{index}.sa_layer_norm",
+        "distil_layer_{index}/ffn_lin1": "transformer.layer.{index}.ffn.lin1",
+        "distil_layer_{index}/ffn_lin2": "transformer.layer.{index}.ffn.lin2",
+        "distil_layer_{index}/output_layer_norm": "transformer.layer.{index}.output_layer_norm",
+    },
+    "albert": {
+        "albert_word_embeddings": "embeddings.word_embeddings",
+        "albert_position_embeddings": "embeddings.position_embeddings",
+        "albert_token_type_embeddings": "embeddings.token_type_embeddings",
+        "albert_embeddings_norm": "embeddings.LayerNorm",
+        "albert_embedding_projection": "encoder.embedding_hidden_mapping_in",
+        "albert_shared_block/query": "encoder.albert_layer_groups.0.albert_layers.0.attention.query",
+        "albert_shared_block/key": "encoder.albert_layer_groups.0.albert_layers.0.attention.key",
+        "albert_shared_block/value": "encoder.albert_layer_groups.0.albert_layers.0.attention.value",
+        "albert_shared_block/attention_dense": "encoder.albert_layer_groups.0.albert_layers.0.attention.dense",
+        "albert_shared_block/attention_layer_norm": "encoder.albert_layer_groups.0.albert_layers.0.attention.LayerNorm",
+        "albert_shared_block/ffn": "encoder.albert_layer_groups.0.albert_layers.0.ffn",
+        "albert_shared_block/ffn_output": "encoder.albert_layer_groups.0.albert_layers.0.ffn_output",
+        "albert_shared_block/full_layer_norm": "encoder.albert_layer_groups.0.albert_layers.0.full_layer_layer_norm",
+    },
+}
 
-def strip_st_prefix(key: str) -> str:
-    """Normalize ST / HF key prefixes down to bare MPNet (or Dense) names.
-
-    Handles common layouts:
-
-    * ``0.auto_model.*`` — SentenceTransformer module stack
-    * ``auto_model.*``
-    * ``mpnet.*`` — HF ``MPNetModel`` wrapper
-    """
-    for prefix in (
-        "0.auto_model.",
-        "auto_model.",
-        "0.transformer.",
-    ):
-        if key.startswith(prefix):
-            key = key[len(prefix) :]
-            break
-    return normalize_hf_key(key)
-
-
-def _find_dense_tensors(
-    hf_state_dict: Dict[str, np.ndarray],
-) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
-    """Locate an ST ``Dense`` module's ``linear.weight`` / ``linear.bias``."""
-    kernel = bias = None
-    for k, v in hf_state_dict.items():
-        if "auto_model" in k or ".layer." in k or k.startswith("embeddings."):
-            continue
-        if k.endswith("linear.weight"):
-            kernel = np.asarray(v)
-        elif k.endswith("linear.bias"):
-            bias = np.asarray(v)
-    return kernel, bias
+WEIGHT_SUFFIX_MAPPING = {
+    "kernel": "weight",
+    "embeddings": "weight",
+    "gamma": "weight",
+    "beta": "bias",
+}
 
 
 def transfer_sentence_transformer_weights(
@@ -67,7 +68,13 @@ def transfer_sentence_transformer_weights(
     Pooling and L2-normalize have no parameters. Unused HF pooler / MLM head
     tensors are skipped via the MPNet optional-weight rules.
     """
-    hf = {strip_st_prefix(k): v for k, v in hf_state_dict.items()}
+    hf = {}
+    for key, value in hf_state_dict.items():
+        for prefix in ("0.auto_model.", "auto_model.", "0.transformer."):
+            if key.startswith(prefix):
+                key = key[len(prefix) :]
+                break
+        hf[normalize_hf_key(key)] = value
     kind = keras_model.backbone_type
     if kind == "mpnet":
         transfer_mpnet_weights(keras_model, hf)
@@ -78,7 +85,32 @@ def transfer_sentence_transformer_weights(
     elif kind == "xlm-roberta":
         transfer_xlm_roberta_weights(keras_model, hf)
     elif kind in ("distilbert", "albert"):
-        _transfer_custom_backbone(keras_model, hf)
+        prefix = f"{kind}."
+        names = {key.removeprefix(prefix): key for key in hf}
+        mapping = WEIGHT_NAME_MAPPING[kind]
+        for weight in keras_model.weights:
+            if "/" not in weight.path:
+                continue
+            layer_path, suffix = weight.path.rsplit("/", 1)
+            index = None
+            if kind == "distilbert" and layer_path.startswith("distil_layer_"):
+                block, component = layer_path.split("/", 1)
+                index = int(block.removeprefix("distil_layer_"))
+                layer_path = f"distil_layer_{{index}}/{component}"
+            hf_name = mapping.get(layer_path)
+            if hf_name is None:
+                if layer_path.startswith(("distil_", "albert_")):
+                    raise WeightMappingError(weight.path, "WEIGHT_NAME_MAPPING entry")
+                continue
+            suffix = WEIGHT_SUFFIX_MAPPING.get(suffix, suffix)
+            hf_name = f"{hf_name.format(index=index)}.{suffix}"
+            if hf_name not in names:
+                raise WeightMappingError(weight.path, hf_name)
+            source = hf[names[hf_name]]
+            if weight.path == "albert_embedding_projection/kernel":
+                weight.assign(np.asarray(source).T)
+            else:
+                transfer_weights(weight.path, weight, source)
     else:
         raise ValueError(f"Unsupported sentence embedding backbone: {kind}")
 
@@ -87,7 +119,14 @@ def transfer_sentence_transformer_weights(
         return
 
     dense_state = getattr(keras_model, "_st_dense_state", hf_state_dict)
-    proj_kernel, proj_bias = _find_dense_tensors(dense_state)
+    proj_kernel = proj_bias = None
+    for key, value in dense_state.items():
+        if "auto_model" in key or ".layer." in key or key.startswith("embeddings."):
+            continue
+        if key.endswith("linear.weight"):
+            proj_kernel = np.asarray(value)
+        elif key.endswith("linear.bias"):
+            proj_bias = np.asarray(value)
     for weight in keras_model.weights:
         path = weight.path
         if path == "projection/kernel":
@@ -98,85 +137,6 @@ def transfer_sentence_transformer_weights(
             if proj_bias is None:
                 raise WeightMappingError(path, "*.linear.bias")
             transfer_weights(path, weight, proj_bias)
-
-
-def _custom_hf_name(path, backbone_type):
-    """Map the two ST-only backbone families to their HF tensor names."""
-    suffix = path.rsplit("/", 1)[-1]
-    suffix = {
-        "kernel": "weight",
-        "embeddings": "weight",
-        "gamma": "weight",
-        "beta": "bias",
-    }.get(suffix, suffix)
-    if backbone_type == "distilbert":
-        fixed = {
-            "distil_word_embeddings": "embeddings.word_embeddings",
-            "distil_position_embeddings": "embeddings.position_embeddings",
-            "distil_embeddings_norm": "embeddings.LayerNorm",
-        }
-        if "/" not in path:
-            return None
-        outer, inner = path.split("/", 1)
-        if outer in fixed:
-            return f"{fixed[outer]}.{suffix}"
-        if not outer.startswith("distil_layer_"):
-            return None
-        index = int(outer.removeprefix("distil_layer_"))
-        part = inner.split("/", 1)[0]
-        part = {
-            "q_lin": "attention.q_lin",
-            "k_lin": "attention.k_lin",
-            "v_lin": "attention.v_lin",
-            "out_lin": "attention.out_lin",
-            "ffn_lin1": "ffn.lin1",
-            "ffn_lin2": "ffn.lin2",
-        }.get(part, part)
-        return f"transformer.layer.{index}.{part}.{suffix}"
-
-    fixed = {
-        "albert_word_embeddings": "embeddings.word_embeddings",
-        "albert_position_embeddings": "embeddings.position_embeddings",
-        "albert_token_type_embeddings": "embeddings.token_type_embeddings",
-        "albert_embeddings_norm": "embeddings.LayerNorm",
-        "albert_embedding_projection": "encoder.embedding_hidden_mapping_in",
-    }
-    if "/" not in path:
-        return None
-    outer, inner = path.split("/", 1)
-    if outer in fixed:
-        return f"{fixed[outer]}.{suffix}"
-    if outer != "albert_shared_block":
-        return None
-    part = inner.split("/", 1)[0]
-    part = {
-        "query": "attention.query",
-        "key": "attention.key",
-        "value": "attention.value",
-        "attention_dense": "attention.dense",
-        "attention_layer_norm": "attention.LayerNorm",
-        "full_layer_norm": "full_layer_layer_norm",
-    }.get(part, part)
-    return f"encoder.albert_layer_groups.0.albert_layers.0.{part}.{suffix}"
-
-
-def _transfer_custom_backbone(keras_model, hf_state_dict):
-    kind = keras_model.backbone_type
-    prefix = "distilbert." if kind == "distilbert" else "albert."
-    names = {k.removeprefix(prefix): k for k in hf_state_dict}
-    for weight in keras_model.weights:
-        hf_name = _custom_hf_name(weight.path, kind)
-        if hf_name is None:
-            continue
-        if hf_name not in names:
-            raise WeightMappingError(weight.path, hf_name)
-        source = hf_state_dict[names[hf_name]]
-        if weight.path == "albert_embedding_projection/kernel":
-            # The generic transfer helper treats any path containing
-            # "embedding" as an Embedding table, but this is a Dense kernel.
-            weight.assign(np.asarray(source).T)
-        else:
-            transfer_weights(weight.path, weight, source)
 
 
 def load_dense_state_dict(hf_id, rel_path, *, token=None, revision=None):

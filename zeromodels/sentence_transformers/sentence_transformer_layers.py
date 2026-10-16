@@ -1,5 +1,3 @@
-"""Pooling and normalization layers for Sentence Transformer models."""
-
 import keras
 from keras import layers, ops
 
@@ -35,30 +33,6 @@ POOLERS = {
 }
 
 
-def pool_token_embeddings(token_embeddings, attention_mask, pooling="mean"):
-    if pooling not in POOLERS:
-        raise ValueError(
-            f"Unknown pooling={pooling!r}; expected one of {sorted(POOLERS)}"
-        )
-    return POOLERS[pooling](token_embeddings, attention_mask)
-
-
-def l2_normalize(embeddings, axis=-1, eps=1e-12):
-    norm = ops.sqrt(
-        ops.maximum(ops.sum(ops.square(embeddings), axis=axis, keepdims=True), eps)
-    )
-    return embeddings / norm
-
-
-def cosine_similarity(a, b, eps=1e-12):
-    """Pairwise cosine similarity matrix ``(B_a, B_b)`` for row-normalized or raw vectors."""
-    a = ops.convert_to_tensor(a)
-    b = ops.convert_to_tensor(b)
-    a = l2_normalize(a, eps=eps)
-    b = l2_normalize(b, eps=eps)
-    return ops.matmul(a, ops.transpose(b))
-
-
 @keras.saving.register_keras_serializable(package="zeromodels")
 class SentenceTransformerPooling(layers.Layer):
     """Mean / CLS / max pool over token embeddings with an attention mask."""
@@ -73,7 +47,11 @@ class SentenceTransformerPooling(layers.Layer):
 
     def call(self, inputs):
         token_embeddings, attention_mask = inputs
-        return pool_token_embeddings(token_embeddings, attention_mask, self.pooling)
+        if self.pooling not in POOLERS:
+            raise ValueError(
+                f"Unknown pooling={self.pooling!r}; expected one of {sorted(POOLERS)}"
+            )
+        return POOLERS[self.pooling](token_embeddings, attention_mask)
 
     def get_config(self):
         config = super().get_config()
@@ -90,7 +68,12 @@ class SentenceTransformerNormalize(layers.Layer):
         self.eps = eps
 
     def call(self, embeddings):
-        return l2_normalize(embeddings, eps=self.eps)
+        norm = ops.sqrt(
+            ops.maximum(
+                ops.sum(ops.square(embeddings), axis=-1, keepdims=True), self.eps
+            )
+        )
+        return embeddings / norm
 
     def get_config(self):
         config = super().get_config()

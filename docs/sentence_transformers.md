@@ -3,7 +3,7 @@
 ZeroModels provides 13 converted dense sentence-embedding checkpoints. Each
 checkpoint combines a text encoder with its original pooling, optional Dense
 projection, and optional L2 normalization. Load them through the
-[`zeromodels.st_models` API](sentence_transformer.md); no conversion is needed
+[`zeromodels.sentence_transformers` API](sentence_transformer.md); no conversion is needed
 for the ZeroModels-hosted weights.
 
 | Checkpoint | Backbone | Embedding recipe | Dimensions |
@@ -32,11 +32,14 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from zeromodels.st_models import SentenceTransformer, SentenceTransformerTokenizer
+from zeromodels.sentence_transformers import (
+    ZMSentenceTransformer,
+    ZMSentenceTransformerTokenizer,
+)
 
 repo = "zeromodels/all-MiniLM-L6-v2"
-model = SentenceTransformer.from_weights(repo)
-tokenizer = SentenceTransformerTokenizer.from_weights(repo)
+model = ZMSentenceTransformer.from_weights(repo)
+tokenizer = ZMSentenceTransformerTokenizer.from_weights(repo)
 
 embeddings = model.encode(["A cat on a mat.", "A dog on a mat."], tokenizer=tokenizer)
 print(embeddings.shape)  # (2, 384)

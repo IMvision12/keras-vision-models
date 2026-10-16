@@ -18,6 +18,14 @@ optional Dense projection, and optional L2 normalization. Parity has been
 verified on the Keras Torch backend; TensorFlow and JAX parity have not yet
 been checked for all 13 checkpoints.
 
+The public API is `zeromodels.sentence_transformers`, separate from the upstream
+`sentence_transformers` reference library. The former `zeromodels.st_models`
+and `zeromodels.models.sentence_transformer` paths remain compatibility aliases
+for existing code and saved metadata; new examples and exports use the new namespace.
+Use `ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer`; the former
+`SentenceTransformer`, `SentenceTransformerModel`, and `SentenceTransformerTokenizer`
+names remain compatibility aliases.
+
 ## Usage
 
 ```python
@@ -25,14 +33,14 @@ import os
 
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
-from zeromodels.st_models import (
-    SentenceTransformer,
-    SentenceTransformerTokenizer,
+from zeromodels.sentence_transformers import (
+    ZMSentenceTransformer,
+    ZMSentenceTransformerTokenizer,
 )
 
 repo = "zeromodels/all-MiniLM-L6-v2"
-model = SentenceTransformer.from_weights(repo)
-tokenizer = SentenceTransformerTokenizer.from_weights(repo)
+model = ZMSentenceTransformer.from_weights(repo)
+tokenizer = ZMSentenceTransformerTokenizer.from_weights(repo)
 
 embeddings = model.encode(
     ["A man is eating food.", "A man is eating pasta."],
@@ -56,8 +64,8 @@ records the surrounding official configuration in two separate blocks:
 ```json
 {
   "library_name": "zeromodels",
-  "preprocessor_module": "zeromodels.st_models",
-  "preprocessor_class": "SentenceTransformerTokenizer",
+  "preprocessor_module": "zeromodels.sentence_transformers",
+  "preprocessor_class": "ZMSentenceTransformerTokenizer",
   "tokenizer_file": "tokenizer.json",
   "backbone_type": "bert",
   "tokenizer_config": {
@@ -89,6 +97,8 @@ An explicit `max_seq_len=` overrides the stored limit. Legacy repos without
 
 `write_zm_preprocessor(directory, tokenizer, variant)` exports a portable recipe
 referencing `tokenizer.json` in the same repo, rather than a local cache path.
+New exports set both `model_module` in `zm_config.json` and `preprocessor_module`
+in `zm_preprocessor.json` to `zeromodels.sentence_transformers`.
 Text preprocessing uses the `tokenizers` library; `transformers` is not needed
 to load these converted checkpoints.
 
@@ -100,8 +110,8 @@ tokenizer:
 
 ```python
 upstream = "hf:sentence-transformers/all-MiniLM-L6-v2"
-model = SentenceTransformer.from_weights(upstream)
-tokenizer = SentenceTransformerTokenizer.from_weights(
+model = ZMSentenceTransformer.from_weights(upstream)
+tokenizer = ZMSentenceTransformerTokenizer.from_weights(
     upstream, revision=model.source_revision
 )
 ```
@@ -122,13 +132,20 @@ supported by this model.
 ## Parity check
 
 The optional `sentence-transformers` dependency is needed only for comparison
-against the original implementation:
+against the original implementation. After the Usage example above, compare
+the published ZeroModels weights with the matching original checkpoint:
 
-```bash
-python scripts/verify_sentence_transformer_parity.py --model all
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer as ReferenceSentenceTransformer
+
+texts = ["A man is eating food.", "A man is eating pasta."]
+reference = ReferenceSentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+expected = reference.encode(texts, normalize_embeddings=False)
+actual = model.encode(texts, tokenizer=tokenizer)
+print("Maximum absolute difference:", np.max(np.abs(actual - expected)))
 ```
 
-The script compares embeddings at pinned upstream commits for all 13 rows.
-Use `--model <name>` to check one checkpoint. It downloads upstream weights
-into the standard Hugging Face cache but does not create or publish converted
-releases.
+Use matching checkpoint names from the models table, compare in float32, and
+record Hub commit SHAs for reproducible results. This downloads original
+weights for comparison; it does not convert or publish a new checkpoint.

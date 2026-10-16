@@ -178,9 +178,9 @@ if __name__ == "__main__":
     from transformers import AutoModel, AutoTokenizer
 
     from zeromodels.conversion.zm_config import write_zm_config
-    from zeromodels.st_models import (
-        SentenceTransformerModel,
-        SentenceTransformerTokenizer,
+    from zeromodels.sentence_transformers import (
+        ZMSentenceTransformer,
+        ZMSentenceTransformerTokenizer,
     )
 
     HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -197,8 +197,8 @@ if __name__ == "__main__":
     for variant, hf_id in VARIANTS.items():
         print(f"\n{'=' * 60}\nConverting: {variant}  <-  {hf_id}\n{'=' * 60}")
 
-        keras_model = SentenceTransformerModel.from_hf(hf_id)
-        tok = SentenceTransformerTokenizer.from_hf(
+        keras_model = ZMSentenceTransformer.from_hf(hf_id)
+        tok = ZMSentenceTransformerTokenizer.from_hf(
             hf_id, max_seq_len=keras_model.max_seq_len
         )
         k_inputs = tok(texts)
@@ -237,7 +237,7 @@ if __name__ == "__main__":
         keras_model.save_weights(out_path)
         write_zm_config(
             dest,
-            SentenceTransformerModel,
+            ZMSentenceTransformer,
             variant,
             keras_model.config,
             weights_filename="model.weights.h5",

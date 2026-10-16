@@ -19,24 +19,28 @@ from .sentence_transformer_config import SentenceTransformerConfig
 from .sentence_transformer_layers import (
     SentenceTransformerNormalize,
     SentenceTransformerPooling,
-    cosine_similarity,
 )
 
-SENTENCE_TRANSFORMER_HUB_SIBLINGS = frozenset({"SentenceTransformerModel"})
+SENTENCE_TRANSFORMER_HUB_SIBLINGS = frozenset(
+    {"ZMSentenceTransformer", "SentenceTransformerModel", "SentenceTransformer"}
+)
 
 
 @keras.saving.register_keras_serializable(package="zeromodels")
-class SentenceTransformerModel(BaseModel):
+@keras.saving.register_keras_serializable(
+    package="zeromodels", name="SentenceTransformerModel"
+)
+class ZMSentenceTransformer(BaseModel):
     """Sentence embedding model: encoder + pooling (+ optional Dense) + normalize.
 
     Matches popular Sentence-Transformers stacks such as
     ``sentence-transformers/all-mpnet-base-v2`` (MPNet encoder, mean pooling,
     L2 normalize). Load an upstream checkpoint with::
 
-        model = SentenceTransformerModel.from_weights(
+        model = ZMSentenceTransformer.from_weights(
             "hf:sentence-transformers/all-mpnet-base-v2"
         )
-        tok = SentenceTransformerTokenizer.from_weights(
+        tok = ZMSentenceTransformerTokenizer.from_weights(
             "hf:sentence-transformers/all-mpnet-base-v2",
             revision=model.source_revision,
         )
@@ -96,7 +100,7 @@ class SentenceTransformerModel(BaseModel):
         projection_activation="linear",
         similarity_fn_name="cosine",
         max_seq_len=384,
-        name="SentenceTransformerModel",
+        name="ZMSentenceTransformer",
         **kwargs,
     ):
         for k in ("model", "hf_id", "url", "num_classes"):
@@ -520,7 +524,7 @@ class SentenceTransformerModel(BaseModel):
 
         Args:
             texts: String or list of strings.
-            tokenizer: :class:`SentenceTransformerTokenizer` (or any callable that
+            tokenizer: :class:`ZMSentenceTransformerTokenizer` (or any callable that
                 returns ``input_ids`` / ``attention_mask``).
             normalize: Override config L2-normalize. ``None`` keeps model output.
             batch_size: Encode in chunks of this size.
@@ -553,7 +557,15 @@ class SentenceTransformerModel(BaseModel):
         """Pairwise scores using this checkpoint's declared similarity function."""
         if self.similarity_fn_name == "dot":
             return ops.matmul(a, ops.transpose(b))
-        return cosine_similarity(a, b)
+        a = ops.convert_to_tensor(a)
+        b = ops.convert_to_tensor(b)
+        a = a / ops.sqrt(
+            ops.maximum(ops.sum(ops.square(a), axis=-1, keepdims=True), 1e-12)
+        )
+        b = b / ops.sqrt(
+            ops.maximum(ops.sum(ops.square(b), axis=-1, keepdims=True), 1e-12)
+        )
+        return ops.matmul(a, ops.transpose(b))
 
     def get_config(self):
         config = super().get_config()
@@ -562,5 +574,10 @@ class SentenceTransformerModel(BaseModel):
 
 
 @keras.saving.register_keras_serializable(package="zeromodels")
-class SentenceTransformerTextEmbed(SentenceTransformerModel):
-    """Text-embedding task view of :class:`SentenceTransformerModel`."""
+class SentenceTransformerTextEmbed(ZMSentenceTransformer):
+    """Text-embedding task view of :class:`ZMSentenceTransformer`."""
+
+
+# Preserve old deep imports and serialized objects without duplicating classes.
+SentenceTransformerModel = ZMSentenceTransformer
+SentenceTransformer = ZMSentenceTransformer

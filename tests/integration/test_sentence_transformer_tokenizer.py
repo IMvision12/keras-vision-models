@@ -10,7 +10,7 @@ from huggingface_hub.utils import EntryNotFoundError
 from keras import ops
 from tokenizers import Tokenizer, models, normalizers, pre_tokenizers, processors
 
-from zeromodels.st_models import SentenceTransformerTokenizer
+from zeromodels.sentence_transformers import ZMSentenceTransformerTokenizer
 
 SHA = "a" * 40
 
@@ -38,8 +38,8 @@ def tokenizer_path(tmp_path):
 
 def metadata():
     return {
-        "preprocessor_module": "zeromodels.st_models",
-        "preprocessor_class": "SentenceTransformerTokenizer",
+        "preprocessor_module": "zeromodels.sentence_transformers",
+        "preprocessor_class": "ZMSentenceTransformerTokenizer",
         "tokenizer_file": "assets/tokenizer.json",
         "backbone_type": "bert",
         "tokenizer_config": {
@@ -79,18 +79,23 @@ def mock_repo(monkeypatch, tmp_path, files):
     return calls
 
 
+@pytest.mark.parametrize(
+    "declared", ("ZMSentenceTransformerTokenizer", "SentenceTransformerTokenizer")
+)
 def test_hub_metadata_uses_one_snapshot_and_official_sequence_limit(
-    monkeypatch, tmp_path, tokenizer_path
+    monkeypatch, tmp_path, tokenizer_path, declared
 ):
+    spec = metadata()
+    spec["preprocessor_class"] = declared
     calls = mock_repo(
         monkeypatch,
         tmp_path,
         {
-            "zm_preprocessor.json": metadata(),
+            "zm_preprocessor.json": spec,
             "assets/tokenizer.json": tokenizer_path,
         },
     )
-    tok = SentenceTransformerTokenizer.from_weights(
+    tok = ZMSentenceTransformerTokenizer.from_weights(
         "zeromodels/example", revision="release"
     )
     encoded = tok(["hello world " * 10, "hello"])
@@ -115,7 +120,7 @@ def test_portable_preprocessor_export_loads_again(
 ):
     from zeromodels.conversion.zm_config import write_zm_preprocessor
 
-    original = SentenceTransformerTokenizer(
+    original = ZMSentenceTransformerTokenizer(
         tokenizer_file=str(tokenizer_path),
         backbone_type="bert",
         max_seq_len=6,
@@ -125,13 +130,15 @@ def test_portable_preprocessor_export_loads_again(
     path = write_zm_preprocessor(tmp_path, original, "example")
     with open(path, encoding="utf-8") as stream:
         spec = json.load(stream)
+    assert spec["preprocessor_module"] == "zeromodels.sentence_transformers"
     assert spec["tokenizer_file"] == "tokenizer.json"
+    assert spec["preprocessor_class"] == "ZMSentenceTransformerTokenizer"
     mock_repo(
         monkeypatch,
         tmp_path,
         {"zm_preprocessor.json": spec, "tokenizer.json": tokenizer_path},
     )
-    reloaded = SentenceTransformerTokenizer.from_weights("example", revision=SHA)
+    reloaded = ZMSentenceTransformerTokenizer.from_weights("example", revision=SHA)
     for key, expected in original(["Hello world", "hello"]).items():
         np.testing.assert_array_equal(
             ops.convert_to_numpy(reloaded(["Hello world", "hello"])[key]),
@@ -153,7 +160,9 @@ def test_legacy_nested_config_and_explicit_limit_keep_backbone(
             "tokenizer.json": tokenizer_path,
         },
     )
-    tok = SentenceTransformerTokenizer.from_weights("zeromodels/example", max_seq_len=5)
+    tok = ZMSentenceTransformerTokenizer.from_weights(
+        "zeromodels/example", max_seq_len=5
+    )
     assert tok.max_seq_len == 5
     assert tok.backbone_type == "bert"
     assert "token_type_ids" in tok(["hello"])
@@ -163,12 +172,12 @@ def test_sentence_transformer_lowercase_is_separate_from_tokenizer_normalization
     tokenizer_path,
 ):
     tc = {"do_lower_case": False, "pad_token": "[PAD]"}
-    plain = SentenceTransformerTokenizer(
+    plain = ZMSentenceTransformerTokenizer(
         tokenizer_file=str(tokenizer_path),
         tokenizer_config=tc,
         sentence_transformer_config={"do_lower_case": False},
     )
-    extra = SentenceTransformerTokenizer(
+    extra = ZMSentenceTransformerTokenizer(
         tokenizer_file=str(tokenizer_path),
         tokenizer_config=tc,
         sentence_transformer_config={"do_lower_case": True},
@@ -178,7 +187,7 @@ def test_sentence_transformer_lowercase_is_separate_from_tokenizer_normalization
     raw = Tokenizer.from_file(str(tokenizer_path))
     raw.normalizer = normalizers.BertNormalizer(lowercase=True)
     raw.save(str(tokenizer_path))
-    inherited = SentenceTransformerTokenizer(
+    inherited = ZMSentenceTransformerTokenizer(
         tokenizer_file=str(tokenizer_path),
         tokenizer_config={"do_lower_case": True},
         sentence_transformer_config={"do_lower_case": False},
@@ -187,7 +196,7 @@ def test_sentence_transformer_lowercase_is_separate_from_tokenizer_normalization
 
 
 def test_padding_truncation_pairs_and_serialization(tokenizer_path):
-    tok = SentenceTransformerTokenizer(
+    tok = ZMSentenceTransformerTokenizer(
         tokenizer_file=str(tokenizer_path),
         backbone_type="bert",
         tokenizer_config={"padding_side": "left", "truncation_side": "left"},
@@ -227,7 +236,9 @@ def test_upstream_module_path_and_sidecars(monkeypatch, tmp_path, tokenizer_path
             "0_Transformer/tokenizer.json": tokenizer_path,
         },
     )
-    tok = SentenceTransformerTokenizer.from_weights("hf:sentence-transformers/example")
+    tok = ZMSentenceTransformerTokenizer.from_weights(
+        "hf:sentence-transformers/example"
+    )
     assert tok.max_seq_len == 5 and tok.cls_token_id == 2
     assert tok.tokenize("Hello") == [5]
     assert all(revision == SHA for _, revision in calls)
@@ -247,4 +258,4 @@ def test_hub_rejects_non_repository_tokenizer_paths(monkeypatch, tmp_path, filen
     spec["tokenizer_file"] = filename
     mock_repo(monkeypatch, tmp_path, {"zm_preprocessor.json": spec})
     with pytest.raises(ValueError, match="repository-relative"):
-        SentenceTransformerTokenizer.from_weights("zeromodels/example")
+        ZMSentenceTransformerTokenizer.from_weights("zeromodels/example")

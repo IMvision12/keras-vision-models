@@ -1,5 +1,3 @@
-"""Encoder backbones for the supported Sentence Transformer checkpoints."""
-
 import math
 
 import keras
@@ -23,14 +21,6 @@ def _attention(query, key, value, attention_mask, num_heads):
     context = ops.matmul(ops.softmax(scores, axis=-1), v)
     context = ops.transpose(context, (0, 2, 1, 3))
     return ops.reshape(context, (batch, length, num_heads * head_dim))
-
-
-def _gelu_new(x):
-    return (
-        0.5
-        * x
-        * (1.0 + ops.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * ops.power(x, 3))))
-    )
 
 
 @keras.saving.register_keras_serializable(package="zeromodels")
@@ -123,7 +113,17 @@ class AlbertEncoderBlock(layers.Layer):
         x = self.attention_layer_norm(x + self.attention_dense(context))
         hidden = self.ffn(x)
         if self.activation == "gelu_new":
-            hidden = _gelu_new(hidden)
+            hidden = (
+                0.5
+                * hidden
+                * (
+                    1.0
+                    + ops.tanh(
+                        math.sqrt(2.0 / math.pi)
+                        * (hidden + 0.044715 * ops.power(hidden, 3))
+                    )
+                )
+            )
         elif self.activation == "gelu":
             hidden = ops.gelu(hidden, approximate=False)
         else:

@@ -9,7 +9,7 @@ import pytest
 from keras import ops
 
 from tests.base.model_test_registry import _SENTENCE_TRANSFORMER_VARIANTS
-from zeromodels.st_models import SentenceTransformerTokenizer
+from zeromodels.sentence_transformers import ZMSentenceTransformerTokenizer
 
 transformers = pytest.importorskip("transformers")
 
@@ -28,7 +28,7 @@ PAIRS = ["a pair", "", "deuxième phrase", "हिन्दी पाठ", "test
 @pytest.mark.parametrize("name", list(_SENTENCE_TRANSFORMER_VARIANTS))
 def test_official_tokenizer_parity_without_weights(name):
     repo = f"sentence-transformers/{name}"
-    ours = SentenceTransformerTokenizer.from_hf(repo)
+    ours = ZMSentenceTransformerTokenizer.from_hf(repo)
     reference = transformers.AutoTokenizer.from_pretrained(
         repo, revision=ours.source_revision, use_fast=True, trust_remote_code=False
     )

@@ -40,9 +40,9 @@ Classification backbones share a single [documentation page](https://imvision12.
 Documentation sources are also available in [`docs/`](docs/).
 
 
-## 💬 Sentence Transformers Models (st_models)
+## 💬 Sentence Transformers Models (sentence_transformers)
 
-All 13 checkpoints below have pre-converted Keras weights under the `zeromodels` Hugging Face organization. Load them through `zeromodels.st_models` for sentence similarity, semantic search, or clustering.
+All 13 checkpoints below have pre-converted Keras weights under the `zeromodels` Hugging Face organization. Use `ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer` from `zeromodels.sentence_transformers` for sentence similarity, semantic search, or clustering.
 
 | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
 |---------------|-------------------|---------------------|

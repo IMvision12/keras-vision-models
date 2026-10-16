@@ -5,32 +5,63 @@ import json
 
 import numpy as np
 import pytest
-from keras import ops
+from keras import ops, saving
 
 from tests.base.model_test_registry import MODEL_TEST_CONFIGS
-from zeromodels.st_models import (
-    SentenceTransformer,
-    SentenceTransformerModel,
+from zeromodels.sentence_transformers import (
     SentenceTransformerTextEmbed,
+    ZMSentenceTransformer,
+    ZMSentenceTransformerTokenizer,
 )
 
 
-def test_top_level_st_api_and_legacy_imports_resolve_to_same_classes():
-    legacy = importlib.import_module("zeromodels.models.sentence_transformer")
-    legacy_model_module = importlib.import_module(
-        "zeromodels.models.sentence_transformer.sentence_transformer_model"
+@pytest.mark.parametrize(
+    "module",
+    (
+        "zeromodels.models.sentence_transformer",
+        "zeromodels.st_models",
+        "zeromodels.st_models.sentence_transformer",
+        "zeromodels.sentence_transformers.sentence_transformer",
+    ),
+)
+def test_top_level_st_api_and_legacy_imports_resolve_to_same_classes(module):
+    legacy = importlib.import_module(module)
+    package = (
+        module + ".sentence_transformer" if module.endswith("st_models") else module
     )
-    assert SentenceTransformer is SentenceTransformerModel
-    assert legacy.SentenceTransformerModel is SentenceTransformerModel
-    assert legacy_model_module.SentenceTransformerModel is SentenceTransformerModel
+    legacy_model_module = importlib.import_module(
+        package + ".sentence_transformer_model"
+    )
+    assert ZMSentenceTransformer.__name__ == "ZMSentenceTransformer"
+    assert ZMSentenceTransformerTokenizer.__name__ == "ZMSentenceTransformerTokenizer"
+    assert legacy.ZMSentenceTransformer is ZMSentenceTransformer
+    assert legacy_model_module.ZMSentenceTransformer is ZMSentenceTransformer
+    assert legacy.SentenceTransformerModel is ZMSentenceTransformer
+    assert legacy_model_module.SentenceTransformerModel is ZMSentenceTransformer
+    assert legacy.SentenceTransformerTokenizer is ZMSentenceTransformerTokenizer
 
 
-def test_existing_hub_config_with_old_module_path_still_builds(monkeypatch):
+@pytest.mark.parametrize(
+    "module",
+    (
+        "zeromodels.models.sentence_transformer",
+        "zeromodels.st_models.sentence_transformer",
+        "zeromodels.sentence_transformers.sentence_transformer",
+        "zeromodels.sentence_transformers",
+    ),
+)
+@pytest.mark.parametrize(
+    "declared",
+    ("ZMSentenceTransformer", "SentenceTransformerModel", "SentenceTransformer"),
+)
+def test_existing_hub_config_with_old_module_path_still_builds(
+    monkeypatch, module, declared
+):
     from zeromodels.conversion import zm_config
 
     spec = {
-        "model_module": "zeromodels.models.sentence_transformer",
-        "model_class": "SentenceTransformerModel",
+        "model_module": module,
+        "model_class": declared,
         "model_type": "sentence_transformer",
         "backbone_type": "bert",
         "vocab_size": 32,
@@ -42,11 +73,23 @@ def test_existing_hub_config_with_old_module_path_still_builds(monkeypatch):
     }
     monkeypatch.setattr(zm_config, "load_zm_config", lambda repo_id: spec)
 
-    model = SentenceTransformer.from_hub_repo(
+    model = ZMSentenceTransformer.from_hub_repo(
         "zeromodels/example-sentence-transformer", load_weights=False
     )
-    assert isinstance(model, SentenceTransformerModel)
+    assert isinstance(model, ZMSentenceTransformer)
     assert model.config.backbone_type == "bert"
+
+
+@pytest.mark.parametrize(
+    "canonical,legacy",
+    (
+        (ZMSentenceTransformer, "SentenceTransformerModel"),
+        (ZMSentenceTransformerTokenizer, "SentenceTransformerTokenizer"),
+    ),
+)
+def test_keras_registration_uses_new_name_and_preserves_legacy_name(canonical, legacy):
+    assert saving.get_registered_name(canonical) == f"zeromodels>{canonical.__name__}"
+    assert saving.get_registered_object(f"zeromodels>{legacy}") is canonical
 
 
 def test_all_published_sentence_transformer_variants_are_in_offline_registry():
@@ -66,9 +109,9 @@ def test_all_published_sentence_transformer_variants_are_in_offline_registry():
         "distiluse-base-multilingual-cased-v2",
     }
     registered = {
-        name.removeprefix("SentenceTransformer_")
+        name.removeprefix("ZMSentenceTransformer_")
         for name in MODEL_TEST_CONFIGS
-        if name.startswith("SentenceTransformer_")
+        if name.startswith("ZMSentenceTransformer_")
     }
     assert registered == {name.replace("-", "_") for name in published}
 
@@ -78,7 +121,7 @@ def test_all_published_sentence_transformer_variants_are_in_offline_registry():
     ("mpnet", "bert", "roberta", "xlm-roberta", "distilbert", "albert"),
 )
 def test_backbone_builds_and_returns_sentence_embeddings(backbone_type):
-    model = SentenceTransformerModel(
+    model = ZMSentenceTransformer(
         backbone_type=backbone_type,
         vocab_size=32,
         embed_dim=16,
@@ -115,7 +158,7 @@ def test_pooling_parser_accepts_exactly_one_supported_mode(
         "huggingface_hub.hf_hub_download", lambda *args, **kwargs: str(config_path)
     )
     assert (
-        SentenceTransformerModel._pooling_from_module_dir("example/model", "1_Pooling")
+        ZMSentenceTransformer._pooling_from_module_dir("example/model", "1_Pooling")
         == pooling
     )
 
@@ -130,7 +173,7 @@ def test_pooling_parser_rejects_ambiguous_modes(monkeypatch, tmp_path):
         "huggingface_hub.hf_hub_download", lambda *args, **kwargs: str(config_path)
     )
     with pytest.raises(ValueError, match="pooling config"):
-        SentenceTransformerModel._pooling_from_module_dir("example/model", "1_Pooling")
+        ZMSentenceTransformer._pooling_from_module_dir("example/model", "1_Pooling")
 
 
 def test_sentence_transformer_registered_for_text_embed_task():
@@ -143,7 +186,7 @@ def test_sentence_transformer_registered_for_text_embed_task():
 
 
 def test_dot_similarity_is_not_cosine_normalized():
-    model = SentenceTransformerModel(
+    model = ZMSentenceTransformer(
         backbone_type="bert",
         vocab_size=32,
         embed_dim=8,
@@ -160,7 +203,7 @@ def test_dot_similarity_is_not_cosine_normalized():
 
 
 def test_cosine_similarity_accepts_numpy_embeddings():
-    model = SentenceTransformerModel(
+    model = ZMSentenceTransformer(
         backbone_type="bert",
         vocab_size=32,
         embed_dim=8,
@@ -184,7 +227,7 @@ def test_sentence_transformer_h5_weights_round_trip(tmp_path):
         "mlp_dim": 16,
         "max_position_embeddings": 16,
     }
-    model = SentenceTransformerModel(**kwargs)
+    model = ZMSentenceTransformer(name="SentenceTransformerModel", **kwargs)
     inputs = {
         "input_ids": np.array([[2, 3, 4]], dtype="int32"),
         "attention_mask": np.ones((1, 3), dtype="int32"),
@@ -194,7 +237,9 @@ def test_sentence_transformer_h5_weights_round_trip(tmp_path):
     path = tmp_path / "model.weights.h5"
     model.save_weights(str(path))
 
-    reloaded = SentenceTransformerModel(**model.config.constructor_kwargs())
+    reloaded = ZMSentenceTransformer(**model.config.constructor_kwargs())
+    assert model.name == "SentenceTransformerModel"
+    assert reloaded.name == "ZMSentenceTransformer"
     reloaded.load_weights(str(path))
     actual = ops.convert_to_numpy(reloaded(inputs)["embeddings"])
     np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-5)

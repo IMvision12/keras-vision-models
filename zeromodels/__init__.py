@@ -1,4 +1,12 @@
-from zeromodels import auto, conversion, models, samplers, st_models, utils
+from zeromodels import (
+    auto,
+    conversion,
+    models,
+    samplers,
+    sentence_transformers,
+    st_models,
+    utils,
+)
 from zeromodels.auto import (
     AutoZMConfig,
     AutoZMImageProcessor,
@@ -14,6 +22,7 @@ __all__ = [
     "auto",
     "models",
     "samplers",
+    "sentence_transformers",
     "st_models",
     "utils",
     "conversion",

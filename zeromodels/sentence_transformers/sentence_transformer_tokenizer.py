@@ -11,7 +11,10 @@ from zeromodels.base import BaseTokenizer
 
 
 @keras.saving.register_keras_serializable(package="zeromodels")
-class SentenceTransformerTokenizer(BaseTokenizer):
+@keras.saving.register_keras_serializable(
+    package="zeromodels", name="SentenceTransformerTokenizer"
+)
+class ZMSentenceTransformerTokenizer(BaseTokenizer):
     """Tokenizer for supported ST models, preserving their tokenizer.json rules.
 
     Loads ``tokenizer.json`` from a Hub repo (via ``from_weights("org/repo")`` /
@@ -183,7 +186,10 @@ class SentenceTransformerTokenizer(BaseTokenizer):
         spec = cls._optional_json(repo_id, "zm_preprocessor.json", token, revision)
         filename = "tokenizer.json"
         if spec is not None:
-            if spec.get("preprocessor_class") != cls.__name__:
+            if spec.get("preprocessor_class") not in (
+                cls.__name__,
+                "SentenceTransformerTokenizer",
+            ):
                 raise ValueError(
                     f"{repo_id}: zm_preprocessor.json must declare {cls.__name__}"
                 )
@@ -334,7 +340,10 @@ class SentenceTransformerTokenizer(BaseTokenizer):
             config.get("type") == "Lowercase"
             or config.get("lowercase") is True
             or any(
-                SentenceTransformerTokenizer._has_lowercase(item)
+                ZMSentenceTransformerTokenizer._has_lowercase(item)
                 for item in config.get("normalizers", [])
             )
         )
+
+
+SentenceTransformerTokenizer = ZMSentenceTransformerTokenizer

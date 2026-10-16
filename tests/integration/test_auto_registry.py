@@ -26,6 +26,7 @@ _TASK_NORMALIZE = {
     "DptSemanticSegment": "SemanticSegment",
     "DptDensePredict": "DensePredict",
     "UnifiedTextGenerate": "TextGenerate",
+    "SentenceTransformer": "Model",
 }
 _TASK_SUFFIXES = sorted(
     {
@@ -62,6 +63,7 @@ _TASK_SUFFIXES = sorted(
         "TextModel",
         "VisionModel",
         "EncoderModel",
+        "SentenceTransformer",
         "Model",
     },
     key=len,
@@ -85,16 +87,27 @@ def _hf_types(cls):
 
 def _iter_model_classes():
     import zeromodels.models as models
-    import zeromodels.st_models as st_models
+    import zeromodels.sentence_transformers as sentence_transformers
     from zeromodels.base.base_model import BaseModel
 
-    for namespace in (models, st_models):
-        for family in sorted(n for n in dir(namespace) if not n.startswith("_")):
-            package = getattr(namespace, family)
+    seen = set()
+    for namespace in (models, sentence_transformers):
+        packages = [namespace]
+        packages.extend(
+            getattr(namespace, family)
+            for family in sorted(n for n in dir(namespace) if not n.startswith("_"))
+        )
+        for package in packages:
             for name in getattr(package, "__all__", []):
                 obj = getattr(package, name, None)
-                if inspect.isclass(obj) and issubclass(obj, BaseModel):
-                    yield name, obj
+                if (
+                    inspect.isclass(obj)
+                    and issubclass(obj, BaseModel)
+                    and obj not in seen
+                ):
+                    seen.add(obj)
+                    # Compatibility aliases are not separate model classes.
+                    yield obj.__name__, obj
 
 
 def test_top_level_and_task_autos_exported():
@@ -142,6 +155,7 @@ def test_no_transformers_name_collision():
         # Versioned families are disambiguated by the distinct config model_type.
         ("AutoZModel", "deberta_v2", "DebertaV2Model"),
         ("AutoZModel", "deberta_v3", "DebertaV3Model"),
+        ("AutoZModel", "sentence_transformer", "ZMSentenceTransformer"),
     ],
 )
 def test_key_resolutions(auto_name, model_type, expected_cls):
@@ -197,6 +211,9 @@ def test_no_key_in_both_single_and_ambiguous():
 def test_preprocessor_and_config_registries():
     assert zm.AutoZMConfig.for_model_type("detr").__name__ == "DetrConfig"
     assert zm.AutoZMTokenizer.mapping()["bert"].__name__ == "BertTokenizer"
+    assert zm.AutoZMTokenizer.mapping()["sentence_transformer"].__name__ == (
+        "ZMSentenceTransformerTokenizer"
+    )
     assert zm.AutoZMImageProcessor.mapping()["detr"].__name__ == "DETRImageProcessor"
     assert zm.AutoZMProcessor.mapping()["clip"].__name__ == "CLIPProcessor"
 
@@ -430,7 +447,9 @@ def test_no_cross_family_model_type():
     model. The genuinely-shared model_types are allowlisted with their exact family set."""
 
     def family(class_name):
-        return A._resolve_class(class_name).__module__.split(".")[2]
+        parts = A._resolve_class(class_name).__module__.split(".")
+        # Model-zoo families are nested; standalone APIs are a top-level package.
+        return parts[2] if parts[1] == "models" else parts[1]
 
     per_type = {}
     for task, table in names.MODEL_TASK_MAPPING_NAMES.items():

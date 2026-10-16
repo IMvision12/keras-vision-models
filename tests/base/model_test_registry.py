@@ -2997,9 +2997,9 @@ MODEL_TEST_CONFIGS = {
         "expected_output_shape": (2, 3),
     },
     # ---- Sentence Transformers (MPNet backbone) ----
-    "SentenceTransformerModel": {
-        "module": "zeromodels.st_models",
-        "model_cls": "SentenceTransformerModel",
+    "ZMSentenceTransformer": {
+        "module": "zeromodels.sentence_transformers",
+        "model_cls": "ZMSentenceTransformer",
         "model_type": "llm",
         "init_kwargs": {
             "backbone_type": "mpnet",
@@ -3022,7 +3022,7 @@ MODEL_TEST_CONFIGS = {
         },
     },
     "SentenceTransformerTextEmbed": {
-        "module": "zeromodels.st_models",
+        "module": "zeromodels.sentence_transformers",
         "model_cls": "SentenceTransformerTextEmbed",
         "model_type": "llm",
         "init_kwargs": {
@@ -4488,9 +4488,9 @@ for _variant, (
         if _backbone in ("roberta", "xlm-roberta")
         else "bert_input"
     )
-    MODEL_TEST_CONFIGS[f"SentenceTransformer_{_variant.replace('-', '_')}"] = {
-        "module": "zeromodels.st_models",
-        "model_cls": "SentenceTransformerModel",
+    MODEL_TEST_CONFIGS[f"ZMSentenceTransformer_{_variant.replace('-', '_')}"] = {
+        "module": "zeromodels.sentence_transformers",
+        "model_cls": "ZMSentenceTransformer",
         "model_type": "llm",
         "init_kwargs": _kwargs,
         "input_factory": _factory,

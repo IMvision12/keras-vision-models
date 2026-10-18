@@ -38,11 +38,9 @@ SKIP_DATA_FORMAT = {
     "Tipsv2DptDepthEstimation",
     "Tipsv2DptSemanticSegment",
     # Qwen-Image's Wan-derived VAE is built channels_last (NTHWC Conv3D).
-    "QwenImageModel",
-    "QwenImageTextToImage",
+    "ZMDiffusion_qwen_image",
     # Qwen-Image-2.1 residual VAE is channels_last (spatial Conv2d, RGBA).
-    "QwenImage21Model",
-    "QwenImage21TextToImage",
+    "ZMDiffusion_qwen_image_21",
     # Qwen-VL inputs are pre-patchified (no spatial axes) -> layout-agnostic.
     "Qwen2VLModel",
     "Qwen2_5VLModel",

@@ -11,17 +11,18 @@ distinct per family) OR a raw transformers ``config.json``; both spellings are i
 the zeromodels-repo and ``hf:`` load paths share one table.
 """
 
-# Public building blocks of full diffusion pipelines, not standalone Auto tasks.
-# Values name the Auto-loadable owner exposing vae/text_encoder/transformer.
+# Public building blocks of the diffusion pipeline, not standalone Auto tasks.
+# Values name the Auto-loadable owner exposing vae/text_encoder/transformer
+# (ZMDiffusion, which builds them for the Qwen-Image families).
 # Direct construction and serialization remain supported; a config model_type
 # alone does not promise an independent Auto checkpoint-loading route.
 COMPONENT_ONLY_MODEL_NAMES = {
-    "AutoencoderKLQwenImage": "QwenImageModel",
-    "QwenImageTextEncoderModel": "QwenImageModel",
-    "QwenImageTransformer2DModel": "QwenImageModel",
-    "AutoencoderKLQwenImage21": "QwenImage21Model",
-    "QwenImage21TextEncoderModel": "QwenImage21Model",
-    "QwenImage21Transformer2DModel": "QwenImage21Model",
+    "AutoencoderKLQwenImage": "ZMDiffusion",
+    "QwenImageTextEncoderModel": "ZMDiffusion",
+    "QwenImageTransformer2DModel": "ZMDiffusion",
+    "AutoencoderKLQwenImage21": "ZMDiffusion",
+    "QwenImage21TextEncoderModel": "ZMDiffusion",
+    "QwenImage21Transformer2DModel": "ZMDiffusion",
 }
 
 # task suffix -> {model_type: ClassName}. AutoZModel is task 'Model';
@@ -289,14 +290,14 @@ MODEL_TASK_MAPPING_NAMES = {
         "sentence_transformer": "ZMSentenceTransformer",
         "siglip": "SigLIPModel",
         "siglip2": "SigLIP2Model",
-        "stable_diffusion": "StableDiffusionModel",
-        "stable_diffusion_2": "StableDiffusion2Model",
-        "stable_diffusion_xl": "StableDiffusionXLModel",
-        "stable_diffusion_xl_refiner": "StableDiffusionXLRefinerModel",
-        "stable_diffusion_3": "StableDiffusion3Model",
-        "stable_diffusion_3_5": "StableDiffusion3_5Model",
-        "qwen_image": "QwenImageModel",
-        "qwen_image_21": "QwenImage21Model",
+        "stable_diffusion": "ZMDiffusion",
+        "stable_diffusion_2": "ZMDiffusion",
+        "stable_diffusion_xl": "ZMDiffusion",
+        "stable_diffusion_xl_refiner": "ZMDiffusion",
+        "stable_diffusion_3": "ZMDiffusion",
+        "stable_diffusion_3_5": "ZMDiffusion",
+        "qwen_image": "ZMDiffusion",
+        "qwen_image_21": "ZMDiffusion",
         "swin": "SwinModel",
         "swinv2": "SwinV2Model",
         "t5": "T5Model",
@@ -370,7 +371,7 @@ MODEL_TASK_MAPPING_NAMES = {
     },
     "TextEmbed": {
         "clip": "CLIPTextEmbed",
-        "sentence_transformer": "SentenceTransformerTextEmbed",
+        "sentence_transformer": "ZMSentenceTransformer",
     },
     "TextGenerate": {
         "deepseek_v2": "DeepseekV2TextGenerate",
@@ -430,16 +431,16 @@ MODEL_TASK_MAPPING_NAMES = {
         "tipsv2": "Tipsv2TextModel",
     },
     "TextToImage": {
-        "stable_diffusion": "StableDiffusionTextToImage",
-        "stable_diffusion_2": "StableDiffusion2TextToImage",
-        "stable_diffusion_xl": "StableDiffusionXLTextToImage",
-        "stable_diffusion_3": "StableDiffusion3TextToImage",
-        "stable_diffusion_3_5": "StableDiffusion3_5TextToImage",
-        "qwen_image": "QwenImageTextToImage",
-        "qwen_image_21": "QwenImage21TextToImage",
+        "stable_diffusion": "ZMDiffusion",
+        "stable_diffusion_2": "ZMDiffusion",
+        "stable_diffusion_xl": "ZMDiffusion",
+        "stable_diffusion_3": "ZMDiffusion",
+        "stable_diffusion_3_5": "ZMDiffusion",
+        "qwen_image": "ZMDiffusion",
+        "qwen_image_21": "ZMDiffusion",
     },
     "ImageToImage": {
-        "stable_diffusion_xl_refiner": "StableDiffusionXLRefinerImageToImage",
+        "stable_diffusion_xl_refiner": "ZMDiffusion",
     },
     "TokenClassify": {
         "bert": "BertTokenClassify",
@@ -808,14 +809,14 @@ TOKENIZER_MAPPING_NAMES = {
     "siglip": "SigLIPTokenizer",
     "siglip2": "SigLIP2Tokenizer",
     "speech_to_text": "Speech2TextTokenizer",
-    "stable_diffusion": "StableDiffusionTokenizer",
-    "stable_diffusion_2": "StableDiffusion2Tokenizer",
-    "stable_diffusion_xl": "StableDiffusionXLTokenizer",
-    "stable_diffusion_xl_refiner": "StableDiffusionXLTokenizer",
-    "stable_diffusion_3": "StableDiffusion3Tokenizer",
-    "stable_diffusion_3_5": "StableDiffusion3_5Tokenizer",
-    "qwen_image": "QwenImageTokenizer",
-    "qwen_image_21": "QwenImage21Tokenizer",
+    "stable_diffusion": "ZMDiffusionTokenizer",
+    "stable_diffusion_2": "ZMDiffusionTokenizer",
+    "stable_diffusion_xl": "ZMDiffusionTokenizer",
+    "stable_diffusion_xl_refiner": "ZMDiffusionTokenizer",
+    "stable_diffusion_3": "ZMDiffusionTokenizer",
+    "stable_diffusion_3_5": "ZMDiffusionTokenizer",
+    "qwen_image": "ZMDiffusionTokenizer",
+    "qwen_image_21": "ZMDiffusionTokenizer",
     "t5": "T5Tokenizer",
     "tipsv2": "Tipsv2Tokenizer",
     "whisper": "WhisperTokenizer",

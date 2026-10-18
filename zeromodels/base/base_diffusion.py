@@ -9,10 +9,10 @@ class BaseDiffusion:
     """Backend-agnostic latent-diffusion generation, the peer of :class:`BaseGeneration`
     (mirrors diffusers' ``DiffusionPipeline.__call__``).
 
-    A mixin added to a diffusion container (the family's ``XModel``, which builds
-    its denoiser / VAE / text-encoder towers internally) to give it ``generate``,
-    exactly as ``T5ConditionalGenerate(T5Model, BaseSeq2SeqGeneration)`` adds an
-    imperative decode loop to a functional backbone. It bundles the machinery every
+    A mixin added to a functional diffusion model (:class:`ZMDiffusion`, which
+    builds its denoiser / VAE / text-encoder towers internally) to give it
+    ``generate``, exactly as ``T5ConditionalGenerate(T5Model, BaseSeq2SeqGeneration)``
+    adds an imperative decode loop to a functional backbone. It bundles the machinery every
     diffusion task shares: resolving the generation settings, batching the
     conditioning for classifier-free guidance, sampling the initial latent, the
     scheduler's denoising loop, decoding the latent and the uint8 postprocess. The

@@ -145,7 +145,7 @@ def siglip_input(batch_size=2, image_size=64, max_seq_len=64):
 def stable_diffusion_input(
     batch_size=2, sample_size=8, image_size=16, max_seq_len=16, cross_attention_dim=32
 ):
-    # the container's three disconnected paths: UNet (sample / timestep / text
+    # ZMDiffusion's three disconnected paths: UNet (sample / timestep / text
     # context), VAE (image to encode, latent to decode) and the CLIP text tower
     return {
         "sample": ops.ones((batch_size, sample_size, sample_size, 4)),
@@ -247,7 +247,7 @@ def qwen_image_input(
     joint_attention_dim=32,
     max_seq_len=32,
 ):
-    """Dummy inputs for the Qwen-Image container graph (packed latents)."""
+    """Dummy inputs for the Qwen-Image ZMDiffusion graph (packed latents)."""
     return {
         "sample": ops.ones((batch_size, packed_seq, in_channels)),
         "timestep": ops.ones((batch_size,)),
@@ -275,7 +275,7 @@ def qwen_image_21_input(
     context_in_dim=32,
     max_seq_len=16,
 ):
-    """Dummy inputs for the Qwen-Image-2.1 container graph (unpatched latents)."""
+    """Dummy inputs for the Qwen-Image-2.1 ZMDiffusion graph (unpatched latents)."""
     return {
         "sample": ops.ones((batch_size, img_seq, in_channels)),
         "timestep": ops.ones((batch_size,)),

@@ -169,9 +169,7 @@ nav:
           - RoBERTa: roberta.md
           - T5: t5.md
           - XLM-RoBERTa: xlm_roberta.md
-      - Sentence Transformer models:
-          - sentence_transformers.md
-          - Sentence Transformer: sentence_transformer.md
+      - Sentence Transformers: sentence_transformer.md
       - Vision models:
           - BEiT: beit.md
           - Classification backbones: classification_backbones.md
@@ -235,14 +233,11 @@ nav:
           - SAM 3: sam3.md
           - SigLIP: siglip.md
           - SigLIP 2: siglip2.md
-          - Stable Diffusion: stable_diffusion.md
-          - Stable Diffusion 2: stable_diffusion_2.md
-          - Stable Diffusion XL: stable_diffusion_xl.md
-          - Stable Diffusion 3: stable_diffusion_3.md
-          - Stable Diffusion 3.5: stable_diffusion_3_5.md
-          - Qwen-Image: qwen_image.md
-          - Qwen-Image-2.1: qwen_image_21.md
           - TIPSv2: tipsv2.md
+
+  # Diffusion models are their own entry: one page, since every family loads through one
+  # pipeline class (ZMDiffusion) and one tokenizer (ZMDiffusionTokenizer).
+  - Diffusion Models: diffusers.md
 
   - Loading Weights: loading_weights.md
 

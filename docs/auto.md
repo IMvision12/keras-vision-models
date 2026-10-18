@@ -63,9 +63,26 @@ print(embeddings.shape)  # (2, 384)
 Here `AutoZModel` loads the complete sentence-embedding stack, including its
 pooling, optional Dense projection, and normalization—not just the text encoder.
 The tokenizer preserves the checkpoint's own preprocessing recipe. See
-[Sentence Transformer](sentence_transformer.md) for the concrete API. Original
+[Sentence Transformers](sentence_transformer.md) for the concrete API. Original
 upstream `hf:sentence-transformers/...` configs describe their backbone type;
 use the concrete classes to load their sentence-embedding recipe.
+
+Diffusion repos resolve the same way: every diffusion `model_type`
+(`stable_diffusion`, `stable_diffusion_xl`, `stable_diffusion_3_5`, `qwen_image`, ...)
+maps to the one pipeline class and the one tokenizer of
+[`zeromodels.diffusers`](diffusers.md):
+
+```python
+from zeromodels import AutoZModel, AutoZMTokenizer
+
+repo = "zeromodels/stable-diffusion-v1-5"
+pipe = AutoZModel.from_weights(repo)  # -> ZMDiffusion (also AutoZMTextToImage)
+tokenizer = AutoZMTokenizer.from_weights(repo)  # -> ZMDiffusionTokenizer
+images = pipe.generate(**tokenizer("a photo of a cat"))
+```
+
+The SDXL refiner (`stable_diffusion_xl_refiner`) is also `ZMDiffusion`, listed under
+`AutoZMImageToImage`.
 
 ## Task classes
 
@@ -75,9 +92,9 @@ Exported component classes are not necessarily standalone Auto tasks. For Qwen-I
 and Qwen-Image 2.1, the VAE (`AutoencoderKLQwenImage`, `AutoencoderKLQwenImage21`),
 text encoder (`QwenImageTextEncoderModel`, `QwenImage21TextEncoderModel`), and
 transformer (`QwenImageTransformer2DModel`, `QwenImage21Transformer2DModel`) are
-pipeline components. Load the complete model with `AutoZModel` or the generation
-pipeline with `AutoZMTextToImage`, then access its `.vae`, `.text_encoder`, or
-`.transformer` attribute. Direct component construction and serialization remain
+pipeline components. Load the complete pipeline, a `ZMDiffusion`, with `AutoZModel`
+or `AutoZMTextToImage`, then access its `.vae`, `.text_encoder`, or `.transformer`
+attribute. Direct component construction and serialization remain
 available; component config types do not imply standalone Auto weight loading.
 
 These six classes are explicitly recorded with their pipeline owners in

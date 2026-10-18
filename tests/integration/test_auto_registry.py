@@ -71,6 +71,15 @@ _TASK_SUFFIXES = sorted(
 )
 
 
+# One class serving several task tables: ZMDiffusion is the backbone, the text-to-image
+# and the image-to-image class of every diffusion family (the family is the model_type);
+# ZMSentenceTransformer is both the backbone and the text-embedding class.
+_MULTI_TASK_CLASSES = {
+    "ZMDiffusion": {"Model", "TextToImage", "ImageToImage"},
+    "ZMSentenceTransformer": {"Model", "TextEmbed"},
+}
+
+
 def _task_of(class_name):
     for suffix in _TASK_SUFFIXES:
         if class_name.endswith(suffix):
@@ -86,12 +95,13 @@ def _hf_types(cls):
 
 
 def _iter_model_classes():
+    import zeromodels.diffusers as diffusers
     import zeromodels.models as models
     import zeromodels.sentence_transformers as sentence_transformers
     from zeromodels.base.base_model import BaseModel
 
     seen = set()
-    for namespace in (models, sentence_transformers):
+    for namespace in (models, sentence_transformers, diffusers):
         packages = [namespace]
         packages.extend(
             getattr(namespace, family)
@@ -268,6 +278,9 @@ def test_every_table_value_resolves_and_matches_its_task():
     for task, table in names.MODEL_TASK_MAPPING_NAMES.items():
         for model_type, class_name in table.items():
             A._resolve_class(class_name)  # raises if the class was renamed/removed
+            if class_name in _MULTI_TASK_CLASSES:
+                assert task in _MULTI_TASK_CLASSES[class_name], (class_name, task)
+                continue
             assert _task_of(class_name) == task, (
                 f"{class_name} is in the {task!r} table but its task is "
                 f"{_task_of(class_name)!r}"
@@ -294,9 +307,8 @@ _COVERAGE_EXEMPT = {
     # tower and vice versa), so neither is a table default; load them via the concrete class.
     "Gemma4MultimodalModel",
     "Qwen3_5VLModel",
-    # Components of the Stable Diffusion containers (loaded through the family's
-    # XModel / XTextToImage), never hosted repos of their own; keep diffusers' names,
-    # which carry no task suffix.
+    # Components of a Stable Diffusion ZMDiffusion (loaded through it), never hosted
+    # repos of their own; keep diffusers' names, which carry no task suffix.
     "AutoencoderKL",
     "SD3Transformer2DModel",
 }
@@ -350,20 +362,37 @@ def test_component_only_contract_has_real_unmapped_components_and_mapped_owners(
         assert component != owner
 
 
+def test_diffusers_public_api_is_the_pipeline_and_the_tokenizer():
+    import zeromodels.diffusers as diffusers
+
+    assert diffusers.__all__ == ["ZMDiffusion", "ZMDiffusionTokenizer"]
+
+
 @pytest.mark.parametrize(
-    "model_type,model_name,pipeline_name",
+    "model_type",
     [
-        ("qwen_image", "QwenImageModel", "QwenImageTextToImage"),
-        ("qwen_image_21", "QwenImage21Model", "QwenImage21TextToImage"),
+        "stable_diffusion",
+        "stable_diffusion_2",
+        "stable_diffusion_xl",
+        "stable_diffusion_xl_refiner",
+        "stable_diffusion_3",
+        "stable_diffusion_3_5",
+        "qwen_image",
+        "qwen_image_21",
     ],
 )
-def test_qwen_image_pipeline_auto_routes_remain_registered(
-    model_type, model_name, pipeline_name
-):
-    assert names.MODEL_TASK_MAPPING_NAMES["Model"][model_type] == model_name
-    assert names.MODEL_TASK_MAPPING_NAMES["TextToImage"][model_type] == pipeline_name
-    assert model_name not in names.COMPONENT_ONLY_MODEL_NAMES
-    assert pipeline_name not in names.COMPONENT_ONLY_MODEL_NAMES
+def test_diffusion_auto_routes_resolve_to_zm_diffusion(model_type):
+    """Every diffusion family loads through the one pipeline class and tokenizer:
+    the backbone and task autos name ZMDiffusion, the tokenizer auto names
+    ZMDiffusionTokenizer, and ZMDiffusion knows the model_type."""
+    from zeromodels.diffusers.diffusion_model import DIFFUSION_FAMILIES
+
+    task = "ImageToImage" if model_type.endswith("_refiner") else "TextToImage"
+    assert names.MODEL_TASK_MAPPING_NAMES["Model"][model_type] == "ZMDiffusion"
+    assert names.MODEL_TASK_MAPPING_NAMES[task][model_type] == "ZMDiffusion"
+    assert names.TOKENIZER_MAPPING_NAMES[model_type] == "ZMDiffusionTokenizer"
+    assert model_type in DIFFUSION_FAMILIES
+    assert "ZMDiffusion" not in names.COMPONENT_ONLY_MODEL_NAMES
 
 
 # Classes whose zm config model_type DELIBERATELY differs from the HF checkpoint's

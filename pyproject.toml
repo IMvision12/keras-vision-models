@@ -105,6 +105,7 @@ source = ["zeromodels", "tests"]
 omit = [
     "zeromodels/models/*/convert_*.py",
     "zeromodels/sentence_transformers/convert_*.py",
+    "zeromodels/diffusers/*/convert_*.py",
 ]
 
 [tool.coverage.report]

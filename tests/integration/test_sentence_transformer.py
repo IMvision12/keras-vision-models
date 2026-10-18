@@ -1,6 +1,5 @@
 """Offline contract tests for the multi-backbone sentence-embedding API."""
 
-import importlib
 import json
 
 import numpy as np
@@ -9,43 +8,42 @@ from keras import ops, saving
 
 from tests.base.model_test_registry import MODEL_TEST_CONFIGS
 from zeromodels.sentence_transformers import (
-    SentenceTransformerTextEmbed,
     ZMSentenceTransformer,
     ZMSentenceTransformerTokenizer,
 )
-
-
-@pytest.mark.parametrize(
-    "module",
-    (
-        "zeromodels.models.sentence_transformer",
-        "zeromodels.st_models",
-        "zeromodels.st_models.sentence_transformer",
-        "zeromodels.sentence_transformers.sentence_transformer",
-    ),
+from zeromodels.sentence_transformers.sentence_transformer_backbones import (
+    SENTENCE_TRANSFORMER_BACKBONES,
 )
-def test_top_level_st_api_and_legacy_imports_resolve_to_same_classes(module):
-    legacy = importlib.import_module(module)
-    package = (
-        module + ".sentence_transformer" if module.endswith("st_models") else module
-    )
-    legacy_model_module = importlib.import_module(
-        package + ".sentence_transformer_model"
-    )
-    assert ZMSentenceTransformer.__name__ == "ZMSentenceTransformer"
-    assert ZMSentenceTransformerTokenizer.__name__ == "ZMSentenceTransformerTokenizer"
-    assert legacy.ZMSentenceTransformer is ZMSentenceTransformer
-    assert legacy_model_module.ZMSentenceTransformer is ZMSentenceTransformer
-    assert legacy.SentenceTransformerModel is ZMSentenceTransformer
-    assert legacy_model_module.SentenceTransformerModel is ZMSentenceTransformer
-    assert legacy.SentenceTransformerTokenizer is ZMSentenceTransformerTokenizer
+
+
+def test_public_api_is_the_model_and_the_tokenizer():
+    import zeromodels.sentence_transformers as sentence_transformers
+
+    assert sentence_transformers.__all__ == [
+        "ZMSentenceTransformer",
+        "ZMSentenceTransformerTokenizer",
+    ]
+    for removed in (
+        "SentenceTransformer",
+        "SentenceTransformerModel",
+        "SentenceTransformerTokenizer",
+        "SentenceTransformerTextEmbed",
+        "SentenceTransformerConfig",
+    ):
+        assert not hasattr(sentence_transformers, removed), removed
+
+
+def test_backbone_registry_matches_accepted_hf_model_types():
+    assert set(ZMSentenceTransformer.HF_MODEL_TYPE) == {
+        "sentence_transformer",
+        *SENTENCE_TRANSFORMER_BACKBONES,
+    }
 
 
 @pytest.mark.parametrize(
     "module",
     (
         "zeromodels.models.sentence_transformer",
-        "zeromodels.st_models.sentence_transformer",
         "zeromodels.sentence_transformers.sentence_transformer",
         "zeromodels.sentence_transformers",
     ),
@@ -136,7 +134,7 @@ def test_backbone_builds_and_returns_sentence_embeddings(backbone_type):
         "input_ids": np.array([[2, 3, 4, 1]], dtype="int32"),
         "attention_mask": np.array([[1, 1, 1, 0]], dtype="int32"),
     }
-    if backbone_type in ("bert", "roberta", "xlm-roberta", "albert"):
+    if SENTENCE_TRANSFORMER_BACKBONES[backbone_type].token_type_ids:
         inputs["token_type_ids"] = np.zeros((1, 4), dtype="int32")
     actual = model(inputs, training=False)
     assert actual["embeddings"].shape == (1, 16)
@@ -179,10 +177,7 @@ def test_pooling_parser_rejects_ambiguous_modes(monkeypatch, tmp_path):
 def test_sentence_transformer_registered_for_text_embed_task():
     from zeromodels.auto import AutoZMTextEmbed
 
-    assert (
-        AutoZMTextEmbed.mapping()["sentence_transformer"]
-        is SentenceTransformerTextEmbed
-    )
+    assert AutoZMTextEmbed.mapping()["sentence_transformer"] is ZMSentenceTransformer
 
 
 def test_dot_similarity_is_not_cosine_normalized():

@@ -8,12 +8,8 @@ on:
       - "assets/**"
       - "website/**"
       - ".github/workflows/docs.yml"
+  # every pull request builds the site (deploying stays main-only, below)
   pull_request:
-    paths:
-      - "docs/**"
-      - "assets/**"
-      - "website/**"
-      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:

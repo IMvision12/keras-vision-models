@@ -1,0 +1,87 @@
+name: Run tests command
+
+# `/run-tests` from IMvision12 on a pull request starts the model, tokenizer and processor
+# tests (model_tests.yml). A comment-triggered run is attached to the default branch, so
+# its jobs would never appear in the PR's checks; instead this workflow dispatches
+# model_tests.yml ON THE PR BRANCH, whose run is attached to the PR head commit and so
+# lists every test job in the PR's checks. This job never checks out or runs PR code.
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Start requested PR tests
+    if: >-
+      github.event.issue.pull_request &&
+      github.event.comment.user.login == 'IMvision12' &&
+      github.triggering_actor == 'IMvision12' &&
+      github.event.comment.body == '/run-tests'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Validate the command and dispatch model_tests.yml
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { issue, comment, action } = context.payload;
+            if (action !== 'created' || !issue?.pull_request ||
+                comment?.user?.login?.toLowerCase() !== 'imvision12' ||
+                comment.body.trim() !== '/run-tests') {
+              throw new Error('Only IMvision12 can request PR tests with /run-tests.');
+            }
+            const { data: pr } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: issue.number,
+            });
+            if (pr.state !== 'open') {
+              throw new Error('Tests can only be requested on an open pull request.');
+            }
+            if (!/^[0-9a-f]{40}$/.test(pr.head.sha)) {
+              throw new Error('GitHub returned an invalid PR head commit.');
+            }
+            const repoName = `${context.repo.owner}/${context.repo.repo}`;
+            const sameRepo = pr.head.repo?.full_name === repoName;
+            // A branch of this repository is dispatched directly (its run is attached to
+            // the PR head and shows in the PR checks). A fork's branch cannot be
+            // dispatched, so its tests run from the default branch on the PR commit.
+            const ref = sameRepo ? pr.head.ref : pr.base.repo.default_branch;
+            const runsUrl = `${context.serverUrl}/${repoName}/actions/workflows/model_tests.yml`;
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                ...context.repo,
+                workflow_id: 'model_tests.yml',
+                ref,
+                inputs: { pr_number: String(issue.number), pr_sha: pr.head.sha },
+              });
+            } catch (error) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: issue.number,
+                body: `Could not start the tests on \`${ref}\`: ${error.message}\n\n` +
+                      'The branch needs the current `.github/workflows/model_tests.yml` ' +
+                      '(with its `workflow_dispatch` trigger); merge or rebase `main` and ' +
+                      'comment `/run-tests` again.',
+              });
+              throw error;
+            }
+            await github.rest.reactions.createForIssueComment({
+              ...context.repo,
+              comment_id: comment.id,
+              content: 'rocket',
+            });
+            const where = sameRepo
+              ? 'Every test job is listed in this PR\'s checks.'
+              : `This PR comes from a fork, so the run is not attached to the PR; follow it at ${runsUrl}.`;
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: issue.number,
+              body: `Started the model, tokenizer and processor tests on ${pr.head.sha}. ${where}\n\n` +
+                    'A later push is not tested automatically: comment `/run-tests` again.',
+            });

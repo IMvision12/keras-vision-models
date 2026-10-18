@@ -41,24 +41,22 @@ Encoders for embeddings and masked language modelling, and decoder LLMs, dense a
 
 ## Sentence Transformer models
 
-Dense text embeddings with checkpoint-specific pooling and normalization.
+Dense sentence embeddings for similarity, semantic search and clustering. Every checkpoint
+loads through two classes, `ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer`
+from `zeromodels.sentence_transformers`: a Keras encoder (MPNet, BERT, RoBERTa, XLM-R,
+DistilBERT or ALBERT, chosen by the checkpoint's `backbone_type`) followed by its declared
+pooling, optional Dense projection and optional L2 normalization.
 
-- [All 13 Sentence Transformer checkpoints](sentence_transformers.md)
-- [Sentence Transformer API and usage](sentence_transformer.md)
+- [Sentence Transformers](sentence_transformer.md): API, usage and all 13 checkpoints
 
 ## Diffusion models
 
-Text-to-image (and image-to-image) diffusion, every family loaded through `ZMDiffusion`
-and `ZMDiffusionTokenizer`.
+Text-to-image generation (and image-to-image with the SDXL refiner). Every family loads
+through two classes, `ZMDiffusion` and `ZMDiffusionTokenizer` from `zeromodels.diffusers`;
+the checkpoint's `model_type` selects the family. The page has its own
+**Diffusion Models** entry in the navigation.
 
-- [Diffusers API and usage](diffusers.md)
-- [Stable Diffusion](stable_diffusion.md)
-- [Stable Diffusion 2](stable_diffusion_2.md)
-- [Stable Diffusion XL](stable_diffusion_xl.md)
-- [Stable Diffusion 3](stable_diffusion_3.md)
-- [Stable Diffusion 3.5](stable_diffusion_3_5.md)
-- [Qwen-Image](qwen_image.md)
-- [Qwen-Image-2.1](qwen_image_21.md)
+- [Diffusion Models](diffusers.md): API, usage and every family (Stable Diffusion 1.x / 2.x / XL / 3 / 3.5, Qwen-Image, Qwen-Image-2.1)
 
 ## Vision models
 

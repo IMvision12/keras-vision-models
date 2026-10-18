@@ -63,7 +63,7 @@ print(embeddings.shape)  # (2, 384)
 Here `AutoZModel` loads the complete sentence-embedding stack, including its
 pooling, optional Dense projection, and normalization—not just the text encoder.
 The tokenizer preserves the checkpoint's own preprocessing recipe. See
-[Sentence Transformer](sentence_transformer.md) for the concrete API. Original
+[Sentence Transformers](sentence_transformer.md) for the concrete API. Original
 upstream `hf:sentence-transformers/...` configs describe their backbone type;
 use the concrete classes to load their sentence-embedding recipe.
 

@@ -42,8 +42,6 @@ Documentation sources are also available in [`docs/`](docs/).
 
 ## 💬 Sentence Transformers Models (sentence_transformers)
 
-All 13 checkpoints below have pre-converted Keras weights under the `zeromodels` Hugging Face organization. Use `ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer` from `zeromodels.sentence_transformers` for sentence similarity, semantic search, or clustering.
-
 | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
 |---------------|-------------------|---------------------|
 | [all-mpnet-base-v2](https://huggingface.co/zeromodels/all-mpnet-base-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
@@ -59,6 +57,20 @@ All 13 checkpoints below have pre-converted Keras weights under the `zeromodels`
 | [paraphrase-MiniLM-L3-v2](https://huggingface.co/zeromodels/paraphrase-MiniLM-L3-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
 | [distiluse-base-multilingual-cased-v1](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v1) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
 | [distiluse-base-multilingual-cased-v2](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+
+<br>
+
+## 🎨 Diffusion Models (diffusers)
+
+| 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
+|---------------|-------------------|---------------------|
+| Stable Diffusion 1.x | [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) | `diffusers` |
+| Stable Diffusion 2.x | [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) | `diffusers` |
+| Stable Diffusion XL | [SDXL: Improving Latent Diffusion Models for High-Resolution Image Synthesis](https://arxiv.org/abs/2307.01952) | `diffusers` |
+| Stable Diffusion 3 | [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) | `diffusers` |
+| Stable Diffusion 3.5 | [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) | `diffusers` |
+| Qwen-Image | [Qwen-Image Technical Report](https://arxiv.org/abs/2508.02324) | `diffusers` |
+| Qwen-Image-2.1 | [Qwen/Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) | `diffusers` |
 
 <br>
 
@@ -266,22 +278,6 @@ All 13 checkpoints below have pre-converted Keras weights under the `zeromodels`
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | LocateAnything | [LocateAnything: Fast and High-Quality Vision-Language Grounding with Parallel Box Decoding](https://huggingface.co/nvidia/LocateAnything-3B) | `transformers` |
-
-<br>
-
-- Text-to-Image Diffusion (text → image)
-
-    Every diffusion checkpoint loads with `ZMDiffusion` and `ZMDiffusionTokenizer` from `zeromodels.diffusers` ([documentation](https://imvision12.github.io/ZeroModels/diffusers/)).
-
-    | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
-    |---------------|-------------------|---------------------|
-    | Stable Diffusion 1.x (v1-1 to v1-5) | [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) | `diffusers` |
-    | Stable Diffusion 2.x (2, 2-base, 2-1, 2-1-base, SD-Turbo) | [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) | `diffusers` |
-    | Stable Diffusion XL (base + refiner 1.0, SDXL-Turbo) | [SDXL: Improving Latent Diffusion Models for High-Resolution Image Synthesis](https://arxiv.org/abs/2307.01952) | `diffusers` |
-    | Stable Diffusion 3 (medium) | [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) | `diffusers` |
-    | Stable Diffusion 3.5 (large, large-turbo, medium) | [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) | `diffusers` |
-    | Qwen-Image | [Qwen-Image Technical Report](https://arxiv.org/abs/2508.02324) | `diffusers` |
-    | Qwen-Image-2.1 | [Qwen/Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) (single-stream DiT + Qwen3-VL) | `diffusers` |
 
 <br>
 

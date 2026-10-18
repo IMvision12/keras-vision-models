@@ -258,10 +258,10 @@ model.generate(
 ```
 
 The diffusion flavor, mixed into [`ZMDiffusion`](diffusers.md), the one pipeline class of
-every diffusion family ([Stable Diffusion](stable_diffusion.md),
-[Stable Diffusion 2](stable_diffusion_2.md), [Stable Diffusion XL](stable_diffusion_xl.md),
-[Stable Diffusion 3 / 3.5](stable_diffusion_3.md), [Qwen-Image](qwen_image.md),
-[Qwen-Image-2.1](qwen_image_21.md)); each family supplies the hooks through its
+every diffusion family ([Stable Diffusion](diffusers.md#stable-diffusion),
+[Stable Diffusion 2](diffusers.md#stable-diffusion-2), [Stable Diffusion XL](diffusers.md#stable-diffusion-xl),
+[Stable Diffusion 3 / 3.5](diffusers.md#stable-diffusion-3), [Qwen-Image](diffusers.md#qwen-image),
+[Qwen-Image-2.1](diffusers.md#qwen-image-2-1)); each family supplies the hooks through its
 family recipe, selected by the checkpoint's `model_type`. Where the LM
 mixins decode tokens, this one runs a scheduler's denoising loop with classifier-free
 guidance over a latent and decodes it to `(batch, H, W, 3)` uint8 images. A model

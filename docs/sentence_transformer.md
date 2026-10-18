@@ -1,4 +1,4 @@
-# Sentence Transformer
+# Sentence Transformers
 
 <div class="kf-note kf-note--weights">
 <b>Weights:</b> Pre-converted Keras weights for all 13 checkpoints are hosted under the
@@ -10,11 +10,10 @@ with the <code>hf:</code> prefix, e.g.
 The backbone and embedding recipe are read from the checkpoint metadata.
 </div>
 
-ZeroModels loads 13 original dense sentence-embedding checkpoints. See the
-[Sentence Transformer models](sentence_transformers.md) page for the available
-ZeroModels-hosted checkpoint IDs and Hub links.
-It builds a Keras 3 encoder and applies the checkpoint's declared pooling,
-optional Dense projection, and optional L2 normalization. Parity has been
+ZeroModels loads 13 original dense sentence-embedding checkpoints (listed under
+[Checkpoints](#checkpoints)). It builds a Keras 3 encoder and applies the
+checkpoint's declared pooling, optional Dense projection, and optional L2
+normalization. Parity has been
 verified on the Keras Torch backend; TensorFlow and JAX parity have not yet
 been checked for all 13 checkpoints.
 
@@ -35,6 +34,27 @@ The public API is `zeromodels.sentence_transformers`, separate from the upstream
 
 Supported `backbone_type` values: `mpnet`, `bert`, `roberta`, `xlm-roberta`,
 `distilbert`, `albert`.
+
+## Checkpoints
+
+| Checkpoint | Backbone | Embedding recipe | Dimensions |
+|---|---|---|---:|
+| [`all-mpnet-base-v2`](https://huggingface.co/zeromodels/all-mpnet-base-v2) | MPNet | Mean pooling → L2 normalization | 768 |
+| [`multi-qa-mpnet-base-dot-v1`](https://huggingface.co/zeromodels/multi-qa-mpnet-base-dot-v1) | MPNet | CLS pooling; dot-product similarity | 768 |
+| [`all-distilroberta-v1`](https://huggingface.co/zeromodels/all-distilroberta-v1) | RoBERTa | Mean pooling → L2 normalization | 768 |
+| [`all-MiniLM-L12-v2`](https://huggingface.co/zeromodels/all-MiniLM-L12-v2) | BERT | Mean pooling → L2 normalization | 384 |
+| [`multi-qa-distilbert-cos-v1`](https://huggingface.co/zeromodels/multi-qa-distilbert-cos-v1) | DistilBERT | Mean pooling → L2 normalization | 768 |
+| [`all-MiniLM-L6-v2`](https://huggingface.co/zeromodels/all-MiniLM-L6-v2) | BERT | Mean pooling → L2 normalization | 384 |
+| [`multi-qa-MiniLM-L6-cos-v1`](https://huggingface.co/zeromodels/multi-qa-MiniLM-L6-cos-v1) | BERT | Mean pooling → L2 normalization | 384 |
+| [`paraphrase-multilingual-mpnet-base-v2`](https://huggingface.co/zeromodels/paraphrase-multilingual-mpnet-base-v2) | XLM-RoBERTa | Mean pooling | 768 |
+| [`paraphrase-albert-small-v2`](https://huggingface.co/zeromodels/paraphrase-albert-small-v2) | ALBERT | Mean pooling | 768 |
+| [`paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/zeromodels/paraphrase-multilingual-MiniLM-L12-v2) | BERT | Mean pooling | 384 |
+| [`paraphrase-MiniLM-L3-v2`](https://huggingface.co/zeromodels/paraphrase-MiniLM-L3-v2) | BERT | Mean pooling | 384 |
+| [`distiluse-base-multilingual-cased-v1`](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v1) | DistilBERT | Mean pooling → Tanh Dense | 512 |
+| [`distiluse-base-multilingual-cased-v2`](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v2) | DistilBERT | Mean pooling → Tanh Dense | 512 |
+
+The `paraphrase-multilingual-mpnet-base-v2` name is historical; the checkpoint
+actually uses an XLM-RoBERTa backbone.
 
 ## Usage
 
@@ -172,6 +192,6 @@ actual = model.encode(texts, tokenizer=tokenizer)
 print("Maximum absolute difference:", np.max(np.abs(actual - expected)))
 ```
 
-Use matching checkpoint names from the models table, compare in float32, and
+Use matching checkpoint names from the [Checkpoints](#checkpoints) table, compare in float32, and
 record Hub commit SHAs for reproducible results. This downloads original
 weights for comparison; it does not convert or publish a new checkpoint.

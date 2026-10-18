@@ -198,7 +198,9 @@ is built for. Calling it returns `{"input_ids", "attention_mask"}` for a string 
 of strings. `from_weights("zeromodels/<variant>")` reads the family from the repo.
 
 ```python
-ZMDiffusionTokenizer(model_type="stable_diffusion", hf_id=None, tokenizer_file=None, max_seq_len=77)
+ZMDiffusionTokenizer(
+    model_type="stable_diffusion", hf_id=None, tokenizer_file=None, max_seq_len=77
+)
 ```
 
 There is no image processor and no processor class: text-to-image takes token ids in

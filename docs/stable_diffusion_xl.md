@@ -156,15 +156,9 @@ The same class with `model_type="stable_diffusion_xl_refiner"` (`text_encoder_2`
 refiner was not trained for. The two intended uses:
 
 ```python
-base = ZMDiffusion.from_weights(
-    "zeromodels/stable-diffusion-xl-base-1.0"
-)
-refiner = ZMDiffusion.from_weights(
-    "zeromodels/stable-diffusion-xl-refiner-1.0"
-)
-tokenizer = ZMDiffusionTokenizer.from_weights(
-    "zeromodels/stable-diffusion-xl-base-1.0"
-)
+base = ZMDiffusion.from_weights("zeromodels/stable-diffusion-xl-base-1.0")
+refiner = ZMDiffusion.from_weights("zeromodels/stable-diffusion-xl-refiner-1.0")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-xl-base-1.0")
 inputs = tokenizer("a lighthouse on a rocky coast at dawn, dramatic clouds, cinematic")
 
 # ensemble of experts: the base denoises 80% of the schedule, the refiner the rest
@@ -227,12 +221,8 @@ os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 from PIL import Image
 from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = ZMDiffusion.from_weights(
-    "zeromodels/stable-diffusion-xl-base-1.0"
-)
-tokenizer = ZMDiffusionTokenizer.from_weights(
-    "zeromodels/stable-diffusion-xl-base-1.0"
-)
+model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-xl-base-1.0")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-xl-base-1.0")
 
 inputs = tokenizer(
     "a lighthouse on a rocky coast at dawn, dramatic clouds, cinematic, highly detailed"
@@ -250,9 +240,7 @@ The SDXL "ensemble of experts": the base runs the first 80% of the schedule and 
 latent to the refiner, which finishes it. Same prompt and initial latent as above:
 
 ```python
-refiner = ZMDiffusion.from_weights(
-    "zeromodels/stable-diffusion-xl-refiner-1.0"
-)
+refiner = ZMDiffusion.from_weights("zeromodels/stable-diffusion-xl-refiner-1.0")
 latent = model.generate(
     **inputs, num_inference_steps=30, denoising_end=0.8, output_type="latent", seed=3
 )

@@ -44,7 +44,6 @@ def test_backbone_registry_matches_accepted_hf_model_types():
     "module",
     (
         "zeromodels.models.sentence_transformer",
-        "zeromodels.st_models.sentence_transformer",
         "zeromodels.sentence_transformers.sentence_transformer",
         "zeromodels.sentence_transformers",
     ),

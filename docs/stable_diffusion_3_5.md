@@ -71,9 +71,7 @@ model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-3.5-medium",
     text_encoder_3="zeromodels/t5-v1_1-xxl-encoder",  # optional
 )
-tokenizer = ZMDiffusionTokenizer.from_weights(
-    "zeromodels/stable-diffusion-3.5-medium"
-)
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-3.5-medium")
 
 inputs = tokenizer(
     "a whimsical treehouse village at twilight, lanterns glowing, watercolor illustration"
@@ -88,9 +86,7 @@ Image.fromarray(images[0]).save("treehouse.png")  # (1024, 1024, 3) uint8
 ### Large Turbo
 
 ```python
-model = ZMDiffusion.from_weights(
-    "zeromodels/stable-diffusion-3.5-large-turbo"
-)
+model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-3.5-large-turbo")
 images = model.generate(
     **tokenizer("a red panda reading a book")
 )  # 4 steps, guidance 0 (the repo defaults)

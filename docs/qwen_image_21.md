@@ -181,7 +181,9 @@ drops `prompt_template_encode_start_idx` (14) tokens and keeps at most
 `max_sequence_length` (512).
 
 ```python
-ZMDiffusionTokenizer(model_type="qwen_image_21", hf_id=None, tokenizer_file=None, max_seq_len=1024)
+ZMDiffusionTokenizer(
+    model_type="qwen_image_21", hf_id=None, tokenizer_file=None, max_seq_len=1024
+)
 ```
 
 ## End-to-end example

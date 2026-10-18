@@ -124,9 +124,7 @@ from PIL import Image
 from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
 model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-2-1-base")
-tokenizer = ZMDiffusionTokenizer.from_weights(
-    "zeromodels/stable-diffusion-2-1-base"
-)
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-2-1-base")
 
 inputs = tokenizer(
     "a steaming bowl of ramen on a wooden table, food photography, shallow depth of field"

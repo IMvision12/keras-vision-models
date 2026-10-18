@@ -198,7 +198,9 @@ a list of strings. `generate` / `encode_prompt` drop the template prefix
 `max_sequence_length` (512) tokens.
 
 ```python
-ZMDiffusionTokenizer(model_type="qwen_image", hf_id=None, tokenizer_file=None, max_seq_len=1024)
+ZMDiffusionTokenizer(
+    model_type="qwen_image", hf_id=None, tokenizer_file=None, max_seq_len=1024
+)
 ```
 
 There is no image processor and no processor class: text-to-image takes token ids

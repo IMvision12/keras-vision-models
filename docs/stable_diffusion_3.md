@@ -181,9 +181,7 @@ model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-3-medium",
     text_encoder_3="zeromodels/t5-v1_1-xxl-encoder",  # omit on small machines: T5 features zeroed
 )
-tokenizer = ZMDiffusionTokenizer.from_weights(
-    "zeromodels/stable-diffusion-3-medium"
-)
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-3-medium")
 
 inputs = tokenizer(
     "a fluffy corgi wearing round sunglasses, sitting on a surfboard at a sunny beach, photo"

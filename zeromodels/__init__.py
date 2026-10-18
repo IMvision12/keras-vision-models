@@ -5,7 +5,6 @@ from zeromodels import (
     models,
     samplers,
     sentence_transformers,
-    st_models,
     utils,
 )
 from zeromodels.auto import (
@@ -25,7 +24,6 @@ __all__ = [
     "models",
     "samplers",
     "sentence_transformers",
-    "st_models",
     "utils",
     "conversion",
     "version",

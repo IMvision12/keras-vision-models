@@ -1,6 +1,7 @@
 from zeromodels import (
     auto,
     conversion,
+    diffusers,
     models,
     samplers,
     sentence_transformers,
@@ -20,6 +21,7 @@ __version__ = "1.3.5"
 
 __all__ = [
     "auto",
+    "diffusers",
     "models",
     "samplers",
     "sentence_transformers",

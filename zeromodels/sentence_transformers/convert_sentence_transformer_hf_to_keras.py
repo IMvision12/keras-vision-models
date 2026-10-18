@@ -76,44 +76,56 @@ def transfer_sentence_transformer_weights(
                 break
         hf[normalize_hf_key(key)] = value
     kind = keras_model.backbone_type
-    if kind == "mpnet":
-        transfer_mpnet_weights(keras_model, hf)
-    elif kind == "bert":
-        transfer_bert_weights(keras_model, hf)
-    elif kind == "roberta":
-        transfer_roberta_weights(keras_model, hf)
-    elif kind == "xlm-roberta":
-        transfer_xlm_roberta_weights(keras_model, hf)
-    elif kind in ("distilbert", "albert"):
-        prefix = f"{kind}."
-        names = {key.removeprefix(prefix): key for key in hf}
-        mapping = WEIGHT_NAME_MAPPING[kind]
-        for weight in keras_model.weights:
-            if "/" not in weight.path:
-                continue
-            layer_path, suffix = weight.path.rsplit("/", 1)
-            index = None
-            if kind == "distilbert" and layer_path.startswith("distil_layer_"):
-                block, component = layer_path.split("/", 1)
-                index = int(block.removeprefix("distil_layer_"))
-                layer_path = f"distil_layer_{{index}}/{component}"
-            hf_name = mapping.get(layer_path)
-            if hf_name is None:
-                if layer_path.startswith(("distil_", "albert_")):
-                    raise WeightMappingError(weight.path, "WEIGHT_NAME_MAPPING entry")
-                continue
-            suffix = WEIGHT_SUFFIX_MAPPING.get(suffix, suffix)
-            hf_name = f"{hf_name.format(index=index)}.{suffix}"
-            if hf_name not in names:
-                raise WeightMappingError(weight.path, hf_name)
-            source = hf[names[hf_name]]
-            if weight.path == "albert_embedding_projection/kernel":
-                weight.assign(np.asarray(source).T)
-            else:
-                transfer_weights(weight.path, weight, source)
-    else:
+    if kind not in BACKBONE_TRANSFERS:
         raise ValueError(f"Unsupported sentence embedding backbone: {kind}")
+    BACKBONE_TRANSFERS[kind](keras_model, hf)
+    transfer_projection(keras_model, hf_state_dict)
 
+
+def transfer_local_backbone(keras_model, hf):
+    """Copy a DistilBERT / ALBERT encoder built by sentence_transformer_backbones."""
+    kind = keras_model.backbone_type
+    prefix = f"{kind}."
+    names = {key.removeprefix(prefix): key for key in hf}
+    mapping = WEIGHT_NAME_MAPPING[kind]
+    for weight in keras_model.weights:
+        if "/" not in weight.path:
+            continue
+        layer_path, suffix = weight.path.rsplit("/", 1)
+        index = None
+        if kind == "distilbert" and layer_path.startswith("distil_layer_"):
+            block, component = layer_path.split("/", 1)
+            index = int(block.removeprefix("distil_layer_"))
+            layer_path = f"distil_layer_{{index}}/{component}"
+        hf_name = mapping.get(layer_path)
+        if hf_name is None:
+            if layer_path.startswith(("distil_", "albert_")):
+                raise WeightMappingError(weight.path, "WEIGHT_NAME_MAPPING entry")
+            continue
+        suffix = WEIGHT_SUFFIX_MAPPING.get(suffix, suffix)
+        hf_name = f"{hf_name.format(index=index)}.{suffix}"
+        if hf_name not in names:
+            raise WeightMappingError(weight.path, hf_name)
+        source = hf[names[hf_name]]
+        if weight.path == "albert_embedding_projection/kernel":
+            weight.assign(np.asarray(source).T)
+        else:
+            transfer_weights(weight.path, weight, source)
+
+
+# backbone_type -> encoder weight transfer (mirrors SENTENCE_TRANSFORMER_BACKBONES)
+BACKBONE_TRANSFERS = {
+    "mpnet": transfer_mpnet_weights,
+    "bert": transfer_bert_weights,
+    "roberta": transfer_roberta_weights,
+    "xlm-roberta": transfer_xlm_roberta_weights,
+    "distilbert": transfer_local_backbone,
+    "albert": transfer_local_backbone,
+}
+
+
+def transfer_projection(keras_model, hf_state_dict):
+    """Copy the optional Dense projection (a separate ST module) when present."""
     needs_proj = any(w.path.startswith("projection/") for w in keras_model.weights)
     if not needs_proj:
         return

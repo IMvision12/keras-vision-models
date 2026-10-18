@@ -3021,30 +3021,6 @@ MODEL_TEST_CONFIGS = {
             "token_embeddings": (2, 16, 32),
         },
     },
-    "SentenceTransformerTextEmbed": {
-        "module": "zeromodels.sentence_transformers",
-        "model_cls": "SentenceTransformerTextEmbed",
-        "model_type": "llm",
-        "init_kwargs": {
-            "backbone_type": "mpnet",
-            "vocab_size": 128,
-            "embed_dim": 32,
-            "num_layers": 2,
-            "num_heads": 2,
-            "mlp_dim": 64,
-            "max_position_embeddings": 64,
-            "relative_attention_num_buckets": 8,
-            "pooling": "mean",
-            "normalize_embeddings": True,
-            "max_seq_len": 32,
-        },
-        "input_factory": "modernbert_input",
-        "input_factory_kwargs": {"seq_len": 16},
-        "expected_output_shape": {
-            "embeddings": (2, 32),
-            "token_embeddings": (2, 16, 32),
-        },
-    },
     # ---- Text encoders (XLM-RoBERTa) ----
     "XLMRobertaModel": {
         "module": "zeromodels.models.xlm_roberta",
@@ -4629,9 +4605,8 @@ MODEL_TEST_CONFIGS["Gemma3nConditionalGenerate"] = {
 }
 
 
-# Stable Diffusion 1.x: the hosted container (UNet + VAE + CLIP text, three
-# disconnected paths in one functional graph) and the text-to-image task, which is
-# the same graph plus the denoising loop. Tiny 2-level UNet at an 8x8 latent, a
+# Diffusion: one ZMDiffusion entry per family (model_type). Stable Diffusion 1.x:
+# UNet + VAE + CLIP text, three disconnected paths in one functional graph. Tiny 2-level UNet at an 8x8 latent, a
 # 16px two-level VAE (x2), a 1-layer text tower padded to 16 tokens.
 _sd_tiny = {
     "unet_sample_size": 8,
@@ -4659,41 +4634,25 @@ _sd_outputs = {
     "image": (2, 16, 16, 3),
     "text_embeds": (2, 16, 32),
 }
-MODEL_TEST_CONFIGS["StableDiffusionModel"] = {
-    "module": "zeromodels.models.stable_diffusion",
-    "model_cls": "StableDiffusionModel",
+MODEL_TEST_CONFIGS["ZMDiffusion_stable_diffusion"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_sd_tiny),
-    "input_factory": "stable_diffusion_input",
-    "expected_output_shape": dict(_sd_outputs),
-}
-MODEL_TEST_CONFIGS["StableDiffusionTextToImage"] = {
-    "module": "zeromodels.models.stable_diffusion",
-    "model_cls": "StableDiffusionTextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_sd_tiny),
+    "init_kwargs": dict(_sd_tiny, model_type="stable_diffusion"),
     "input_factory": "stable_diffusion_input",
     "expected_output_shape": dict(_sd_outputs),
 }
 
-# Stable Diffusion 2.x: the same container / task over the SD 2 configuration (per-level
+# Stable Diffusion 2.x: the SD 1.x family over the SD 2 configuration (per-level
 # attention heads, linear token projection, gelu OpenCLIP-style text tower, "!" padding).
 _sd2_tiny = dict(
     _sd_tiny, unet_num_attention_heads=(2, 4), unet_use_linear_projection=True
 )
-MODEL_TEST_CONFIGS["StableDiffusion2Model"] = {
-    "module": "zeromodels.models.stable_diffusion_2",
-    "model_cls": "StableDiffusion2Model",
+MODEL_TEST_CONFIGS["ZMDiffusion_stable_diffusion_2"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_sd2_tiny),
-    "input_factory": "stable_diffusion_input",
-    "expected_output_shape": dict(_sd_outputs),
-}
-MODEL_TEST_CONFIGS["StableDiffusion2TextToImage"] = {
-    "module": "zeromodels.models.stable_diffusion_2",
-    "model_cls": "StableDiffusion2TextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_sd2_tiny),
+    "init_kwargs": dict(_sd2_tiny, model_type="stable_diffusion_2"),
     "input_factory": "stable_diffusion_input",
     "expected_output_shape": dict(_sd_outputs),
 }
@@ -4740,19 +4699,11 @@ _sdxl_outputs = {
     "prompt_embeds": (2, 16, 64),
     "pooled_prompt_embeds": (2, 16),
 }
-MODEL_TEST_CONFIGS["StableDiffusionXLModel"] = {
-    "module": "zeromodels.models.stable_diffusion_xl",
-    "model_cls": "StableDiffusionXLModel",
+MODEL_TEST_CONFIGS["ZMDiffusion_stable_diffusion_xl"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_sdxl_tiny),
-    "input_factory": "stable_diffusion_xl_input",
-    "expected_output_shape": dict(_sdxl_outputs),
-}
-MODEL_TEST_CONFIGS["StableDiffusionXLTextToImage"] = {
-    "module": "zeromodels.models.stable_diffusion_xl",
-    "model_cls": "StableDiffusionXLTextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_sdxl_tiny),
+    "init_kwargs": dict(_sdxl_tiny, model_type="stable_diffusion_xl"),
     "input_factory": "stable_diffusion_xl_input",
     "expected_output_shape": dict(_sdxl_outputs),
 }
@@ -4790,19 +4741,11 @@ _sdxl_refiner_tiny = {
     "text_2_vocab_size": 128,
 }
 _sdxl_refiner_outputs = dict(_sdxl_outputs, prompt_embeds=(2, 16, 32))
-MODEL_TEST_CONFIGS["StableDiffusionXLRefinerModel"] = {
-    "module": "zeromodels.models.stable_diffusion_xl",
-    "model_cls": "StableDiffusionXLRefinerModel",
+MODEL_TEST_CONFIGS["ZMDiffusion_stable_diffusion_xl_refiner"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_sdxl_refiner_tiny),
-    "input_factory": "stable_diffusion_xl_refiner_input",
-    "expected_output_shape": dict(_sdxl_refiner_outputs),
-}
-MODEL_TEST_CONFIGS["StableDiffusionXLRefinerImageToImage"] = {
-    "module": "zeromodels.models.stable_diffusion_xl",
-    "model_cls": "StableDiffusionXLRefinerImageToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_sdxl_refiner_tiny),
+    "init_kwargs": dict(_sdxl_refiner_tiny, model_type="stable_diffusion_xl_refiner"),
     "input_factory": "stable_diffusion_xl_refiner_input",
     "expected_output_shape": dict(_sdxl_refiner_outputs),
 }
@@ -4850,25 +4793,17 @@ _sd3_outputs = {
     "prompt_embeds": (2, 16, 24),
     "pooled_prompt_embeds": (2, 24),
 }
-MODEL_TEST_CONFIGS["StableDiffusion3Model"] = {
-    "module": "zeromodels.models.stable_diffusion_3",
-    "model_cls": "StableDiffusion3Model",
+MODEL_TEST_CONFIGS["ZMDiffusion_stable_diffusion_3"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_sd3_tiny),
-    "input_factory": "stable_diffusion_3_input",
-    "expected_output_shape": dict(_sd3_outputs),
-}
-MODEL_TEST_CONFIGS["StableDiffusion3TextToImage"] = {
-    "module": "zeromodels.models.stable_diffusion_3",
-    "model_cls": "StableDiffusion3TextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_sd3_tiny),
+    "init_kwargs": dict(_sd3_tiny, model_type="stable_diffusion_3"),
     "input_factory": "stable_diffusion_3_input",
     "expected_output_shape": dict(_sd3_outputs),
 }
 # the separately hosted third text encoder (T5 v1.1 XXL layout: gated-GELU blocks)
 MODEL_TEST_CONFIGS["SD3T5EncoderModel"] = {
-    "module": "zeromodels.models.stable_diffusion_3",
+    "module": "zeromodels.diffusers.stable_diffusion_3",
     "model_cls": "SD3T5EncoderModel",
     "model_type": "llm",
     "init_kwargs": {
@@ -4890,19 +4825,11 @@ _sd3_5_tiny = dict(
     transformer_qk_norm="rms_norm",
     transformer_dual_attention_layers=(0,),
 )
-MODEL_TEST_CONFIGS["StableDiffusion3_5Model"] = {
-    "module": "zeromodels.models.stable_diffusion_3_5",
-    "model_cls": "StableDiffusion3_5Model",
+MODEL_TEST_CONFIGS["ZMDiffusion_stable_diffusion_3_5"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_sd3_5_tiny),
-    "input_factory": "stable_diffusion_3_input",
-    "expected_output_shape": dict(_sd3_outputs),
-}
-MODEL_TEST_CONFIGS["StableDiffusion3_5TextToImage"] = {
-    "module": "zeromodels.models.stable_diffusion_3_5",
-    "model_cls": "StableDiffusion3_5TextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_sd3_5_tiny),
+    "init_kwargs": dict(_sd3_5_tiny, model_type="stable_diffusion_3_5"),
     "input_factory": "stable_diffusion_3_input",
     "expected_output_shape": dict(_sd3_outputs),
 }
@@ -4945,19 +4872,11 @@ _qwen_image_outputs = {
     "image": (2, 16, 16, 3),
     "prompt_embeds": (2, 32, 32),
 }
-MODEL_TEST_CONFIGS["QwenImageModel"] = {
-    "module": "zeromodels.models.qwen_image",
-    "model_cls": "QwenImageModel",
+MODEL_TEST_CONFIGS["ZMDiffusion_qwen_image"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_qwen_image_tiny),
-    "input_factory": "qwen_image_input",
-    "expected_output_shape": dict(_qwen_image_outputs),
-}
-MODEL_TEST_CONFIGS["QwenImageTextToImage"] = {
-    "module": "zeromodels.models.qwen_image",
-    "model_cls": "QwenImageTextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_qwen_image_tiny),
+    "init_kwargs": dict(_qwen_image_tiny, model_type="qwen_image"),
     "input_factory": "qwen_image_input",
     "expected_output_shape": dict(_qwen_image_outputs),
 }
@@ -5002,19 +4921,11 @@ _qwen_image_21_outputs = {
     "image": (2, 64, 64, 4),
     "prompt_embeds": (2, 16, 32),
 }
-MODEL_TEST_CONFIGS["QwenImage21Model"] = {
-    "module": "zeromodels.models.qwen_image_21",
-    "model_cls": "QwenImage21Model",
+MODEL_TEST_CONFIGS["ZMDiffusion_qwen_image_21"] = {
+    "module": "zeromodels.diffusers",
+    "model_cls": "ZMDiffusion",
     "model_type": "diffusion",
-    "init_kwargs": dict(_qwen_image_21_tiny),
-    "input_factory": "qwen_image_21_input",
-    "expected_output_shape": dict(_qwen_image_21_outputs),
-}
-MODEL_TEST_CONFIGS["QwenImage21TextToImage"] = {
-    "module": "zeromodels.models.qwen_image_21",
-    "model_cls": "QwenImage21TextToImage",
-    "model_type": "diffusion",
-    "init_kwargs": dict(_qwen_image_21_tiny),
+    "init_kwargs": dict(_qwen_image_21_tiny, model_type="qwen_image_21"),
     "input_factory": "qwen_image_21_input",
     "expected_output_shape": dict(_qwen_image_21_outputs),
 }

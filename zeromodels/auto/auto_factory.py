@@ -103,11 +103,12 @@ _CLASS_INDEX = None
 def _class_index():
     global _CLASS_INDEX
     if _CLASS_INDEX is None:
+        import zeromodels.diffusers as diffusers
         import zeromodels.models as models
         import zeromodels.sentence_transformers as sentence_transformers
 
         index = {}
-        for namespace in (models, sentence_transformers):
+        for namespace in (models, sentence_transformers, diffusers):
             packages = [namespace]
             packages.extend(
                 getattr(namespace, family)

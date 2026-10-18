@@ -39,3 +39,7 @@ class SentenceTransformerConfig(BaseConfig):
     projection_activation: str = "linear"
     similarity_fn_name: str = "cosine"
     max_seq_len: int = 384
+
+
+# resolvable by the Auto loaders (AutoZMConfig); not part of the package API
+__all__ = ["SentenceTransformerConfig"]

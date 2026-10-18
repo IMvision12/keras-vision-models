@@ -8,13 +8,13 @@
 </div>
 
 Stable Diffusion 1.x, ported to pure Keras 3: latent text-to-image diffusion with a
-UNet denoiser, a KL-regularized autoencoder and the CLIP ViT-L/14 text encoder. The
-whole model is **one container**, `StableDiffusionModel`, a single functional graph with
-the three towers as disconnected sub-graphs (the way `CLIPModel` holds its two), so a
-hosted repo is one `model.weights.h5` and one `zm_config.json`.
-`StableDiffusionTextToImage` is that same graph plus `generate`: the classifier-free
-guidance denoising loop of `BaseDiffusion`, the diffusion counterpart of
-`BaseGeneration`.
+UNet denoiser, a KL-regularized autoencoder and the CLIP ViT-L/14 text encoder. It loads
+through [`ZMDiffusion`](diffusers.md), the one diffusion pipeline class of zeromodels,
+with `model_type="stable_diffusion"`: a single functional graph with the three towers as
+disconnected sub-graphs (the way `CLIPModel` holds its two), so a hosted repo is one
+`model.weights.h5` and one `zm_config.json`, plus `generate`, the classifier-free
+guidance denoising loop of `BaseDiffusion` (the diffusion counterpart of
+`BaseGeneration`). Prompts are tokenized by `ZMDiffusionTokenizer`.
 
 All five SD 1.x checkpoints (v1-1 to v1-5) share this architecture; only the weights
 differ. The weights are converted once, offline, and hosted: on-the-fly `hf:` conversion
@@ -74,13 +74,14 @@ ViT-L/14 defaults), plus the checkpoint's `scheduler_config` and the CLIP specia
 ids. Each repo's `zm_config.json` parses through it; the constructor stays flat, with the
 sub-config fields prefixed `unet_` / `vae_` / `text_`.
 
-### `StableDiffusionTextToImage`
+### `ZMDiffusion`
 
-The text-to-image task: the `StableDiffusionModel` container plus `BaseDiffusion`'s
-`generate`. It supplies the hooks the mixin needs (`encode_prompt` on the CLIP tower,
-the empty prompt's `unconditional_ids`, `predict_noise` on the UNet, `decode_latents` on
-the VAE) and a `scheduler`, built from the config's `scheduler_config` (PNDM for every
-SD 1.x checkpoint).
+The pipeline class of every diffusion family (see [Diffusers](diffusers.md)); a repo's
+`model_type` (`"stable_diffusion"` here) selects the SD 1.x family, which supplies the
+hooks `BaseDiffusion`'s `generate` needs (`encode_prompt` on the CLIP tower, the empty
+prompt's `unconditional_ids`, `predict_noise` on the UNet, `decode_latents` on the VAE)
+and a `scheduler`, built from the config's `scheduler_config` (PNDM for every SD 1.x
+checkpoint).
 
 ```python
 generate(
@@ -111,6 +112,7 @@ shapes are the same at every step, so one compile serves the whole loop.
 
 | Constructor arg | Default | Meaning |
 |---|---|---|
+| `model_type` | required | `"stable_diffusion"` (read from the repo's `zm_config.json` on `from_weights`) |
 | `scheduler` | `None` | a `BaseScheduler`; built from `scheduler_config` when unset |
 | `unet_sample_size` | `64` | latent size the UNet graph is built for (image size / 8) |
 | `vae_sample_size` | `512` | image size the VAE graphs are built for |
@@ -118,14 +120,12 @@ shapes are the same at every step, so one compile serves the whole loop.
 | `bos_token_id` / `eos_token_id` / `pad_token_id` | `49406` / `49407` / `49407` | CLIP's special tokens, used to build the empty prompt |
 | `scheduler_config` | `None` | the diffusers scheduler dict (`_class_name`, betas, `steps_offset`, ...) |
 
-### `StableDiffusionModel`
-
-The container: one functional model whose graph is three disconnected paths, one per
-component. Inputs `{"sample", "timestep", "encoder_hidden_states"}` (UNet),
-`{"image", "latent"}` (VAE encode / decode) and `{"token_ids", "padding_mask"}` (text);
-outputs `{"noise_pred", "moments", "image", "text_embeds"}`. The components are exposed as
-`.unet`, `.vae` and `.text_encoder` and share the container's weights, so loading the
-container loads all three. It loads the same repo as the task class.
+The graph is three disconnected paths, one per component. Inputs
+`{"sample", "timestep", "encoder_hidden_states"}` (UNet), `{"image", "latent"}` (VAE
+encode / decode) and `{"token_ids", "padding_mask"}` (text); outputs
+`{"noise_pred", "moments", "image", "text_embeds"}`. The components are exposed as
+`.unet`, `.vae` and `.text_encoder` and share the model's weights, so one load fills all
+three, and each can be called on its own.
 
 ### `UNet2DConditionModel`
 
@@ -189,15 +189,16 @@ model.scheduler = EulerDiscreteScheduler.from_config(model.config.scheduler_conf
 
 ## Preprocessing
 
-### `StableDiffusionTokenizer`
+### `ZMDiffusionTokenizer`
 
-The CLIP ViT-L/14 BPE tokenizer: `<|startoftext|>` / `<|endoftext|>` framing, truncated
-and `<|endoftext|>`-padded to 77 tokens, the fixed context length the UNet's
-cross-attention is built for. Calling it returns `{"input_ids", "attention_mask"}`
-for a string or a list of strings.
+The tokenizer of every diffusion family; for `model_type="stable_diffusion"` it is the
+CLIP ViT-L/14 BPE tokenizer: `<|startoftext|>` / `<|endoftext|>` framing, truncated and
+`<|endoftext|>`-padded to 77 tokens, the fixed context length the UNet's cross-attention
+is built for. Calling it returns `{"input_ids", "attention_mask"}` for a string or a list
+of strings. `from_weights("zeromodels/<variant>")` reads the family from the repo.
 
 ```python
-StableDiffusionTokenizer(hf_id=None, tokenizer_file=None, max_seq_len=77)
+ZMDiffusionTokenizer(model_type="stable_diffusion", hf_id=None, tokenizer_file=None, max_seq_len=77)
 ```
 
 There is no image processor and no processor class: text-to-image takes token ids in
@@ -213,13 +214,10 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from zeromodels.models.stable_diffusion import (
-    StableDiffusionTextToImage,
-    StableDiffusionTokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = StableDiffusionTextToImage.from_weights("zeromodels/stable-diffusion-v1-5")
-tokenizer = StableDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-v1-5")
+model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-v1-5")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-v1-5")
 
 inputs = tokenizer(
     "a red fox sitting in a field of lavender, golden hour, wildlife photography, sharp focus"
@@ -265,7 +263,7 @@ images = model.generate(**tokenizer("a bowl of ramen"), latents=latents)
 ### Verified against diffusers
 
 The fox prompt above with the same initial latent, PNDM 50 steps and guidance 7.5
-through `StableDiffusionTextToImage` (left) and diffusers' `StableDiffusionPipeline`
+through `ZMDiffusion` (left) and diffusers' `StableDiffusionPipeline`
 (right), both fp32:
 
 <img src="../assets/stable_diffusion_text_to_image_output.jpg" alt="zeromodels (left) and diffusers (right) generations of a red fox in lavender from the same latent" width="760">
@@ -278,12 +276,12 @@ vae decode                    max|d|=3.5e-06
 final image (uint8)           max|d|=1  mean|d|=0.0022  PSNR=74.7 dB  identical_pixels=99.34%
 ```
 
-### Container only
+### Components on their own
 
 ```python
-from zeromodels.models.stable_diffusion import StableDiffusionModel
+from zeromodels.diffusers import ZMDiffusion
 
-sd = StableDiffusionModel.from_weights("zeromodels/stable-diffusion-v1-5")
+sd = ZMDiffusion.from_weights("zeromodels/stable-diffusion-v1-5")
 latent = sd.vae.encode(image)  # (1, 512, 512, 3) in [-1, 1] -> (1, 64, 64, 4)
 text = sd.text_encoder({"token_ids": ids, "padding_mask": mask})["last_hidden_state"]
 ```
@@ -294,7 +292,7 @@ The graphs are built for a fixed size, the weights are not. Rebuild at another s
 the constructor overrides (multiples of 64px; SD 1.x was trained at 512px):
 
 ```python
-model = StableDiffusionTextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-v1-5", unet_sample_size=96, vae_sample_size=768
 )
 images = model.generate(**tokenizer("a mountain lake at dawn"))  # (1, 768, 768, 3)
@@ -324,7 +322,7 @@ import keras
 
 keras.config.set_image_data_format("channels_first")
 
-model = StableDiffusionTextToImage.from_weights("zeromodels/stable-diffusion-v1-5")
+model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-v1-5")
 images = model.generate(
     **tokenizer("a bowl of ramen"), seed=0
 )  # still (1, 512, 512, 3)
@@ -344,8 +342,10 @@ measured 2-3x faster than an op-by-op run; TensorFlow uses the same mechanism.
 ## Loading Fine-tuned Weights
 
 The five hosted checkpoints are the supported weights; any repo laid out like them
-(`zm_config.json` declaring `StableDiffusionModel`, `model.weights.h5`, `tokenizer.json`)
-loads with `from_weights("<org>/<repo>")`. The `hf:` prefix raises for diffusion models:
+(`zm_config.json` declaring `ZMDiffusion` with `model_type: "stable_diffusion"`,
+`model.weights.h5`, `tokenizer.json`) loads with `from_weights("<org>/<repo>")`; configs
+written before `ZMDiffusion` (declaring `StableDiffusionModel`) load the same way. The
+`hf:` prefix raises for diffusion models:
 convert a diffusers-format checkpoint once with
-`zeromodels/models/stable_diffusion/convert_stable_diffusion_diffusers_to_keras.py`
+`zeromodels/diffusers/stable_diffusion/convert_stable_diffusion_diffusers_to_keras.py`
 (`transfer_stable_diffusion(repo)`, `pip install zeromodels[conversion]`) and host the result.

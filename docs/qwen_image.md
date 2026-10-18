@@ -10,11 +10,11 @@
 
 Qwen-Image, ported to pure Keras 3: latent text-to-image flow-matching with a
 60-layer double-stream MMDiT denoiser, a Wan-derived KL autoencoder and the
-Qwen2.5-VL-7B Instruct text tower. The whole model is **one container**,
-`QwenImageModel`, a single functional graph with the three towers as disconnected
+Qwen2.5-VL-7B Instruct text tower. It loads through [`ZMDiffusion`](diffusers.md), the one diffusion
+pipeline class of zeromodels, with `model_type="qwen_image"`: a single functional graph with the three towers as disconnected
 sub-graphs (the way `CLIPModel` holds its two), so a hosted repo is one set of
-sharded weights and one `zm_config.json`. `QwenImageTextToImage` is that same
-graph plus `generate`: the true-CFG denoising loop of `BaseDiffusion`, the
+sharded weights and one `zm_config.json`. plus
+`generate`: the true-CFG denoising loop of `BaseDiffusion`, the
 diffusion counterpart of `BaseGeneration`.
 
 The weights are converted once, offline, and hosted: on-the-fly `hf:` conversion
@@ -52,7 +52,7 @@ in ZeroModels).
 ## Variants
 
 Preconverted, bfloat16 weights are hosted under `zeromodels/`. Load with
-`from_weights("zeromodels/<variant>")`. Each repo is one container: MMDiT
+`from_weights("zeromodels/<variant>")`. Each repo is one checkpoint: MMDiT
 transformer + VAE + Qwen2.5-VL text tower, ~53 GiB at 16-bit. Released under
 Apache-2.0.
 
@@ -70,10 +70,11 @@ the checkpoint's `scheduler_config` and the Qwen special token ids. Each repo's
 `zm_config.json` parses through it; the constructor stays flat, with the
 sub-config fields prefixed `transformer_` / `vae_` / `text_`.
 
-### `QwenImageTextToImage`
+### `ZMDiffusion`
 
-The text-to-image task: the `QwenImageModel` container plus `BaseDiffusion`'s
-`generate`. It supplies the hooks the mixin needs (`encode_prompt` on the text
+The pipeline class of every diffusion family (see [Diffusers](diffusers.md)); the
+repo's `model_type` (`"qwen_image"` here) selects this family, which supplies the hooks
+`BaseDiffusion`'s `generate` needs the mixin needs (`encode_prompt` on the text
 tower with ChatML template drop, `unconditional_ids`, `predict_noise` on the
 transformer, `decode_latents` on the VAE with mean/std un-normalization) and a
 `scheduler`, built from the config's `scheduler_config`
@@ -114,6 +115,7 @@ Returns `(batch, height, width, 3)` uint8 numpy images.
 
 | Constructor arg | Default | Meaning |
 |---|---|---|
+| `model_type` | required | `"qwen_image"` (read from the repo's `zm_config.json` on `from_weights`) |
 | `scheduler` | `None` | a `BaseScheduler`; built from `scheduler_config` when unset |
 | `transformer_sample_size` | `128` | latent side the transformer graph is built for (image / 8) |
 | `vae_sample_size` | `1024` | image size the VAE graphs are built for |
@@ -123,15 +125,12 @@ Returns `(batch, height, width, 3)` uint8 numpy images.
 | `prompt_template_encode_start_idx` | `34` | ChatML template tokens dropped after the text encoder |
 | `max_sequence_length` | `512` | prompt embed length after the template drop |
 
-### `QwenImageModel`
-
-The container: one functional model whose graph is three disconnected paths, one per
-component. Inputs cover the transformer (`sample`, `timestep`,
+The graph is three disconnected paths, one per component. Inputs cover the transformer (`sample`, `timestep`,
 `encoder_hidden_states`, `encoder_hidden_states_mask`), the VAE (`image`, `latent`)
 and the text tower (`token_ids`, `padding_mask`); outputs include the packed
 velocity, VAE moments / sample, and prompt embeds. The components are exposed as
-`.transformer`, `.vae` and `.text_encoder` and share the container's weights, so
-loading the container loads all three. It loads the same repo as the task class.
+`.transformer`, `.vae` and `.text_encoder` and share the model's weights, so one load
+fills all three, and each can be called on its own.
 
 ### `QwenImageTransformer2DModel`
 
@@ -190,7 +189,7 @@ matching Diffusers.
 
 ## Preprocessing
 
-### `QwenImageTokenizer`
+### `ZMDiffusionTokenizer`
 
 The Qwen2 BPE tokenizer with the Diffusers ChatML prompt template wrapped around
 each string. Calling it returns `{"input_ids", "attention_mask"}` for a string or
@@ -199,7 +198,7 @@ a list of strings. `generate` / `encode_prompt` drop the template prefix
 `max_sequence_length` (512) tokens.
 
 ```python
-QwenImageTokenizer(hf_id=None, tokenizer_file=None, max_seq_len=1024)
+ZMDiffusionTokenizer(model_type="qwen_image", hf_id=None, tokenizer_file=None, max_seq_len=1024)
 ```
 
 There is no image processor and no processor class: text-to-image takes token ids
@@ -215,13 +214,10 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from zeromodels.models.qwen_image import (
-    QwenImageTextToImage,
-    QwenImageTokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = QwenImageTextToImage.from_weights("zeromodels/qwen-image")
-tokenizer = QwenImageTokenizer.from_weights("zeromodels/qwen-image")
+model = ZMDiffusion.from_weights("zeromodels/qwen-image")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/qwen-image")
 
 inputs = tokenizer(
     "a coffee shop entrance with a chalkboard sign reading 'Open', warm afternoon light"
@@ -272,7 +268,7 @@ initial packed latent yourself. At 1024px the spatial noise before packing is
 ```python
 import numpy as np
 
-from zeromodels.models.qwen_image.qwen_image_model import pack_latents
+from zeromodels.diffusers.qwen_image.qwen_image_model import pack_latents
 
 h, w, channels = 128, 128, 16
 noise = np.random.default_rng(0).standard_normal((1, h, w, channels)).astype("float32")
@@ -297,12 +293,12 @@ End-to-end image parity depends on dtype and resolution; prefer bf16 (or fp32)
 over fp16 — Qwen-Image activations overflow the fp16 range without the Diffusers
 clip path.
 
-### Container only
+### Components on their own
 
 ```python
-from zeromodels.models.qwen_image import QwenImageModel
+from zeromodels.diffusers import ZMDiffusion
 
-qi = QwenImageModel.from_weights("zeromodels/qwen-image")
+qi = ZMDiffusion.from_weights("zeromodels/qwen-image")
 latent = qi.vae.encode(image)  # (1, H, W, 3) in [-1, 1] -> (1, H/8, W/8, 16)
 text = qi.text_encoder({"input_ids": ids, "attention_mask": mask})["last_hidden_state"]
 ```
@@ -314,7 +310,7 @@ size with the constructor overrides (multiples of 16px after VAE×pack; the
 checkpoint targets 1024px):
 
 ```python
-model = QwenImageTextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/qwen-image",
     transformer_sample_size=64,
     vae_sample_size=512,
@@ -340,7 +336,7 @@ tokens and has no spatial layout. `generate` always hands back
 
 ## Memory and speed
 
-The bf16 / float16 container is about 53 GiB. Building the full graph on a ~40 GB
+The bf16 / float16 checkpoint is about 53 GiB. Building the full graph on a ~40 GB
 GPU OOMs; build on CPU (or load with component offload) and move one tower at a
 time. A guided 1024px run needs substantial activation headroom on top of the
 ~38 GiB transformer; 512px is the practical default on 40 GB cards. Prefer the
@@ -350,10 +346,10 @@ plain matmul softmax default.
 ## Loading Fine-tuned Weights
 
 The hosted checkpoint is the supported weight; any repo laid out like it
-(`zm_config.json` declaring `QwenImageModel`, sharded `*.weights.json` /
+(`zm_config.json` declaring `ZMDiffusion` with `model_type: "qwen_image"`, sharded `*.weights.json` /
 `*.weights.h5`, `tokenizer.json`) loads with `from_weights("<org>/<repo>")`. The
 `hf:` prefix raises for diffusion models: convert a Diffusers-format checkpoint
 once with
-`zeromodels/models/qwen_image/convert_qwen_image_diffusers_to_keras.py`
+`zeromodels/diffusers/qwen_image/convert_qwen_image_diffusers_to_keras.py`
 (`transfer_qwen_image(repo)`, `pip install zeromodels[conversion]`) and host the
 result.

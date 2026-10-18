@@ -271,6 +271,8 @@ All 13 checkpoints below have pre-converted Keras weights under the `zeromodels`
 
 - Text-to-Image Diffusion (text → image)
 
+    Every diffusion checkpoint loads with `ZMDiffusion` and `ZMDiffusionTokenizer` from `zeromodels.diffusers` ([documentation](https://imvision12.github.io/ZeroModels/diffusers/)).
+
     | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
     |---------------|-------------------|---------------------|
     | Stable Diffusion 1.x (v1-1 to v1-5) | [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) | `diffusers` |

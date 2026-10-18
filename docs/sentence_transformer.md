@@ -19,12 +19,22 @@ verified on the Keras Torch backend; TensorFlow and JAX parity have not yet
 been checked for all 13 checkpoints.
 
 The public API is `zeromodels.sentence_transformers`, separate from the upstream
-`sentence_transformers` reference library. The former `zeromodels.st_models`
-and `zeromodels.models.sentence_transformer` paths remain compatibility aliases
-for existing code and saved metadata; new examples and exports use the new namespace.
-Use `ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer`; the former
-`SentenceTransformer`, `SentenceTransformerModel`, and `SentenceTransformerTokenizer`
-names remain compatibility aliases.
+`sentence_transformers` reference library, and it is exactly two classes:
+`ZMSentenceTransformer` and `ZMSentenceTransformerTokenizer`. Hub repos whose
+`zm_config.json` or `zm_preprocessor.json` still name the former classes
+(`SentenceTransformerModel`, `SentenceTransformer`, `SentenceTransformerTextEmbed`,
+`SentenceTransformerTokenizer`) load into these two unchanged.
+
+| | |
+|---|---|
+| Class | `ZMSentenceTransformer` |
+| Tokenizer | `ZMSentenceTransformerTokenizer` |
+| Selector | `backbone_type` (one architecture, pluggable encoder) |
+| Recipes | `SENTENCE_TRANSFORMER_BACKBONES` maps each `backbone_type` to its encoder builder: the `zeromodels.models` MPNet / BERT / RoBERTa / XLM-R encoders, and DistilBERT / ALBERT builders in `sentence_transformer_backbones.py` |
+| Hub files | `zm_config.json` + `zm_preprocessor.json` + `tokenizer.json` |
+
+Supported `backbone_type` values: `mpnet`, `bert`, `roberta`, `xlm-roberta`,
+`distilbert`, `albert`.
 
 ## Usage
 
@@ -135,8 +145,8 @@ tokenizer = ZMSentenceTransformerTokenizer.from_weights(
 An explicit commit SHA can be supplied as `revision=` to pin the upstream
 snapshot.
 
-`AutoZMTextEmbed` resolves ZeroModels `sentence_transformer` configs to the
-`SentenceTransformerTextEmbed` task view. For upstream `hf:` repos, load the
+`AutoZMTextEmbed` resolves ZeroModels `sentence_transformer` configs to
+`ZMSentenceTransformer` as well. For upstream `hf:` repos, load the
 concrete class as shown above: their root `model_type` describes the backbone,
 not the sentence-embedding task.
 

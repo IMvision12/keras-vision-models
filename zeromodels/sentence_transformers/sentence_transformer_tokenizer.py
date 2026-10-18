@@ -9,6 +9,8 @@ from tokenizers import Tokenizer, normalizers
 
 from zeromodels.base import BaseTokenizer
 
+from .sentence_transformer_backbones import get_backbone
+
 
 @keras.saving.register_keras_serializable(package="zeromodels")
 @keras.saving.register_keras_serializable(
@@ -249,8 +251,7 @@ class ZMSentenceTransformerTokenizer(BaseTokenizer):
         return self.encode_batch_to_inputs(
             inputs,
             text_pair,
-            token_type_ids=self.backbone_type
-            in ("bert", "roberta", "xlm-roberta", "albert"),
+            token_type_ids=get_backbone(self.backbone_type).token_type_ids,
         )
 
     def get_config(self):
@@ -344,6 +345,3 @@ class ZMSentenceTransformerTokenizer(BaseTokenizer):
                 for item in config.get("normalizers", [])
             )
         )
-
-
-SentenceTransformerTokenizer = ZMSentenceTransformerTokenizer

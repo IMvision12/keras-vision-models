@@ -1,7 +1,12 @@
 import math
+from typing import Callable, NamedTuple
 
 import keras
 from keras import layers, ops
+
+from zeromodels.models.bert.bert_model import bert_backbone
+from zeromodels.models.mpnet.mpnet_model import mpnet_backbone
+from zeromodels.models.roberta.roberta_model import roberta_backbone
 
 
 def _attention(query, key, value, attention_mask, num_heads):
@@ -223,3 +228,113 @@ def albert_backbone(
     for _ in range(num_layers):
         x = shared([x, attention_mask])
     return x
+
+
+def encoder_kwargs(config):
+    """The encoder hyperparameters every backbone builder takes."""
+    return {
+        "vocab_size": config.vocab_size,
+        "embed_dim": config.embed_dim,
+        "num_layers": config.num_layers,
+        "num_heads": config.num_heads,
+        "mlp_dim": config.mlp_dim,
+        "max_position_embeddings": config.max_position_embeddings,
+        "hidden_act": config.hidden_act,
+        "layer_norm_eps": config.layer_norm_eps,
+    }
+
+
+def build_mpnet(inputs, config):
+    sequence_output, _ = mpnet_backbone(
+        inputs["input_ids"],
+        inputs["attention_mask"],
+        **encoder_kwargs(config),
+        relative_attention_num_buckets=config.relative_attention_num_buckets,
+        pad_token_id=config.pad_token_id,
+        dropout=config.dropout,
+        attention_dropout=config.attention_dropout,
+        add_pooler=False,
+    )
+    return sequence_output
+
+
+def build_bert(inputs, config):
+    sequence_output, _ = bert_backbone(
+        inputs["input_ids"],
+        inputs["attention_mask"],
+        inputs["token_type_ids"],
+        **encoder_kwargs(config),
+        type_vocab_size=config.type_vocab_size,
+        dropout=config.dropout,
+        attention_dropout=config.attention_dropout,
+        add_pooler=False,
+    )
+    return sequence_output
+
+
+def build_roberta(inputs, config):
+    sequence_output, _ = roberta_backbone(
+        inputs["input_ids"],
+        inputs["attention_mask"],
+        inputs["token_type_ids"],
+        **encoder_kwargs(config),
+        type_vocab_size=config.type_vocab_size,
+        pad_token_id=config.pad_token_id,
+        dropout=config.dropout,
+        attention_dropout=config.attention_dropout,
+        add_pooler=False,
+    )
+    return sequence_output
+
+
+def build_distilbert(inputs, config):
+    return distilbert_backbone(
+        inputs["input_ids"], inputs["attention_mask"], **encoder_kwargs(config)
+    )
+
+
+def build_albert(inputs, config):
+    return albert_backbone(
+        inputs["input_ids"],
+        inputs["attention_mask"],
+        inputs["token_type_ids"],
+        **encoder_kwargs(config),
+        embedding_size=config.embedding_size or config.embed_dim,
+        type_vocab_size=config.type_vocab_size,
+        num_hidden_groups=config.num_hidden_groups,
+        inner_group_num=config.inner_group_num,
+    )
+
+
+class SentenceTransformerBackbone(NamedTuple):
+    """One encoder ``ZMSentenceTransformer`` can be built on.
+
+    ``build(inputs, config)`` wires the encoder into the functional graph and
+    returns the token embeddings; ``token_type_ids`` says whether the encoder (and
+    so the model and the tokenizer) takes segment ids.
+    """
+
+    build: Callable
+    token_type_ids: bool
+
+
+# backbone_type -> encoder. MPNet / BERT / RoBERTa / XLM-R reuse the zeromodels.models
+# encoders; DistilBERT and ALBERT are built above.
+SENTENCE_TRANSFORMER_BACKBONES = {
+    "mpnet": SentenceTransformerBackbone(build_mpnet, token_type_ids=False),
+    "bert": SentenceTransformerBackbone(build_bert, token_type_ids=True),
+    "roberta": SentenceTransformerBackbone(build_roberta, token_type_ids=True),
+    "xlm-roberta": SentenceTransformerBackbone(build_roberta, token_type_ids=True),
+    "distilbert": SentenceTransformerBackbone(build_distilbert, token_type_ids=False),
+    "albert": SentenceTransformerBackbone(build_albert, token_type_ids=True),
+}
+
+
+def get_backbone(backbone_type):
+    backbone = SENTENCE_TRANSFORMER_BACKBONES.get(backbone_type)
+    if backbone is None:
+        raise ValueError(
+            f"Unsupported sentence embedding backbone: {backbone_type!r}; expected "
+            f"one of {sorted(SENTENCE_TRANSFORMER_BACKBONES)}."
+        )
+    return backbone

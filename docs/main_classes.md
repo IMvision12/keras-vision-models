@@ -257,9 +257,12 @@ model.generate(
 )
 ```
 
-The diffusion flavor, used by [Stable Diffusion](stable_diffusion.md),
-[Stable Diffusion 2](stable_diffusion_2.md), [Stable Diffusion XL](stable_diffusion_xl.md)
-and [Stable Diffusion 3 / 3.5](stable_diffusion_3.md). Where the LM
+The diffusion flavor, mixed into [`ZMDiffusion`](diffusers.md), the one pipeline class of
+every diffusion family ([Stable Diffusion](stable_diffusion.md),
+[Stable Diffusion 2](stable_diffusion_2.md), [Stable Diffusion XL](stable_diffusion_xl.md),
+[Stable Diffusion 3 / 3.5](stable_diffusion_3.md), [Qwen-Image](qwen_image.md),
+[Qwen-Image-2.1](qwen_image_21.md)); each family supplies the hooks through its
+family recipe, selected by the checkpoint's `model_type`. Where the LM
 mixins decode tokens, this one runs a scheduler's denoising loop with classifier-free
 guidance over a latent and decodes it to `(batch, H, W, 3)` uint8 images. A model
 supplies five hooks (`encode_prompt`, `unconditional_ids`, `predict_noise`,
@@ -274,7 +277,7 @@ instance, like the LM decode loop.
 
 **Parameters**
 
-- **input_ids**: `(batch, seq)` token ids from the family's tokenizer.
+- **input_ids**: `(batch, seq)` token ids from `ZMDiffusionTokenizer`.
 - **negative_input_ids** (*optional*): the tokenized negative prompt, one row per prompt
   or a single row for the batch; the empty prompt when omitted.
 - **num_inference_steps** / **guidance_scale** (*optional*): default to the repo's

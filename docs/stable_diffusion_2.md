@@ -8,11 +8,11 @@
 </div>
 
 Stable Diffusion 2.x, ported to pure Keras 3: the [Stable Diffusion](stable_diffusion.md)
-latent-diffusion architecture with the second-generation conditioning. It reuses the
-SD 1.x family end to end (`StableDiffusion2Model` is `StableDiffusionModel`,
-`StableDiffusion2TextToImage` is `StableDiffusionTextToImage`, each with the SD 2
-configuration), so everything on that page applies: one container per repo, `generate`
-from `BaseDiffusion`, the schedulers, both data formats. What changes is the config:
+latent-diffusion architecture with the second-generation conditioning. It loads
+through [`ZMDiffusion`](diffusers.md) with `model_type="stable_diffusion_2"`, the SD 1.x
+family with the SD 2 configuration, so everything on that page applies: one functional
+model and one weights file per repo, `generate` from `BaseDiffusion`, the schedulers,
+both data formats. What changes is the config:
 
 - **Text encoder**: OpenCLIP ViT-H/14's text tower, 1024 wide, 16 heads, `gelu`, shipped
   truncated to its 23rd (penultimate) layer, which SD 2 conditions on.
@@ -68,9 +68,10 @@ with the SD 2 widths), `AutoencoderKLConfig` and `StableDiffusion2TextConfig` (a
 `CLIPTextConfig` with the ViT-H/14 sizes), plus the scheduler config and the token ids
 (`pad_token_id` 0). Flat constructor, `unet_` / `vae_` / `text_` prefixes, like SD 1.x.
 
-### `StableDiffusion2TextToImage`
+### `ZMDiffusion`
 
-`StableDiffusionTextToImage` with the SD 2 configuration; `generate` is unchanged:
+`ZMDiffusion` with `model_type="stable_diffusion_2"` (read from the repo); `generate` is
+the SD 1.x one:
 
 ```python
 generate(
@@ -87,14 +88,11 @@ generate(
 Returns `(batch, H, W, 3)` uint8 images at the checkpoint's resolution; `latents` is
 `(batch, 64, 64, 4)` for the 512px checkpoints and `(batch, 96, 96, 4)` for the 768px
 ones (`channels_first`: channels second). Defaults come from the repo's `generate_args`
-(50 steps, guidance 7.5). See [Stable Diffusion](stable_diffusion.md#stablediffusiontexttoimage)
+(50 steps, guidance 7.5). See [Stable Diffusion](stable_diffusion.md#zmdiffusion)
 for the argument table.
 
-### `StableDiffusion2Model`
-
-The container, `StableDiffusionModel` with the SD 2 configuration: the same three
-disconnected paths (`.unet`, `.vae`, `.text_encoder`) and the same inputs / outputs, with
-`encoder_hidden_states` 1024 wide. It loads the same repo as the task class.
+The graph is SD 1.x's three disconnected paths (`.unet`, `.vae`, `.text_encoder`) with
+the same inputs / outputs, `encoder_hidden_states` 1024 wide.
 
 The components are the SD 1.x classes, `UNet2DConditionModel` (built with
 `num_attention_heads=(5, 10, 20, 20)`, `use_linear_projection=True`,
@@ -103,16 +101,16 @@ The components are the SD 1.x classes, `UNet2DConditionModel` (built with
 
 ## Preprocessing
 
-### `StableDiffusion2Tokenizer`
+### `ZMDiffusionTokenizer`
 
-`StableDiffusionTokenizer` with `!` as the pad token: CLIP BPE, `<|startoftext|>` /
-`<|endoftext|>` framing, truncated and `!`-padded to 77 tokens. Returns
-`{"input_ids", "attention_mask"}`.
+`ZMDiffusionTokenizer` with `model_type="stable_diffusion_2"`, which pads with `!`:
+CLIP BPE, `<|startoftext|>` / `<|endoftext|>` framing, truncated and `!`-padded to 77
+tokens. Returns `{"input_ids", "attention_mask"}`.
 
 ```python
-StableDiffusion2Tokenizer(
-    hf_id=None, tokenizer_file=None, max_seq_len=77, pad_token="!"
-)
+ZMDiffusionTokenizer(
+    model_type="stable_diffusion_2", hf_id=None, tokenizer_file=None, max_seq_len=77
+)  # pad_token defaults to "!"
 ```
 
 ## End-to-end example
@@ -123,13 +121,10 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from zeromodels.models.stable_diffusion_2 import (
-    StableDiffusion2TextToImage,
-    StableDiffusion2Tokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = StableDiffusion2TextToImage.from_weights("zeromodels/stable-diffusion-2-1-base")
-tokenizer = StableDiffusion2Tokenizer.from_weights(
+model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-2-1-base")
+tokenizer = ZMDiffusionTokenizer.from_weights(
     "zeromodels/stable-diffusion-2-1-base"
 )
 
@@ -149,8 +144,8 @@ The 768px checkpoints need no extra arguments; the v-prediction DDIM scheduler a
 96x96 latent come from the repo:
 
 ```python
-model = StableDiffusion2TextToImage.from_weights("zeromodels/stable-diffusion-2-1")
-tokenizer = StableDiffusion2Tokenizer.from_weights("zeromodels/stable-diffusion-2-1")
+model = ZMDiffusion.from_weights("zeromodels/stable-diffusion-2-1")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/stable-diffusion-2-1")
 images = model.generate(
     **tokenizer("a lighthouse on a cliff at dusk, oil painting")
 )  # (1, 768, 768, 3)
@@ -161,8 +156,8 @@ images = model.generate(
 One step, no guidance (the repo's defaults; up to 4 steps sharpen a little):
 
 ```python
-model = StableDiffusion2TextToImage.from_weights("zeromodels/sd-turbo")
-tokenizer = StableDiffusion2Tokenizer.from_weights("zeromodels/sd-turbo")
+model = ZMDiffusion.from_weights("zeromodels/sd-turbo")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/sd-turbo")
 images = model.generate(
     **tokenizer(
         "a cinematic shot of a baby raccoon wearing an intricate italian priest robe"
@@ -176,7 +171,7 @@ The same prompt and latent through diffusers' `StableDiffusionPipeline` (fp32) m
 1 uint8 level: 99.9% of pixels identical at 1 step (PSNR 82 dB), 99.8% at 4 steps.
 
 Negative prompts, batching, explicit `latents` for cross-backend reproducibility, other
-resolutions and the container-only use work exactly as on the
+resolutions and the components on their own work exactly as on the
 [Stable Diffusion](stable_diffusion.md#end-to-end-example) page. Image-to-image
 (`generate(..., image=..., strength=...)`) works as described for
 [`BaseDiffusion`](main_classes.md#basediffusion).
@@ -184,7 +179,7 @@ resolutions and the container-only use work exactly as on the
 ### Verified against diffusers
 
 The ramen prompt above with the same initial latent, PNDM 50 steps and guidance 7.5
-through `StableDiffusion2TextToImage` (left) and diffusers' `StableDiffusionPipeline`
+through `ZMDiffusion` (left) and diffusers' `StableDiffusionPipeline`
 (right) on `stable-diffusion-2-1-base`, both fp32:
 
 <img src="../assets/stable_diffusion_2_text_to_image_output.jpg" alt="zeromodels (left) and diffusers (right) generations of a bowl of ramen from stable-diffusion-2-1-base with the same latent" width="760">
@@ -216,8 +211,8 @@ runs over 9216 tokens, so the guided run needs roughly 12 GB, or the CPU.
 ## Loading Fine-tuned Weights
 
 Any repo laid out like the hosted ones (`zm_config.json` declaring
-`StableDiffusion2Model`, the weights, `tokenizer.json`) loads with
-`from_weights("<org>/<repo>")`. The `hf:` prefix raises for diffusion models: convert a
+`ZMDiffusion` with `model_type: "stable_diffusion_2"`, the weights, `tokenizer.json`)
+loads with `from_weights("<org>/<repo>")`. The `hf:` prefix raises for diffusion models: convert a
 diffusers-format SD 2 checkpoint once with
-`zeromodels/models/stable_diffusion_2/convert_stable_diffusion_2_diffusers_to_keras.py`
+`zeromodels/diffusers/stable_diffusion_2/convert_stable_diffusion_2_diffusers_to_keras.py`
 (`transfer_stable_diffusion_2(repo)`, `pip install zeromodels[conversion]`) and host the result.

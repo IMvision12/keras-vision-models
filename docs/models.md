@@ -46,6 +46,20 @@ Dense text embeddings with checkpoint-specific pooling and normalization.
 - [All 13 Sentence Transformer checkpoints](sentence_transformers.md)
 - [Sentence Transformer API and usage](sentence_transformer.md)
 
+## Diffusion models
+
+Text-to-image (and image-to-image) diffusion, every family loaded through `ZMDiffusion`
+and `ZMDiffusionTokenizer`.
+
+- [Diffusers API and usage](diffusers.md)
+- [Stable Diffusion](stable_diffusion.md)
+- [Stable Diffusion 2](stable_diffusion_2.md)
+- [Stable Diffusion XL](stable_diffusion_xl.md)
+- [Stable Diffusion 3](stable_diffusion_3.md)
+- [Stable Diffusion 3.5](stable_diffusion_3_5.md)
+- [Qwen-Image](qwen_image.md)
+- [Qwen-Image-2.1](qwen_image_21.md)
+
 ## Vision models
 
 Detection, segmentation, monocular depth, and self-supervised backbones.
@@ -112,10 +126,3 @@ Vision-language encoders, generative VLMs, grounding across detection, OCR, poin
 - [SAM 3](sam3.md)
 - [SigLIP](siglip.md)
 - [SigLIP 2](siglip2.md)
-- [Stable Diffusion](stable_diffusion.md)
-- [Stable Diffusion 2](stable_diffusion_2.md)
-- [Stable Diffusion XL](stable_diffusion_xl.md)
-- [Stable Diffusion 3](stable_diffusion_3.md)
-- [Stable Diffusion 3.5](stable_diffusion_3_5.md)
-- [Qwen-Image](qwen_image.md)
-- [Qwen-Image-2.1](qwen_image_21.md)

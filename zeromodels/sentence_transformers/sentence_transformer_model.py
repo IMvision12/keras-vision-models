@@ -14,21 +14,31 @@ from zeromodels.base.base_mixin import warn_skipped
 from zeromodels.conversion.hf_download_utils import download_hf_state_dict
 from zeromodels.conversion.weight_transfer_util import skip_mismatched_weights
 
-from .sentence_transformer_backbones import albert_backbone, distilbert_backbone
+from .sentence_transformer_backbones import SENTENCE_TRANSFORMER_BACKBONES, get_backbone
 from .sentence_transformer_config import SentenceTransformerConfig
 from .sentence_transformer_layers import (
     SentenceTransformerNormalize,
     SentenceTransformerPooling,
 )
 
+# Class names hosted zm_config.json files declared before ZMSentenceTransformer; their
+# repos load unchanged.
 SENTENCE_TRANSFORMER_HUB_SIBLINGS = frozenset(
-    {"ZMSentenceTransformer", "SentenceTransformerModel", "SentenceTransformer"}
+    {
+        "ZMSentenceTransformer",
+        "SentenceTransformerModel",
+        "SentenceTransformer",
+        "SentenceTransformerTextEmbed",
+    }
 )
 
 
 @keras.saving.register_keras_serializable(package="zeromodels")
 @keras.saving.register_keras_serializable(
     package="zeromodels", name="SentenceTransformerModel"
+)
+@keras.saving.register_keras_serializable(
+    package="zeromodels", name="SentenceTransformerTextEmbed"
 )
 class ZMSentenceTransformer(BaseModel):
     """Sentence embedding model: encoder + pooling (+ optional Dense) + normalize.
@@ -64,15 +74,7 @@ class ZMSentenceTransformer(BaseModel):
     # whose root ``config.json`` is the backbone transformers config
     # (``model_type: mpnet`` for all-mpnet-base-v2). Pooling / normalize come
     # from sibling ST files read in :meth:`from_hf`.
-    HF_MODEL_TYPE = (
-        "sentence_transformer",
-        "mpnet",
-        "bert",
-        "roberta",
-        "xlm-roberta",
-        "distilbert",
-        "albert",
-    )
+    HF_MODEL_TYPE = ("sentence_transformer", *SENTENCE_TRANSFORMER_BACKBONES)
     HUB_REPO_SIBLINGS = SENTENCE_TRANSFORMER_HUB_SIBLINGS
 
     def __init__(
@@ -106,17 +108,7 @@ class ZMSentenceTransformer(BaseModel):
         for k in ("model", "hf_id", "url", "num_classes"):
             kwargs.pop(k, None)
 
-        if backbone_type not in (
-            "mpnet",
-            "bert",
-            "roberta",
-            "xlm-roberta",
-            "distilbert",
-            "albert",
-        ):
-            raise ValueError(
-                f"Unsupported sentence embedding backbone: {backbone_type!r}"
-            )
+        backbone = get_backbone(backbone_type)
         if pooling not in ("mean", "cls", "max"):
             raise ValueError(f"pooling must be mean|cls|max, got {pooling!r}")
         if projection_activation not in ("linear", "tanh"):
@@ -126,83 +118,43 @@ class ZMSentenceTransformer(BaseModel):
         if similarity_fn_name not in ("cosine", "dot"):
             raise ValueError(f"Unsupported similarity function: {similarity_fn_name!r}")
 
+        config = SentenceTransformerConfig(
+            backbone_type=backbone_type,
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_layers=num_layers,
+            num_heads=num_heads,
+            mlp_dim=mlp_dim,
+            max_position_embeddings=max_position_embeddings,
+            relative_attention_num_buckets=relative_attention_num_buckets,
+            hidden_act=hidden_act,
+            layer_norm_eps=layer_norm_eps,
+            pad_token_id=pad_token_id,
+            type_vocab_size=type_vocab_size,
+            embedding_size=embedding_size,
+            num_hidden_groups=num_hidden_groups,
+            inner_group_num=inner_group_num,
+            dropout=dropout,
+            attention_dropout=attention_dropout,
+            pooling=pooling,
+            normalize_embeddings=normalize_embeddings,
+            projection_dim=projection_dim,
+            projection_activation=projection_activation,
+            similarity_fn_name=similarity_fn_name,
+            max_seq_len=max_seq_len,
+        )
+
         inputs = {
             "input_ids": layers.Input(shape=(None,), dtype="int32", name="input_ids"),
             "attention_mask": layers.Input(
                 shape=(None,), dtype="int32", name="attention_mask"
             ),
         }
-        if backbone_type in ("bert", "roberta", "xlm-roberta", "albert"):
+        if backbone.token_type_ids:
             inputs["token_type_ids"] = layers.Input(
                 shape=(None,), dtype="int32", name="token_type_ids"
             )
-        common = {
-            "vocab_size": vocab_size,
-            "embed_dim": embed_dim,
-            "num_layers": num_layers,
-            "num_heads": num_heads,
-            "mlp_dim": mlp_dim,
-            "max_position_embeddings": max_position_embeddings,
-            "hidden_act": hidden_act,
-            "layer_norm_eps": layer_norm_eps,
-        }
-        if backbone_type == "mpnet":
-            from zeromodels.models.mpnet.mpnet_model import mpnet_backbone
-
-            sequence_output, _ = mpnet_backbone(
-                inputs["input_ids"],
-                inputs["attention_mask"],
-                **common,
-                relative_attention_num_buckets=relative_attention_num_buckets,
-                pad_token_id=pad_token_id,
-                dropout=dropout,
-                attention_dropout=attention_dropout,
-                add_pooler=False,
-            )
-        elif backbone_type in ("roberta", "xlm-roberta"):
-            from zeromodels.models.roberta.roberta_model import roberta_backbone
-
-            sequence_output, _ = roberta_backbone(
-                inputs["input_ids"],
-                inputs["attention_mask"],
-                inputs["token_type_ids"],
-                **common,
-                type_vocab_size=type_vocab_size,
-                pad_token_id=pad_token_id,
-                dropout=dropout,
-                attention_dropout=attention_dropout,
-                add_pooler=False,
-            )
-        elif backbone_type == "bert":
-            from zeromodels.models.bert.bert_model import bert_backbone
-
-            sequence_output, _ = bert_backbone(
-                inputs["input_ids"],
-                inputs["attention_mask"],
-                inputs["token_type_ids"],
-                **common,
-                type_vocab_size=type_vocab_size,
-                dropout=dropout,
-                attention_dropout=attention_dropout,
-                add_pooler=False,
-            )
-        elif backbone_type == "distilbert":
-            sequence_output = distilbert_backbone(
-                inputs["input_ids"],
-                inputs["attention_mask"],
-                **common,
-            )
-        else:
-            sequence_output = albert_backbone(
-                inputs["input_ids"],
-                inputs["attention_mask"],
-                inputs["token_type_ids"],
-                **common,
-                embedding_size=embedding_size or embed_dim,
-                type_vocab_size=type_vocab_size,
-                num_hidden_groups=num_hidden_groups,
-                inner_group_num=inner_group_num,
-            )
+        sequence_output = backbone.build(inputs, config)
 
         pooled = SentenceTransformerPooling(pooling=pooling, name="pooling")(
             [sequence_output, inputs["attention_mask"]]
@@ -254,31 +206,7 @@ class ZMSentenceTransformer(BaseModel):
         self.similarity_fn_name = similarity_fn_name
         self.max_seq_len = max_seq_len
         self.output_embedding_dim = out_dim
-        self.config = SentenceTransformerConfig(
-            backbone_type=backbone_type,
-            vocab_size=vocab_size,
-            embed_dim=embed_dim,
-            num_layers=num_layers,
-            num_heads=num_heads,
-            mlp_dim=mlp_dim,
-            max_position_embeddings=max_position_embeddings,
-            relative_attention_num_buckets=relative_attention_num_buckets,
-            hidden_act=hidden_act,
-            layer_norm_eps=layer_norm_eps,
-            pad_token_id=pad_token_id,
-            type_vocab_size=type_vocab_size,
-            embedding_size=embedding_size,
-            num_hidden_groups=num_hidden_groups,
-            inner_group_num=inner_group_num,
-            dropout=dropout,
-            attention_dropout=attention_dropout,
-            pooling=pooling,
-            normalize_embeddings=normalize_embeddings,
-            projection_dim=projection_dim,
-            projection_activation=projection_activation,
-            similarity_fn_name=similarity_fn_name,
-            max_seq_len=max_seq_len,
-        )
+        self.config = config
 
     @classmethod
     def config_from_hf(cls, hf_config):
@@ -571,13 +499,3 @@ class ZMSentenceTransformer(BaseModel):
         config = super().get_config()
         config.update(self.config.constructor_kwargs())
         return config
-
-
-@keras.saving.register_keras_serializable(package="zeromodels")
-class SentenceTransformerTextEmbed(ZMSentenceTransformer):
-    """Text-embedding task view of :class:`ZMSentenceTransformer`."""
-
-
-# Preserve old deep imports and serialized objects without duplicating classes.
-SentenceTransformerModel = ZMSentenceTransformer
-SentenceTransformer = ZMSentenceTransformer

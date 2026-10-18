@@ -9,10 +9,9 @@
 </div>
 
 Stable Diffusion 3.5, ported to pure Keras 3: the [Stable Diffusion 3](stable_diffusion_3.md)
-architecture, retrained and scaled. It reuses the SD 3 family end to end
-(`StableDiffusion3_5Model` is `StableDiffusion3Model`, `StableDiffusion3_5TextToImage` is
-`StableDiffusion3TextToImage`, each with the SD 3.5 configuration), so everything on that
-page applies: the MMDiT, the three text encoders with the separately hosted T5-XXL, the
+architecture, retrained and scaled. It loads through
+[`ZMDiffusion`](diffusers.md) with `model_type="stable_diffusion_3_5"`, the SD 3 family
+with the SD 3.5 configuration, so everything on that page applies: the MMDiT, the three text encoders with the separately hosted T5-XXL, the
 16-channel VAE, the flow-match sampler, one tokenizer call. What changes is the config:
 
 - **QK normalization**: every attention block RMS-normalizes its queries and keys per head
@@ -38,7 +37,7 @@ See also [stable_diffusion_3.md](stable_diffusion_3.md).
 
 ## Variants
 
-Each repo is one container: MMDiT + VAE (84M) + CLIP ViT-L/14 (123M) + OpenCLIP
+Each repo is one checkpoint: MMDiT + VAE (84M) + CLIP ViT-L/14 (123M) + OpenCLIP
 ViT-bigG/14 (695M); the T5-XXL encoder (`zeromodels/t5-v1_1-xxl-encoder`, the SD 3
 family's `SD3T5EncoderModel`, 9.5 GB) is shared and optional.
 
@@ -54,8 +53,8 @@ family's `SD3T5EncoderModel`, 9.5 GB) is shared and optional.
 `StableDiffusion3Config` over `StableDiffusion3_5TransformerConfig` (the SD 3.5 large
 defaults: `num_layers` 38, `num_attention_heads` 38, `caption_projection_dim` 2432,
 `qk_norm="rms_norm"`; medium's repo carries `dual_attention_layers=(0, ..., 12)` and
-`pos_embed_max_size=384`). `StableDiffusion3_5TextToImage.generate` and
-`StableDiffusion3_5Tokenizer` are the SD 3 ones; see
+`pos_embed_max_size=384`). `ZMDiffusion.generate` and
+`ZMDiffusionTokenizer` (`model_type="stable_diffusion_3_5"`) behave as for SD 3; see
 [Stable Diffusion 3](stable_diffusion_3.md#api).
 
 ## End-to-end example
@@ -66,16 +65,13 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from zeromodels.models.stable_diffusion_3_5 import (
-    StableDiffusion3_5TextToImage,
-    StableDiffusion3_5Tokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = StableDiffusion3_5TextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-3.5-medium",
     text_encoder_3="zeromodels/t5-v1_1-xxl-encoder",  # optional
 )
-tokenizer = StableDiffusion3_5Tokenizer.from_weights(
+tokenizer = ZMDiffusionTokenizer.from_weights(
     "zeromodels/stable-diffusion-3.5-medium"
 )
 
@@ -92,7 +88,7 @@ Image.fromarray(images[0]).save("treehouse.png")  # (1024, 1024, 3) uint8
 ### Large Turbo
 
 ```python
-model = StableDiffusion3_5TextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-3.5-large-turbo"
 )
 images = model.generate(
@@ -114,7 +110,7 @@ jax, and by the SD 3 float32 end-to-end check (92.8% identical pixels, PSNR 63.9
 
 ## Memory and speed
 
-The medium container is 6.8 GB in float16, the large ones 17.8 GB (a 24 GB GPU); the
+The medium checkpoint is 6.8 GB in float16, the large ones 17.8 GB (a 24 GB GPU); the
 T5-XXL encoder adds 9.5 GB. See [Stable Diffusion 3](stable_diffusion_3.md#memory-and-speed):
 the medium MMDiT-X at 1024px peaks at 7.5 GB during the guided denoising step on the torch
 backend (fused attention, float16), which an 8 GB GPU runs with the VAE decode on the CPU.
@@ -122,7 +118,8 @@ backend (fused attention, float16), which an 8 GB GPU runs with the VAE decode o
 ## Loading Fine-tuned Weights
 
 Any repo laid out like the hosted ones (`zm_config.json` declaring
-`StableDiffusion3_5Model`, the weights, the two tokenizer files) loads with
+`ZMDiffusion` with `model_type: "stable_diffusion_3_5"`, the weights, the two tokenizer
+files) loads with
 `from_weights("<org>/<repo>")`. Convert a diffusers-format checkpoint once with
-`zeromodels/models/stable_diffusion_3_5/convert_stable_diffusion_3_5_diffusers_to_keras.py`
+`zeromodels/diffusers/stable_diffusion_3_5/convert_stable_diffusion_3_5_diffusers_to_keras.py`
 and host the result.

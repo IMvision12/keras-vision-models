@@ -10,11 +10,12 @@
 Stable Diffusion XL, ported to pure Keras 3: the [Stable Diffusion](stable_diffusion.md)
 latent-diffusion recipe scaled up to 1024px with a 2.6B-parameter UNet and two text
 encoders, plus the **refiner**, an image-to-image expert that finishes the base model's
-latents, and **SDXL-Turbo**, the base distilled to a few steps. It subclasses the SD 1.x
-family (`StableDiffusionXLModel` is a `StableDiffusionModel` with a fourth component,
-`StableDiffusionXLTextToImage` is `StableDiffusionTextToImage` with the SDXL conditioning
-hooks; the refiner classes subclass those), so everything on that page applies: one
-container per repo, `generate` from `BaseDiffusion`, the schedulers, both data formats.
+latents, and **SDXL-Turbo**, the base distilled to a few steps. It loads
+through [`ZMDiffusion`](diffusers.md) with `model_type="stable_diffusion_xl"` (the
+refiner: `"stable_diffusion_xl_refiner"`), a family built on SD 1.x's with a fourth
+component and the SDXL conditioning hooks, so everything on that page applies: one
+functional model and one set of weights per repo, `generate` from `BaseDiffusion`, the
+schedulers, both data formats.
 What changes:
 
 - **Two text encoders**: CLIP ViT-L/14's text tower (768-d, the SD 1.x one) and OpenCLIP
@@ -23,8 +24,8 @@ What changes:
   concatenated into the UNet's 2048-d cross-attention context, and the second tower's
   projected pooled (EOT) state is the `text_embeds` micro-conditioning.
 - **One tokenizer call**: both towers use the same CLIP BPE and differ only in the pad
-  token (`<|endoftext|>` vs `!`), so `StableDiffusionXLTokenizer` is the first one and the
-  model derives the second tower's ids from the returned `attention_mask`.
+  token (`<|endoftext|>` vs `!`), so `ZMDiffusionTokenizer` returns the first one's ids
+  and the model derives the second tower's ids from the returned `attention_mask`.
 - **Micro-conditioning**: the UNet's timestep embedding also receives the pooled text
   embedding and six size / crop values (`original_size`, `crops_coords_top_left`,
   `target_size`, each `(height, width)`), sinusoidally embedded and projected by the
@@ -39,8 +40,8 @@ What changes:
 - **Scheduler**: Euler with `leading` timestep spacing (`steps_offset` 1) for the base
   models and the refiners, ancestral Euler with `trailing` spacing for SDXL-Turbo; all
   come from the repo's `scheduler_config`.
-- **Refiner**: a second model (`StableDiffusionXLRefinerModel` /
-  `StableDiffusionXLRefinerImageToImage`) with the OpenCLIP tower alone (1280-d
+- **Refiner**: a second checkpoint (a `ZMDiffusion` with
+  `model_type="stable_diffusion_xl_refiner"`) with the OpenCLIP tower alone (1280-d
   context), a four-level UNet ((384, 768, 1536, 1536), attention at the middle levels, 4
   blocks per Transformer2D, 2.3B parameters) and an **aesthetic score** as the fifth
   micro-conditioning id. It refines a latent the base left partially denoised
@@ -71,16 +72,16 @@ Preconverted weights are hosted under `zeromodels/`. Load with
 3.47B parameters, 6.6 GB in float16 (two `model.weights.json` shards); a refiner repo is
 UNet (2.26B) + VAE + OpenCLIP text encoder, 3.04B parameters, 5.8 GB.
 
-| Variant | Hub | Class | Resolution | Sampler | License |
+| Variant | Hub | `model_type` | Resolution | Sampler | License |
 |---|---|---|---|---|---|
-| `stable-diffusion-xl-base-1.0` | [`zeromodels/stable-diffusion-xl-base-1.0`](https://huggingface.co/zeromodels/stable-diffusion-xl-base-1.0) | `StableDiffusionXLTextToImage` | 1024 | Euler, 50 steps, guidance 5.0 | CreativeML Open RAIL++-M |
-| `stable-diffusion-xl-refiner-1.0` | [`zeromodels/stable-diffusion-xl-refiner-1.0`](https://huggingface.co/zeromodels/stable-diffusion-xl-refiner-1.0) | `StableDiffusionXLRefinerImageToImage` | 1024 | Euler, 50 steps, guidance 5.0, strength 0.3 | CreativeML Open RAIL++-M |
-| `sdxl-turbo` | [`zeromodels/sdxl-turbo`](https://huggingface.co/zeromodels/sdxl-turbo) | `StableDiffusionXLTextToImage` | 512 | Euler ancestral, 1 step, no guidance | Stability AI Non-Commercial Research Community |
+| `stable-diffusion-xl-base-1.0` | [`zeromodels/stable-diffusion-xl-base-1.0`](https://huggingface.co/zeromodels/stable-diffusion-xl-base-1.0) | `stable_diffusion_xl` | 1024 | Euler, 50 steps, guidance 5.0 | CreativeML Open RAIL++-M |
+| `stable-diffusion-xl-refiner-1.0` | [`zeromodels/stable-diffusion-xl-refiner-1.0`](https://huggingface.co/zeromodels/stable-diffusion-xl-refiner-1.0) | `stable_diffusion_xl_refiner` | 1024 | Euler, 50 steps, guidance 5.0, strength 0.3 | CreativeML Open RAIL++-M |
+| `sdxl-turbo` | [`zeromodels/sdxl-turbo`](https://huggingface.co/zeromodels/sdxl-turbo) | `stable_diffusion_xl` | 512 | Euler ancestral, 1 step, no guidance | Stability AI Non-Commercial Research Community |
 
 The SDXL 0.9 research previews (`stabilityai/stable-diffusion-xl-base-0.9` and
 `-refiner-0.9`, the same architecture with different weights, gated behind the research
 license) are not hosted; with an authorized token the converter turns them into the same
-containers (`transfer_stable_diffusion_xl(repo, token=...)`, see
+checkpoints (`transfer_stable_diffusion_xl(repo, token=...)`, see
 [Loading Fine-tuned Weights](#loading-fine-tuned-weights)). SDXL-Turbo is a
 research-only, non-commercial release; its repo defaults (`generate_args`) are 1 step and
 `guidance_scale=0.0`, which is how it was trained (do not add guidance).
@@ -98,10 +99,10 @@ Flat constructor with `unet_` / `vae_` / `text_` / `text_2_` prefixes.
 same with `text_config=None`, the `StableDiffusionXLRefinerUNetConfig` denoiser,
 `requires_aesthetics_score=True` and `force_zeros_for_empty_prompt=False`.
 
-### `StableDiffusionXLTextToImage`
+### `ZMDiffusion`
 
-`StableDiffusionTextToImage` over the SDXL graph; `generate` gains the micro-conditioning
-arguments:
+`ZMDiffusion` with `model_type="stable_diffusion_xl"` (read from the repo); `generate`
+gains the micro-conditioning arguments:
 
 ```python
 generate(
@@ -132,7 +133,7 @@ generate(
 |---|---|
 | `input_ids`, `attention_mask` | `**tokenizer(prompts)`; the mask tells the model which positions are padding, so the second tower's `!`-padded ids can be derived (without it, everything after the first `<|endoftext|>` counts as padding). |
 | `negative_input_ids` | Tokenized negative prompt, one row per prompt or a single row shared by the batch. Without it the unconditional branch is zero embeddings (`force_zeros_for_empty_prompt`), as in diffusers. |
-| `num_inference_steps`, `guidance_scale`, `seed`, `latents` | As for [Stable Diffusion](stable_diffusion.md#stablediffusiontexttoimage); defaults from the repo's `generate_args` (50 steps, guidance 5.0 for the base model). |
+| `num_inference_steps`, `guidance_scale`, `seed`, `latents` | As for [Stable Diffusion](stable_diffusion.md#zmdiffusion); defaults from the repo's `generate_args` (50 steps, guidance 5.0 for the base model). |
 | `image`, `strength`, `denoising_start`, `denoising_end`, `output_type` | The image-to-image and ensemble controls of [`BaseDiffusion.generate`](main_classes.md#basediffusion): refine an `image` (noised to `strength`), stop early (`denoising_end`) and hand the latent over (`output_type="latent"`), or resume one (`denoising_start`). |
 | `original_size`, `crops_coords_top_left`, `target_size` | SDXL's size / crop conditioning, `(height, width)` in pixels; the sizes default to the generated image's size, the crop to `(0, 0)`. |
 | `aesthetic_score` | The refiner's fifth conditioning value (6.0), in place of `target_size`; ignored by the base models. |
@@ -147,21 +148,21 @@ original_size, crops_coords_top_left, target_size)` returns the dict the UNet ta
 (batch, 6)); `encode_negative_prompt` zeroes the first two when no negative ids are given;
 `predict_noise(latents, timesteps, embeddings)` runs the UNet.
 
-### `StableDiffusionXLRefinerImageToImage`
+#### The refiner
 
-The refiner task: the same class over the refiner container (`text_encoder_2` alone,
+The same class with `model_type="stable_diffusion_xl_refiner"` (`text_encoder_2` alone,
 `aesthetic_score` in the conditioning, `generate_args` with `strength` 0.3). Its
 `generate` is the one above; with no `image` / `latents` it runs text-to-image, which the
 refiner was not trained for. The two intended uses:
 
 ```python
-base = StableDiffusionXLTextToImage.from_weights(
+base = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-xl-base-1.0"
 )
-refiner = StableDiffusionXLRefinerImageToImage.from_weights(
+refiner = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-xl-refiner-1.0"
 )
-tokenizer = StableDiffusionXLTokenizer.from_weights(
+tokenizer = ZMDiffusionTokenizer.from_weights(
     "zeromodels/stable-diffusion-xl-base-1.0"
 )
 inputs = tokenizer("a lighthouse on a rocky coast at dawn, dramatic clouds, cinematic")
@@ -178,9 +179,9 @@ images = refiner.generate(
 images = refiner.generate(**inputs, image=images, strength=0.3, seed=0)
 ```
 
-### `StableDiffusionXLModel`
+#### The graph
 
-The container: four disconnected paths in one functional model, `.unet` / `.vae` /
+Four disconnected paths in one functional model, `.unet` / `.vae` /
 `.text_encoder` / `.text_encoder_2`.
 
 | Inputs | Outputs |
@@ -193,22 +194,23 @@ Each text tower is a functional CLIP text model (the `clip` family's layers) who
 are `penultimate_hidden_state`, `last_hidden_state`, `pooler_output` and, for the second,
 `text_embeds`. The UNet is the SD 1.x `UNet2DConditionModel` with the SDXL config
 (`transformer_layers_per_block=(1, 2, 10)`, `addition_embed_type="text_time"`); the VAE
-is `AutoencoderKL` with `force_upcast=True`. `StableDiffusionXLRefinerModel` is the same
-container without the first tower (`token_ids_2` + `padding_mask` in, `prompt_embeds`
+is `AutoencoderKL` with `force_upcast=True`. The refiner is the same
+graph without the first tower (`token_ids_2` + `padding_mask` in, `prompt_embeds`
 (B, 77, 1280) out) and with `time_ids` (B, 5).
 
 ## Preprocessing
 
-### `StableDiffusionXLTokenizer`
+### `ZMDiffusionTokenizer`
 
-`StableDiffusionTokenizer` (CLIP BPE, `<|startoftext|>` / `<|endoftext|>` framing,
+`ZMDiffusionTokenizer` with `model_type="stable_diffusion_xl"` (CLIP BPE,
+`<|startoftext|>` / `<|endoftext|>` framing,
 `<|endoftext|>`-padded to 77 tokens). Returns `{"input_ids", "attention_mask"}`; pass both
 to `generate`.
 
 ```python
-StableDiffusionXLTokenizer(
-    hf_id=None, tokenizer_file=None, max_seq_len=77, pad_token="<|endoftext|>"
-)
+ZMDiffusionTokenizer(
+    model_type="stable_diffusion_xl", hf_id=None, tokenizer_file=None, max_seq_len=77
+)  # pad_token defaults to "<|endoftext|>"; the refiner repos use the same settings
 ```
 
 A literal `!` in a prompt is encoded as OpenCLIP encodes it (the BPE token `!</w>`, id
@@ -223,15 +225,12 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from zeromodels.models.stable_diffusion_xl import (
-    StableDiffusionXLTextToImage,
-    StableDiffusionXLTokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = StableDiffusionXLTextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-xl-base-1.0"
 )
-tokenizer = StableDiffusionXLTokenizer.from_weights(
+tokenizer = ZMDiffusionTokenizer.from_weights(
     "zeromodels/stable-diffusion-xl-base-1.0"
 )
 
@@ -251,7 +250,7 @@ The SDXL "ensemble of experts": the base runs the first 80% of the schedule and 
 latent to the refiner, which finishes it. Same prompt and initial latent as above:
 
 ```python
-refiner = StableDiffusionXLRefinerImageToImage.from_weights(
+refiner = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-xl-refiner-1.0"
 )
 latent = model.generate(
@@ -269,8 +268,8 @@ images = refiner.generate(
 One step, no guidance, 512px (the repo's defaults):
 
 ```python
-model = StableDiffusionXLTextToImage.from_weights("zeromodels/sdxl-turbo")
-tokenizer = StableDiffusionXLTokenizer.from_weights("zeromodels/sdxl-turbo")
+model = ZMDiffusion.from_weights("zeromodels/sdxl-turbo")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/sdxl-turbo")
 images = model.generate(
     **tokenizer(
         "a cinematic shot of a baby raccoon wearing an intricate italian priest robe"
@@ -301,7 +300,7 @@ The graphs are built for the repo's resolution; pass overrides to build for anot
 (the weights are resolution-independent; multiples of 64px):
 
 ```python
-model = StableDiffusionXLTextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-xl-base-1.0",
     unet_sample_size=(96, 128),
     vae_sample_size=(768, 1024),
@@ -312,7 +311,7 @@ images = model.generate(**tokenizer("a wide mountain valley"))  # (1, 768, 1024,
 ### float32
 
 ```python
-model = StableDiffusionXLTextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-xl-base-1.0", load_dtype="float32"
 )
 ```
@@ -378,8 +377,9 @@ per run (see [`BaseDiffusion`](main_classes.md#basediffusion)).
 ## Loading Fine-tuned Weights
 
 Any repo laid out like the hosted ones (`zm_config.json` declaring
-`StableDiffusionXLModel`, the weights, `tokenizer.json`) loads with
+`ZMDiffusion` with `model_type: "stable_diffusion_xl"` or
+`"stable_diffusion_xl_refiner"`, the weights, `tokenizer.json`) loads with
 `from_weights("<org>/<repo>")`. The `hf:` prefix raises for diffusion models: convert a
 diffusers-format SDXL checkpoint once with
-`zeromodels/models/stable_diffusion_xl/convert_stable_diffusion_xl_diffusers_to_keras.py`
+`zeromodels/diffusers/stable_diffusion_xl/convert_stable_diffusion_xl_diffusers_to_keras.py`
 (`transfer_stable_diffusion_xl(repo)`, `pip install zeromodels[conversion]`) and host the result.

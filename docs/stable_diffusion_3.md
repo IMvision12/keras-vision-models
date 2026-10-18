@@ -11,8 +11,10 @@
 Stable Diffusion 3, ported to pure Keras 3: a rectified-flow model whose denoiser is the
 **MMDiT**, a multimodal diffusion transformer in which the latent tokens and the text tokens
 attend to each other jointly, conditioned on the timestep and the pooled text embeddings
-through adaptive layer norms. It keeps the SD family's shape (one container per repo,
-`generate` from `BaseDiffusion`, the schedulers, both data formats) with new parts:
+through adaptive layer norms. It loads through [`ZMDiffusion`](diffusers.md) with
+`model_type="stable_diffusion_3"` and keeps the SD family's shape (one functional model
+and one set of weights per repo, `generate` from `BaseDiffusion`, the schedulers, both
+data formats) with new parts:
 
 - **MMDiT** (`SD3Transformer2DModel`): the 16-channel latent is patchified (2x2) into 1536-d
   tokens with a sinusoidal position table cropped from a 192x192 grid; 24 joint blocks of
@@ -24,7 +26,7 @@ through adaptive layer norms. It keeps the SD family's shape (one container per 
   states are concatenated (2048-d), zero-padded to 4096 and followed along the sequence by
   the T5 states (77 + 256 tokens); the projected pooled CLIP states (2048-d) feed the
   conditioning embedding.
-- **T5 is optional and separate**: the container holds the MMDiT, the VAE and the two CLIP
+- **T5 is optional and separate**: the checkpoint holds the MMDiT, the VAE and the two CLIP
   towers (2.9B, 5.8 GB float16); the T5-XXL encoder is hosted once for every SD 3 / 3.5
   checkpoint (`zeromodels/t5-v1_1-xxl-encoder`, an
   [`SD3T5EncoderModel`](#sd3t5encodermodel), 9.5 GB float16) and attached with
@@ -35,7 +37,7 @@ through adaptive layer norms. It keeps the SD family's shape (one container per 
 - **Sampler**: `FlowMatchEulerDiscreteScheduler` with `shift` 3.0 (rectified flow: the
   timesteps are `sigma * 1000`, a step is `x + (sigma_next - sigma) * v`); 28 steps at
   guidance 7.0 by default. No negative prompt means the encoded empty prompt.
-- **One tokenizer call**: `StableDiffusion3Tokenizer` runs the CLIP BPE (the second
+- **One tokenizer call**: `ZMDiffusionTokenizer` runs the CLIP BPE (the second
   tower's `!`-padded ids are derived from the mask, as SDXL) and the T5 SentencePiece
   tokenizer, returning `{"input_ids", "attention_mask", "input_ids_3"}`.
 - **float16 weights**, the release precision; `from_weights` builds the model in float16
@@ -69,9 +71,10 @@ over `StableDiffusion3TransformerConfig`, `StableDiffusion3VAEConfig`,
 the scheduler config, the CLIP and T5 token ids and `max_sequence_length` (256). Flat
 constructor with `transformer_` / `vae_` / `text_` / `text_2_` prefixes.
 
-### `StableDiffusion3TextToImage`
+### `ZMDiffusion`
 
-`StableDiffusionTextToImage`'s `generate` over the SD 3 graph:
+`ZMDiffusion` with `model_type="stable_diffusion_3"` (read from the repo); `generate`
+over the SD 3 graph:
 
 ```python
 generate(
@@ -103,11 +106,9 @@ Returns `(batch, H, W, 3)` uint8 images.
 `from_weights` takes one extra argument, `text_encoder_3`: a hosted `SD3T5EncoderModel`
 repo id (loaded at the same `load_dtype`) or a built `SD3T5EncoderModel`;
 `sd.text_encoder_3` can also be assigned later (or set to `None`). It lives outside the
-container's weights.
+checkpoint's weights; passing `text_encoder_3` for a family other than SD 3 / 3.5 raises.
 
-### `StableDiffusion3Model`
-
-The container: four disconnected paths in one functional model, `.transformer` / `.vae` /
+The graph is four disconnected paths in one functional model, `.transformer` / `.vae` /
 `.text_encoder` / `.text_encoder_2`.
 
 | Inputs | Outputs |
@@ -151,10 +152,11 @@ gated-GELU feed-forward of T5 v1.1 (`wo(gelu_tanh(wi_0(x)) * wi_1(x))`,
 
 ## Preprocessing
 
-### `StableDiffusion3Tokenizer`
+### `ZMDiffusionTokenizer`
 
 ```python
-StableDiffusion3Tokenizer(
+ZMDiffusionTokenizer(
+    model_type="stable_diffusion_3",
     hf_id=None,
     tokenizer_file=None,
     tokenizer_file_3=None,
@@ -173,16 +175,13 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"  # or "jax" / "tensorflow"
 
 from PIL import Image
-from zeromodels.models.stable_diffusion_3 import (
-    StableDiffusion3TextToImage,
-    StableDiffusion3Tokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = StableDiffusion3TextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/stable-diffusion-3-medium",
     text_encoder_3="zeromodels/t5-v1_1-xxl-encoder",  # omit on small machines: T5 features zeroed
 )
-tokenizer = StableDiffusion3Tokenizer.from_weights(
+tokenizer = ZMDiffusionTokenizer.from_weights(
     "zeromodels/stable-diffusion-3-medium"
 )
 
@@ -238,7 +237,7 @@ Both `channels_last` and `channels_first` are supported; `generate` always retur
 
 ## Memory and speed
 
-The container is 5.8 GB in float16 (the T5 encoder adds 9.5 GB). Measured on the torch
+The checkpoint is 5.8 GB in float16 (the T5 encoder adds 9.5 GB). Measured on the torch
 backend with the default float16 load (RTX 4060 Laptop, 8 GB), T5 features precomputed:
 
 | Resolution | Denoising step (guided, batch 1) | VAE decode (float32) |
@@ -260,9 +259,10 @@ step is compiled once per run.
 ## Loading Fine-tuned Weights
 
 Any repo laid out like the hosted ones (`zm_config.json` declaring
-`StableDiffusion3Model`, the weights, the two tokenizer files) loads with
+`ZMDiffusion` with `model_type: "stable_diffusion_3"`, the weights, the two tokenizer
+files) loads with
 `from_weights("<org>/<repo>")`. The `hf:` prefix raises for diffusion models: convert a
 diffusers-format SD 3 checkpoint once with
-`zeromodels/models/stable_diffusion_3/convert_stable_diffusion_3_diffusers_to_keras.py`
+`zeromodels/diffusers/stable_diffusion_3/convert_stable_diffusion_3_diffusers_to_keras.py`
 (`transfer_stable_diffusion_3(repo)`; `transfer_t5_encoder(repo)` for the T5 tower) and host the
 result.

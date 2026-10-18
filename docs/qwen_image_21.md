@@ -10,8 +10,10 @@
 
 Qwen-Image-2.1, ported to pure Keras 3: latent text-to-image flow-matching with a
 32-layer **single-stream** block-causal DiT, a residual 64-channel KL autoencoder
-(16× spatial, RGBA), and the Qwen3-VL text tower. The whole model is **one
-container**, `QwenImage21Model`. `QwenImage21TextToImage` adds `generate`.
+(16× spatial, RGBA), and the Qwen3-VL text tower. It loads through
+[`ZMDiffusion`](diffusers.md), the one diffusion pipeline class of zeromodels, with
+`model_type="qwen_image_21"`: one functional graph holding the three towers, plus
+`generate`. Prompts are tokenized by `ZMDiffusionTokenizer`.
 
 The weights are converted once, offline, and hosted: on-the-fly `hf:` conversion
 is deliberately **not supported** for diffusion models.
@@ -42,7 +44,7 @@ Links:
 ## Variants
 
 Preconverted, bfloat16 weights are hosted under `zeromodels/`. Load with
-`from_weights("zeromodels/<variant>")`. Each repo is one container: DiT + VAE +
+`from_weights("zeromodels/<variant>")`. Each repo is one checkpoint: DiT + VAE +
 Qwen3-VL text tower, ~28 GiB at 16-bit.
 
 | Variant | Hub | Source |
@@ -59,10 +61,11 @@ over `QwenImage21TransformerConfig`, `QwenImage21VAEConfig` and
 token ids. Each repo's `zm_config.json` parses through it; the constructor stays
 flat, with the sub-config fields prefixed `transformer_` / `vae_` / `text_`.
 
-### `QwenImage21TextToImage`
+### `ZMDiffusion`
 
-The text-to-image task: the `QwenImage21Model` container plus `BaseDiffusion`'s
-`generate`. It supplies `encode_prompt` (ChatML template drop after the text
+The pipeline class of every diffusion family (see [Diffusers](diffusers.md)); the
+repo's `model_type` (`"qwen_image_21"` here) selects this family, which supplies the hooks
+`BaseDiffusion`'s `generate` needs: `encode_prompt` (ChatML template drop after the text
 encoder), `predict_noise` on the transformer, `decode_latents` on the VAE with
 mean/std un-normalization, and a `FlowMatchEulerDiscreteScheduler` from
 `scheduler_config`.
@@ -100,6 +103,7 @@ Returns `(batch, height, width, 3)` uint8 numpy images (VAE RGBA is cropped to R
 
 | Constructor arg | Default | Meaning |
 |---|---|---|
+| `model_type` | required | `"qwen_image_21"` (read from the repo's `zm_config.json` on `from_weights`) |
 | `scheduler` | `None` | a `BaseScheduler`; built from `scheduler_config` when unset |
 | `transformer_sample_size` | `64` | latent side the DiT graph is built for (image / 16) |
 | `vae_sample_size` | `1024` | image size the VAE graphs are built for |
@@ -109,9 +113,7 @@ Returns `(batch, height, width, 3)` uint8 numpy images (VAE RGBA is cropped to R
 | `prompt_template_encode_start_idx` | `14` | ChatML system-prefix tokens dropped after the text encoder |
 | `max_sequence_length` | `512` | prompt embed length after the template drop |
 
-### `QwenImage21Model`
-
-The container: one functional model whose graph is three disconnected paths.
+The graph is three disconnected paths, one per component.
 Inputs cover the transformer (`sample`, `timestep`, `encoder_hidden_states`,
 `encoder_hidden_states_mask`), the VAE (`image`, `latent`) and the text tower
 (`token_ids`, `padding_mask`). Components are exposed as `.transformer`, `.vae`
@@ -171,7 +173,7 @@ linspace sigma schedule, matching Diffusers.
 
 ## Preprocessing
 
-### `QwenImage21Tokenizer`
+### `ZMDiffusionTokenizer`
 
 Qwen3 BPE with Diffusers' T2I ChatML template (`Comprehend and analyze the
 provided prompt.`). Returns `{"input_ids", "attention_mask"}`. `encode_prompt`
@@ -179,7 +181,7 @@ drops `prompt_template_encode_start_idx` (14) tokens and keeps at most
 `max_sequence_length` (512).
 
 ```python
-QwenImage21Tokenizer(hf_id=None, tokenizer_file=None, max_seq_len=1024)
+ZMDiffusionTokenizer(model_type="qwen_image_21", hf_id=None, tokenizer_file=None, max_seq_len=1024)
 ```
 
 ## End-to-end example
@@ -192,13 +194,10 @@ import os
 os.environ["KERAS_BACKEND"] = "torch"
 
 from PIL import Image
-from zeromodels.models.qwen_image_21 import (
-    QwenImage21TextToImage,
-    QwenImage21Tokenizer,
-)
+from zeromodels.diffusers import ZMDiffusion, ZMDiffusionTokenizer
 
-model = QwenImage21TextToImage.from_weights("zeromodels/qwen-image-2.1")
-tokenizer = QwenImage21Tokenizer.from_weights("zeromodels/qwen-image-2.1")
+model = ZMDiffusion.from_weights("zeromodels/qwen-image-2.1")
+tokenizer = ZMDiffusionTokenizer.from_weights("zeromodels/qwen-image-2.1")
 
 inputs = tokenizer("a photo of a capybara wearing a wizard hat, soft window light")
 images = model.generate(
@@ -234,7 +233,7 @@ At 1024px the unpatched noise is `(batch, 64, 64, 64)` → `(batch, 4096, 64)`:
 
 ```python
 import numpy as np
-from zeromodels.models.qwen_image_21.qwen_image_21_model import pack_latents
+from zeromodels.diffusers.qwen_image_21.qwen_image_21_model import pack_latents
 
 h, w, channels = 64, 64, 64
 noise = np.random.default_rng(0).standard_normal((1, h, w, channels)).astype("float32")
@@ -248,7 +247,7 @@ Graphs are built for a fixed size; weights are not. Rebuild with constructor
 overrides (multiples of 32px; checkpoint targets 1024):
 
 ```python
-model = QwenImage21TextToImage.from_weights(
+model = ZMDiffusion.from_weights(
     "zeromodels/qwen-image-2.1",
     transformer_sample_size=32,
     vae_sample_size=512,
@@ -261,10 +260,10 @@ images = model.generate(**tokenizer("a mountain lake at dawn"), height=512, widt
 ```bash
 pip install zeromodels[conversion]
 # KERAS_BACKEND=torch; prefer CPU for the full ~28 GiB bf16 build
-python -m zeromodels.models.qwen_image_21.convert_qwen_image_21_diffusers_to_keras
+python -m zeromodels.diffusers.qwen_image_21.convert_qwen_image_21_diffusers_to_keras
 ```
 
-`transfer_qwen_image_21(repo)` streams Diffusers shards into a Keras container and
+`transfer_qwen_image_21(repo)` streams Diffusers shards into a `ZMDiffusion` and
 writes sharded `*.weights.json`. Building the full text tower on GPU can OOM
 during Functional shape tracing; convert on CPU, then load for CUDA inference.
 
@@ -282,7 +281,7 @@ during Functional shape tracing; convert on CPU, then load for CUDA inference.
 
 ## Memory and speed
 
-The bf16 container is about 28 GiB (DiT ~14 GiB + text ~14 GiB + VAE ~1.4 GiB).
+The bf16 checkpoint is about 28 GiB (DiT ~14 GiB + text ~14 GiB + VAE ~1.4 GiB).
 Building the full Functional graph at 1024px on GPU can OOM during attention shape
 tracing (layers use `compute_output_spec` to avoid materializing seq² temps). Prefer
 CPU convert / build, then CUDA generate. A 1024px run needs substantial activation
@@ -292,7 +291,7 @@ headroom on an 80 GB card; prefer fused attention
 ## Loading Fine-tuned Weights
 
 The hosted checkpoint is the supported weight; any repo laid out like it
-(`zm_config.json` declaring `QwenImage21Model`, sharded `*.weights.json` /
+(`zm_config.json` declaring `ZMDiffusion` with `model_type: "qwen_image_21"`, sharded `*.weights.json` /
 `*.weights.h5`, `tokenizer.json`) loads with `from_weights("<org>/<repo>")`. The
 `hf:` prefix raises for diffusion models: convert Diffusers format once with
 `convert_qwen_image_21_diffusers_to_keras.py` and host the result.

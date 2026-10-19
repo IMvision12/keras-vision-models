@@ -1,10 +1,10 @@
 name: Run tests command
 
 # `/run-tests` from IMvision12 on a pull request starts the model, tokenizer and processor
-# tests (model_tests.yml). A comment-triggered run is attached to the default branch, so
-# its jobs would never appear in the PR's checks; instead this workflow dispatches
-# model_tests.yml ON THE PR BRANCH, whose run is attached to the PR head commit and so
-# lists every test job in the PR's checks. This job never checks out or runs PR code.
+# tests: this workflow validates the request and dispatches model_tests.yml on the PR
+# branch (a fork's PR: on the default branch), pinned to the PR head commit. That run
+# publishes every test job as a commit status on the commit, which the PR's checks box
+# lists. This job never checks out or runs PR code.
 on:
   issue_comment:
     types: [created]
@@ -78,7 +78,7 @@ jobs:
             });
             const where = sameRepo
               ? 'Every test job is listed in this PR\'s checks.'
-              : `This PR comes from a fork, so the run is not attached to the PR; follow it at ${runsUrl}.`;
+              : `Every test job is listed in this PR's checks (the run itself is at ${runsUrl}).`;
             await github.rest.issues.createComment({
               ...context.repo,
               issue_number: issue.number,

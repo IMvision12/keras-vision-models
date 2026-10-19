@@ -170,6 +170,7 @@ nav:
           - T5: t5.md
           - XLM-RoBERTa: xlm_roberta.md
       - Sentence Transformers: sentence_transformer.md
+      - Diffusion Models: diffusers.md
       - Vision models:
           - BEiT: beit.md
           - Classification backbones: classification_backbones.md
@@ -234,10 +235,6 @@ nav:
           - SigLIP: siglip.md
           - SigLIP 2: siglip2.md
           - TIPSv2: tipsv2.md
-
-  # Diffusion models are their own entry: one page, since every family loads through one
-  # pipeline class (ZMDiffusion) and one tokenizer (ZMDiffusionTokenizer).
-  - Diffusion Models: diffusers.md
 
   - Loading Weights: loading_weights.md
 

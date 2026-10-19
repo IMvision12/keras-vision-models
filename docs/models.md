@@ -53,8 +53,7 @@ pooling, optional Dense projection and optional L2 normalization.
 
 Text-to-image generation (and image-to-image with the SDXL refiner). Every family loads
 through two classes, `ZMDiffusion` and `ZMDiffusionTokenizer` from `zeromodels.diffusers`;
-the checkpoint's `model_type` selects the family. The page has its own
-**Diffusion Models** entry in the navigation.
+the checkpoint's `model_type` selects the family.
 
 - [Diffusion Models](diffusers.md): API, usage and every family (Stable Diffusion 1.x / 2.x / XL / 3 / 3.5, Qwen-Image, Qwen-Image-2.1)
 

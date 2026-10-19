@@ -44,19 +44,19 @@ Documentation sources are also available in [`docs/`](docs/).
 
 | 🏷️ Model Name | 📜 Reference Paper | 📦 Source of Weights |
 |---------------|-------------------|---------------------|
-| [all-mpnet-base-v2](https://huggingface.co/zeromodels/all-mpnet-base-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [multi-qa-mpnet-base-dot-v1](https://huggingface.co/zeromodels/multi-qa-mpnet-base-dot-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [all-distilroberta-v1](https://huggingface.co/zeromodels/all-distilroberta-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [all-MiniLM-L12-v2](https://huggingface.co/zeromodels/all-MiniLM-L12-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [multi-qa-distilbert-cos-v1](https://huggingface.co/zeromodels/multi-qa-distilbert-cos-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [all-MiniLM-L6-v2](https://huggingface.co/zeromodels/all-MiniLM-L6-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [multi-qa-MiniLM-L6-cos-v1](https://huggingface.co/zeromodels/multi-qa-MiniLM-L6-cos-v1) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [paraphrase-multilingual-mpnet-base-v2](https://huggingface.co/zeromodels/paraphrase-multilingual-mpnet-base-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
-| [paraphrase-albert-small-v2](https://huggingface.co/zeromodels/paraphrase-albert-small-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [paraphrase-multilingual-MiniLM-L12-v2](https://huggingface.co/zeromodels/paraphrase-multilingual-MiniLM-L12-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
-| [paraphrase-MiniLM-L3-v2](https://huggingface.co/zeromodels/paraphrase-MiniLM-L3-v2) | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
-| [distiluse-base-multilingual-cased-v1](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v1) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
-| [distiluse-base-multilingual-cased-v2](https://huggingface.co/zeromodels/distiluse-base-multilingual-cased-v2) | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| all-mpnet-base-v2 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| multi-qa-mpnet-base-dot-v1 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| all-distilroberta-v1 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| all-MiniLM-L12-v2 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| multi-qa-distilbert-cos-v1 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| all-MiniLM-L6-v2 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| multi-qa-MiniLM-L6-cos-v1 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| paraphrase-multilingual-mpnet-base-v2 | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| paraphrase-albert-small-v2 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| paraphrase-multilingual-MiniLM-L12-v2 | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| paraphrase-MiniLM-L3-v2 | [Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks](https://arxiv.org/abs/1908.10084) | `sentence-transformers` |
+| distiluse-base-multilingual-cased-v1 | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
+| distiluse-base-multilingual-cased-v2 | [Making Monolingual Sentence Embeddings Multilingual using Knowledge Distillation](https://arxiv.org/abs/2004.09813) | `sentence-transformers` |
 
 <br>
 

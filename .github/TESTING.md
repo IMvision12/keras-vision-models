@@ -22,23 +22,24 @@ Other users' comments, edited comments and other text are ignored.
 
 How it works: `run_tests_command.yml` (triggered by the comment, never checking out PR
 code) validates the request and dispatches `model_tests.yml` **on the pull request's
-branch**, pinned to the PR head commit at that moment. A dispatched run is attached to
-that commit, so every test job appears in the PR's checks list as
-**Model tests / ...**, alongside the automatic checks. The comment gets a 🚀 reaction and
-a reply with the tested commit.
+branch**, pinned to the PR head commit at that moment. GitHub's PR checks box does not
+list the jobs of a dispatched run, so the run publishes every test job as a **commit
+status** on the tested commit (`Model tests / ...`): pending when the run starts, then
+pass / fail when it ends, each linking to the job's log. They appear in the checks box
+alongside the automatic checks. The comment gets a 🚀 reaction and a reply with the tested
+commit.
 
 - A later push is not tested automatically: comment `/run-tests` again. A new request on
   the same PR cancels the previous run.
 - The branch must contain the current `model_tests.yml` (with its `workflow_dispatch`
   trigger); otherwise the reply asks to merge or rebase `main`.
 - **Pull requests from forks**: a fork's branch cannot be dispatched, so the tests run
-  from `main` on the PR head commit. They are not attached to the PR; the reply links
-  the run.
+  from `main` on the PR head commit; their statuses still appear in the PR's checks.
 - `run_tests_command.yml` only takes effect once it is on `main` (comment events always
   use the default branch's workflow files).
 
 **Model tests / Requested model, tokenizer & processor tests** passes only when every
-test job passes. To make the suite block merging, require that check in the branch
+test job passes. To make the suite block merging, require that status in the branch
 protection rules or ruleset.
 
 ## Releases
@@ -50,4 +51,5 @@ pip caching and Codecov upload (both disabled for pull request runs).
 
 The comment workflow has `actions: write` (to dispatch) and comment permissions, and never
 checks out or executes PR code. The test jobs that run PR code have read-only repository
-access, do not persist checkout credentials, and use no secrets or shared caches.
+access, do not persist checkout credentials, and use no secrets or shared caches. Only the
+two status-publishing jobs (which run no PR code) can write commit statuses.
